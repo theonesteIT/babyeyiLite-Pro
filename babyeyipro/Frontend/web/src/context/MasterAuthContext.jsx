@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { performProLogout, setPostLogoutLoginPath } from '../utils/postLogoutLoginPath'
+import { performProLogout, syncPostLogoutLoginPath } from '../utils/postLogoutLoginPath'
 
 const API = (import.meta.env.VITE_API_URL || 'http://localhost:5100') + '/api'
 
@@ -17,7 +17,7 @@ export function MasterAuthProvider({ children }) {
       })
       const json = await res.json().catch(() => ({}))
       if (res.ok && json.success && json.data) {
-        setPostLogoutLoginPath('/login/pro')
+        syncPostLogoutLoginPath(json.data)
         setUser(json.data)
         return json.data
       }

@@ -69,6 +69,7 @@ app.set('etag', false);
   'uploads/service-icons',
   'uploads/standard-shule-kits',
   'uploads/uniform-vouchers',
+  'uploads/platform-content',
   'uploads/temp',
   'uploads/library-covers',
 ].forEach(dir => {
@@ -579,6 +580,7 @@ const MULTER_SELF_MANAGED = [
   '/api/student-services',
   '/api/standard-shule-kits',
   '/api/uniform-vouchers',
+  '/api/platform-content',
 ];
 
 app.use((req, res, next) => {
@@ -909,6 +911,10 @@ console.log('  ✅  /api/student-services/*');
 const standardShuleKitRoutes = require('./BabyeyiRoutes/standardShuleKitRoutes');
 app.use('/api/standard-shule-kits', standardShuleKitRoutes);
 console.log('  ✅  /api/standard-shule-kits/*');
+
+const platformContentRoutes = require('./BabyeyiRoutes/platformContentRoutes');
+app.use('/api/platform-content', platformContentRoutes);
+console.log('  ✅  /api/platform-content/* (news, banners, popups)');
 
 const uniformVoucherRoutes = require('./BabyeyiRoutes/uniformVoucherRoutes');
 app.use('/api/uniform-vouchers', uniformVoucherRoutes);

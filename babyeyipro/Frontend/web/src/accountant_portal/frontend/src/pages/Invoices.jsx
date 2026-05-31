@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf';
 import api from '../services/api.js';
 import PortalToast from '../components/PortalToast.jsx';
 import AccountantOchreHero from '../components/AccountantOchreHero';
+import { downloadInvoicesReportPdf } from '../utils/exportInvoicesReportPdf.js';
 import {
   FileText,
   Plus,
@@ -15,9 +16,12 @@ import {
   Search,
   Filter,
   RefreshCw,
+  Download,
+  Loader2,
   X,
   Settings2,
   ChevronRight,
+  ChevronLeft,
   ChevronDown,
   Building2,
   User,
@@ -43,6 +47,8 @@ const STORAGE = {
 };
 
 const INVOICES_API = 'public/babyeyi-pay/invoices';
+const INVOICES_PAGE_SIZE = 12;
+const INVOICES_FETCH_LIMIT = 400;
 
 function parsePayloadJson(raw) {
   try {
@@ -119,6 +125,22 @@ function mapApiRowToInvoice(row) {
 function getModalRoot() {
   if (typeof document === 'undefined') return null;
   return document.body;
+}
+
+const INVOICE_ACTION_MENU_W = 224;
+const INVOICE_ACTION_MENU_H = 220;
+
+function computeInvoiceActionMenuPosition(anchorRect) {
+  let left = anchorRect.right - INVOICE_ACTION_MENU_W;
+  let top = anchorRect.bottom + 6;
+  if (left < 8) left = 8;
+  if (left + INVOICE_ACTION_MENU_W > window.innerWidth - 8) {
+    left = window.innerWidth - INVOICE_ACTION_MENU_W - 8;
+  }
+  if (top + INVOICE_ACTION_MENU_H > window.innerHeight - 8) {
+    top = Math.max(8, anchorRect.top - INVOICE_ACTION_MENU_H - 6);
+  }
+  return { top, left };
 }
 
 function loadJSON(key, fallback) {
@@ -559,14 +581,94 @@ function NewInvoiceModal({ open, onClose, onCreate, config }) {
   );
 }
 
+function InvoiceRowActionsButton({ row, openRowMenu, setOpenRowMenu, isRowBusy }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        if (openRowMenu?.id === row.id) {
+          setOpenRowMenu(null);
+          return;
+        }
+        const rect = e.currentTarget.getBoundingClientRect();
+        setOpenRowMenu({ id: row.id, ...computeInvoiceActionMenuPosition(rect) });
+      }}
+      disabled={isRowBusy}
+      className="h-9 sm:h-7 px-4 sm:px-3 rounded-xl inline-flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all w-full sm:w-auto sm:ml-auto"
+      aria-expanded={openRowMenu?.id === row.id}
+      aria-haspopup="menu"
+    >
+      <ChevronDown
+        size={14}
+        className={`opacity-50 transition-transform ${openRowMenu?.id === row.id ? 'rotate-180' : ''}`}
+      />
+      Actions
+    </button>
+  );
+}
+
+function InvoiceMobileCard({ row, openRowMenu, setOpenRowMenu, isRowBusy }) {
+  const chip = statusChip(row.status);
+  return (
+    <article className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl border border-black/5 bg-re-bg flex items-center justify-center shrink-0 text-[#000435]">
+          <FileText size={18} className="opacity-70" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold text-[#000435] truncate">{row.invoiceNo}</p>
+          <p className="text-[10px] font-medium text-[#000435]/55 mt-0.5 truncate">{row.billTo?.name || '—'}</p>
+          <p className="text-[8px] font-medium text-re-text-muted uppercase tracking-widest opacity-50 mt-1 truncate">
+            {(row.billTo?.metaLines || []).join(' · ') || '—'}
+          </p>
+        </div>
+        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[8px] font-medium uppercase tracking-widest shrink-0 ${chip.cls}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${chip.dot}`} />
+          {chip.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-black/5">
+        <div>
+          <p className="text-[7px] font-medium uppercase tracking-widest text-[#000435]/40">Issued</p>
+          <p className="text-[10px] font-medium text-[#000435] mt-0.5">{row.issueDate || '—'}</p>
+        </div>
+        <div>
+          <p className="text-[7px] font-medium uppercase tracking-widest text-[#000435]/40">Due</p>
+          <p className="text-[10px] font-medium text-[#000435] mt-0.5">{row.dueDate || '—'}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-[7px] font-medium uppercase tracking-widest text-[#000435]/40">Amount</p>
+          <p className="text-lg font-semibold text-[#000435] mt-0.5 tabular-nums">
+            {formatMoneyRWF(row.totals.total).replace('RWF', '').trim()}
+            <span className="text-[9px] font-medium text-[#000435]/50 uppercase tracking-widest ml-1">RWF</span>
+          </p>
+        </div>
+      </div>
+      <div className="mt-4">
+        <InvoiceRowActionsButton
+          row={row}
+          openRowMenu={openRowMenu}
+          setOpenRowMenu={setOpenRowMenu}
+          isRowBusy={isRowBusy}
+        />
+      </div>
+    </article>
+  );
+}
+
 export default function Invoices() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [dateFilterField, setDateFilterField] = useState('issued');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
 
   const [newOpen, setNewOpen] = useState(false);
-  const [rowMenuOpen, setRowMenuOpen] = useState(null);
+  /** { id, top, left } — menu rendered in portal to avoid table overflow clipping */
+  const [openRowMenu, setOpenRowMenu] = useState(null);
 
   const [config, setConfig] = useState(() => loadJSON(STORAGE.config, {
     schoolName: 'Babyeyi School',
@@ -581,6 +683,7 @@ export default function Invoices() {
   const [loadError, setLoadError] = useState(null);
   const [toast, setToast] = useState(null);
   const [actionLoadingKey, setActionLoadingKey] = useState('');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -588,11 +691,29 @@ export default function Invoices() {
     return () => window.clearTimeout(t);
   }, [toast]);
 
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 400);
+    return () => window.clearTimeout(t);
+  }, [searchTerm]);
+
   const loadInvoices = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const { data } = await api.get(INVOICES_API, { params: { limit: 100, page: 1 } });
+      const params = { limit: INVOICES_FETCH_LIMIT, page: 1 };
+      if (debouncedSearch) params.search = debouncedSearch;
+      if (dateFilterField === 'issued') {
+        if (dateFrom) params.date_from = dateFrom;
+        if (dateTo) params.date_to = dateTo;
+      }
+      if (statusFilter === 'paid') params.invoice_status = 'PAID';
+      else if (statusFilter === 'sent' || statusFilter === 'overdue' || statusFilter === 'draft') {
+        params.invoice_status = 'NOT_PAID';
+      }
+
+      const { data } = await api.get(INVOICES_API, { params });
       if (!data?.success) {
         throw new Error(data?.message || 'Failed to load invoices');
       }
@@ -604,11 +725,26 @@ export default function Invoices() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, dateFrom, dateTo, dateFilterField, statusFilter]);
 
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, dateFrom, dateTo, dateFilterField]);
+
+  useEffect(() => {
+    if (!openRowMenu) return undefined;
+    const close = () => setOpenRowMenu(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [openRowMenu]);
 
   useEffect(() => {
     saveJSON(STORAGE.config, config);
@@ -619,19 +755,33 @@ export default function Invoices() {
       const totals = computeTotals(r.items, r.taxRate);
       return { ...r, totals };
     });
-    const q = searchTerm.trim().toLowerCase();
-    const filtered = withTotals.filter((r) => {
-      const statusOk = statusFilter === 'All' || String(r.status).toLowerCase() === String(statusFilter).toLowerCase();
-      const match =
-        !q ||
-        String(r.invoiceNo).toLowerCase().includes(q) ||
-        String(r.billTo?.name || '').toLowerCase().includes(q);
-      return statusOk && match;
+
+    let filtered = withTotals.filter((r) => {
+      const statusOk =
+        statusFilter === 'All' || String(r.status).toLowerCase() === String(statusFilter).toLowerCase();
+      return statusOk;
     });
 
+    if (dateFilterField === 'due') {
+      if (dateFrom) {
+        filtered = filtered.filter((r) => r.dueDate && r.dueDate >= dateFrom);
+      }
+      if (dateTo) {
+        filtered = filtered.filter((r) => r.dueDate && r.dueDate <= dateTo);
+      }
+    }
+
     const sum = (pred) => filtered.filter(pred).reduce((s, r) => s + (Number(r.totals?.total) || 0), 0);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / INVOICES_PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * INVOICES_PAGE_SIZE;
+    const paginated = filtered.slice(start, start + INVOICES_PAGE_SIZE);
+
     return {
       filtered,
+      paginated,
+      totalPages,
+      safePage,
       stats: {
         totalOutstanding: sum((r) => r.status !== 'paid'),
         overdue: sum((r) => r.status === 'overdue'),
@@ -639,7 +789,11 @@ export default function Invoices() {
         count: filtered.length,
       },
     };
-  }, [rows, searchTerm, statusFilter]);
+  }, [rows, searchTerm, statusFilter, dateFrom, dateTo, dateFilterField, page]);
+
+  useEffect(() => {
+    if (page > derived.totalPages) setPage(derived.totalPages);
+  }, [page, derived.totalPages]);
 
   const setStatus = async (id, status) => {
     const intentId = Number(id);
@@ -714,6 +868,7 @@ export default function Invoices() {
   const handleDeleteInvoice = async (row) => {
     const ok = window.confirm(`Delete invoice ${row.invoiceNo}?`);
     if (!ok) return;
+    setOpenRowMenu(null);
     setActionLoadingKey(`${row.intentId}:delete`);
     try {
       await api.delete(`${INVOICES_API}/${row.intentId}`);
@@ -723,6 +878,49 @@ export default function Invoices() {
       setToast({ type: 'error', message: e?.response?.data?.message || e.message || 'Delete failed' });
     } finally {
       setActionLoadingKey('');
+    }
+  };
+
+  const activeMenuRow = openRowMenu
+    ? derived.filtered.find((r) => r.id === openRowMenu.id)
+    : null;
+
+  const clearDateFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+  };
+
+  const dateFilterActive = Boolean(dateFrom || dateTo);
+
+  const buildDateFilterLabel = () => {
+    if (!dateFrom && !dateTo) return '';
+    const field = dateFilterField === 'due' ? 'Due date' : 'Issued date';
+    if (dateFrom && dateTo) return `${field}: ${dateFrom} to ${dateTo}`;
+    if (dateFrom) return `${field}: from ${dateFrom}`;
+    return `${field}: until ${dateTo}`;
+  };
+
+  const exportFilteredPdf = async () => {
+    if (!derived.filtered.length) {
+      setToast({ type: 'error', message: 'No invoices to export for the current filters.' });
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await new Promise((r) => window.requestAnimationFrame(r));
+      downloadInvoicesReportPdf({
+        schoolName: config.schoolName || 'School',
+        statusFilterLabel: statusFilter === 'All' ? 'All statuses' : statusFilter,
+        dateFilterLabel: buildDateFilterLabel(),
+        searchNote: debouncedSearch ? `Search: "${debouncedSearch}"` : '',
+        stats: derived.stats,
+        invoices: derived.filtered,
+      });
+      setToast({ type: 'success', message: `Exported ${derived.filtered.length} invoice(s) to PDF.` });
+    } catch (e) {
+      setToast({ type: 'error', message: e?.message || 'PDF export failed.' });
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -764,36 +962,46 @@ export default function Invoices() {
 
               <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
                 <button
-                  onClick={() => setNewOpen(true)}
-                  className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all"
-                  style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
+                  type="button"
+                  onClick={exportFilteredPdf}
+                  disabled={exportingPdf || !derived.filtered.length}
+                  className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-95 transition-all disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
                 >
-                  <Plus size={14} />
+                  {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  <span>{exportingPdf ? 'Generating…' : 'Export PDF'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewOpen(true)}
+                  className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg/40 active:scale-95 transition-all"
+                >
+                  <Plus size={14} className="text-re-gold" />
                   <span>New invoice</span>
                 </button>
               </div>
             </div>
 
-            {/* Secondary Toolbar (Filters) */}
-            <div className="px-6 py-4 border-b border-black/5 flex flex-wrap items-center gap-4 bg-white/50">
-              <div className="flex flex-1 items-center gap-3 min-w-[300px]">
-                <div className="relative flex-1 group">
+            {/* Filters */}
+            <div className="px-4 sm:px-6 py-4 border-b border-black/5 bg-white/50 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1 group min-w-0">
                   <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#000435] group-focus-within:text-[#000435] transition-colors" />
                   <input
                     type="text"
-                    placeholder="Search invoice number or customer name..."
+                    placeholder="Search invoice or customer..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full h-10 bg-white rounded-xl pl-10 pr-4 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[10px] font-medium uppercase tracking-tight shadow-sm placeholder:text-[#000435]"
+                    className="w-full h-11 sm:h-10 bg-white rounded-xl pl-10 pr-4 outline-none border border-black/5 focus:border-[#000435]/20 focus:bg-white transition-all text-[#000435] text-[11px] sm:text-[10px] font-medium shadow-sm placeholder:text-[#000435]/40"
                   />
                 </div>
 
-                <div className="relative w-40 group">
-                  <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#000435] group-focus-within:text-[#000435] pointer-events-none" />
+                <div className="relative w-full sm:w-44 group">
+                  <Filter size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#000435] pointer-events-none" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full h-10 bg-white rounded-xl pl-9 pr-8 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium uppercase tracking-widest cursor-pointer appearance-none shadow-sm"
+                    className="w-full h-11 sm:h-10 bg-white rounded-xl pl-9 pr-8 outline-none border border-black/5 focus:border-[#000435]/20 transition-all text-[#000435] text-[10px] font-medium uppercase tracking-widest cursor-pointer appearance-none shadow-sm"
                   >
                     <option value="All">All Statuses</option>
                     <option value="draft">Draft</option>
@@ -801,27 +1009,96 @@ export default function Invoices() {
                     <option value="overdue">Overdue</option>
                     <option value="paid">Paid</option>
                   </select>
-                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#000435] pointer-events-none group-focus-within:text-[#000435] transition-transform" />
+                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#000435] pointer-events-none" />
+                </div>
+
+                <div className="flex gap-2 sm:shrink-0">
+                  <button
+                    type="button"
+                    onClick={exportFilteredPdf}
+                    disabled={exportingPdf || !derived.filtered.length}
+                    className="h-11 sm:h-10 flex-1 sm:flex-none sm:min-w-[100px] flex items-center justify-center gap-1.5 text-white rounded-xl font-medium text-[8px] uppercase tracking-widest shadow-sm active:scale-[0.98] transition-all disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
+                  >
+                    {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    <span className="sm:hidden">{exportingPdf ? '…' : 'PDF'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadInvoices()}
+                    className="h-11 sm:h-10 flex-1 sm:flex-none sm:w-10 flex items-center justify-center bg-white border border-black/5 rounded-xl hover:bg-re-bg/30 transition-all shadow-sm"
+                    disabled={loading}
+                    aria-label="Refresh invoices"
+                  >
+                    <RefreshCw size={14} className={`text-[#000435] ${loading ? 'animate-spin' : 'opacity-60'}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewOpen(true)}
+                    className="lg:hidden h-11 flex-1 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] rounded-xl font-medium text-[9px] uppercase tracking-widest shadow-sm active:scale-[0.98] transition-all"
+                  >
+                    <Plus size={14} className="text-re-gold" />
+                    New
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => loadInvoices()}
-                  className="h-10 w-10 flex items-center justify-center bg-white border border-black/5 rounded-xl hover:bg-white transition-all shadow-sm group"
-                  disabled={loading}
-                >
-                  <RefreshCw size={14} className={`text-[#000435] ${loading ? 'animate-spin' : 'opacity-60 group-hover:opacity-100'}`} />
-                </button>
-                <div className="w-px h-6 bg-black/5 mx-1" />
-                <button
-                  onClick={() => setNewOpen(true)}
-                  className="h-10 px-5 bg-white border border-black/5 rounded-xl text-[#000435] font-medium text-[9px] uppercase tracking-widest hover:bg-white transition-all shadow-sm flex items-center gap-2"
-                >
-                  <Plus size={14} className="text-re-gold" />
-                  New Invoice
-                </button>
+              <div className="rounded-2xl border border-black/5 bg-white p-3 sm:p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Calendar size={14} className="text-[#000435]/50 shrink-0" />
+                  <span className="text-[8px] font-medium uppercase tracking-widest text-[#000435]/50">Filter by date</span>
+                  <div className="flex rounded-xl border border-black/5 overflow-hidden ml-auto sm:ml-2">
+                    {[
+                      { id: 'issued', label: 'Issued' },
+                      { id: 'due', label: 'Due' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setDateFilterField(opt.id)}
+                        className={`px-3 py-1.5 text-[8px] font-medium uppercase tracking-widest transition-colors ${
+                          dateFilterField === opt.id
+                            ? 'bg-[#000435] text-white'
+                            : 'bg-white text-[#000435]/60 hover:bg-re-bg/40'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] gap-3">
+                  <label className="block">
+                    <span className="text-[7px] font-medium uppercase tracking-widest text-[#000435]/45 mb-1 block">From</span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full h-11 sm:h-10 rounded-xl border border-black/5 px-3 text-[11px] font-medium text-[#000435] bg-re-bg/20 focus:border-[#000435]/20 outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[7px] font-medium uppercase tracking-widest text-[#000435]/45 mb-1 block">To</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      min={dateFrom || undefined}
+                      className="w-full h-11 sm:h-10 rounded-xl border border-black/5 px-3 text-[11px] font-medium text-[#000435] bg-re-bg/20 focus:border-[#000435]/20 outline-none"
+                    />
+                  </label>
+                  {dateFilterActive && (
+                    <button
+                      type="button"
+                      onClick={clearDateFilters}
+                      className="h-11 sm:h-10 sm:self-end px-4 rounded-xl border border-black/5 text-[9px] font-medium uppercase tracking-widest text-[#000435]/70 hover:bg-re-bg/40 flex items-center justify-center gap-1.5"
+                    >
+                      <X size={14} />
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -830,8 +1107,32 @@ export default function Invoices() {
                 {loadError}
               </div>
             )}
-            {/* Table */}
-            <div className="overflow-x-auto bg-white flex-1 min-h-[420px]">
+            {/* Mobile cards */}
+            <div className="md:hidden bg-white flex-1 min-h-[280px] px-4 py-4 space-y-3">
+              {loading && !derived.paginated.length && (
+                <p className="text-center text-[10px] font-medium text-[#000435]/50 uppercase tracking-widest py-12">Loading invoices…</p>
+              )}
+              {!loading && !derived.filtered.length && (
+                <p className="text-center text-[10px] font-medium text-[#000435]/50 uppercase tracking-widest py-12 px-4">
+                  No invoices match your filters. Create one or adjust the date range.
+                </p>
+              )}
+              {derived.paginated.map((r) => {
+                const isRowBusy = actionLoadingKey.startsWith(`${r.intentId}:`);
+                return (
+                  <InvoiceMobileCard
+                    key={r.id}
+                    row={r}
+                    openRowMenu={openRowMenu}
+                    setOpenRowMenu={setOpenRowMenu}
+                    isRowBusy={isRowBusy}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto bg-white flex-1 min-h-[420px]">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-re-bg/20 border-b border-black/5">
@@ -844,14 +1145,14 @@ export default function Invoices() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5">
-                  {!derived.filtered.length && (
+                  {!derived.paginated.length && (
                     <tr>
                       <td colSpan={6} className="px-6 py-16 text-center text-[10px] font-medium text-[#000435] uppercase tracking-widest">
-                        {loading ? 'Loading invoicesΓÇª' : 'No invoices yet. Create one or refresh after payments are recorded in Babyeyi.'}
+                        {loading ? 'Loading invoices…' : 'No invoices match your filters.'}
                       </td>
                     </tr>
                   )}
-                  {derived.filtered.map((r) => {
+                  {derived.paginated.map((r) => {
                     const chip = statusChip(r.status);
                     const isRowBusy = actionLoadingKey.startsWith(`${r.intentId}:`);
                     return (
@@ -902,51 +1203,12 @@ export default function Invoices() {
                         </td>
 
                         <td className="px-4 sm:px-6 py-2.5 sm:py-3 text-right">
-                          <div className="relative inline-block">
-                            <button
-                              type="button"
-                              onClick={() => setRowMenuOpen((v) => (v === r.id ? null : r.id))}
-                              disabled={isRowBusy}
-                              className="h-7 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest shadow-sm hover:bg-re-bg hover:text-[#000435] transition-all ml-auto"
-                            >
-                              <ChevronRight size={14} className={`opacity-50 transition-transform ${rowMenuOpen === r.id ? 'rotate-90' : ''}`} />
-                              Actions
-                            </button>
-
-                            {rowMenuOpen === r.id && (
-                              <>
-                                <div className="fixed inset-0 z-[120]" onClick={() => setRowMenuOpen(null)} />
-                                <div className="absolute right-0 bottom-9 z-[130] w-56 rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      setRowMenuOpen(null);
-                                      if (r.intentId) {
-                                        const ok = await tryOpenServerInvoicePdf(r.intentId);
-                                        if (!ok) exportInvoicePdf({ invoice: r, config });
-                                      } else {
-                                        exportInvoicePdf({ invoice: r, config });
-                                      }
-                                    }}
-                                    disabled={isRowBusy}
-                                    className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
-                                  >
-                                    <Printer size={14} className="text-[#000435]" />
-                                    <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">View</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setRowMenuOpen(null); handleDeleteInvoice(r); }}
-                                    disabled={isRowBusy}
-                                    className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-red-50 transition-all border-t border-black/5"
-                                  >
-                                    <AlertTriangle size={14} className="text-red-600" />
-                                    <span className="text-[10px] font-medium uppercase tracking-widest text-red-600">Delete invoice</span>
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
+                          <InvoiceRowActionsButton
+                            row={r}
+                            openRowMenu={openRowMenu}
+                            setOpenRowMenu={setOpenRowMenu}
+                            isRowBusy={isRowBusy}
+                          />
                         </td>
                       </tr>
                     );
@@ -955,18 +1217,51 @@ export default function Invoices() {
               </table>
             </div>
 
-            <div className="flex px-8 py-4 bg-white/50 border-t border-black/5 items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
+            <div className="flex flex-col sm:flex-row gap-4 px-4 sm:px-8 py-4 bg-white/50 border-t border-black/5 items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-center sm:text-left w-full sm:w-auto">
+                <div className="flex items-center justify-center sm:justify-start gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <p className="text-[8px] font-medium text-[#000435] uppercase tracking-widest italic opacity-60">Invoice Registry</p>
+                  <p className="text-[8px] font-medium text-[#000435] uppercase tracking-widest opacity-60">Invoice Registry</p>
                 </div>
-                <div className="w-px h-3 bg-black/10" />
-                <p className="text-[8px] font-medium text-[#000435] uppercase tracking-[0.2em] opacity-40 italic">
-                  {derived.stats.count} Records ┬╖ Filter: {statusFilter}
+                <p className="text-[8px] font-medium text-[#000435] uppercase tracking-[0.2em] opacity-40">
+                  {derived.stats.count} records · {statusFilter}
+                  {dateFilterActive ? ` · ${dateFilterField} date` : ''}
                 </p>
               </div>
-              <div className="hidden sm:flex items-center gap-2 text-[8px] font-medium uppercase tracking-widest text-[#000435] opacity-60">
+
+              {derived.filtered.length > 0 && (
+                <div className="flex items-center justify-center gap-3 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={derived.safePage <= 1}
+                    className="h-9 w-9 rounded-xl border border-black/10 flex items-center justify-center text-[#000435] disabled:opacity-30 hover:bg-white transition-colors shadow-sm"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <p className="text-[9px] font-medium uppercase tracking-widest text-[#000435]/70 tabular-nums min-w-[120px] text-center">
+                    Page {derived.safePage} of {derived.totalPages}
+                    <span className="text-[#000435]/35 mx-1">·</span>
+                    {derived.filtered.length === 0
+                      ? '0'
+                      : `${(derived.safePage - 1) * INVOICES_PAGE_SIZE + 1}–${Math.min(derived.safePage * INVOICES_PAGE_SIZE, derived.filtered.length)}`}
+                    {' '}
+                    of {derived.filtered.length}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(derived.totalPages, p + 1))}
+                    disabled={derived.safePage >= derived.totalPages}
+                    className="h-9 w-9 rounded-xl border border-black/10 flex items-center justify-center text-[#000435] disabled:opacity-30 hover:bg-white transition-colors shadow-sm"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+
+              <div className="hidden lg:flex items-center gap-2 text-[8px] font-medium uppercase tracking-widest text-[#000435] opacity-60">
                 <Building2 size={12} className="text-amber-500/70" />
                 {config.schoolName}
               </div>
@@ -974,6 +1269,98 @@ export default function Invoices() {
           </div>
         </div>
       </div>
+
+      {openRowMenu && activeMenuRow && getModalRoot()
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[200] cursor-default bg-transparent border-0 p-0"
+                aria-label="Close actions menu"
+                onClick={() => setOpenRowMenu(null)}
+              />
+              <div
+                role="menu"
+                className="fixed z-[210] w-56 rounded-2xl border border-black/10 bg-white shadow-lg overflow-hidden"
+                style={{ top: openRowMenu.top, left: openRowMenu.left }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={async () => {
+                    const row = activeMenuRow;
+                    setOpenRowMenu(null);
+                    if (row.intentId) {
+                      const ok = await tryOpenServerInvoicePdf(row.intentId);
+                      if (!ok) exportInvoicePdf({ invoice: row, config });
+                    } else {
+                      exportInvoicePdf({ invoice: row, config });
+                    }
+                  }}
+                  disabled={actionLoadingKey.startsWith(`${activeMenuRow.intentId}:`)}
+                  className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all"
+                >
+                  <Printer size={14} className="text-[#000435]" />
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">View / Print</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setOpenRowMenu(null);
+                    handleQuickEdit(activeMenuRow);
+                  }}
+                  disabled={actionLoadingKey.startsWith(`${activeMenuRow.intentId}:`)}
+                  className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                >
+                  <Settings2 size={14} className="text-[#000435]" />
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Edit invoice</span>
+                </button>
+                {activeMenuRow.status !== 'paid' ? (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpenRowMenu(null);
+                        setStatus(activeMenuRow.id, 'sent');
+                      }}
+                      disabled={actionLoadingKey.startsWith(`${activeMenuRow.intentId}:`)}
+                      className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-re-bg/30 transition-all border-t border-black/5"
+                    >
+                      <Send size={14} className="text-amber-600" />
+                      <span className="text-[10px] font-medium uppercase tracking-widest text-[#000435]">Mark as sent</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setOpenRowMenu(null);
+                        setStatus(activeMenuRow.id, 'paid');
+                      }}
+                      disabled={actionLoadingKey.startsWith(`${activeMenuRow.intentId}:`)}
+                      className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-emerald-50 transition-all border-t border-black/5"
+                    >
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      <span className="text-[10px] font-medium uppercase tracking-widest text-emerald-700">Mark as paid</span>
+                    </button>
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleDeleteInvoice(activeMenuRow)}
+                  disabled={actionLoadingKey.startsWith(`${activeMenuRow.intentId}:`)}
+                  className="w-full px-4 py-3 flex items-center gap-2 text-left hover:bg-red-50 transition-all border-t border-black/5"
+                >
+                  <AlertTriangle size={14} className="text-red-600" />
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-red-600">Delete invoice</span>
+                </button>
+              </div>
+            </>,
+            getModalRoot()
+          )
+        : null}
 
       <NewInvoiceModal
         open={newOpen}

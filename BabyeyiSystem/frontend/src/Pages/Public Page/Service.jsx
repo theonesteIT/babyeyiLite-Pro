@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
+import PublicHeader, { usePublicHeaderState } from "../../components/public/Header";
+import PublicFooter from "../../components/public/Footer";
+import { publicHeaderPaddingClass } from "../../components/public/publicSiteConstants";
 import shuleKitHero from "../../assets/image2.png";
 import mobileHero from "../../assets/mobile.png";
 import {
@@ -13,15 +15,8 @@ import {
   Store,
   Smartphone,
   Layers,
-  Menu,
   User,
   MapPin,
-  Globe,
-  ChevronDown,
-  LogIn,
-  ExternalLink,
-  GraduationCap,
-  X,
   MessageCircle,
   Phone,
   Shield,
@@ -29,11 +24,6 @@ import {
   BarChart3,
   Users,
   CheckCircle2,
-  Mail,
-  Facebook,
-  Twitter,
-  Instagram,
-  Youtube,
 } from "lucide-react";
 
 /* ─── Palette ─────────────────────────────────────────────── */
@@ -41,153 +31,6 @@ const NAVY  = "#000435";
 const AMB   = "#FBBF24";
 const AMB2  = "#F59E0B";
 const MTN   = "'MTN Brighter Sans','Trebuchet MS','Segoe UI',sans-serif";
-const PUBLIC_COMBINED_PAY_PATH = "/combined-tution-requrement";
-
-function LanguageSwitcher({ compact = false }) {
-  const { t, i18n } = useTranslation();
-  const lang = String(i18n.language || "en").slice(0, 2).toLowerCase();
-  const current = ["rw", "en", "fr"].includes(lang) ? lang : "en";
-
-  return (
-    <div
-      className={`relative inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-white/90 ${
-        compact ? "text-[11px]" : "text-[12px]"
-      }`}
-      style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)" }}
-    >
-      <Globe size={compact ? 12 : 13} className="text-amber-300" />
-      <span className="font-semibold whitespace-nowrap">{t("language.label")}</span>
-      <ChevronDown size={compact ? 12 : 13} className="text-white/70" />
-      <select
-        aria-label={t("language.switcherLabel")}
-        value={current}
-        onChange={(e) => i18n.changeLanguage(e.target.value)}
-        className="absolute inset-0 opacity-0 cursor-pointer"
-      >
-        <option value="rw">🇷🇼 {t("language.rw")}</option>
-        <option value="en">🇬🇧 {t("language.en")}</option>
-        <option value="fr">🇫🇷 {t("language.fr")}</option>
-      </select>
-    </div>
-  );
-}
-
-function Navbar() {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-
-  const links = [
-    { label: t("public.homePage"), href: "/" },
-    { label: t("public.payFees"), href: "/combined-tution-requrement" },
-    { label: t("public.services"), href: "/services" },
-    { label: t("public.features"), href: "/features" },
-    { label: t("public.schools"), href: "/schools" },
-  ];
-
-  return (
-    <nav
-      className="fixed inset-x-0 top-0 z-50 bg-[#000435]"
-      style={{ borderBottom: "1px solid rgba(251,191,36,0.22)", boxShadow: "0 10px 32px rgba(0,4,53,0.25)" }}
-    >
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 xl:px-10 flex items-center justify-between gap-2 h-12 sm:h-[62px] lg:h-14 xl:h-[70px]">
-        <Link to="/" className="flex items-center shrink min-w-0 group">
-          <img
-            src={babyeyiLogo}
-            alt="Babyeyi logo"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = "/1BABYEYI LOGO FINAL.png";
-            }}
-            className="h-5 max-h-5 w-auto max-w-[74px] object-contain object-left transition-all duration-300 sm:h-7 sm:max-h-none sm:max-w-[110px] lg:h-8 xl:h-9"
-          />
-        </Link>
-
-        <div className="hidden lg:flex items-center rounded-2xl px-1.5 xl:px-2 py-1" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          {links.map((l) => (
-            <Link key={l.label} to={l.href} className="relative px-2.5 xl:px-3 py-2 text-[13px] xl:text-[13.5px] font-semibold text-white hover:text-amber-300 transition-colors duration-200 group">
-              {l.label}
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[1.5px] w-0 bg-amber-400 rounded-full transition-all duration-300 group-hover:w-3/4" />
-            </Link>
-          ))}
-        </div>
-
-        <div className="hidden lg:flex items-center gap-3">
-          <LanguageSwitcher />
-          <Link
-            to="/find-agent"
-            className="group relative inline-flex items-center gap-2 min-h-[40px] px-3.5 rounded-xl text-[12px] font-bold text-white overflow-hidden whitespace-nowrap transition-all duration-300 hover:shadow-[0_6px_28px_rgba(251,191,36,0.3)] active:scale-[.97]"
-            style={{
-              background: "linear-gradient(135deg, rgba(251,191,36,0.22) 0%, rgba(245,158,11,0.2) 100%)",
-              border: "1px solid rgba(251,191,36,0.45)",
-            }}
-          >
-            <GraduationCap size={15} strokeWidth={2.5} className="relative z-[1] text-amber-200 group-hover:text-white transition-colors" />
-            <span className="relative z-[1] tracking-tight whitespace-nowrap">{t("servicePage.navFindAgent")}</span>
-            <ExternalLink size={12} strokeWidth={2.5} className="relative z-[1] opacity-70 group-hover:opacity-100 transition-opacity" />
-          </Link>
-          <Link
-            to="/login-portal-select"
-            className="inline-flex items-center gap-2 min-h-[40px] px-4 rounded-xl font-black text-[12px] text-[#000435] whitespace-nowrap transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
-            style={{ background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}
-          >
-            <LogIn size={14} strokeWidth={2.5} />
-            {t("public.shuleManager")}
-          </Link>
-        </div>
-
-        <div className="flex lg:hidden items-center gap-1.5 shrink-0">
-          <Link
-            to="/login-portal-select"
-            className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[#000435] text-[10px] font-bold whitespace-nowrap"
-            style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}
-          >
-            <LogIn size={11} strokeWidth={2.5} /> {t("public.shuleManager")}
-          </Link>
-          <button
-            type="button"
-            onClick={() => setOpen(!open)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
-          >
-            {open ? <X size={15} className="text-white" /> : <Menu size={15} className="text-white" />}
-          </button>
-        </div>
-      </div>
-
-      {open && (
-        <div className="lg:hidden bg-[#000120] border-t px-4 pb-5 pt-2 space-y-1" style={{ borderColor: "rgba(251,191,36,0.12)" }}>
-          <div className="px-1 py-2">
-            <LanguageSwitcher compact />
-          </div>
-          {links.map((l) => (
-            <Link key={l.label} to={l.href} onClick={() => setOpen(false)} className="flex px-4 py-3 rounded-xl text-[14px] font-semibold text-white hover:bg-white/6 hover:text-amber-400 transition-all">
-              {l.label}
-            </Link>
-          ))}
-          <div className="pt-2 space-y-2">
-            <Link
-              to="/find-agent"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-[14px] font-bold text-white transition-all hover:shadow-[0_4px_20px_rgba(251,191,36,0.3)]"
-              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.2) 100%)", border: "1px solid rgba(251,191,36,0.45)" }}
-            >
-              <GraduationCap size={16} strokeWidth={2.5} className="text-amber-200" />
-              {t("servicePage.navFindAgent")}
-            </Link>
-            <Link
-              to="/login-portal-select"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
-              style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}
-            >
-              <LogIn size={16} strokeWidth={2.5} /> {t("public.shuleManager")}
-            </Link>
-          </div>
-        </div>
-      )}
-    </nav>
-  );
-}
 
 function HeroPopup() {
   const { t } = useTranslation();
@@ -590,99 +433,11 @@ function PremiumCTA() {
   );
 }
 
-function ServiceFooter() {
-  const { t, i18n } = useTranslation();
-  const localizedDate = new Intl.DateTimeFormat(i18n.language || "en", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
-
-  const cols = [
-    { title: t("public.footerPlatform"), links: [{ l: t("public.footerAbout"), h: "#about" }, { l: t("public.features"), h: "/features", i: true }, { l: t("public.homePage"), h: "/", i: true }, { l: t("public.footerPricing"), h: "#pricing" }] },
-    { title: t("public.footerSchools"), links: [{ l: t("public.footerSearchSchools"), h: "/schools", i: true }, { l: t("public.footerPayByCode"), h: PUBLIC_COMBINED_PAY_PATH, i: true }, { l: t("public.registerSchool"), h: "/register", i: true }, { l: t("public.footerTvetTrades"), h: "/schools", i: true }] },
-    { title: t("public.footerAccounts"), links: [{ l: t("public.footerSchoolManagerLogin"), h: "/login-portal-select", i: true }, { l: t("public.parentLogin"), h: "/parents/login", i: true }, { l: t("public.footerStaffLogin"), h: "/login/lite", i: true }, { l: t("public.services"), h: "/services", i: true }] },
-    { title: t("public.footerSupport"), links: [{ l: t("public.footerHelpCenter"), h: "#" }, { l: t("public.contactUs"), h: "#contact" }, { l: t("public.privacyPolicy"), h: "#" }, { l: t("public.terms"), h: "#" }] },
-  ];
-
-  return (
-    <footer style={{ background: "#000018" }}>
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 pt-12 xl:pt-16 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 xl:gap-12 mb-10 xl:mb-14">
-          <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                <GraduationCap size={17} className="text-[#000435]" />
-              </div>
-              <span className="font-black text-[17px] text-white">
-                baby<span className="text-amber-400">eyi</span><span style={{ color: "rgba(251,191,36,0.5)" }}>.rw</span>
-              </span>
-            </Link>
-            <p className="text-slate-600 leading-relaxed mb-5" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-              {t("public.brandTagline")}
-            </p>
-            <div className="mb-4">
-              <LanguageSwitcher compact />
-            </div>
-            <div className="flex gap-2">
-              {[{ Icon: Facebook, bg: "#1877F2" }, { Icon: Twitter, bg: "#1DA1F2" }, { Icon: Instagram, bg: "#E4405F" }, { Icon: Youtube, bg: "#FF0000" }].map(({ Icon, bg }, i) => (
-                <a key={i} href="#" className="w-9 h-9 rounded-xl flex items-center justify-center text-white transition-all hover:scale-110 hover:shadow-lg" style={{ background: bg }}>
-                  <Icon size={14} />
-                </a>
-              ))}
-            </div>
-          </div>
-          {cols.map((col) => (
-            <div key={col.title}>
-              <h4 className="font-black text-white text-[10.5px] uppercase tracking-[0.12em] mb-4 xl:mb-5">{col.title}</h4>
-              <ul className="space-y-2.5">
-                {col.links.map(({ l, h, i }) => (
-                  <li key={l}>
-                    {i ? (
-                      <Link to={h} className="text-slate-600 font-medium hover:text-amber-400 transition-colors" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-                        {l}
-                      </Link>
-                    ) : (
-                      <a href={h} className="text-slate-600 font-medium hover:text-amber-400 transition-colors" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-                        {l}
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 20 }} />
-        <div className="flex flex-wrap gap-5 mb-6">
-          {[{ Icon: Mail, v: "hello@babyeyi.rw" }, { Icon: Phone, v: "+250 788 000 000" }, { Icon: MapPin, v: "Kigali, Rwanda" }].map(({ Icon, v }) => (
-            <div key={v} className="flex items-center gap-2 text-slate-600 font-medium" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-              <Icon size={13} className="text-amber-400 shrink-0" /> {v}
-            </div>
-          ))}
-        </div>
-        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 20 }} />
-        <p className="text-slate-700 mb-5" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
-          {t("public.today", { date: localizedDate })}
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-slate-700" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
-            © {new Date().getFullYear()} Babyeyi Rwanda. {t("public.allRightsReserved")}
-          </p>
-          <p className="text-slate-800" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
-            {t("public.madeWith")}
-          </p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 /* ─── Page ───────────────────────────────────────────────── */
 export default function Service() {
   const { t } = useTranslation();
-  const svcRef  = useRef(null);
+  const svcRef = useRef(null);
+  const { bannerVisible, dismissBanner, banners } = usePublicHeaderState();
   const SERVICES = [
     { key:"shulecard", Icon:Smartphone, title:t("servicePage.services.shulecard.title"), desc:t("servicePage.services.shulecard.desc"), href:"/services/shulecard", cta:t("servicePage.services.shulecard.cta") },
     { key:"shuleshoe", Icon:Footprints, title:t("servicePage.services.shuleshoe.title"), desc:t("servicePage.services.shuleshoe.desc"), href:"/services/shoes-voucher", cta:t("servicePage.services.shuleshoe.cta") },
@@ -694,11 +449,14 @@ export default function Service() {
   ];
 
   return (
-    <div style={{ minHeight:"100vh", background:"#F3F6FB", fontFamily:MTN }}>
-      <Navbar />
+    <div style={{ minHeight: "100vh", background: "#F3F6FB", fontFamily: MTN }}>
+      <PublicHeader bannerVisible={bannerVisible} onBannerClose={dismissBanner} banners={banners} />
 
-      {/* Services */}
-      <section ref={svcRef} style={{ maxWidth:1152, margin:"0 auto", padding:"5.8rem 1rem 1.5rem" }}>
+      <section
+        ref={svcRef}
+        className={publicHeaderPaddingClass(bannerVisible)}
+        style={{ maxWidth: 1152, margin: "0 auto", paddingLeft: "1rem", paddingRight: "1rem", paddingBottom: "1.5rem" }}
+      >
         <SecHead
           title={t("servicePage.sectionTitle")}
           sub={t("servicePage.sectionSub")}
@@ -714,7 +472,7 @@ export default function Service() {
       </section>
 
       <HeroPopup />
-      <ServiceFooter />
+      <PublicFooter />
     </div>
   );
 }

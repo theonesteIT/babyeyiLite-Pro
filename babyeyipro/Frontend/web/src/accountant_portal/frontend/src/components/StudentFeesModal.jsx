@@ -28,6 +28,8 @@ export default function StudentFeesModal({
     onDeletePayment,
 }) {
     const [loading, setLoading] = useState(true);
+    const [profileError, setProfileError] = useState('');
+    const [feeProfile, setFeeProfile] = useState(null);
     const [history, setHistory] = useState([]);
     const [invoiceMenuOpen, setInvoiceMenuOpen] = useState(false);
     const [invoiceSettingsOpen, setInvoiceSettingsOpen] = useState(false);
@@ -78,13 +80,26 @@ export default function StudentFeesModal({
         }
     }, [invoiceConfig]);
 
-    useEffect(() => {
-        if (!isOpen || !student) return;
-        setInvoiceMenuOpen(false);
-        setInvoiceSettingsOpen(false);
-        setInvoiceHistoryOpen(false);
-        setLoading(true);
-        const rows = (paymentHistory || []).map((p, idx) => ({
+    const mapPaymentRows = (payments, items) => {
+        if (Array.isArray(items) && items.length) {
+            return items.map((item, idx) => ({
+                id: item.payment_id || item.intent_id || idx + 1,
+                date: item.date
+                    ? String(item.date).slice(0, 10)
+                    : '—',
+                amount: Number(item.amount || 0),
+                channel: item.channel || item.payment_method || 'Recorded',
+                category: term || 'Fees',
+                ref: item.reference || item.invoice_no || (item.payment_id ? `PAY-${item.payment_id}` : '—'),
+                transactionRef: item.transaction_ref || '',
+                bankName: item.bank_name || '',
+                paidBy: item.paid_by || '',
+                momoPhone: item.momo_phone || '',
+                raw: item.raw || item,
+                status: item.status || 'verified',
+            }));
+        }
+        return (payments || []).map((p, idx) => ({
             id: p.id || idx + 1,
             date: p.paid_at_date || (p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : '—'),
             amount: Number(p.amount_paid || 0),
@@ -98,9 +113,82 @@ export default function StudentFeesModal({
             raw: p,
             status: 'verified',
         }));
-        setHistory(rows);
-        setLoading(false);
-    }, [isOpen, student, paymentHistory, term]);
+    };
+
+    useEffect(() => {
+        if (!isOpen || !student) return;
+        setInvoiceMenuOpen(false);
+        setInvoiceSettingsOpen(false);
+        setInvoiceHistoryOpen(false);
+        setProfileError('');
+        setFeeProfile(null);
+        setLoading(true);
+
+        const studentDbId = Number(student.student_id);
+        const canFetch = Number.isFinite(studentDbId) && studentDbId > 0;
+
+        if (!canFetch) {
+            setFeeProfile({
+                amountToPay: Number(student.amountToPay ?? 0),
+                paidThisTerm: Number(student.paidThisTerm ?? student.paid ?? 0),
+                remaining: Number(student.remaining ?? 0),
+                guardian: student.guardian || '—',
+                parentPhone: student.parentPhone || '',
+            });
+            setHistory(mapPaymentRows(paymentHistory));
+            setLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await api.get(`/accountant/students/${studentDbId}/payment-history`, {
+                    params: {
+                        academic_year: academicYear || undefined,
+                        term: term || undefined,
+                    },
+                });
+                if (!res.data?.success) throw new Error(res.data?.message || 'Failed to load student fees');
+                const data = res.data.data || {};
+                const fin = data.financial || {};
+                const st = data.student || {};
+                if (cancelled) return;
+                setFeeProfile({
+                    amountToPay: fin.amount_to_pay ?? student.amountToPay ?? 0,
+                    paidThisTerm: fin.paid_this_term ?? student.paidThisTerm ?? 0,
+                    remaining:
+                        fin.remaining != null
+                            ? fin.remaining
+                            : Math.max(
+                                  0,
+                                  Number(fin.amount_to_pay ?? student.amountToPay ?? 0)
+                                      - Number(fin.paid_this_term ?? student.paidThisTerm ?? 0)
+                              ),
+                    guardian: st.guardian_name || student.guardian || '—',
+                    parentPhone: st.parent_phone || student.parentPhone || '',
+                });
+                setHistory(mapPaymentRows(paymentHistory, data.items));
+            } catch (e) {
+                if (cancelled) return;
+                setProfileError(e.response?.data?.message || e.message || 'Could not load financial details');
+                setFeeProfile({
+                    amountToPay: Number(student.amountToPay ?? 0),
+                    paidThisTerm: Number(student.paidThisTerm ?? student.paid ?? 0),
+                    remaining: Number(student.remaining ?? 0),
+                    guardian: student.guardian || '—',
+                    parentPhone: student.parentPhone || '',
+                });
+                setHistory(mapPaymentRows(paymentHistory));
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, student, paymentHistory, term, academicYear]);
 
     useEffect(() => {
         if (!toast) return undefined;
@@ -109,6 +197,18 @@ export default function StudentFeesModal({
     }, [toast]);
 
     if (!isOpen || !student) return null;
+
+    const amountToPay = Number(
+        feeProfile?.amountToPay ?? student.amountToPay ?? student.amountOwed ?? 0
+    );
+    const paidThisTerm = Number(feeProfile?.paidThisTerm ?? student.paidThisTerm ?? student.paid ?? 0);
+    const remaining =
+        feeProfile?.remaining != null
+            ? Number(feeProfile.remaining)
+            : Number(student.remaining ?? Math.max(0, amountToPay - paidThisTerm));
+    const guardianLabel = feeProfile?.guardian || student.guardian || '—';
+    const parentPhone = feeProfile?.parentPhone || student.parentPhone || '';
+    const parentPhoneDial = parentPhone.replace(/[^\d+]/g, '');
 
     const format = (val) => new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(val);
 
@@ -130,9 +230,6 @@ export default function StudentFeesModal({
         const studentName = student.name || 'Student';
         const uid = student.id || '—';
         const cls = student.class || '—';
-        const amountToPay = Number(student.amountToPay ?? student.amountOwed ?? 0) || 0;
-        const paidThisTerm = Number(student.paidThisTerm ?? student.paid ?? 0) || 0;
-        const remaining = Number(student.remaining ?? Math.max(0, amountToPay - paidThisTerm)) || 0;
         const invoiceNo = `INV-${String(uid).replace(/\s+/g, '')}-${String(academicYear || '').replace(/\s+/g, '')}-${String(term || '').replace(/\s+/g, '')}`.replace(/-+$/,'');
 
         doc.setFillColor(...NAVY);
@@ -347,9 +444,11 @@ export default function StudentFeesModal({
                 `Academic year: ${academicYear || '—'}`,
                 `Term: ${term || '—'}`,
                 '',
-                `Amount to pay: ${format(Number(student.amountToPay ?? 0) || 0)}`,
-                `Paid (term): ${format(Number(student.paidThisTerm ?? 0) || 0)}`,
-                `Remaining: ${format(Number(student.remaining ?? 0) || 0)}`,
+                `Amount to pay: ${amountToPay == null ? '—' : format(amountToPay)}`,
+                `Paid (term): ${format(paidThisTerm)}`,
+                `Remaining: ${remaining == null ? '—' : format(remaining)}`,
+                `Guardian: ${guardianLabel}`,
+                `Parent phone: ${parentPhone || '—'}`,
                 '',
                 'Note: This invoice was generated from the school portal.',
             ].join('\n')
@@ -413,6 +512,12 @@ export default function StudentFeesModal({
                 {/* Drawer Body (Scrollable) */}
                 <div className="flex-1 overflow-y-auto px-8 py-8 space-y-8 custom-scrollbar bg-white">
 
+                    {profileError ? (
+                        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[10px] font-medium text-amber-900">
+                            {profileError}
+                        </div>
+                    ) : null}
+
                     {/* Financial Breakdown Section */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
@@ -420,9 +525,24 @@ export default function StudentFeesModal({
                             <div className="flex-1 h-px bg-black/5" />
                         </div>
                         {[
-                            { label: 'Amount to pay (Total)', value: format(student.amountToPay ?? student.amountOwed ?? 0), icon: AlertTriangle, color: 'text-[#000435]' },
-                            { label: 'Guardian', value: 'Parent Name', icon: Users, color: 'text-[#000435]' },
-                            { label: 'Parent Phone', value: '+250 7XX XXX XXX', icon: Phone, color: 'text-[#000435]' },
+                            {
+                                label: 'Amount to pay (Total)',
+                                value: amountToPay == null ? '—' : format(amountToPay),
+                                icon: AlertTriangle,
+                                color: 'text-[#000435]',
+                            },
+                            {
+                                label: 'Guardian',
+                                value: guardianLabel || '—',
+                                icon: Users,
+                                color: 'text-[#000435]',
+                            },
+                            {
+                                label: 'Parent Phone',
+                                value: parentPhone || '—',
+                                icon: Phone,
+                                color: 'text-[#000435]',
+                            },
                         ].map((item, i) => (
                             <div key={i} className="flex items-center justify-between group">
                                 <div className="flex items-center gap-2">
@@ -442,7 +562,7 @@ export default function StudentFeesModal({
                             <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-medium mb-1 relative z-10 opacity-60">Amount Paid</p>
                             <div className="flex items-baseline gap-1 relative z-10">
                                 <span className="text-xl font-medium tracking-tighter text-emerald-600">
-                                    {format(student.paidThisTerm ?? student.paid ?? 0).replace('RWF', '')}
+                                    {format(paidThisTerm).replace('RWF', '')}
                                 </span>
                                 <span className="text-[9px] font-medium uppercase tracking-widest text-[#000435]">RWF</span>
                             </div>
@@ -452,7 +572,7 @@ export default function StudentFeesModal({
                             <p className="text-[8px] text-slate-400 uppercase tracking-[0.2em] font-medium mb-1 relative z-10 opacity-60">Remaining</p>
                             <div className="flex items-baseline gap-1 justify-end relative z-10">
                                 <span className="text-xl font-medium text-red-500 tracking-tighter">
-                                    {format(student.remaining).replace('RWF', '')}
+                                    {remaining == null ? '—' : format(remaining).replace('RWF', '')}
                                 </span>
                                 <span className="text-[9px] font-medium uppercase tracking-widest ml-1 opacity-60">RWF</span>
                             </div>
@@ -476,14 +596,14 @@ export default function StudentFeesModal({
                                 <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest italic opacity-40">No transaction records found.</p>
                             </div>
                         ) : (
-                            <div className="overflow-hidden rounded-2xl border border-black/5">
-                                <table className="w-full text-left border-collapse">
+                            <div className="rounded-2xl border border-black/5 overflow-x-auto overflow-y-visible custom-scrollbar max-w-full">
+                                <table className="w-full min-w-[520px] text-left border-collapse">
                                     <thead>
                                         <tr className="bg-re-bg/20 border-b border-black/5">
-                                            <th className="px-3 py-2 text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Paid at</th>
-                                            <th className="px-3 py-2 text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Mode</th>
-                                            <th className="px-3 py-2 text-right text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5">Amount</th>
-                                            <th className="px-3 py-2 text-right text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40">Action</th>
+                                            <th className="px-3 py-2 text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5 whitespace-nowrap min-w-[108px]">Paid at</th>
+                                            <th className="px-3 py-2 text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5 whitespace-nowrap min-w-[96px]">Mode</th>
+                                            <th className="px-3 py-2 text-right text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 border-r border-black/5 whitespace-nowrap min-w-[88px]">Amount</th>
+                                            <th className="px-3 py-2 text-right text-[6.5px] font-medium text-re-text-muted uppercase tracking-[0.24em] opacity-40 whitespace-nowrap min-w-[220px]">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-black/5">
@@ -503,11 +623,11 @@ export default function StudentFeesModal({
                                                         <span className="ml-1 text-[7px] font-medium text-[#000435]/60 uppercase tracking-widest">RWF</span>
                                                     </p>
                                                 </td>
-                                                <td className="px-3 py-2 text-right">
+                                                <td className="px-2 py-2 align-middle">
                                                     {(() => {
                                                         const isBusy = busyActionKey.startsWith(`${log.id}:`);
                                                         return (
-                                                    <div className="flex items-center justify-end gap-1.5">
+                                                    <div className="flex flex-nowrap items-center justify-end gap-1 shrink-0 min-w-[200px]">
                                                         <button
                                                             type="button"
                                                             onClick={async () => {
@@ -542,7 +662,7 @@ export default function StudentFeesModal({
                                                                 )));
                                                                 setToast({ type: 'success', message: 'Payment updated.' });
                                                             }}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-black/5 text-[#000435] font-medium text-[7px] uppercase tracking-widest  hover:bg-re-bg transition-all"
+                                                            className="h-7 px-2.5 rounded-lg shrink-0 flex items-center justify-center bg-white border border-black/5 text-[#000435] font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
                                                             disabled={isBusy}
                                                             title="Edit payment"
                                                         >
@@ -567,7 +687,7 @@ export default function StudentFeesModal({
                                                                 setHistory((prev) => prev.filter((x) => x.id !== log.id));
                                                                 setToast({ type: 'success', message: 'Payment deleted.' });
                                                             }}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center bg-white border border-red-200 text-red-600 font-medium text-[7px] uppercase tracking-widest  hover:bg-red-50 transition-all"
+                                                            className="h-7 px-2.5 rounded-lg shrink-0 flex items-center justify-center bg-white border border-red-200 text-red-600 font-medium text-[7px] uppercase tracking-widest hover:bg-red-50 transition-all"
                                                             disabled={isBusy}
                                                             title="Delete payment"
                                                         >
@@ -576,21 +696,21 @@ export default function StudentFeesModal({
                                                         <button
                                                             type="button"
                                                             onClick={() => downloadReceiptPdf(log)}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center gap-1 bg-white border border-black/5 text-re-text font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
+                                                            className="h-7 px-2.5 rounded-lg shrink-0 flex items-center justify-center gap-1 bg-white border border-black/5 text-re-text font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
                                                             disabled={isBusy}
                                                             title="Download receipt PDF"
                                                         >
-                                                            <Download size={11} className="text-emerald-600" />
+                                                            <Download size={11} className="text-emerald-600 shrink-0" />
                                                             <span>PDF</span>
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => printReceiptPdf(log)}
-                                                            className="h-6 px-2 rounded-lg flex items-center justify-center gap-1 bg-white border border-black/5 text-re-text font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
+                                                            className="h-7 px-2.5 rounded-lg shrink-0 flex items-center justify-center gap-1 bg-white border border-black/5 text-re-text font-medium text-[7px] uppercase tracking-widest hover:bg-re-bg transition-all"
                                                             disabled={isBusy}
                                                             title="Print receipt"
                                                         >
-                                                            <Printer size={11} className="text-amber-500" />
+                                                            <Printer size={11} className="text-amber-500 shrink-0" />
                                                             <span>Print</span>
                                                         </button>
                                                     </div>
@@ -603,6 +723,11 @@ export default function StudentFeesModal({
                                 </table>
                             </div>
                         )}
+                        {!loading && history.length > 0 ? (
+                            <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest text-center mt-2 opacity-50">
+                                Swipe or scroll horizontally to see all actions
+                            </p>
+                        ) : null}
                     </div>
                 </div>
 
@@ -616,9 +741,16 @@ export default function StudentFeesModal({
                         <CreditCard size={14} /> Record Payment
                     </button>
                     <div className="grid grid-cols-2 gap-2">
-                        <button className="h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-slate-50 transition-all">
+                        <a
+                            href={parentPhoneDial ? `tel:${parentPhoneDial}` : undefined}
+                            aria-disabled={!parentPhoneDial}
+                            className={`h-9 flex items-center justify-center gap-2 bg-white border border-black/5 text-[#000435] font-medium text-[9px] uppercase tracking-widest rounded-xl transition-all ${
+                                parentPhoneDial ? 'hover:bg-slate-50' : 'opacity-40 pointer-events-none'
+                            }`}
+                            title={parentPhoneDial ? `Call ${parentPhone}` : 'No parent phone on file'}
+                        >
                             <Phone size={14} className="text-amber-500" /> Call Parent
-                        </button>
+                        </a>
                         <div className="relative">
                             <button
                                 onClick={() => setInvoiceMenuOpen((v) => !v)}

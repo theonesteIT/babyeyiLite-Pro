@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Activity, Search, TrendingDown, TrendingUp, Download, Eye, AlertTriangle,
   ShieldAlert, CheckCircle, Plus, ShieldCheck, Tag, Loader2, RefreshCw, 
-  Filter, User, Printer, Banknote, CreditCard, ChevronDown, ArrowRight,
+  Filter, User, Banknote, CreditCard, ChevronDown, ArrowRight,
   UserPlus
 } from 'lucide-react';
 import StudentFeesModal from '../components/StudentFeesModal';
@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import AccountantOchreHero from '../components/AccountantOchreHero';
 import api from '../services/api';
 import * as XLSX from 'xlsx';
+import { downloadStudentFeesReportPdf } from '../utils/exportStudentFeesReportPdf';
 import {
   parseManagerAcademicSettings,
   termsForRegistryYear,
@@ -64,6 +65,7 @@ const Fees = () => {
     const [paymentStudent, setPaymentStudent] = useState(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [receiptPayment, setReceiptPayment] = useState(null);
+    const [exportingPdf, setExportingPdf] = useState(false);
 
     const fetchReport = async () => {
         if (!selectedYear || !selectedTerm) return;
@@ -101,6 +103,10 @@ const Fees = () => {
                     paidThisTerm: totalPaid,
                     remaining,
                     status: r.status || 'unknown',
+                    guardian: r.guardian_name || '',
+                    parentPhone: r.parent_phone || '',
+                    fatherPhone: r.father_phone || '',
+                    motherPhone: r.mother_phone || '',
                 };
             });
 
@@ -222,6 +228,42 @@ const Fees = () => {
         return 'bg-white text-[#000435] border-[#000435]';
     };
 
+    const exportStatsForRows = (rows) => {
+        const expected = rows.reduce((s, x) => s + (Number(x.amountToPay) || 0), 0);
+        const collected = rows.reduce((s, x) => s + Number(x.paidThisTerm || 0), 0);
+        const balance = rows.reduce((s, x) => s + (Number(x.remaining) || 0), 0);
+        const rate = expected > 0 ? `${Math.round((collected / expected) * 100)}%` : '0%';
+        return { expected, collected, balance, rate };
+    };
+
+    const exportFilteredPdf = async () => {
+        if (!sortedStudents.length) {
+            window.alert('No learners to export for the current filters.');
+            return;
+        }
+        setExportingPdf(true);
+        try {
+            const rowStats = exportStatsForRows(sortedStudents);
+            const statusLabelText =
+                PAYMENT_STATUSES.find((s) => s.value === selectedStatus)?.label || 'All statuses';
+            downloadStudentFeesReportPdf({
+                schoolName: staff?.school_name || staff?.schoolName || 'School',
+                academicYear: selectedYear,
+                term: selectedTerm,
+                classLabel: selectedClass,
+                statusFilterLabel: statusLabelText,
+                stats: rowStats,
+                students: sortedStudents,
+                searchNote: searchTerm.trim() ? `Search filter: "${searchTerm.trim()}"` : '',
+                statusLabelFn: statusLabel,
+            });
+        } catch (e) {
+            window.alert(e?.message || 'Failed to generate PDF.');
+        } finally {
+            setExportingPdf(false);
+        }
+    };
+
     const exportFilteredExcel = () => {
         const rows = sortedStudents.map((s) => ({
             'Learner ID': s.id,
@@ -285,21 +327,14 @@ const Fees = () => {
 
                             <div className="hidden lg:flex flex-col border-l border-black/5 bg-re-bg/30 p-6 justify-center gap-3 relative">
                                 <button
-                                    onClick={() => {
-                                        const params = new URLSearchParams({
-                                            academic_year: selectedYear,
-                                            term: selectedTerm,
-                                        });
-                                        if (selectedClass !== 'All Classes') params.set('class_name', selectedClass);
-                                        if (selectedStatus !== 'All') params.set('status', selectedStatus);
-                                        const url = `${(import.meta.env.VITE_API_URL || 'http://localhost:5100')}/api/accountant/reports/payments/export.pdf?${params.toString()}`;
-                                        window.open(url, '_blank');
-                                    }}
-                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest  active:scale-95 transition-all"
-                                    style={{ background: "linear-gradient(135deg, #000435 0%, #0D2644 100%)" }}
+                                    type="button"
+                                    onClick={() => void exportFilteredPdf()}
+                                    disabled={exportingPdf || loading || !sortedStudents.length}
+                                    className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl font-medium text-[9px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+                                    style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
                                 >
-                                    <Printer size={14} />
-                                    <span>Print report</span>
+                                    {exportingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                                    <span>{exportingPdf ? 'Generating…' : 'Export PDF'}</span>
                                 </button>
                                 <button
                                     onClick={exportFilteredExcel}
@@ -392,9 +427,30 @@ const Fees = () => {
                                     />
                                 </div>
                             </div>
-                            <button onClick={fetchReport} className="h-8 w-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-lg hover:bg-re-bg transition-all  disabled:opacity-40 shrink-0 ml-auto" disabled={loading}>
-                                <RefreshCw size={12} className="text-[#000435]" />
-                            </button>
+                            <div className="flex items-center gap-2 shrink-0 ml-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => void exportFilteredPdf()}
+                                    disabled={exportingPdf || loading || !sortedStudents.length}
+                                    className="lg:hidden h-8 px-3 flex items-center justify-center gap-1.5 rounded-lg text-white text-[8px] font-medium uppercase tracking-widest disabled:opacity-50"
+                                    style={{ background: 'linear-gradient(135deg, #000435 0%, #0D2644 100%)' }}
+                                >
+                                    {exportingPdf ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                                    PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={exportFilteredExcel}
+                                    disabled={!sortedStudents.length}
+                                    className="lg:hidden h-8 px-3 flex items-center justify-center gap-1.5 bg-white border border-black/5 rounded-lg text-[8px] font-medium uppercase tracking-widest text-[#000435] disabled:opacity-50"
+                                >
+                                    <Download size={12} className="text-emerald-600" />
+                                    Excel
+                                </button>
+                                <button onClick={fetchReport} className="h-8 w-8 flex items-center justify-center bg-re-bg border border-black/5 rounded-lg hover:bg-re-bg transition-all disabled:opacity-40 shrink-0" disabled={loading}>
+                                    <RefreshCw size={12} className="text-[#000435]" />
+                                </button>
+                            </div>
                         </div>
 
                         {noFeeCardMismatch && (

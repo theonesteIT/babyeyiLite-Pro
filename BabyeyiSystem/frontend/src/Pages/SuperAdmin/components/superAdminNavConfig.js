@@ -24,6 +24,7 @@ import {
   Settings,
   Shield,
   Building2,
+  Newspaper,
 } from 'lucide-react';
 
 export const SUPER_ADMIN_DASHBOARD_PATH = '/superadmin/dashboard';
@@ -57,6 +58,7 @@ export const SUPER_ADMIN_PATH_TO_PAGE = {
   '/superadmin/school-students-card': 'school-students-card',
   '/superadmin/student-card-template-2': 'student-card-template-2',
   '/superadmin/school-staff-card-template': 'school-staff-card-template',
+  '/superadmin/platform-content': 'platform-content',
   '/superadmin/audit': 'audit',
   '/superadmin/school-monitor': 'school-monitor',
 };
@@ -180,6 +182,7 @@ export function getSuperAdminNavGroups() {
       label: 'System',
       icon: Settings,
       items: [
+        { id: 'platform-content', label: 'News & Announcements', icon: Newspaper, path: '/superadmin/platform-content' },
         { id: 'audit', label: 'Audit Center', icon: Shield, path: '/superadmin/audit' },
         { id: 'school-monitor', label: 'School Monitoring', icon: Building2, path: '/superadmin/school-monitor' },
         { id: 'settings', label: 'Settings', icon: Settings },

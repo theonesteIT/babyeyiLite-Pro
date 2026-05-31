@@ -90,7 +90,7 @@ const NAV_GROUPS = [
   },
   {
     id: 'utilities',
-    label: 'Utilities',
+    label: 'Tools',
     icon: Wrench,
     items: [
       { name: 'Ticha Deals', path: '/ticha-deals' },

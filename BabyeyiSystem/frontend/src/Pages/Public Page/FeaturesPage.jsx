@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import babyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
+import PublicHeader, { usePublicHeaderState } from "../../components/public/Header";
+import PublicFooter from "../../components/public/Footer";
+import { publicHeaderPaddingClass } from "../../components/public/publicSiteConstants";
 import {
   GraduationCap,
-  Globe,
   Users,
   BookOpen,
   Bell,
@@ -12,89 +13,15 @@ import {
   BarChart3,
   Shield,
   Smartphone,
-  Menu,
-  X,
   Building2,
-  LogIn,
-  Facebook,
-  Twitter,
-  Instagram,
-  Mail,
-  Phone,
-  Youtube,
   CreditCard,
   Package,
   Bot,
   UserCheck,
   Sparkles,
   ArrowRight,
-  MapPin,
+  Globe,
 } from "lucide-react";
-
-function Navbar() {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-
-  const links = [
-    { label: t("featuresPage.homePage"), href: "/" },
-    { label: t("featuresPage.payFees"), href: "/paid-at-school" },
-    { label: t("featuresPage.services"), href: "/services" },
-    { label: t("featuresPage.features"), href: "/features" },
-    { label: t("featuresPage.schools"), href: "/schools" },
-  ];
-
-  return (
-    <nav className={`fixed inset-x-0 top-0 z-50 border-b-[3px] border-amber-400 transition-all duration-300 ${scrolled ? "bg-[#000435] shadow-xl shadow-black/30" : "bg-[#000435]/88 backdrop-blur-md"}`}>
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between h-14 sm:h-16 xl:h-[68px]">
-        <Link to="/" className="flex items-center shrink-0">
-          <img src={babyeyiLogo} alt="Babyeyi logo" className="h-9 sm:h-10 xl:h-11 w-auto object-contain" />
-        </Link>
-
-        <div className="hidden lg:flex items-center gap-0.5 xl:gap-1">
-          {links.map((l) => (
-            <Link key={l.label} to={l.href} className="px-3 xl:px-4 py-2 rounded-lg text-sm xl:text-[15px] font-semibold text-white/70 hover:text-white hover:bg-white/8 transition-all">
-              {l.label}
-            </Link>
-          ))}
-        </div>
-
-        <div className="hidden lg:flex items-center gap-3">
-          <Link to="/register" className="px-4 py-2.5 rounded-xl text-sm font-bold text-white/80 border border-white/15 hover:border-amber-400/50 hover:text-amber-400 transition-all">{t("featuresPage.registerSchool")}</Link>
-          <a href="/login" className="inline-flex items-center gap-2 min-h-[40px] xl:min-h-[44px] px-5 xl:px-6 rounded-xl bg-amber-400 text-[#000435] text-sm xl:text-[15px] font-black hover:bg-amber-300 transition-all">
-            <LogIn size={15} strokeWidth={2.5} /> {t("featuresPage.login")}
-          </a>
-        </div>
-
-        <div className="flex lg:hidden items-center gap-2">
-          <a href="/login" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-amber-400 text-[#000435] text-[12px] font-black">
-            <LogIn size={13} strokeWidth={2.5} /> {t("featuresPage.login")}
-          </a>
-          <button type="button" onClick={() => setOpen(!open)} className="w-9 h-9 rounded-lg bg-white/8 border border-white/15 flex items-center justify-center">
-            {open ? <X size={17} className="text-white" /> : <Menu size={17} className="text-white" />}
-          </button>
-        </div>
-      </div>
-
-      {open && (
-        <div className="lg:hidden bg-[#000435] border-t border-white/8 px-4 pb-4 space-y-1">
-          {links.map((l) => (
-            <Link key={l.label} to={l.href} onClick={() => setOpen(false)} className="flex px-4 py-3 rounded-xl text-[14px] font-bold text-white/75 hover:bg-white/8 hover:text-white">
-              {l.label}
-            </Link>
-          ))}
-          <Link to="/register" onClick={() => setOpen(false)} className="flex items-center justify-center gap-2 w-full mt-1 px-4 py-3 rounded-xl border border-amber-400/40 text-amber-400 text-[14px] font-bold">{t("featuresPage.registerSchool")}</Link>
-        </div>
-      )}
-    </nav>
-  );
-}
 
 function SH({ eyebrow, title, sub, light = false }) {
   return (
@@ -112,10 +39,10 @@ function SH({ eyebrow, title, sub, light = false }) {
   );
 }
 
-function FeaturesHero() {
+function FeaturesHero({ bannerVisible }) {
   const { t } = useTranslation();
   return (
-    <section className="pt-24 sm:pt-28 xl:pt-32 pb-12 sm:pb-16 bg-[#000435]">
+    <section className={`${publicHeaderPaddingClass(bannerVisible)} pb-12 sm:pb-16 bg-[#000435]`}>
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 text-center">
         <SH eyebrow={t("featuresPage.heroEyebrow")} title={t("featuresPage.heroTitle")} sub={t("featuresPage.heroSub")} light />
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -200,69 +127,21 @@ function CTASection() {
   );
 }
 
-function Footer() {
-  const { t } = useTranslation();
-  const cols = [
-    { title: t("featuresPage.footerPlatform"), links: [{ l: t("featuresPage.footerAbout"), h: "#about" }, { l: t("featuresPage.features"), h: "/features", i: true }, { l: t("featuresPage.homePage"), h: "/", i: true }, { l: t("featuresPage.footerPricing"), h: "#pricing" }] },
-    { title: t("featuresPage.footerSchools"), links: [{ l: t("featuresPage.footerSearchSchools"), h: "/schools", i: true }, { l: t("featuresPage.footerPayBySchoolCode"), h: "/paid-at-school", i: true }, { l: t("featuresPage.registerSchool"), h: "/register", i: true }, { l: t("featuresPage.footerTvetTrades"), h: "/schools", i: true }] },
-    { title: t("featuresPage.footerAccounts"), links: [{ l: t("featuresPage.footerSchoolManagerLogin"), h: "/school-manager/login", i: true }, { l: t("featuresPage.footerParentLogin"), h: "/parents/login", i: true }, { l: t("featuresPage.footerStaffLogin"), h: "/login", i: true }, { l: t("featuresPage.services"), h: "/services", i: true }] },
-    { title: t("featuresPage.footerSupport"), links: [{ l: t("featuresPage.footerHelpCenter"), h: "#" }, { l: t("featuresPage.footerContactUs"), h: "#contact" }, { l: t("featuresPage.footerPrivacyPolicy"), h: "#" }, { l: t("featuresPage.footerTerms"), h: "#" }] },
-  ];
-
-  return (
-    <footer className="bg-[#000018]">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 pt-12 xl:pt-16 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 xl:gap-12 mb-10 xl:mb-14">
-          <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-lg bg-amber-400 flex items-center justify-center"><GraduationCap size={17} className="text-[#000435]" /></div>
-              <span className="font-black text-[17px] text-white">baby<span className="text-amber-400">eyi</span><span className="text-amber-400/60">.rw</span></span>
-            </Link>
-            <p className="text-slate-500 text-[13px] leading-relaxed mb-5">{t("featuresPage.footerTagline")}</p>
-            <div className="flex gap-2">
-              {[{ Icon: Facebook, bg: "#1877F2" }, { Icon: Twitter, bg: "#1DA1F2" }, { Icon: Instagram, bg: "#E4405F" }, { Icon: Youtube, bg: "#FF0000" }].map(({ Icon, bg }, i) => (
-                <a key={i} href="#" className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:scale-110 transition-transform" style={{ background: bg }}><Icon size={14} /></a>
-              ))}
-            </div>
-          </div>
-          {cols.map((col) => (
-            <div key={col.title}>
-              <h4 className="font-black text-white text-[11px] uppercase tracking-[0.1em] mb-4 xl:mb-5">{col.title}</h4>
-              <ul className="space-y-2.5">
-                {col.links.map(({ l, h, i }) => (
-                  <li key={l}>{i ? <Link to={h} className="text-slate-500 text-[13px] font-medium hover:text-amber-400 transition-colors">{l}</Link> : <a href={h} className="text-slate-500 text-[13px] font-medium hover:text-amber-400 transition-colors">{l}</a>}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-5 pb-6 border-b border-white/5">
-          {[{ Icon: Mail, v: "hello@babyeyi.rw" }, { Icon: Phone, v: "+250 788 000 000" }, { Icon: MapPin, v: "Kigali, Rwanda" }].map(({ Icon, v }) => (
-            <div key={v} className="flex items-center gap-2 text-[13px] text-slate-500 font-medium"><Icon size={13} className="text-amber-400" /> {v}</div>
-          ))}
-        </div>
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-slate-600 text-[12px]">© {new Date().getFullYear()} Babyeyi Rwanda. {t("featuresPage.footerAllRightsReserved")}</p>
-          <p className="text-slate-700 text-[12px]">{t("featuresPage.footerMadeWithLove")}</p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 export default function FeaturesPage() {
   const { t } = useTranslation();
+  const { bannerVisible, dismissBanner, banners } = usePublicHeaderState();
+
   useEffect(() => {
     document.title = t("featuresPage.documentTitle");
   }, [t]);
 
   return (
     <div>
-      <Navbar />
-      <FeaturesHero />
+      <PublicHeader bannerVisible={bannerVisible} onBannerClose={dismissBanner} banners={banners} />
+      <FeaturesHero bannerVisible={bannerVisible} />
       <FeaturesGridSection />
       <CTASection />
-      <Footer />
+      <PublicFooter />
     </div>
   );
 }

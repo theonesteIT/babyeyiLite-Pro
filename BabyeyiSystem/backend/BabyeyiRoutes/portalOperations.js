@@ -2041,6 +2041,10 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
     const year = Number(req.query?.year || 0);
     const qRaw = String(req.query?.query || '').trim();
     const department = String(req.query?.department || '').trim();
+    const dateFrom = String(req.query?.date_from || '').trim();
+    const dateTo = String(req.query?.date_to || '').trim();
+    const dateField = String(req.query?.date_field || 'submitted').trim().toLowerCase();
+    const usePaidDate = dateField === 'paid';
     const q = `%${qRaw}%`;
     const metaCtx = termQ || academicYearQ
       ? await resolveAcademicContext(schoolId, academicYearQ, termQ)
@@ -2068,6 +2072,22 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
     if (department) {
       where.push('LOWER(COALESCE(r.department, "")) = LOWER(?)');
       params.push(department);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+      where.push(
+        usePaidDate
+          ? 'DATE(COALESCE(r.paid_at, r.created_at)) >= ?'
+          : 'DATE(r.created_at) >= ?'
+      );
+      params.push(dateFrom);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      where.push(
+        usePaidDate
+          ? 'DATE(COALESCE(r.paid_at, r.created_at)) <= ?'
+          : 'DATE(r.created_at) <= ?'
+      );
+      params.push(dateTo);
     }
 
     const [rows] = await promisePool.query(
@@ -2127,6 +2147,22 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
       payWhere.push('LOWER(COALESCE(p.department, "")) = LOWER(?)');
       payParams.push(department);
     }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateFrom)) {
+      payWhere.push(
+        usePaidDate
+          ? 'DATE(COALESCE(p.last_payment_at, p.payment_date, p.created_at)) >= ?'
+          : 'DATE(p.created_at) >= ?'
+      );
+      payParams.push(dateFrom);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+      payWhere.push(
+        usePaidDate
+          ? 'DATE(COALESCE(p.last_payment_at, p.payment_date, p.created_at)) <= ?'
+          : 'DATE(p.created_at) <= ?'
+      );
+      payParams.push(dateTo);
+    }
 
     const [paymentRows] = await promisePool.query(
       `SELECT p.id, p.staff_user_id, p.staff_code, p.staff_name, p.role_code, p.department,
@@ -2156,7 +2192,13 @@ router.get('/accountant/payroll-requests', requireRole(ACCOUNTANT_READ_ROLES), a
 
     return res.json({
       success: true,
-      meta: { term: metaCtx.term || '', academic_year: metaCtx.academicYear || academicYearQ || '' },
+      meta: {
+        term: metaCtx.term || '',
+        academic_year: metaCtx.academicYear || academicYearQ || '',
+        date_from: dateFrom || null,
+        date_to: dateTo || null,
+        date_field: usePaidDate ? 'paid' : 'submitted',
+      },
       data: merged,
     });
   } catch (e) {

@@ -1788,7 +1788,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                     style={{ borderColor: C.goldBorder }}
                   >
                     <option value="babyeyi">Other requirements</option>
-                    <option value="school">Paid at school</option>
+                    <option value="school">Paid to School Account</option>
                   </select>
                   <div className="relative w-28 sm:w-36">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold" style={{ color: C.goldDark }}>RWF</span>
@@ -2041,7 +2041,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                         style={{ borderColor: C.goldBorder }}
                       >
                         <option value="babyeyi">Other requirements</option>
-                        <option value="school">Paid at school</option>
+                        <option value="school">Paid to School Account</option>
                       </select>
 
                       {r.pay_channel === "school" && (

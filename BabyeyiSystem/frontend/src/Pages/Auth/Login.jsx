@@ -22,12 +22,14 @@ import {
   LITE_ROLE_HOME,
   LITE_SHULE_AVANCE_ONLY,
 } from '../../utils/liteStaffEntry';
+import { isOtherPortalRole, OTHER_PORTAL_ROLE_CHIPS } from '../../utils/otherPortalEntry';
 import loginShulemanagerLogo from '../../assets/login-logo.png';
 import loginDecor from '../../assets/login-bg-removebg.png';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 const STAFF_LOGIN_PREFS_KEY = 'babyeyi_staff_login_prefs';
 const SM_LOGIN_PREFS_KEY = 'babyeyi_school_manager_login_prefs';
+const OTHER_LOGIN_PREFS_KEY = 'babyeyi_other_portal_login_prefs';
 
 function loadSmLoginPrefs() {
   try {
@@ -42,6 +44,40 @@ function loadSmLoginPrefs() {
   } catch {
     return { remember: false, email: '', schoolCode: '' };
   }
+}
+
+function loadOtherLoginPrefs() {
+  try {
+    const raw = localStorage.getItem(OTHER_LOGIN_PREFS_KEY);
+    if (!raw) return { remember: false, identifier: '' };
+    const p = JSON.parse(raw);
+    return {
+      remember: !!p.remember,
+      identifier: typeof p.identifier === 'string' ? p.identifier : '',
+    };
+  } catch {
+    return { remember: false, identifier: '' };
+  }
+}
+
+function otherPortalRejectionMessage(roleCode, sessionUser, tr) {
+  const rc = String(roleCode || '').toUpperCase();
+  if (rc === 'TEACHER' || shouldUseTeacherPortal(sessionUser, rc)) {
+    return tr('useTeacherPortal');
+  }
+  if (rc === 'PARENT' || rc === 'STUDENT') {
+    return tr('useParentPortal');
+  }
+  if (rc === 'SCHOOL_ADMIN' || rc === 'SCHOOL_MANAGER') {
+    return tr('useShuleManager');
+  }
+  if (getLiteStaffHomePath(rc, sessionUser) || LITE_SHULE_AVANCE_ONLY.has(rc) || isLiteDisciplineStaff(sessionUser)) {
+    return tr('useShuleManagerLite');
+  }
+  if (shouldUseProApp(sessionUser)) {
+    return tr('useShuleManager');
+  }
+  return tr('wrongPortalOther');
 }
 
 function loadStaffLoginPrefs() {
@@ -101,8 +137,10 @@ const LOGIN_LANGS = ["rw", "en", "fr"];
 /**
  * @param {{
  *   forceLitePortal?: boolean;
+ *   forceOtherPortal?: boolean;
+ *   hideSchoolCode?: boolean;
  *   variant?: 'staff' | 'schoolManager';
- *   portalBrand?: null | 'lite' | 'pro';
+ *   portalBrand?: null | 'lite' | 'pro' | 'other';
  *   portalNav?: null | { backHref: string; backLabel: string; secondaryHref?: string; secondaryLabel?: string };
  * }} [props]
  * `forceLitePortal`: Lite URL only — no Pro web redirect; Pro-enabled schools are blocked here.
@@ -110,6 +148,8 @@ const LOGIN_LANGS = ["rw", "en", "fr"];
  */
 const Login = ({
   forceLitePortal = false,
+  forceOtherPortal = false,
+  hideSchoolCode = false,
   variant = 'staff',
   portalBrand = null,
   portalNav = null,
@@ -128,16 +168,26 @@ const Login = ({
   }, []);
 
   useEffect(() => {
-    if (forceLitePortal) {
+    if (forceOtherPortal) {
+      setPostLogoutLoginPath('/login/other');
+    } else if (forceLitePortal) {
       setPostLogoutLoginPath('/login/lite');
     } else if (isSchoolManager && portalBrand === 'pro') {
       setPostLogoutLoginPath('/login/pro');
     }
-  }, [forceLitePortal, isSchoolManager, portalBrand]);
+  }, [forceLitePortal, forceOtherPortal, isSchoolManager, portalBrand]);
 
   useEffect(() => {
     if (auth.loading || !auth.isLoggedIn || !auth.role || !auth.user || auth.user === false) return;
     const roleCode = String(auth.role).toUpperCase();
+
+    if (forceOtherPortal) {
+      if (isOtherPortalRole(roleCode)) {
+        const target = DASHBOARD[roleCode];
+        if (target) navigate(target, { replace: true });
+      }
+      return;
+    }
 
     if (forceLitePortal && shouldUseProApp(auth.user) && roleCode) {
       navigate('/login/pro', { replace: true });
@@ -187,9 +237,13 @@ const Login = ({
     }
     const target = DASHBOARD[roleCode];
     if (target) navigate(target, { replace: true });
-  }, [auth.loading, auth.isLoggedIn, auth.role, auth.user, navigate, forceLitePortal, isProPortal, isSchoolManager, portalBrand]);
+  }, [auth.loading, auth.isLoggedIn, auth.role, auth.user, navigate, forceLitePortal, forceOtherPortal, isProPortal, isSchoolManager, portalBrand]);
 
   const [prefsLoaded] = useState(() => {
+    if (hideSchoolCode) {
+      const o = loadOtherLoginPrefs();
+      return { remember: o.remember, identifier: o.identifier, schoolCode: '' };
+    }
     if (isSchoolManager) {
       const sm = loadSmLoginPrefs();
       return { remember: sm.remember, identifier: sm.email, schoolCode: sm.schoolCode };
@@ -280,7 +334,12 @@ const Login = ({
       const roleCode = json.role ? String(json.role).toUpperCase() : null;
 
       if (rememberMe) {
-        if (isSchoolManager) {
+        if (hideSchoolCode) {
+          localStorage.setItem(OTHER_LOGIN_PREFS_KEY, JSON.stringify({
+            remember: true,
+            identifier: form.identifier.trim(),
+          }));
+        } else if (isSchoolManager) {
           localStorage.setItem(SM_LOGIN_PREFS_KEY, JSON.stringify({
             remember: true,
             email: form.identifier.trim(),
@@ -292,7 +351,9 @@ const Login = ({
           }));
         }
       } else {
-        localStorage.removeItem(isSchoolManager ? SM_LOGIN_PREFS_KEY : STAFF_LOGIN_PREFS_KEY);
+        localStorage.removeItem(
+          hideSchoolCode ? OTHER_LOGIN_PREFS_KEY : (isSchoolManager ? SM_LOGIN_PREFS_KEY : STAFF_LOGIN_PREFS_KEY)
+        );
       }
 
       const sessionUser = await auth.login();
@@ -304,24 +365,31 @@ const Login = ({
         } catch { /* ignore */ }
       }
 
+      if (forceOtherPortal) {
+        if (!isOtherPortalRole(roleCode)) {
+          await auth.logout();
+          setPostLogoutLoginPath('/login/other');
+          notify(otherPortalRejectionMessage(roleCode, sessionUser, tr));
+          return;
+        }
+        notify(tr('welcomeRedirecting'), 'success');
+        const dest = json.redirect || (roleCode && DASHBOARD[roleCode]) || '/';
+        setTimeout(() => navigate(dest, { replace: true }), 900);
+        return;
+      }
+
       if (forceLitePortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         await auth.logout();
+        setPostLogoutLoginPath('/login/lite');
         notify(tr("schoolUsesPro"));
         return;
       }
 
       if (isProPortal && sessionUser && !shouldUseProApp(sessionUser)) {
         await auth.logout();
+        setPostLogoutLoginPath('/login/pro');
         notify(tr("schoolUsesLite"));
         return;
-      }
-
-      if (forceLitePortal) {
-        setPostLogoutLoginPath('/login/lite');
-      } else if (isProPortal) {
-        setPostLogoutLoginPath('/login/pro');
-      } else {
-        setPostLogoutLoginPath('/login');
       }
 
       notify(tr("welcomeRedirecting"), 'success');
@@ -340,7 +408,6 @@ const Login = ({
       if (!forceLitePortal && !isProPortal && sessionUser && shouldUseProApp(sessionUser) && roleCode) {
         const proUrl = getProEntryUrl(roleCode);
         if (proUrl) {
-          setPostLogoutLoginPath('/login/pro');
           setTimeout(() => window.location.assign(proUrl), 400);
           return;
         }
@@ -356,7 +423,6 @@ const Login = ({
           return;
         }
         if (liteDest?.path) {
-          setPostLogoutLoginPath('/login/lite');
           setTimeout(() => navigate(liteDest.path, { replace: true }), 900);
           return;
         }
@@ -381,12 +447,6 @@ const Login = ({
         dest = DASHBOARD.DISCIPLINE;
       }
       if (dest === '/login') { const mapped = roleCode && DASHBOARD[roleCode]; if (mapped) dest = mapped; }
-      if (roleCode === 'ACCOUNTANT' || dest === DASHBOARD.ACCOUNTANT) {
-        setPostLogoutLoginPath('/login/lite');
-      }
-      if (isLiteDisciplineStaff(sessionUser) || dest === DASHBOARD.DISCIPLINE) {
-        setPostLogoutLoginPath('/login/lite');
-      }
       setTimeout(() => navigate(dest, { replace: true }), 900);
 
     } catch (err) {
@@ -556,6 +616,24 @@ const Login = ({
           color: #999;
           font-weight: 500;
           margin-bottom: 1.5rem;
+          line-height: 1.5;
+        }
+        .lx-role-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin: -0.75rem 0 1.25rem;
+        }
+        .lx-role-chip {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #000435;
+          background: rgba(251,191,36,0.12);
+          border: 1px solid rgba(251,191,36,0.35);
+          border-radius: 999px;
+          padding: 4px 10px;
         }
 
         /* Alerts */
@@ -958,17 +1036,28 @@ const Login = ({
 
             <div className="lx-left-body">
             <h1 className="lx-h1">
-              {portalBrand ? (
-                <>ShuleManager <span className="lx-h1-grad">{portalBrand === 'lite' ? tr("lite") : tr("pro")}</span></>
+              {portalBrand === 'other' ? (
+                <>Babyeyi <span className="lx-h1-grad">{tr('otherPortal')}</span></>
+              ) : portalBrand ? (
+                <>ShuleManager <span className="lx-h1-grad">{portalBrand === 'lite' ? tr('lite') : tr('pro')}</span></>
               ) : (
-                tr("welcomeBack")
+                tr('welcomeBack')
               )}
             </h1>
             <p className="lx-sub">
+              {portalBrand === 'other' && tr('otherPortalSub')}
               {portalBrand === 'lite' && ''}
               {portalBrand === 'pro' && ''}
-              {!portalBrand && tr("signInToContinue")}
+              {!portalBrand && tr('signInToContinue')}
             </p>
+
+            {portalBrand === 'other' && (
+              <div className="lx-role-chips" aria-hidden="false">
+                {OTHER_PORTAL_ROLE_CHIPS.map((chip) => (
+                  <span key={chip.key} className="lx-role-chip">{chip.label}</span>
+                ))}
+              </div>
+            )}
 
             {sysPublic?.maintenance_mode && (
               <div className="lx-alert warn">
@@ -1003,6 +1092,7 @@ const Login = ({
                 </div>
               </div>
 
+              {!hideSchoolCode && (
               <div className="lx-field">
                 <label className="lx-label" htmlFor="schoolCode">
                   {tr("schoolCode")}
@@ -1023,6 +1113,7 @@ const Login = ({
                   />
                 </div>
               </div>
+              )}
 
               <div className="lx-field">
                 <label className="lx-label" htmlFor="password">{tr("password")}</label>

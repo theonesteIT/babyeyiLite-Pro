@@ -72,7 +72,10 @@ import SchoolRegistration from './Pages/Public Page/SchoolRegistration';
 import LoginPortalSelect from './Pages/Public Page/LoginPortalSelect';
 import LoginLite from './Pages/Public Page/LoginLite';
 import LoginPro from './Pages/Public Page/LoginPro';
+import OtherPortalLogin from './Pages/Public Page/OtherPortalLogin';
 import ServicePage from './Pages/Public Page/Service';
+import AllNews from './Pages/Public Page/AllNews';
+import NewsDetails from './Pages/Public Page/NewsDetails';
 import FindAgent from './Pages/Public Page/FindAgent';
 import AgentShop from './Pages/Public Page/AgentShop';
 import AgentShopCheckout from './Pages/Public Page/AgentShopCheckout';
@@ -122,6 +125,7 @@ import SuperAdminShoesVoucherManagement from './Pages/SuperAdmin/SuperAdminShoes
 import SuperAdminUniformVoucherManagement from './Pages/SuperAdmin/SuperAdminUniformVoucherManagement';
 import SuperAdminStandardShuleKits from './Pages/SuperAdmin/SuperAdminStandardShuleKits';
 import SuperAdminShopProducts from './Pages/SuperAdmin/SuperAdminShopProducts';
+import SuperAdminPlatformContent from './Pages/SuperAdmin/SuperAdminPlatformContent';
 import AgentLayout              from './Pages/Agent/AgentLayout';
 import AgentDashboard           from './Pages/Agent/AgentDashboard';
 import AgentSchoolsPage         from './Pages/Agent/AgentSchoolsPage';
@@ -209,6 +213,8 @@ export default function App() {
           <Route path="/pay-by-school" element={<Navigate to="/combined-tution-requrement" replace />} />
           <Route path="/invoice-verify/:id" element={withPublicLanguage(<InvoiceVerify />)} />
           <Route path="/services" element={withPublicLanguage(<ServicePage />)} />
+          <Route path="/news" element={withPublicLanguage(<AllNews />)} />
+          <Route path="/news/:slug" element={withPublicLanguage(<NewsDetails />)} />
           <Route path="/find-agent" element={withPublicLanguage(<FindAgent />)} />
           <Route path="/agent-shop" element={withPublicLanguage(<AgentShop />)} />
           <Route path="/agent-shop/checkout" element={withPublicLanguage(<AgentShopCheckout />)} />
@@ -237,6 +243,7 @@ export default function App() {
           {/* ── Auth ──────────────────────────────────────────── */}
           <Route path="/login-portal-select" element={<LoginPortalSelect />} />
           <Route path="/login/lite" element={<LoginLite />} />
+          <Route path="/login/other" element={<OtherPortalLogin />} />
 
           <Route
             path="/lite/shule-avance/*"
@@ -367,6 +374,7 @@ export default function App() {
             <Route path="/superadmin/uniform-vouchers" element={<SuperAdminUniformVoucherManagement />} />
             <Route path="/superadmin/standard-shule-kits" element={<SuperAdminStandardShuleKits />} />
             <Route path="/superadmin/shop-products" element={<SuperAdminShopProducts />} />
+            <Route path="/superadmin/platform-content" element={<SuperAdminPlatformContent />} />
             <Route path="/superadmin/standard-kit-requests" element={<SuperAdminStandardKitRequestsPage />} />
             <Route path="/superadmin/shule-avance-organizations" element={<SuperAdminShuleAvanceOrgs />} />
             <Route path="/superadmin/shule-avance-teacher" element={<ShuleAvanceTeacher />} />

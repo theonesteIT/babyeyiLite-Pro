@@ -12,7 +12,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { getPostLogoutLoginPath } from '../utils/postLogoutLoginPath';
+import { getPostLogoutLoginPath, syncPostLogoutLoginPath } from '../utils/postLogoutLoginPath';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 
@@ -36,6 +36,7 @@ export function AuthProvider({ children }) {
       // Server returns 200 with data: null when not logged in (no 401)
       if (res.ok && json.success && json.data) {
         setUser(json.data);
+        syncPostLogoutLoginPath(json.data);
         return json.data;
       }
       setUser(false);  // not logged in or error

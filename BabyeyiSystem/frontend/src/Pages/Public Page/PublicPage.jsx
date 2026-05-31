@@ -1,10 +1,10 @@
 /**
- * PublicPage.jsx — Babyeyi Landing Page
+ * PublicPage.jsx  Babyeyi Landing Page
  * #000435 navy + amber · Tailwind only · Fully responsive (320px → 2560px)
  * Montserrat font · Modern premium design
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
@@ -12,15 +12,14 @@ import BabyeyiPortalLoader from "../../components/BabyeyiPortalLoader";
 import {
   GraduationCap, Globe, Users, BookOpen, Bell, Search, Star,
   ArrowRight, MapPin, BarChart3, Shield, Smartphone,
-  Menu, X, Building2, Layers, Heart, Sparkles,
-  LogIn, Facebook, Twitter, Instagram, Mail, Phone,
+  X, Building2, Layers, Heart, Sparkles,
+  LogIn, Mail, Phone,
   Youtube, CreditCard, Send, Bot, Loader2, Package,
-  ExternalLink, ChevronDown,
+  ExternalLink, MessageCircle,
 } from "lucide-react";
 
 import Heroimage from "../../assets/logo-bg2.png";
 import HeroImageMobile from "../../assets/logo-bg-left.png";
-import BabyeyiLogo from "../../assets/1BABYEYI LOGO FINAL.png";
 import IconicLogo from "../../assets/PartnersLogo/iconic.png";
 import NESLogo from "../../assets/PartnersLogo/Nesa.png";
 import MTNLogo from "../../assets/PartnersLogo/mtn.png";
@@ -28,14 +27,16 @@ import UmwarimuLogo from "../../assets/PartnersLogo/umwarimu sacco.jpg";
 import XentriLogo from "../../assets/PartnersLogo/xentriPay.png";
 import AitelLogo from "../../assets/PartnersLogo/Aitel.png";
 import mobileHero from "../../assets/mobile.png";
+import { platformContentApi, badgeStyle, categoryLabel, mediaUrl } from "../../utils/platformContentApi";
+import PublicHeader, { usePublicHeaderState } from "../../components/public/Header";
+import PublicFooter from "../../components/public/Footer";
+import WhatsAppIcon from "../../components/public/WhatsAppIcon";
+import {
+  PUBLIC_COMBINED_PAY_PATH, WHATSAPP_URL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY, SUPPORT_EMAIL,
+} from "../../components/public/publicSiteConstants";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
-const TEACHER_PORTAL_URL =
-  import.meta.env.VITE_TEACHER_PORTAL_URL || "https://ticha.babyeyi.rw";
-
-/** Full checkout: tuition + requirement items + paid-at-school lines (`PaidAtSchool` with `includeRequirements`). Not the narrow `/paid-at-school` wizard. */
-const PUBLIC_COMBINED_PAY_PATH = "/combined-tution-requrement";
-const PUBLIC_LANGS = ["rw", "en", "fr"];
+const ADMIN_POPUP_DATE_KEY = "babyeyi_admin_popup_date";
 
 /** Logos in `src/assets/partner/` */
 function partnersFromAssetsFolder() {
@@ -95,6 +96,31 @@ const FontLoader = () => (
     @keyframes fade-in {
       from { opacity:0; } to { opacity:1; }
     }
+    @keyframes popup-slide-up {
+      from { opacity:0; transform:translateY(28px) scale(.96); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    @keyframes popup-slide-out {
+      from { opacity:1; transform:translateY(0); }
+      to   { opacity:0; transform:translateY(20px); }
+    }
+    .popup-enter { animation: popup-slide-up .55s cubic-bezier(.22,1,.36,1) both; }
+    .popup-exit  { animation: popup-slide-out .35s ease forwards; }
+    @keyframes fab-menu-in {
+      from { opacity:0; transform:translateY(14px) scale(.96); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    .fab-menu-enter { animation: fab-menu-in .38s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes banner-slide-in {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes banner-slide-out {
+      from { opacity: 1; transform: translateY(0); }
+      to   { opacity: 0; transform: translateY(-70%); }
+    }
+    .banner-announce-enter { animation: banner-slide-in .55s cubic-bezier(.22,1,.36,1) both; }
+    .banner-announce-exit  { animation: banner-slide-out .4s cubic-bezier(.4,0,.2,1) forwards; }
 
     .anim-su  { animation: slide-up .7s cubic-bezier(.22,1,.36,1) both; }
     .anim-su2 { animation: slide-up .7s .12s cubic-bezier(.22,1,.36,1) both; }
@@ -113,7 +139,7 @@ const FontLoader = () => (
       filter: none;
     }
 
-    /* Noise grain — z-index:-1 so it never masks image layers */
+    /* Noise grain  z-index:-1 so it never masks image layers */
     .noise::after {
       content:'';
       position:absolute;
@@ -132,7 +158,7 @@ const FontLoader = () => (
       background-clip: text;
     }
 
-    /* Dot grid — used in demo/cta sections only, NOT hero */
+    /* Dot grid  used in demo/cta sections only, NOT hero */
     .dot-grid {
       background-image: radial-gradient(circle, rgba(251,191,36,.1) 1px, transparent 1px);
       background-size: 28px 28px;
@@ -166,7 +192,7 @@ const FontLoader = () => (
     }
     .btn-shine:hover::after { left:130%; }
 
-    /* Partner logos on WHITE background — slight dim + lift on hover */
+    /* Partner logos on WHITE background  slight dim + lift on hover */
     .partner-logo-light {
       transition: opacity .28s ease, transform .32s cubic-bezier(.22,1,.36,1), filter .28s ease;
       opacity: .82;
@@ -177,7 +203,7 @@ const FontLoader = () => (
       filter: grayscale(0) brightness(1.05);
       transform: translateY(-4px);
     }
-    /* MINEDUC / NESA — full colour, larger, always crisp */
+    /* MINEDUC / NESA  full colour, larger, always crisp */
     .partner-logo-light.partner-logo-emphasis {
       opacity: 1;
       filter: none;
@@ -221,183 +247,6 @@ function useVisible(ref) {
     return () => obs.disconnect();
   }, []);
   return v;
-}
-
-function LanguageSwitcher({ compact = false }) {
-  const { t, i18n } = useTranslation();
-  const baseLanguage = String(i18n.language || "en").slice(0, 2).toLowerCase();
-  const current = PUBLIC_LANGS.includes(baseLanguage) ? baseLanguage : "en";
-
-  return (
-    <div
-      className={`relative inline-flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-white/90 ${
-        compact ? "text-[11px]" : "text-[12px]"
-      }`}
-      style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.16)" }}
-    >
-      <Globe size={compact ? 12 : 13} className="text-amber-300" />
-      <span className="font-semibold whitespace-nowrap">{t("language.label")}</span>
-      <ChevronDown size={compact ? 12 : 13} className="text-white/70" />
-      <select
-        aria-label={t("language.switcherLabel")}
-        value={current}
-        onChange={(e) => i18n.changeLanguage(e.target.value)}
-        className="absolute inset-0 opacity-0 cursor-pointer"
-      >
-        <option value="rw" className="text-[#000435]">🇷🇼 {t("language.rw")}</option>
-        <option value="en" className="text-[#000435]">🇬🇧 {t("language.en")}</option>
-        <option value="fr" className="text-[#000435]">🇫🇷 {t("language.fr")}</option>
-      </select>
-    </div>
-  );
-}
-
-/* ── Navbar ────────────────────────────────────────────────────── */
-function Navbar() {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-
-  const links = [
-    { label: t("public.homePage"), href: "/" },
-    { label: t("public.payFees"), href: PUBLIC_COMBINED_PAY_PATH },
-    { label: t("public.services"), href: "/services" },
-    { label: t("public.features"), href: "/features" },
-    { label: t("public.schools"), href: "/schools" },
-  ];
-
-  return (
-    <nav
-      className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${
-        scrolled ? "bg-[#000435] shadow-[0_14px_48px_rgba(0,0,0,.5)]" : "bg-[#000435]"
-      }`}
-      style={{
-        borderBottom: "1px solid rgba(251,191,36,0.22)",
-        boxShadow: scrolled ? "0 10px 32px rgba(0, 4, 53, 0.4)" : "inset 0 -1px 0 rgba(255,255,255,0.06)",
-      }}
-    >
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-6 xl:px-10 2xl:px-16 flex items-center justify-between gap-1.5 xl:gap-2 h-12 sm:h-[62px] lg:h-14 xl:h-[70px]">
-        <Link to="/" className="flex items-center shrink min-w-0 group">
-          <img
-            src={BabyeyiLogo}
-            alt="Babyeyi logo"
-            onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = "/1BABYEYI LOGO FINAL.png";
-            }}
-            className="h-5 max-h-5 w-auto max-w-[74px] object-contain object-left transition-all duration-300 group-hover:brightness-110 sm:h-7 sm:max-h-none sm:max-w-[110px] lg:h-8 xl:h-9" />
-        </Link>
-
-        <div className="hidden lg:flex items-center rounded-2xl px-1.5 xl:px-2 py-1"
-          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          {links.map((l) => (
-            <Link key={l.label} to={l.href}
-              className="relative px-2.5 xl:px-3 py-2 text-[13px] xl:text-[13.5px] font-semibold text-white hover:text-amber-300 transition-colors duration-200 group">
-              {l.label}
-              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[1.5px] w-0 bg-amber-400 rounded-full transition-all duration-300 group-hover:w-3/4" />
-            </Link>
-          ))}
-        </div>
-
-        <div className="hidden lg:flex items-center gap-3">
-          <LanguageSwitcher />
-          <a
-            href={TEACHER_PORTAL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-3.5 xl:px-4.5 rounded-xl text-[12px] xl:text-[13px] font-bold text-white overflow-hidden whitespace-nowrap transition-all duration-300 hover:shadow-[0_6px_28px_rgba(56,189,248,0.35)] active:scale-[.97]"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(14,165,233,0.22) 0%, rgba(99,102,241,0.18) 100%)",
-              border: "1px solid rgba(125,211,252,0.45)",
-            }}
-          >
-            <span
-              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(56,189,248,0.35) 0%, rgba(129,140,248,0.28) 100%)",
-              }}
-              aria-hidden
-            />
-            <GraduationCap
-              size={15}
-              strokeWidth={2.5}
-              className="relative z-[1] text-sky-200 group-hover:text-white transition-colors"
-            />
-            <span className="relative z-[1] tracking-tight whitespace-nowrap">{t("public.teacherPortal")}</span>
-            <ExternalLink
-              size={12}
-              strokeWidth={2.5}
-              className="relative z-[1] opacity-70 group-hover:opacity-100 transition-opacity"
-            />
-          </a>
-          <Link to="/login-portal-select"
-            className="btn-shine inline-flex items-center gap-2 min-h-[40px] xl:min-h-[42px] px-4 xl:px-5 rounded-xl font-black text-[12px] xl:text-[13px] text-[#000435] whitespace-nowrap transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,.4)] active:scale-[.97]"
-            style={{ background: "linear-gradient(135deg,#FBBF24 0%,#F59E0B 100%)" }}>
-            <LogIn size={14} strokeWidth={2.5} />{t("public.shuleManager")}
-          </Link>
-        </div>
-
-        <div className="flex lg:hidden items-center gap-1.5 shrink-0">
-          <Link to="/login-portal-select"
-            className="btn-shine inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[#000435] text-[10px] font-bold whitespace-nowrap"
-            style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-            <LogIn size={11} strokeWidth={2.5} /> {t("public.shuleManager")}
-          </Link>
-          <button type="button" onClick={() => setOpen(!open)}
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            {open ? <X size={15} className="text-white" /> : <Menu size={15} className="text-white" />}
-          </button>
-        </div>
-      </div>
-
-      {open && (
-        <div className="lg:hidden bg-[#000120] border-t px-4 pb-5 pt-2 space-y-1"
-          style={{ borderColor: "rgba(251,191,36,0.12)" }}>
-          <div className="px-1 py-2">
-            <LanguageSwitcher compact />
-          </div>
-          {links.map((l) => (
-            <Link key={l.label} to={l.href} onClick={() => setOpen(false)}
-              className="flex px-4 py-3 rounded-xl text-[14px] font-semibold text-white hover:bg-white/6 hover:text-amber-400 transition-all">
-              {l.label}
-            </Link>
-          ))}
-          <div className="pt-2 space-y-2">
-            <a
-              href={TEACHER_PORTAL_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-[14px] font-bold text-white transition-all hover:shadow-[0_4px_20px_rgba(56,189,248,0.3)]"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(14,165,233,0.25) 0%, rgba(99,102,241,0.2) 100%)",
-                border: "1px solid rgba(125,211,252,0.45)",
-              }}
-            >
-              <GraduationCap size={16} strokeWidth={2.5} className="text-sky-200" />
-              {t("public.teacherPortal")}
-              <ExternalLink size={13} strokeWidth={2.5} className="opacity-70" />
-            </a>
-            <Link to="/login-portal-select" onClick={() => setOpen(false)}
-              className="btn-shine flex items-center justify-center gap-2 w-full px-4 py-3.5 rounded-xl text-[#000435] text-[14px] font-black"
-              style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-              <LogIn size={16} strokeWidth={2.5} /> {t("public.shuleManager")}
-            </Link>
-          </div>
-        </div>
-      )}
-    </nav>
-  );
 }
 
 /* ── AI Search Box ─────────────────────────────────────────────── */
@@ -618,10 +467,13 @@ function AISearchBox() {
 }
 
 /* ── Hero ──────────────────────────────────────────────────────── */
-function HeroSection() {
+function HeroSection({ bannerVisible = false }) {
   const { t } = useTranslation();
+  const topPad = bannerVisible
+    ? "pt-[calc(3.5rem+2.25rem)] sm:pt-[calc(62px+2.5rem)] xl:pt-[calc(70px+2.5rem)]"
+    : "pt-14 sm:pt-[62px] xl:pt-[70px]";
   return (
-    <section className="relative w-full overflow-hidden pt-14 sm:pt-[62px] xl:pt-[70px]" style={{ minHeight: "100svh" }}>
+    <section className={`relative w-full overflow-hidden ${topPad}`} style={{ minHeight: "100svh" }}>
 
       {/* ── Desktop BG image (sm+) ── */}
       <div className="absolute inset-0 z-0 pointer-events-none hidden sm:block"
@@ -652,21 +504,21 @@ function HeroSection() {
       <div className="absolute inset-0 z-[1] pointer-events-none hidden sm:block"
         />
 
-      {/* Mobile overlay — lighter so the amber BG + figures remain vivid */}
+      {/* Mobile overlay lighter so the amber BG + figures remain vivid */}
       <div className="absolute inset-0 z-[1] pointer-events-none sm:hidden"
          />
 
-      {/* NO grid lines on hero — removed as requested */}
+      {/* NO grid lines on hero  removed as requested */}
 
       {/* Amber radial bloom top-right (desktop only) */}
       <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full pointer-events-none z-[2] hidden lg:block"
         />
 
-      {/* Content — on mobile, block starts lower (not vertically centered) */}
+      {/* Content  on mobile, block starts lower (not vertically centered) */}
       <div className="relative z-[11] max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 flex flex-col justify-start sm:justify-center py-8 sm:py-20 xl:py-24"
         style={{ minHeight: "calc(100svh - 70px)" }}>
         {/*
-          MOBILE ONLY — push hero (h1 + buttons + search) further DOWN the screen:
+          MOBILE ONLY  push hero (h1 + buttons + search) further DOWN the screen:
           Edit the clamp() in the class on the next line:
             clamp(MIN_REM, VIEWPORT_PART, MAX_REM)
             • Raise MIN_REM  → never less than this inset from the top
@@ -676,7 +528,7 @@ function HeroSection() {
         */}
         <div className="w-full max-w-[min(100%,540px)] sm:max-w-[600px] xl:max-w-[700px] 2xl:max-w-[780px] mt-[clamp(8rem,65svh,14rem)] sm:mt-0">
 
-          {/* H1 — hidden on mobile as requested */}
+          {/* H1  hidden on mobile as requested */}
           <h1
             className="hero-h1 anim-su2 leading-[1.08] mb-4 sm:mb-6"
             style={{
@@ -822,6 +674,408 @@ function DemoSection() {
   );
 }
 
+/* ── News & Updates ────────────────────────────────────────────── */
+function NewsSection() {
+  const { t, i18n } = useTranslation();
+  const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadNews = useCallback(() => {
+    setLoading(true);
+    platformContentApi
+      .getNews(i18n.language, { limit: 3 })
+      .then((data) => setCards((data || []).slice(0, 3)))
+      .catch(() => setCards([]))
+      .finally(() => setLoading(false));
+  }, [i18n.language]);
+
+  useEffect(() => {
+    loadNews();
+  }, [loadNews]);
+
+  useEffect(() => {
+    const onFocus = () => loadNews();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadNews]);
+
+  const formatDate = (raw) => {
+    try {
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) return raw;
+      return d.toLocaleDateString(i18n.language || "en", { year: "numeric", month: "long", day: "numeric" });
+    } catch {
+      return raw;
+    }
+  };
+
+  return (
+    <section className="py-16 sm:py-24 xl:py-32 bg-white relative overflow-hidden"
+      style={{ borderTop: "1px solid #f1f5f9" }}>
+      <div className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(circle, rgba(0,4,53,0.035) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }} />
+      <div className="relative max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16">
+        <div className="text-center mb-10 sm:mb-14 xl:mb-16">
+          <h2 className="font-black tracking-tight text-[#000435] mb-3"
+            style={{ fontSize: "clamp(1.55rem, 3.2vw, 2.7rem)", letterSpacing: "-0.025em" }}>
+            {t("public.newsSectionTitle")}
+          </h2>
+          <div className="w-12 h-1 rounded-full mx-auto mb-4" style={{ background: "linear-gradient(90deg,#FBBF24,#F59E0B)" }} />
+          <p className="max-w-lg xl:max-w-xl mx-auto text-slate-500"
+            style={{ fontSize: "clamp(14px,1.4vw,16px)" }}>
+            {t("public.newsSectionSub")}
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="py-16 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+          </div>
+        ) : !cards.length ? (
+          <div className="text-center py-12 rounded-2xl border border-dashed border-slate-200 bg-slate-50/80">
+            <p className="text-slate-500 font-medium mb-4">{t("public.newsEmptySub")}</p>
+            <Link to="/news" className="inline-flex items-center gap-2 text-sm font-black text-[#000435] hover:text-amber-600">
+              {t("public.newsViewAll")} <ArrowRight size={14} />
+            </Link>
+          </div>
+        ) : (
+        <div className="grid md:grid-cols-3 gap-5 xl:gap-6">
+          {cards.map((c, i) => {
+            const badge = badgeStyle(c.category);
+            const badgeLabel = categoryLabel(c.category);
+            const img = mediaUrl(c.featured_image);
+            const detailHref = `/news/${c.slug}`;
+            return (
+              <article
+                key={c.slug || i}
+                className="group flex flex-col rounded-2xl overflow-hidden bg-white transition-all duration-300 hover:-translate-y-1"
+                style={{ border: "1px solid #f1f5f9", boxShadow: "0 4px 24px rgba(0,4,53,0.04)" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#FBBF24";
+                  e.currentTarget.style.boxShadow = "0 16px 48px rgba(251,191,36,0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#f1f5f9";
+                  e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,4,53,0.04)";
+                }}
+              >
+                <div className="relative aspect-[16/10] overflow-hidden">
+                  {img ? (
+                    <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#000435] to-[#000c6b]">
+                      <div className="dot-grid absolute inset-0 opacity-40" />
+                      <CreditCard size={40} className="relative z-10 text-amber-400/70" strokeWidth={1.5} />
+                    </div>
+                  )}
+                  <span
+                    className="absolute bottom-3 left-3 z-10 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider"
+                    style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}
+                  >
+                    {badgeLabel}
+                  </span>
+                </div>
+                <div className="flex flex-col flex-1 p-5 xl:p-6">
+                  <h3 className="font-black text-[#000435] mb-2 leading-snug"
+                    style={{ fontSize: "clamp(14px,1.2vw,17px)" }}>
+                    {c.title}
+                  </h3>
+                  <p className="text-slate-500 leading-relaxed flex-1 mb-5"
+                    style={{ fontSize: "clamp(12px,1vw,13.5px)" }}>
+                    {c.excerpt}
+                  </p>
+                  <div className="flex items-center justify-between gap-3 pt-3"
+                    style={{ borderTop: "1px solid #f1f5f9" }}>
+                    <time className="text-slate-400 font-medium" style={{ fontSize: "clamp(10px,0.85vw,11px)" }}>
+                      {formatDate(c.publish_at)}
+                    </time>
+                    <Link
+                      to={detailHref}
+                      className="inline-flex items-center gap-1 font-black text-[#000435] hover:text-amber-600 transition-colors"
+                      style={{ fontSize: "clamp(11px,1vw,12.5px)" }}
+                    >
+                      {t("public.newsReadMore")} <ArrowRight size={12} />
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+        )}
+
+        <div className="text-center mt-10 sm:mt-12">
+          <Link
+            to="/news"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-black text-[#000435] transition-all hover:shadow-[0_8px_28px_rgba(0,4,53,0.08)] hover:-translate-y-0.5"
+            style={{ fontSize: "clamp(12px,1vw,14px)", border: "1.5px solid #000435", background: "#fff" }}
+          >
+            {t("public.newsViewAll")} <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Floating support FAB + Find Agent promo ─────────────────────── */
+function FloatingSupportFab() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e) => {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("touchstart", onPointer, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("touchstart", onPointer);
+    };
+  }, [open]);
+
+  const items = [
+    {
+      key: "agent",
+      label: t("public.supportFabFindAgent"),
+      href: "/find-agent",
+      internal: true,
+      icon: <MapPin size={17} className="text-amber-500" strokeWidth={2.5} />,
+      iconBg: "rgba(251,191,36,0.12)",
+    },
+    {
+      key: "whatsapp",
+      label: t("public.supportFabWhatsApp"),
+      href: WHATSAPP_URL,
+      external: true,
+      icon: <WhatsAppIcon size={17} className="text-[#25D366]" />,
+      iconBg: "rgba(37,211,102,0.1)",
+    },
+    {
+      key: "call",
+      label: t("public.supportFabCall"),
+      href: `tel:${SUPPORT_PHONE}`,
+      external: true,
+      icon: <Phone size={17} className="text-[#000435]" strokeWidth={2.5} />,
+      iconBg: "rgba(0,4,53,0.06)",
+    },
+    {
+      key: "email",
+      label: t("public.supportFabEmail"),
+      href: `mailto:${SUPPORT_EMAIL}`,
+      external: true,
+      icon: <Mail size={17} className="text-[#000435]" strokeWidth={2.5} />,
+      iconBg: "rgba(0,4,53,0.06)",
+    },
+  ];
+
+  const rowClass =
+    "group flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl text-left font-semibold text-[#000435] transition-all duration-200 hover:bg-white hover:shadow-[0_4px_16px_rgba(0,4,53,0.08)] active:scale-[.98]";
+
+  return (
+    <div
+      ref={rootRef}
+      className="fixed z-[46] flex flex-col items-end gap-3 bottom-5 right-5 sm:bottom-6 sm:right-6"
+    >
+      {open && (
+        <div
+          className="fab-menu-enter w-[min(calc(100vw-2.5rem),280px)] rounded-2xl overflow-hidden"
+          style={{
+            background: "rgba(255,255,255,0.94)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            border: "1px solid rgba(255,255,255,0.85)",
+            boxShadow: "0 16px 48px rgba(0,4,53,0.18), 0 2px 8px rgba(0,4,53,0.06)",
+          }}
+          role="menu"
+          aria-label={t("public.supportFabTitle")}
+        >
+          <div className="px-4 pt-4 pb-2">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#000435]/45 mb-1">
+              {t("public.popupNeedHelp")}
+            </p>
+            <p className="font-black text-[#000435]" style={{ fontSize: "clamp(14px,1.1vw,15px)" }}>
+              {t("public.supportFabTitle")}
+            </p>
+            <div className="mt-3 h-px" style={{ background: "linear-gradient(90deg,rgba(251,191,36,0.5),rgba(0,4,53,0.08))" }} />
+          </div>
+          <div className="px-2 pb-2 space-y-0.5">
+            {items.map((item) => {
+              const inner = (
+                <>
+                  <span
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105"
+                    style={{ background: item.iconBg }}
+                  >
+                    {item.icon}
+                  </span>
+                  <span style={{ fontSize: "clamp(12.5px,1vw,13.5px)" }}>{item.label}</span>
+                </>
+              );
+              return item.internal ? (
+                <Link key={item.key} to={item.href} className={rowClass} role="menuitem" onClick={() => setOpen(false)}>
+                  {inner}
+                </Link>
+              ) : (
+                <a
+                  key={item.key}
+                  href={item.href}
+                  className={rowClass}
+                  role="menuitem"
+                  target={item.key === "whatsapp" ? "_blank" : undefined}
+                  rel={item.key === "whatsapp" ? "noopener noreferrer" : undefined}
+                  onClick={() => setOpen(false)}
+                >
+                  {inner}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_10px_36px_rgba(0,4,53,0.35)]"
+        style={{
+          background: open
+            ? "linear-gradient(135deg,#000435,#000c6b)"
+            : "linear-gradient(135deg,#000435,#00094F)",
+          border: "1px solid rgba(251,191,36,0.28)",
+        }}
+        aria-label={open ? t("public.close") : t("public.supportFabAria")}
+        aria-expanded={open}
+      >
+        {open ? (
+          <X size={22} className="text-white" strokeWidth={2.5} />
+        ) : (
+          <MessageCircle size={24} className="text-amber-400" strokeWidth={2.5} />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function AdminManagedPopup() {
+  const { t, i18n } = useTranslation();
+  const [popup, setPopup] = useState(null);
+  const [visible, setVisible] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const triggered = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const device = window.innerWidth < 640 ? 'mobile' : 'desktop';
+        const data = await platformContentApi.getActivePopup(i18n.language, device);
+        if (!cancelled && data) setPopup(data);
+      } catch { /* no popup */ }
+    })();
+    return () => { cancelled = true; };
+  }, [i18n.language]);
+
+  useEffect(() => {
+    if (!popup || triggered.current) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (popup.frequency === 'once_day') {
+      try {
+        if (localStorage.getItem(ADMIN_POPUP_DATE_KEY) === today) return;
+      } catch { /* ignore */ }
+    }
+
+    const tryShow = () => {
+      if (triggered.current) return;
+      triggered.current = true;
+      setVisible(true);
+    };
+
+    const delay = (popup.delay_seconds || 7) * 1000;
+    const timer = setTimeout(tryShow, delay);
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      if (max <= 0) return;
+      if (window.scrollY / max >= (popup.scroll_percent || 40) / 100) tryShow();
+    };
+    if (popup.trigger_rule !== 'timer') {
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    }
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [popup]);
+
+  const close = () => {
+    setExiting(true);
+    try {
+      localStorage.setItem(ADMIN_POPUP_DATE_KEY, new Date().toISOString().slice(0, 10));
+    } catch { /* ignore */ }
+    setTimeout(() => setVisible(false), 320);
+  };
+
+  if (!popup || !visible) return null;
+
+  const animClass = popup.animation_type === 'fade' ? 'anim-fi' : popup.animation_type === 'zoom' ? 'popup-enter' : 'popup-enter';
+
+  return (
+    <div className="fixed z-[44] bottom-[5.75rem] right-5 sm:bottom-[6.75rem] sm:right-6 w-[min(calc(100vw-2.5rem),320px)]" aria-live="polite">
+      <div
+        className={`relative rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,4,53,0.4)] ${exiting ? 'popup-exit' : animClass}`}
+        style={{ background: 'linear-gradient(160deg,#000435 0%,#000c6b 100%)', border: '1px solid rgba(251,191,36,0.22)' }}
+        role="dialog"
+      >
+        {popup.show_close_button !== false && (
+          <button type="button" onClick={close} className="absolute top-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 z-10" aria-label={t('public.close')}>
+            <X size={14} />
+          </button>
+        )}
+        <div className="p-5 sm:p-6">
+          {popup.image_url && (
+            <img src={mediaUrl(popup.image_url)} alt="" className="w-full h-32 object-cover rounded-xl mb-4" />
+          )}
+          <p className="text-[11px] font-bold uppercase tracking-wider text-white/50 mb-1">{t('public.popupNeedHelp')}</p>
+          <h3 className="font-black text-white mb-2 leading-snug" style={{ fontSize: 'clamp(15px,1.2vw,17px)' }}>{popup.title}</h3>
+          <p className="text-white/60 text-sm leading-relaxed mb-5">{popup.description}</p>
+          {popup.cta_link && (
+            popup.cta_link.startsWith('/') ? (
+              <Link
+                to={popup.cta_link}
+                onClick={() => { if (popup.id) platformContentApi.trackPopupClick(popup.id); close(); }}
+                className="btn-shine flex items-center justify-center gap-2 w-full rounded-xl py-3 font-black text-[#000435]"
+                style={{ background: 'linear-gradient(135deg,#FBBF24,#F59E0B)' }}
+              >
+                {popup.cta_text || t('public.popupCtaNow')} <ArrowRight size={14} />
+              </Link>
+            ) : (
+              <a href={popup.cta_link} onClick={close} className="btn-shine flex items-center justify-center gap-2 w-full rounded-xl py-3 font-black text-[#000435]" style={{ background: 'linear-gradient(135deg,#FBBF24,#F59E0B)' }}>
+                {popup.cta_text || t('public.popupCtaNow')} <ArrowRight size={14} />
+              </a>
+            )
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FloatingSupportWidget() {
+  return (
+    <>
+      <AdminManagedPopup />
+      <FloatingSupportFab />
+    </>
+  );
+}
+
 /* ── Stats Section ─────────────────────────────────────────────── */
 function StatsSection() {
   const ss = [
@@ -945,7 +1199,7 @@ function GetStartedSection() {
   );
 }
 
-/* ── Partners — bundled logos from `src/assets/PartnersLogo/` + CDN where no local file ── */
+/* ── Partners  bundled logos from `src/assets/PartnersLogo/` + CDN where no local file ── */
 const TRUSTED_PARTNERS = [
    { name: "MTN RWANDA", full: "Mobile Money Payments", logo: MTNLogo },
   { name: "Umwarimu Sacco", full: "Teachers' Sacco", logo: UmwarimuLogo },
@@ -982,7 +1236,7 @@ function PartnersSection() {
           {" "}{t("public.partnersSentence")}
         </p>
 
-        {/* ── Partner cards: 3 per row (sm+), 2 per row on narrow phones — modern cards, mobile-first ── */}
+        {/* ── Partner cards: 3 per row (sm+), 2 per row on narrow phones  modern cards, mobile-first ── */}
         <div
           className="grid w-full max-w-4xl mx-auto grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 auto-rows-fr items-stretch [contain:layout]"
         >
@@ -1026,7 +1280,7 @@ function PartnersSection() {
                   }}
                 />
 
-                {/* Initials fallback — shown only when image fails */}
+                {/* Initials fallback  shown only when image fails */}
                 <div
                   className="flex h-14 w-14 items-center justify-center rounded-xl sm:h-16 sm:w-16 shrink-0"
                   style={{
@@ -1230,98 +1484,12 @@ function CTASection() {
   );
 }
 
-/* ── Footer ────────────────────────────────────────────────────── */
-function Footer() {
-  const { t, i18n } = useTranslation();
-  const localizedDate = new Intl.DateTimeFormat(i18n.language || "en", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date());
-  const cols = [
-    { title: t("public.footerPlatform"), links: [{ l: t("public.footerAbout"), h: "#about" }, { l: t("public.features"), h: "/features", i: true }, { l: t("public.homePage"), h: "/", i: true }, { l: t("public.footerPricing"), h: "#pricing" }] },
-    { title: t("public.footerSchools"),  links: [{ l: t("public.footerSearchSchools"), h: "/schools", i: true }, { l: t("public.footerPayByCode"), h: PUBLIC_COMBINED_PAY_PATH, i: true }, { l: t("public.registerSchool"), h: "/register", i: true }, { l: t("public.footerTvetTrades"), h: "/schools", i: true }] },
-    { title: t("public.footerAccounts"), links: [{ l: t("public.footerSchoolManagerLogin"), h: "/login-portal-select", i: true }, { l: t("public.parentLogin"), h: "/parents/login", i: true }, { l: t("public.footerStaffLogin"), h: "/login/lite", i: true }, { l: t("public.services"), h: "/services", i: true }] },
-    { title: t("public.footerSupport"),  links: [{ l: t("public.footerHelpCenter"), h: "#" }, { l: t("public.contactUs"), h: "#contact" }, { l: t("public.privacyPolicy"), h: "#" }, { l: t("public.terms"), h: "#" }] },
-  ];
-  return (
-    <footer style={{ background: "#000435" }}>
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 xl:px-10 2xl:px-16 pt-12 xl:pt-16 pb-8">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 xl:gap-12 mb-10 xl:mb-14">
-          <div className="col-span-2 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                <GraduationCap size={17} className="text-[#000435]" />
-              </div>
-              <span className="font-black text-[17px] text-white">
-                baby<span className="text-amber-400">eyi</span><span style={{ color: "rgba(251,191,36,0.5)" }}>.rw</span>
-              </span>
-            </Link>
-            <p className="text-slate-600 leading-relaxed mb-5" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-              {t("public.brandTagline")}
-            </p>
-            <div className="mb-4">
-              <LanguageSwitcher compact />
-            </div>
-            <div className="flex gap-2">
-              {[{ Icon: Facebook, bg: "#1877F2" }, { Icon: Twitter, bg: "#1DA1F2" }, { Icon: Instagram, bg: "#E4405F" }, { Icon: Youtube, bg: "#FF0000" }].map(({ Icon, bg }, i) => (
-                <a key={i} href="#"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white transition-all hover:scale-110 hover:shadow-lg"
-                  style={{ background: bg }}>
-                  <Icon size={14} />
-                </a>
-              ))}
-            </div>
-          </div>
-          {cols.map((col) => (
-            <div key={col.title}>
-              <h4 className="font-black text-white text-[10.5px] uppercase tracking-[0.12em] mb-4 xl:mb-5">{col.title}</h4>
-              <ul className="space-y-2.5">
-                {col.links.map(({ l, h, i }) => (
-                  <li key={l}>
-                    {i
-                      ? <Link to={h} className="text-slate-600 font-medium hover:text-amber-400 transition-colors" style={{ fontSize: "clamp(12px,1vw,13px)" }}>{l}</Link>
-                      : <a href={h} className="text-slate-600 font-medium hover:text-amber-400 transition-colors" style={{ fontSize: "clamp(12px,1vw,13px)" }}>{l}</a>
-                    }
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="sep mb-6" />
-
-        <div className="flex flex-wrap gap-5 mb-6">
-          {[{ Icon: Mail, v: "hello@babyeyi.rw" }, { Icon: Phone, v: "+250 788 000 000" }, { Icon: MapPin, v: "Kigali, Rwanda" }].map(({ Icon, v }) => (
-            <div key={v} className="flex items-center gap-2 text-slate-600 font-medium" style={{ fontSize: "clamp(12px,1vw,13px)" }}>
-              <Icon size={13} className="text-amber-400 shrink-0" /> {v}
-            </div>
-          ))}
-        </div>
-
-        <div className="sep mb-6" />
-        <p className="text-slate-700 mb-5" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
-          {t("public.today", { date: localizedDate })}
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-slate-700" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>
-            © {new Date().getFullYear()} Babyeyi Rwanda. {t("public.allRightsReserved")}
-          </p>
-          <p className="text-slate-800" style={{ fontSize: "clamp(10px,0.85vw,12px)" }}>{t("public.madeWith")}</p>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 /* ── Root ──────────────────────────────────────────────────────── */
 export default function PublicPage() {
   const { t, i18n } = useTranslation();
   const { loading: authLoading } = useAuth();
   const [langPulse, setLangPulse] = useState(0);
+  const { bannerVisible, dismissBanner, banners } = usePublicHeaderState();
 
   useEffect(() => {
     document.title = "Babyeyi System";
@@ -1343,15 +1511,17 @@ export default function PublicPage() {
   return (
     <div key={langPulse} className="animate-[fade-in_.35s_ease]">
       <FontLoader />
-      <Navbar />
-      <HeroSection />
+      <PublicHeader bannerVisible={bannerVisible} onBannerClose={dismissBanner} banners={banners} />
+      <HeroSection bannerVisible={bannerVisible} />
       <GetStartedSection />
       {/* <HowItWorksSection /> */}
       <DemoSection />
+      <NewsSection />
       <PartnersSection />
       <TestimonialsSection />
       <CTASection />
-      <Footer />
+      <PublicFooter />
+      <FloatingSupportWidget />
     </div>
   );
 }

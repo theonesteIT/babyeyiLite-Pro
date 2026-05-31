@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   CheckCircle2, Loader2, Plus, Search, X,
-  ChevronRight, Calculator, Banknote, Calendar, ChevronLeft, User,
+  ChevronRight, Calculator, Banknote, Calendar, ChevronLeft, ChevronDown, User,
   TrendingUp, AlertCircle, RefreshCw, Filter
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -12,11 +12,33 @@ import api from '../services/api';
 import PayrollExportBar from '../../../../shared/payroll/PayrollExportBar';
 import PayrollPaymentTrackerPanel from '../../../../shared/payroll/PayrollPaymentTrackerPanel';
 import PayrollWorkspaceTabs from '../../../../shared/payroll/PayrollWorkspaceTabs';
+import PayrollInvoiceDetailPanel from '../../../../shared/payroll/PayrollInvoiceDetailPanel';
+import PayrollInvoiceSlideModal from '../../../../shared/payroll/PayrollInvoiceSlideModal';
 import { collectAcademicYears, findPayrollPeriodTemplate } from '../../../../shared/payroll/payrollHelpers';
+import { buildPayrollInvoiceBreakdown, payrollInvoiceMeta } from '../../../../shared/payroll/payrollInvoiceBreakdown';
 import { exportPayrollRequestsExcel, exportPayrollRequestsPdf } from '../../../../shared/payroll/payrollExport';
+import {
+  parseManagerAcademicSettings,
+  termsForRegistryYear,
+  inferCurrentTerm,
+  yearOptionLabel,
+} from '../utils/academicCalendarFilters';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const STEP_LABELS = ['Select Staff', 'Salary Details', 'Amount to Pay', 'Review'];
+const PAYROLL_PAGE_SIZE = 12;
+
+const DEFAULT_FILTERS = {
+  month: 'All',
+  role: 'All',
+  query: '',
+  term: 'All',
+  academicYear: 'All',
+  status: 'All',
+  dateFrom: '',
+  dateTo: '',
+  dateField: 'submitted',
+};
 
 const STATUS_CFG = {
   Pending: { cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400' },
@@ -41,6 +63,13 @@ const toPayrollYear = (y) => {
   return Number.isFinite(n) ? n : new Date().getFullYear();
 };
 const getStaffCode = (s) => s?.staffCode || `SS-${String(s?.staffUserId || '').padStart(3, '0')}`;
+
+function termMatchesFilter(rowTerm, filterTerm) {
+  if (!filterTerm || filterTerm === 'All') return true;
+  const a = normalizeTerm(rowTerm).toLowerCase().replace(/\s/g, '');
+  const b = normalizeTerm(filterTerm).toLowerCase().replace(/\s/g, '');
+  return a === b || a.includes(b.replace('term', '')) || b.includes(a.replace('term', ''));
+}
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CFG[status] || { cls: 'bg-slate-50 text-slate-700 border-slate-200', dot: 'bg-slate-400' };
@@ -97,7 +126,8 @@ export default function PayrollConfig() {
   const location = useLocation();
 
   const [requests, setRequests] = useState([]);
-  const [filters, setFilters] = useState({ month: 'All', role: 'All', query: '' });
+  const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState({ requests: false, staff: false, advance: false, action: false });
   const [paymentRequestModal, setPaymentRequestModal] = useState({ open: false, row: null, amount: '' });
   const [toast, setToast] = useState({ type: '', message: '' });
@@ -108,15 +138,21 @@ export default function PayrollConfig() {
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [period, setPeriod] = useState({
     month: MONTHS[new Date().getMonth()],
-    term: 'T2',
-    year: String(new Date().getFullYear()),
+    term: '',
+    year: '',
     amount: '',
   });
-  const [academicSettings, setAcademicSettings] = useState({ term: 'T2', year: String(new Date().getFullYear()) });
-  const [availableTerms, setAvailableTerms] = useState(['T2', 'T1', 'T3']);
-  const [availableYears, setAvailableYears] = useState([String(new Date().getFullYear())]);
+  const [academicSettings, setAcademicSettings] = useState({
+    term: '',
+    year: '',
+    loaded: false,
+  });
+  const [academicRegistry, setAcademicRegistry] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
   const [advance, setAdvance] = useState({ monthlyDeduction: 0, deductionApplied: 0, approvedCount: 0 });
-  const [detailRow, setDetailRow] = useState(null);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceExtras, setInvoiceExtras] = useState({ staff: null, advance: null, details: null });
   const [showFilters, setShowFilters] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState('requests');
 
@@ -145,6 +181,23 @@ export default function PayrollConfig() {
     setLoading((p) => ({ ...p, requests: true }));
     const params = { _ts: Date.now() };
     if (filters.month !== 'All') params.month = filters.month;
+    if (filters.term !== 'All') params.term = filters.term;
+    if (filters.academicYear !== 'All') {
+      params.academic_year = filters.academicYear;
+      const y = toPayrollYear(filters.academicYear);
+      if (y >= 2000 && y <= 3000) params.year = y;
+    }
+    if (filters.dateFrom) {
+      params.date_from = filters.dateFrom;
+      params.date_field = filters.dateField || 'submitted';
+    }
+    if (filters.dateTo) {
+      params.date_to = filters.dateTo;
+      params.date_field = filters.dateField || 'submitted';
+    }
+    const q = String(filters.query || '').trim();
+    if (q) params.query = q;
+
     api.get('/accountant/payroll-requests', { params })
       .then((res) => {
         if (res.data?.success === false) throw new Error(res.data?.message || 'Failed to load payroll');
@@ -152,9 +205,77 @@ export default function PayrollConfig() {
       })
       .catch((e) => notify('error', e?.response?.data?.message || e?.message || 'Failed to load payroll'))
       .finally(() => setLoading((p) => ({ ...p, requests: false })));
-  }, [filters.month, notify]);
+  }, [filters.month, filters.term, filters.academicYear, filters.dateFrom, filters.dateTo, filters.dateField, filters.query, notify]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.month, filters.role, filters.query, filters.term, filters.academicYear, filters.status, filters.dateFrom, filters.dateTo, filters.dateField]);
+
+  useEffect(() => {
+    if (workspaceTab !== 'requests') setShowFilters(false);
+  }, [workspaceTab]);
+
+  useEffect(() => {
+    if (!showFilters) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setShowFilters(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showFilters]);
+
+  useEffect(() => {
+    if (!selectedRow?.staffUserId) {
+      setInvoiceExtras({ staff: null, advance: null, details: null });
+      return undefined;
+    }
+    let cancelled = false;
+    setInvoiceLoading(true);
+    const reqId = Number(selectedRow.id);
+    Promise.all([
+      reqId ? api.get(`/accountant/payroll-requests/${reqId}/details`).catch(() => null) : Promise.resolve(null),
+      api.get(`/accountant/payroll/advance-check/${selectedRow.staffUserId}`).catch(() => null),
+      api.get('/accountant/payroll/staff/search', {
+        params: { query: selectedRow.staffCode || selectedRow.staffName || '', limit: 15 },
+      }).catch(() => null),
+    ])
+      .then(([detailsRes, advanceRes, staffRes]) => {
+        if (cancelled) return;
+        const staffList = Array.isArray(staffRes?.data?.data) ? staffRes.data.data : [];
+        const staff =
+          staffList.find((s) => Number(s.staffUserId) === Number(selectedRow.staffUserId)) || staffList[0] || null;
+        setInvoiceExtras({
+          details: detailsRes?.data?.data || null,
+          advance: advanceRes?.data?.data || null,
+          staff,
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setInvoiceLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedRow?.id, selectedRow?.staffUserId, selectedRow?.staffCode, selectedRow?.staffName]);
+
+  const enrichedRow = useMemo(() => {
+    if (!selectedRow) return null;
+    const d = invoiceExtras.details;
+    return d ? { ...selectedRow, ...d } : selectedRow;
+  }, [selectedRow, invoiceExtras.details]);
+
+  const invoiceBreakdown = useMemo(() => {
+    if (!enrichedRow) return {};
+    return buildPayrollInvoiceBreakdown(enrichedRow, invoiceExtras.staff, invoiceExtras.advance);
+  }, [enrichedRow, invoiceExtras.staff, invoiceExtras.advance]);
+
+  const payrollInvoice = useMemo(() => (enrichedRow ? payrollInvoiceMeta(enrichedRow) : null), [enrichedRow]);
+
+  useEffect(() => {
+    if (!selectedRow?.id) return;
+    const fresh = requests.find((r) => Number(r.id) === Number(selectedRow.id));
+    if (fresh) setSelectedRow(fresh);
+  }, [requests]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── handle return from SalaryPayment ───────────────────────
   useEffect(() => {
@@ -172,26 +293,52 @@ export default function PayrollConfig() {
       .finally(() => setLoading((p) => ({ ...p, requests: false })));
   }, [location.state?.payrollPaymentSaved]); // eslint-disable-line
 
-  // ── academic settings ───────────────────────────────────────
+  // ── Manager preferences: Settings → Preferences (academic calendar) ──
   useEffect(() => {
     api.get('/dos/academic-calendar-settings')
       .then((res) => {
-        if (res.data?.success) {
-          const data = res.data.data || {};
-          const raw = Array.isArray(data.active_terms) && data.active_terms.length ? data.active_terms : ['Term 2', 'Term 1', 'Term 3'];
-          const terms = Array.from(new Set(raw.map(normalizeTerm)));
-          const term = terms[0] || 'T2';
-          const year = String(data.current_academic_year || new Date().getFullYear());
-          const cur = String(new Date().getFullYear());
-          const allYears = Array.from(new Set([year, cur, String(Number(cur) - 1), String(Number(cur) + 1)]));
-          setAcademicSettings({ term, year });
-          setAvailableTerms([term, ...['T1', 'T2', 'T3'].filter((t) => t !== term)]);
-          setAvailableYears(allYears);
-          setPeriod((p) => ({ ...p, term, year }));
-        }
+        if (!res.data?.success) return;
+        const parsed = parseManagerAcademicSettings(res.data.data || {});
+        const year = parsed.currentYear || String(new Date().getFullYear());
+        const term = parsed.defaultTerm || inferCurrentTerm(parsed.defaultTerms);
+        const years = parsed.years?.length ? parsed.years : [year];
+
+        setAcademicRegistry(parsed.registry);
+        setAcademicSettings({ term, year, loaded: true });
+        setAvailableYears(years);
+        setPeriod((p) => ({
+          ...p,
+          term,
+          year,
+        }));
       })
       .catch(() => { });
   }, []);
+
+  const periodTermOptions = useMemo(() => {
+    const y = period.year || academicSettings.year;
+    const terms = termsForRegistryYear(academicRegistry, y);
+    return terms.length ? terms : ['Term 1', 'Term 2', 'Term 3'];
+  }, [academicRegistry, period.year, academicSettings.year]);
+
+  const applyManagerPeriodDefaults = useCallback(() => {
+    if (!academicSettings.loaded) return;
+    const terms = termsForRegistryYear(academicRegistry, academicSettings.year);
+    const term = terms.includes(academicSettings.term)
+      ? academicSettings.term
+      : inferCurrentTerm(terms);
+    setPeriod((p) => ({
+      ...p,
+      term,
+      year: academicSettings.year,
+    }));
+  }, [academicSettings, academicRegistry]);
+
+  const handlePeriodYearChange = (year) => {
+    const terms = termsForRegistryYear(academicRegistry, year);
+    const nextTerm = terms.includes(period.term) ? period.term : inferCurrentTerm(terms);
+    setPeriod((p) => ({ ...p, year, term: nextTerm }));
+  };
 
   // ── staff search ────────────────────────────────────────────
   useEffect(() => {
@@ -285,25 +432,69 @@ export default function PayrollConfig() {
       .finally(() => setLoading((p) => ({ ...p, advance: false })));
   }, [selectedStaff?.staffUserId, totalEarnings, salary.deductions]);
 
-  // ── filtered table ──────────────────────────────────────────
+  // ── filtered table (client refinements on server-filtered list) ──
   const filtered = useMemo(() =>
     requests.filter((r) => {
-      const mOk = filters.month === 'All' || r.month === filters.month;
       const roleOk = filters.role === 'All' || String(r.role || '').toLowerCase() === String(filters.role || '').toLowerCase();
-      const q = String(filters.query || '').trim().toLowerCase();
-      const qOk = !q || String(r.staffName || '').toLowerCase().includes(q) || String(r.staffCode || '').toLowerCase().includes(q) || String(r.role || '').toLowerCase().includes(q);
-      return mOk && roleOk && qOk;
+      const statusOk = filters.status === 'All' || r.status === filters.status;
+      const termOk = termMatchesFilter(r.term, filters.term);
+      return roleOk && statusOk && termOk;
     }),
-    [filters, requests]);
+    [filters.role, filters.status, filters.term, requests]);
+
+  const pagination = useMemo(() => {
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAYROLL_PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * PAYROLL_PAGE_SIZE;
+    return {
+      totalPages,
+      safePage,
+      paginated: filtered.slice(start, start + PAYROLL_PAGE_SIZE),
+      start: filtered.length === 0 ? 0 : start + 1,
+      end: Math.min(safePage * PAYROLL_PAGE_SIZE, filtered.length),
+    };
+  }, [filtered, page]);
+
+  useEffect(() => {
+    if (page > pagination.totalPages) setPage(pagination.totalPages);
+  }, [page, pagination.totalPages]);
 
   const roleOptions = useMemo(() => ['All', ...Array.from(new Set(requests.map((r) => r.role).filter(Boolean)))], [requests]);
 
-  const stats = {
-    total: requests.length,
-    pending: requests.filter((r) => r.status === 'Pending').length,
-    paid: requests.filter((r) => r.status === 'Paid').length,
-    totalPaid: requests.filter((r) => r.status === 'Paid').reduce((s, r) => s + Number(r.amount || 0), 0),
+  const termFilterOptions = useMemo(() => {
+    const yearForTerms = filters.academicYear !== 'All' ? filters.academicYear : academicSettings.year;
+    const terms = termsForRegistryYear(academicRegistry, yearForTerms);
+    return ['All', ...(terms.length ? terms : ['Term 1', 'Term 2', 'Term 3'])];
+  }, [academicRegistry, filters.academicYear, academicSettings.year]);
+
+  const academicYearFilterOptions = useMemo(
+    () => ['All', ...trackerYearOptions],
+    [trackerYearOptions],
+  );
+
+  const dateFilterActive = Boolean(filters.dateFrom || filters.dateTo);
+
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.term !== 'All') n += 1;
+    if (filters.academicYear !== 'All') n += 1;
+    if (filters.month !== 'All') n += 1;
+    if (filters.status !== 'All') n += 1;
+    if (filters.role !== 'All') n += 1;
+    if (dateFilterActive) n += 1;
+    return n;
+  }, [filters.term, filters.academicYear, filters.month, filters.status, filters.role, dateFilterActive]);
+
+  const clearPayrollFilters = () => {
+    setFilters({ ...DEFAULT_FILTERS });
   };
+
+  const stats = useMemo(() => ({
+    total: filtered.length,
+    pending: filtered.filter((r) => r.status === 'Pending').length,
+    paid: filtered.filter((r) => r.status === 'Paid').length,
+    totalPaid: filtered.filter((r) => r.status === 'Paid').reduce((s, r) => s + Number(r.amount || 0), 0),
+  }), [filtered]);
 
   // ── modal helpers ───────────────────────────────────────────
   const openCreate = () => {
@@ -313,8 +504,8 @@ export default function PayrollConfig() {
     setSelectedStaffId('');
     setPeriod({
       month: MONTHS[new Date().getMonth()],
-      term: academicSettings.term,
-      year: academicSettings.year,
+      term: academicSettings.term || '',
+      year: academicSettings.year || '',
       amount: '',
     });
   };
@@ -324,8 +515,16 @@ export default function PayrollConfig() {
   const handleContinue = () => {
     if (step === 2) {
       const suggested = Math.max(0, Math.round(remainingPayable > 0 ? remainingPayable : finalPayable));
-      // Set amount synchronously in the same state update as step change
-      setPeriod((p) => ({ ...p, amount: suggested > 0 ? String(suggested) : '' }));
+      const terms = termsForRegistryYear(academicRegistry, academicSettings.year || period.year);
+      const term = academicSettings.loaded
+        ? (terms.includes(academicSettings.term) ? academicSettings.term : inferCurrentTerm(terms))
+        : period.term;
+      setPeriod((p) => ({
+        ...p,
+        amount: suggested > 0 ? String(suggested) : '',
+        term,
+        year: academicSettings.year || p.year,
+      }));
       setStep(3);
       return;
     }
@@ -390,6 +589,9 @@ export default function PayrollConfig() {
 
   const submitPayrollRequest = async () => {
     if (!selectedStaff) return notify('error', 'Select staff first.');
+    if (!period.term || !period.year) {
+      return notify('error', 'Academic term and year are required. Ensure the manager has set preferences in Settings.');
+    }
     if (!(payrollYear >= 2000 && payrollYear <= 3000)) return notify('error', 'Academic year format is invalid.');
     if (!(amount > 0)) return notify('error', 'Amount must be greater than zero.');
     if (duplicateExists) return notify('error', 'A pending or approved request already exists for this period.');
@@ -489,39 +691,169 @@ export default function PayrollConfig() {
                     className="w-full h-10 pl-9 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-semibold text-slate-700 placeholder:text-slate-400 outline-none focus:border-[#000435]/40 focus:bg-white transition-all"
                   />
                 </div>
+                {workspaceTab === 'requests' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters((v) => !v)}
+                    aria-expanded={showFilters}
+                    aria-controls="payroll-filters-panel"
+                    className={`h-10 px-4 rounded-xl border text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 shrink-0 transition-all ${
+                      showFilters
+                        ? 'bg-[#000435] text-[#FEBF10] border-[#000435] shadow-md shadow-[#000435]/15'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-[#000435]/30 hover:text-[#000435]'
+                    }`}
+                  >
+                    <Filter size={13} />
+                    <span>{showFilters ? 'Close filters' : 'Filters'}</span>
+                    <ChevronDown
+                      size={14}
+                      className={`transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`}
+                    />
+                    {!showFilters && activeFilterCount > 0 && (
+                      <span className="min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center bg-[#000435] text-[#FEBF10]">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </button>
+                )}
                 <PayrollWorkspaceTabs active={workspaceTab} onChange={setWorkspaceTab} className="w-full lg:w-auto shrink-0" />
               </div>
 
-              <div className="flex flex-wrap gap-2 items-center">
-                {workspaceTab === 'requests' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowFilters((v) => !v)}
-                      className="sm:hidden h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-1.5 text-[10px] font-bold uppercase"
-                    >
-                      <Filter size={12} /> Filters
-                    </button>
-                    <div className={`flex flex-wrap gap-2 flex-1 ${showFilters ? 'flex' : 'hidden sm:flex'}`}>
+              {workspaceTab === 'requests' && showFilters && (
+                <div
+                  id="payroll-filters-panel"
+                  className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3 sm:p-4 space-y-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Calendar size={14} className="text-[#000435]/50 shrink-0" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-[#000435]/50">Filters</span>
+                    <div className="ml-auto flex items-center gap-2">
+                      {(dateFilterActive || filters.term !== 'All' || filters.academicYear !== 'All' || filters.status !== 'All' || filters.month !== 'All' || filters.role !== 'All') && (
+                        <button
+                          type="button"
+                          onClick={clearPayrollFilters}
+                          className="text-[8px] font-bold uppercase tracking-widest text-slate-500 hover:text-[#000435] flex items-center gap-1"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShowFilters(false)}
+                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-[#000435] transition-colors"
+                        aria-label="Close filters"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    <label className="col-span-2 sm:col-span-1">
+                      <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Term</span>
+                      <select
+                        value={filters.term}
+                        onChange={(e) => setFilters((p) => ({ ...p, term: e.target.value }))}
+                        className="w-full h-10 px-3 rounded-xl bg-white border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
+                      >
+                        {termFilterOptions.map((t) => <option key={t} value={t}>{t === 'All' ? 'All terms' : t}</option>)}
+                      </select>
+                    </label>
+                    <label className="col-span-2 sm:col-span-1">
+                      <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Academic year</span>
+                      <select
+                        value={filters.academicYear}
+                        onChange={(e) => setFilters((p) => ({ ...p, academicYear: e.target.value }))}
+                        className="w-full h-10 px-3 rounded-xl bg-white border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
+                      >
+                        {academicYearFilterOptions.map((y) => <option key={y} value={y}>{y === 'All' ? 'All years' : y}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Month</span>
                       <select
                         value={filters.month}
                         onChange={(e) => setFilters((p) => ({ ...p, month: e.target.value }))}
-                        className="h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer min-w-[8rem]"
+                        className="w-full h-10 px-3 rounded-xl bg-white border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
                       >
-                        <option value="All">All Months</option>
+                        <option value="All">All</option>
                         {MONTHS.map((m) => <option key={m}>{m}</option>)}
                       </select>
+                    </label>
+                    <label>
+                      <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Status</span>
+                      <select
+                        value={filters.status}
+                        onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
+                        className="w-full h-10 px-3 rounded-xl bg-white border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
+                      >
+                        <option value="All">All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">Role</span>
                       <select
                         value={filters.role}
                         onChange={(e) => setFilters((p) => ({ ...p, role: e.target.value }))}
-                        className="h-10 px-3 rounded-xl bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer min-w-[8rem]"
+                        className="w-full h-10 px-3 rounded-xl bg-white border border-slate-200 text-[10px] font-bold text-slate-700 outline-none focus:border-[#000435]/40 cursor-pointer"
                       >
                         {roleOptions.map((r) => <option key={r}>{r}</option>)}
                       </select>
+                    </label>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400">Date range</span>
+                      <div className="flex rounded-lg border border-slate-200 overflow-hidden ml-auto">
+                        {[
+                          { id: 'submitted', label: 'Submitted' },
+                          { id: 'paid', label: 'Paid' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setFilters((p) => ({ ...p, dateField: opt.id }))}
+                            className={`px-3 py-1.5 text-[8px] font-bold uppercase tracking-widest transition-colors ${
+                              filters.dateField === opt.id ? 'bg-[#000435] text-[#FEBF10]' : 'bg-white text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </>
-                )}
-                <div className="flex flex-wrap gap-2 ml-auto w-full sm:w-auto justify-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label>
+                        <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">From</span>
+                        <input
+                          type="date"
+                          value={filters.dateFrom}
+                          onChange={(e) => setFilters((p) => ({ ...p, dateFrom: e.target.value }))}
+                          className="w-full h-10 rounded-xl border border-slate-200 px-3 text-[11px] font-semibold text-slate-700 bg-slate-50 focus:border-[#000435]/40 outline-none"
+                        />
+                      </label>
+                      <label>
+                        <span className="text-[7px] font-bold uppercase tracking-widest text-slate-400 mb-1 block">To</span>
+                        <input
+                          type="date"
+                          value={filters.dateTo}
+                          onChange={(e) => setFilters((p) => ({ ...p, dateTo: e.target.value }))}
+                          min={filters.dateFrom || undefined}
+                          className="w-full h-10 rounded-xl border border-slate-200 px-3 text-[11px] font-semibold text-slate-700 bg-slate-50 focus:border-[#000435]/40 outline-none"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 items-center justify-end">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
                   <button type="button" onClick={fetchRequests} className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 transition-all" title="Refresh">
                     <RefreshCw size={13} />
                   </button>
@@ -563,15 +895,17 @@ export default function PayrollConfig() {
 
             {workspaceTab === 'requests' && (
             <>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[500px]">
+            <div className="flex w-full min-h-0 flex-col">
+            <div className="w-full min-w-0 overflow-x-auto">
+              <table className="w-full table-fixed sm:table-auto border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    {['Staff', 'Role', 'Period', 'Amount', 'Status', ''].map((h, i) => (
-                      <th key={i} className={`px-4 sm:px-5 py-3 text-[8px] font-medium text-slate-400 uppercase tracking-widest ${i >= 4 ? 'text-right' : 'text-left'} ${i === 1 || i === 2 ? 'hidden md:table-cell' : ''}`}>
-                        {h}
-                      </th>
-                    ))}
+                    <th className="w-[38%] sm:w-auto px-3 sm:px-5 py-3 text-left text-[8px] font-medium text-slate-400 uppercase tracking-widest">Staff</th>
+                    <th className="hidden md:table-cell px-4 sm:px-5 py-3 text-left text-[8px] font-medium text-slate-400 uppercase tracking-widest">Role</th>
+                    <th className="hidden lg:table-cell px-4 sm:px-5 py-3 text-left text-[8px] font-medium text-slate-400 uppercase tracking-widest">Period</th>
+                    <th className="w-[22%] sm:w-auto px-3 sm:px-5 py-3 text-right text-[8px] font-medium text-slate-400 uppercase tracking-widest">Amount</th>
+                    <th className="w-[18%] sm:w-auto px-3 sm:px-5 py-3 text-left sm:text-center text-[8px] font-medium text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="w-[22%] sm:w-auto px-2 sm:px-5 py-3 text-right text-[8px] font-medium text-slate-400 uppercase tracking-widest"> </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -587,52 +921,64 @@ export default function PayrollConfig() {
                       <p className="text-[11px] font-medium text-slate-400">No payroll records found</p>
                     </td></tr>
                   )}
-                  {!loading.requests && filtered.map((row) => (
+                  {!loading.requests && pagination.paginated.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-slate-50 hover:bg-slate-50/80 cursor-pointer transition-colors"
-                      onClick={() => setDetailRow(row)}
+                      className={`border-b border-slate-50 hover:bg-slate-50/80 cursor-pointer transition-colors ${
+                        selectedRow?.id === row.id ? 'bg-amber-50/80 ring-1 ring-inset ring-amber-200/80' : ''
+                      }`}
+                      onClick={() => setSelectedRow(row)}
                     >
-                      <td className="px-4 sm:px-5 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-full bg-[#000435]/8 flex items-center justify-center shrink-0">
+                      <td className="px-3 sm:px-5 py-3 align-middle">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-[#000435]/8 flex items-center justify-center shrink-0">
                             <User size={12} className="text-[#000435]/50" />
                           </div>
-                          <div>
-                            <p className="text-[11px] font-medium text-[#000435]">{row.staffName}</p>
-                            <p className="text-[9px] font-mono text-slate-400 tracking-wider">{row.staffCode}</p>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-[#000435] truncate">{row.staffName}</p>
+                            <p className="text-[8px] font-mono text-slate-400 tracking-wider truncate">{row.staffCode}</p>
+                            <p className="md:hidden text-[8px] text-slate-500 font-medium truncate mt-0.5">
+                              {row.role || '—'} · {row.month}
+                            </p>
+                            <p className="hidden md:block lg:hidden text-[8px] text-slate-500 font-medium mt-0.5 truncate">
+                              {row.month} · {row.term} · {row.year}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-5 py-3 hidden md:table-cell">
+                      <td className="hidden md:table-cell px-4 sm:px-5 py-3 align-middle">
                         <span className="text-[10px] font-medium text-slate-600">{row.role || '—'}</span>
                       </td>
-                      <td className="px-4 sm:px-5 py-3 hidden md:table-cell">
+                      <td className="hidden lg:table-cell px-4 sm:px-5 py-3 align-middle">
                         <p className="text-[10px] font-medium text-[#000435]">{row.month}</p>
                         <p className="text-[9px] text-slate-400 font-medium">{row.term} · {row.year}</p>
                       </td>
-                      <td className="px-4 sm:px-5 py-3">
+                      <td className="px-3 sm:px-5 py-3 text-right align-middle">
                         <p className="text-[11px] font-medium text-[#000435] tabular-nums">{fmt(row.amount)}</p>
-                        <p className="text-[8px] text-slate-400 font-medium">RWF</p>
+                        <p className="text-[7px] text-slate-400 font-medium uppercase">RWF</p>
                       </td>
-                      <td className="px-4 sm:px-5 py-3">
+                      <td className="px-3 sm:px-5 py-3 align-middle">
                         <StatusBadge status={row.status} />
                       </td>
-                      <td className="px-4 sm:px-5 py-3 text-right">
-                        {row.status === 'Approved' && (
+                      <td className="px-2 sm:px-5 py-3 text-right align-middle">
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1 sm:gap-1.5">
+                          {row.status === 'Approved' && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); navigateToPayment(row); }}
+                              className="h-8 sm:h-7 px-2.5 sm:px-3 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 text-[8px] sm:text-[9px] font-medium uppercase tracking-wider hover:bg-emerald-100 transition-all whitespace-nowrap"
+                            >
+                              Pay
+                            </button>
+                          )}
                           <button
-                            onClick={(e) => { e.stopPropagation(); navigateToPayment(row); }}
-                            className="h-7 px-3 mr-2 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-medium uppercase tracking-wider hover:bg-emerald-100 transition-all"
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setSelectedRow(row); }}
+                            className="h-8 sm:h-7 px-2.5 sm:px-3 rounded-lg bg-[#000435] text-[#FEBF10] text-[8px] sm:text-[9px] font-medium uppercase tracking-wider hover:bg-[#000435]/90 transition-all whitespace-nowrap shadow-sm"
                           >
-                            Pay
+                            View
                           </button>
-                        )}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDetailRow(row); }}
-                          className="h-7 px-3 rounded-lg bg-slate-100 text-slate-600 text-[9px] font-medium uppercase tracking-wider hover:bg-slate-200 transition-all"
-                        >
-                          View
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -640,12 +986,42 @@ export default function PayrollConfig() {
               </table>
             </div>
 
-            <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[8px] font-medium text-slate-400 uppercase tracking-widest">Live</span>
+            <div className="px-4 sm:px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-center sm:text-left">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="text-[8px] font-medium text-slate-400 uppercase tracking-widest">
+                  {filtered.length} records · tap row for invoice
+                </span>
               </div>
-              <span className="text-[8px] font-medium text-slate-400 uppercase tracking-widest">{filtered.length} records</span>
+
+              {filtered.length > 0 && (
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={pagination.safePage <= 1}
+                    className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-[#000435] disabled:opacity-30 hover:bg-white shadow-sm transition-colors"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 tabular-nums min-w-[140px] text-center">
+                    Page {pagination.safePage} of {pagination.totalPages}
+                    <span className="text-slate-300 mx-1">·</span>
+                    {pagination.start}–{pagination.end} of {filtered.length}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                    disabled={pagination.safePage >= pagination.totalPages}
+                    className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-[#000435] disabled:opacity-30 hover:bg-white shadow-sm transition-colors"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
             </div>
             </>
             )}
@@ -848,24 +1224,40 @@ export default function PayrollConfig() {
                           {MONTHS.map((m) => <option key={m}>{m}</option>)}
                         </select>
                       </div>
+                     
                       <div>
-                        <label className="block text-[9px] font-medium text-slate-500 uppercase tracking-widest mb-2">Term</label>
+                        <label className="block text-[9px] font-medium text-slate-500 uppercase tracking-widest mb-2">
+                          Term {academicSettings.loaded && period.term === academicSettings.term ? '(current)' : ''}
+                        </label>
                         <select
                           value={period.term}
                           onChange={(e) => setPeriod((p) => ({ ...p, term: e.target.value }))}
-                          className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 focus:border-[#000435]/50 text-[11px] font-medium text-[#000435] outline-none cursor-pointer"
+                          disabled={!academicSettings.loaded}
+                          className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 focus:border-[#000435]/50 text-[11px] font-medium text-[#000435] outline-none cursor-pointer disabled:opacity-60"
                         >
-                          {availableTerms.map((t) => <option key={t} value={t}>{t}</option>)}
+                          {periodTermOptions.map((t) => (
+                            <option key={t} value={t}>{t}{t === academicSettings.term ? ' — current' : ''}</option>
+                          ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[9px] font-medium text-slate-500 uppercase tracking-widest mb-2">Academic Year</label>
+                        <label className="block text-[9px] font-medium text-slate-500 uppercase tracking-widest mb-2">
+                          Academic year {academicSettings.loaded && period.year === academicSettings.year ? '(current)' : ''}
+                        </label>
                         <select
                           value={period.year}
-                          onChange={(e) => setPeriod((p) => ({ ...p, year: e.target.value }))}
-                          className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 focus:border-[#000435]/50 text-[11px] font-medium text-[#000435] outline-none cursor-pointer"
+                          onChange={(e) => handlePeriodYearChange(e.target.value)}
+                          disabled={!academicSettings.loaded}
+                          className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 focus:border-[#000435]/50 text-[11px] font-medium text-[#000435] outline-none cursor-pointer disabled:opacity-60"
                         >
-                          {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                          {availableYears.map((y) => {
+                            const row = academicRegistry.find((r) => String(r.academic_year) === String(y));
+                            return (
+                              <option key={y} value={y}>
+                                {yearOptionLabel(row) || y}{y === academicSettings.year ? ' — current' : ''}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     </div>
@@ -962,52 +1354,18 @@ export default function PayrollConfig() {
         document.body
       )}
 
-      {/* ══ DETAIL DRAWER ══════════════════════════════════════════ */}
-      {detailRow && createPortal(
-        <div className="fixed inset-0 z-[240] flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDetailRow(null)} />
-          <div
-            className="relative w-full sm:max-w-sm bg-white sm:rounded-3xl shadow-sm flex flex-col overflow-hidden"
-            style={{ borderRadius: '24px 24px 0 0' }}
-          >
-            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest">Payroll Record</p>
-                <p className="text-[13px] font-medium text-[#000435] mt-0.5">{detailRow.staffName}</p>
-              </div>
-              <button onClick={() => setDetailRow(null)} className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-200 transition-all">
-                <X size={14} />
-              </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-1">
-              <div className="flex justify-between py-2 border-b border-slate-50">
-                <span className="text-[10px] font-medium text-slate-400">Status</span>
-                <StatusBadge status={detailRow.status} />
-              </div>
-              {[
-                ['Period', `${detailRow.month} · ${detailRow.term} · ${detailRow.year}`],
-                ['Basic Salary', `${fmt(detailRow.basic)} RWF`],
-                ['Allowances', `${fmt(detailRow.allowances)} RWF`],
-                ['Deductions', `- ${fmt(detailRow.deductions)} RWF`],
-                ['Net Salary', `${fmt(detailRow.netSalary)} RWF`],
-                ['Amount Paid', `${fmt(detailRow.amount)} RWF`],
-              ].map(([k, v], i) => (
-                <div key={k} className={`flex justify-between py-2 ${i < 5 ? 'border-b border-slate-50' : ''}`}>
-                  <span className="text-[10px] font-medium text-slate-400">{k}</span>
-                  <span className={`text-[11px] font-medium ${k === 'Amount Paid' ? 'text-emerald-600' : k === 'Deductions' ? 'text-red-500' : 'text-[#000435]'}`}>{v}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="px-5 pb-6">
-              <button onClick={() => setDetailRow(null)} className="w-full h-10 rounded-xl bg-slate-100 text-slate-600 text-[10px] font-medium uppercase tracking-wider hover:bg-slate-200 transition-all">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
+      {selectedRow && enrichedRow && payrollInvoice && (
+        <PayrollInvoiceSlideModal open onClose={() => setSelectedRow(null)}>
+          <PayrollInvoiceDetailPanel
+            row={enrichedRow}
+            invoice={payrollInvoice}
+            breakdown={invoiceBreakdown}
+            schoolName={schoolName || 'School'}
+            loading={invoiceLoading}
+            onClose={() => setSelectedRow(null)}
+            onPay={navigateToPayment}
+          />
+        </PayrollInvoiceSlideModal>
       )}
 
       {paymentRequestModal.open && paymentRequestModal.row && (

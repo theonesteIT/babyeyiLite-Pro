@@ -204,13 +204,8 @@ function validatePaymentMethodFields(body) {
   const momoPhone = trimStr(body.momo_phone || body.momo_number);
   const low = method.toLowerCase();
 
-  if (low.includes('bank')) {
-    if (!bankName) return { ok: false, message: 'Bank name is required for bank transfer.' };
-    if (!paidBy) return { ok: false, message: 'Paid by (payer name) is required for bank transfer.' };
-    if (!transactionRef) return { ok: false, message: 'Transaction or receipt number is required for bank transfer.' };
-  }
-  if (low.includes('mobile') || low.includes('momo')) {
-    if (!transactionRef) return { ok: false, message: 'MoMo transaction ID or receipt number is required.' };
+  if (low.includes('bank') && !bankName) {
+    return { ok: false, message: 'Bank name is required for bank transfer.' };
   }
 
   return {
@@ -260,6 +255,18 @@ function resolveActorUserId(req) {
   return req.session?.userId || req.session?.user?.id || req.user?.id || null;
 }
 
+/** Parent/guardian display — same precedence as manager Students list. */
+function resolveGuardianLabel(st) {
+  const father = trimStr(st?.father_full_name);
+  const mother = trimStr(st?.mother_full_name);
+  if (father && mother) return `${father} & ${mother}`;
+  return father || mother || '';
+}
+
+function resolveParentPhone(st) {
+  return trimStr(st?.father_phone) || trimStr(st?.mother_phone) || '';
+}
+
 /** Fee rule: cleared fees → allowed; unpaid / partial / no Babyeyi card → blocked by default */
 function defaultFeesAllowExam(row) {
   const st = String(row.status || '');
@@ -295,6 +302,93 @@ function classMatchesBabyeyi(row, className) {
     }
   } catch (_) {}
   return false;
+}
+
+function parseClassesJsonList(classesJson) {
+  if (Array.isArray(classesJson)) {
+    return classesJson.map((x) => trimStr(x)).filter(Boolean);
+  }
+  if (typeof classesJson === 'string' && classesJson.trim()) {
+    try {
+      const arr = JSON.parse(classesJson);
+      if (Array.isArray(arr)) return arr.map((x) => trimStr(x)).filter(Boolean);
+    } catch (_) {
+      return classesJson
+        .split(',')
+        .map((x) => trimStr(x))
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function cardClassNameSet(row) {
+  const set = new Set();
+  const primary = trimStr(row?.class_name);
+  if (primary) set.add(primary.toLowerCase());
+  for (const name of parseClassesJsonList(row?.classes_json)) {
+    set.add(name.toLowerCase());
+  }
+  return set;
+}
+
+/** True when any class on the card overlaps primary / applicable classes on another probe. */
+function feeCardsShareClass(row, className, classesJson) {
+  const target = cardClassNameSet({
+    class_name: className,
+    classes_json: classesJson,
+  });
+  if (!target.size) return false;
+  const source = cardClassNameSet(row);
+  for (const key of target) {
+    if (source.has(key)) return true;
+  }
+  return false;
+}
+
+function unionClassNames(primary, classesJson, extraPrimary, extraClasses) {
+  const seen = new Set();
+  const out = [];
+  const add = (name) => {
+    const t = trimStr(name);
+    if (!t) return;
+    const k = t.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(t);
+  };
+  add(primary);
+  parseClassesJsonList(classesJson).forEach(add);
+  add(extraPrimary);
+  (Array.isArray(extraClasses) ? extraClasses : []).forEach(add);
+  return out;
+}
+
+/** Sum total_due across all fee cards matching class + term + year (supports stacked additions). */
+function sumTotalDueForMatchingCards(feeCardRows, className, academicYear, term) {
+  let sum = 0;
+  let matched = false;
+  for (const r of feeCardRows || []) {
+    if (
+      classMatchesBabyeyi(r, className) &&
+      yearMatchesRow(r.academic_year, academicYear) &&
+      termMatchesRow(r.term, term)
+    ) {
+      sum += Number(r.total_due || 0);
+      matched = true;
+    }
+  }
+  return matched ? sum : null;
+}
+
+async function nextAccountantOnlyBabyeyiId(schoolId) {
+  const [rows] = await promisePool.query(
+    `SELECT MIN(babyeyi_id) AS mn FROM accountant_babyeyi_fees WHERE school_id = ? AND babyeyi_id < 0`,
+    [schoolId]
+  );
+  const mn = Number(rows?.[0]?.mn);
+  if (Number.isFinite(mn) && mn <= -1) return mn - 1;
+  return -1;
 }
 
 /** Match stored academic_year_label on a collection row to the report filter (e.g. 2025-2026 vs 2025) */
@@ -368,7 +462,8 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
   await ensureAccountantFeeTotalsTableAcct();
 
   const [studentRows] = await promisePool.query(
-    `SELECT id, student_uid, student_code, first_name, last_name, class_name
+    `SELECT id, student_uid, student_code, first_name, last_name, class_name,
+            father_full_name, father_phone, mother_full_name, mother_phone
      FROM students
      WHERE school_id = ?
      ORDER BY class_name ASC, last_name ASC, first_name ASC`,
@@ -402,14 +497,7 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
   function totalDueForClass(className) {
     const cn = trimStr(className);
     if (!cn) return null;
-    const b = feeCardRows.find(
-      (r) =>
-        classMatchesBabyeyi(r, cn)
-        && yearMatchesRow(r.academic_year, academicYear)
-        && termMatchesRow(r.term, term)
-    );
-    if (!b) return null;
-    return Number(b.total_due || 0);
+    return sumTotalDueForMatchingCards(feeCardRows, cn, academicYear, term);
   }
 
   const [collRows] = await promisePool.query(
@@ -524,6 +612,12 @@ async function buildAccountantPaymentReport(schoolId, academicYear, term, classF
       first_name: st.first_name,
       last_name: st.last_name,
       class_name: st.class_name,
+      guardian_name: resolveGuardianLabel(st),
+      parent_phone: resolveParentPhone(st),
+      father_full_name: st.father_full_name,
+      father_phone: st.father_phone,
+      mother_full_name: st.mother_full_name,
+      mother_phone: st.mother_phone,
       total_due: totalDue,
       total_paid: totalPaid,
       remaining,
@@ -833,33 +927,39 @@ router.get('/accountant/babyeyi-fee', requireRole(ACCOUNTANT_ONLY), async (req, 
       [schoolId]
     );
 
-    const match = rows.find(
+    const matches = rows.filter(
       (r) =>
         classMatchesBabyeyi(r, className)
         && yearMatchesRow(r.academic_year, academicYear)
         && termMatchesRow(r.term, term)
     );
 
-    if (!match) {
+    if (!matches.length) {
       return res.json({
         success: true,
         data: null,
-        message: 'No Babyeyi fee card found for this class, year, and term. Create one in Babyeyi Wizard first.',
+        message: 'No Babyeyi fee card found for this class, year, and term. Create one in Babyeyi Fee Cards.',
       });
     }
+
+    const totalFee = matches.reduce((s, r) => s + Number(r.total_due || 0), 0);
+    const tuitionTotal = matches.reduce((s, r) => s + Number(r.tuition_total || 0), 0);
+    const paidAtSchoolTotal = matches.reduce((s, r) => s + Number(r.paid_at_school_total || 0), 0);
+    const match = matches[0];
 
     return res.json({
       success: true,
       data: {
         babyeyi_id: Number(match.babyeyi_id || 0),
-        total_fee: Number(match.total_due || 0),
-        tuition_total: Number(match.tuition_total || 0),
-        paid_at_school_total: Number(match.paid_at_school_total || 0),
+        total_fee: totalFee,
+        tuition_total: tuitionTotal,
+        paid_at_school_total: paidAtSchoolTotal,
         class_name: match.class_name,
         term: match.term,
         academic_year: match.academic_year,
         status: match.babyeyi_status,
         is_active: Number(match.babyeyi_is_active) === 1,
+        stacked_card_count: matches.length,
       },
     });
   } catch (err) {
@@ -1136,69 +1236,145 @@ router.get('/accountant/reports/payments/export.pdf', requireRole(ACCOUNTANT_ONL
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}.pdf"`);
 
-    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'landscape' });
+    const doc = new PDFDocument({ margin: 36, size: 'A4', layout: 'landscape' });
     doc.pipe(res);
 
-    doc.fontSize(14).fillColor('#111').text('Fee payment report', { align: 'left' });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor('#444').text(schoolName);
-    doc.text(`Code: ${schoolRow?.school_code || '—'}  ·  Academic year: ${filters.academic_year}  ·  Term: ${filters.term}`);
-    if (filters.class_name) doc.text(`Class filter: ${filters.class_name}`);
-    if (report.status_filter) doc.text(`Status filter: ${report.status_filter}`);
-    doc.text(`Generated: ${new Date().toLocaleString()}`);
-    doc.moveDown(0.6);
-    doc.fillColor('#111').fontSize(9).text(
-      `Summary — Students: ${summary.total_students}  |  Full pay: ${summary.full_pay}  |  Not paid: ${summary.not_paid}  |  Remain to pay: ${summary.remain_pay}  |  No Babyeyi: ${summary.no_fee_card}`
+    const pageW = doc.page.width;
+    const pageH = doc.page.height;
+    const margin = 36;
+    const NAVY = '#000435';
+    const GOLD = '#FEBF10';
+
+    const drawHeader = () => {
+      doc.save();
+      doc.rect(0, 0, pageW, 44).fill(NAVY);
+      doc.fillColor('#FFFFFF').font('Helvetica-Bold', 9).text('ACCOUNTANT PORTAL', margin, 14);
+      doc.font('Helvetica', 8).text('STUDENT FEES REPORT', 0, 14, { width: pageW, align: 'center' });
+      doc.restore();
+      doc.y = 54;
+    };
+
+    const drawFooter = (pageNum) => {
+      doc.save();
+      doc.rect(0, pageH - 28, pageW, 28).fill(NAVY);
+      doc.fillColor('#FFFFFF').font('Helvetica', 7).text(`${schoolName} · Confidential`, margin, pageH - 18);
+      doc.text(new Date().toLocaleString(), margin, pageH - 10);
+      doc.text(`Page ${pageNum}`, pageW - margin - 40, pageH - 14, { width: 40, align: 'right' });
+      doc.restore();
+    };
+
+    let pageNum = 1;
+    drawHeader();
+    drawFooter(pageNum);
+
+    doc.fillColor(NAVY).font('Helvetica-Bold', 16).text('Student Fees Report', margin, doc.y);
+    doc.moveDown(0.35);
+    doc.font('Helvetica-Bold', 10).text(schoolName, margin);
+    doc.font('Helvetica', 8).fillColor('#64748B');
+    doc.text(
+      `Year: ${filters.academic_year}  ·  Term: ${filters.term}  ·  Class: ${filters.class_name || 'All classes'}  ·  Status: ${report.status_filter || 'All'}`
     );
-    doc.moveDown(0.8);
+    doc.text(`Generated: ${new Date().toLocaleString()}  ·  Learners: ${summary.total_students}`);
+    doc.moveDown(0.5);
+
+    const kpiY = doc.y;
+    const kpiW = (pageW - margin * 2 - 18) / 4;
+    const kpis = [
+      { label: 'Expected (RWF)', value: rows.reduce((s, r) => s + (r.total_due != null ? Number(r.total_due) : 0), 0) },
+      { label: 'Collected (RWF)', value: rows.reduce((s, r) => s + Number(r.total_paid || 0), 0) },
+      { label: 'Outstanding (RWF)', value: rows.reduce((s, r) => s + (r.remaining != null ? Number(r.remaining) : 0), 0) },
+      {
+        label: 'Collection rate',
+        value: (() => {
+          const exp = rows.reduce((s, r) => s + (r.total_due != null ? Number(r.total_due) : 0), 0);
+          const col = rows.reduce((s, r) => s + Number(r.total_paid || 0), 0);
+          return exp > 0 ? `${Math.round((col / exp) * 100)}%` : '0%';
+        })(),
+      },
+    ];
+    kpis.forEach((k, i) => {
+      const x = margin + i * (kpiW + 6);
+      doc.roundedRect(x, kpiY, kpiW, 36, 4).fillAndStroke('#F8FAFC', '#E2E8F0');
+      doc.rect(x, kpiY, kpiW, 4).fill(GOLD);
+      doc.fillColor('#64748B').font('Helvetica', 7).text(k.label.toUpperCase(), x + 8, kpiY + 10);
+      doc.fillColor(NAVY).font('Helvetica-Bold', 11).text(String(Math.round(k.value) === k.value ? k.value.toLocaleString() : k.value), x + 8, kpiY + 22, { width: kpiW - 12 });
+    });
+    doc.y = kpiY + 46;
 
     if (!rows.length) {
-      doc.fontSize(11).text('No students in this filter.');
+      doc.fillColor('#64748B').font('Helvetica', 11).text('No students match the selected filters.', margin);
       doc.end();
       return;
     }
 
-    doc.fontSize(7.5);
-    const lineH = 11;
-    let y = doc.y;
-    const left = 40;
-    const wName = 130;
-    const wCode = 72;
-    const wClass = 42;
-    const wNum = 68;
-    const wStat = 88;
+    const left = margin;
+    const cols = [
+      { label: '#', w: 22 },
+      { label: 'Learner ID', w: 62 },
+      { label: 'Name', w: 95 },
+      { label: 'Class', w: 42 },
+      { label: 'Guardian', w: 78 },
+      { label: 'Phone', w: 62 },
+      { label: 'Due', w: 52 },
+      { label: 'Paid', w: 52 },
+      { label: 'Remain', w: 52 },
+      { label: 'Status', w: 58 },
+    ];
 
-    doc.fillColor('#333').font('Helvetica-Bold', 7.5);
-    doc.text('Student', left, y, { width: wName });
-    doc.text('Code / ID', left + wName, y, { width: wCode });
-    doc.text('Class', left + wName + wCode, y, { width: wClass });
-    doc.text('Due (RWF)', left + wName + wCode + wClass, y, { width: wNum });
-    doc.text('Paid (RWF)', left + wName + wCode + wClass + wNum, y, { width: wNum });
-    doc.text('Remain (RWF)', left + wName + wCode + wClass + wNum * 2, y, { width: wNum });
-    doc.text('Status', left + wName + wCode + wClass + wNum * 3, y, { width: wStat });
-    y += lineH + 2;
-    doc.fillColor('#000').font('Helvetica', 7.5);
+    const drawTableHead = () => {
+      let x = left;
+      doc.save();
+      doc.rect(left, doc.y, pageW - margin * 2, 16).fill(NAVY);
+      doc.fillColor('#FFFFFF').font('Helvetica-Bold', 7);
+      cols.forEach((c) => {
+        doc.text(c.label.toUpperCase(), x + 4, doc.y + 5, { width: c.w - 6 });
+        x += c.w;
+      });
+      doc.restore();
+      doc.y += 16;
+    };
+
+    drawTableHead();
+    const lineH = 13;
+    let rowIdx = 0;
 
     rows.forEach((r) => {
-      if (y > 520) {
-        doc.addPage();
-        y = 40;
+      if (doc.y > pageH - 56) {
+        doc.addPage({ layout: 'landscape', size: 'A4', margin: 36 });
+        pageNum += 1;
+        drawHeader();
+        drawFooter(pageNum);
+        drawTableHead();
       }
       const name = `${r.first_name || ''} ${r.last_name || ''}`.trim();
-      const code = r.student_code || r.student_uid || '';
-      const due = r.total_due != null ? String(Math.round(Number(r.total_due))) : '—';
-      const paid = String(Math.round(Number(r.total_paid || 0)));
-      const rem = r.remaining != null ? String(Math.round(Number(r.remaining))) : '—';
-      const st = statusLabelForExport(r.status);
-
-      doc.text(name.slice(0, 42), left, y, { width: wName });
-      doc.text(String(code).slice(0, 22), left + wName, y, { width: wCode });
-      doc.text(String(r.class_name || '—').slice(0, 12), left + wName + wCode, y, { width: wClass });
-      doc.text(due, left + wName + wCode + wClass, y, { width: wNum });
-      doc.text(paid, left + wName + wCode + wClass + wNum, y, { width: wNum });
-      doc.text(rem, left + wName + wCode + wClass + wNum * 2, y, { width: wNum });
-      doc.text(st.slice(0, 28), left + wName + wCode + wClass + wNum * 3, y, { width: wStat });
-      y += lineH;
+      const guardian = resolveGuardianLabel(r);
+      const phone = resolveParentPhone(r);
+      const due = r.total_due != null ? Math.round(Number(r.total_due)).toLocaleString() : '—';
+      const paid = Math.round(Number(r.total_paid || 0)).toLocaleString();
+      const rem = r.remaining != null ? Math.round(Number(r.remaining)).toLocaleString() : '—';
+      const cells = [
+        String(rowIdx + 1),
+        String(r.student_code || r.student_uid || '').slice(0, 16),
+        name.slice(0, 32),
+        String(r.class_name || '—').slice(0, 10),
+        guardian.slice(0, 26),
+        phone.slice(0, 14),
+        due,
+        paid,
+        rem,
+        statusLabelForExport(r.status).slice(0, 16),
+      ];
+      if (rowIdx % 2 === 1) {
+        doc.rect(left, doc.y, pageW - margin * 2, lineH).fill('#F8FAFC');
+      }
+      let x = left;
+      doc.fillColor('#0F172A').font('Helvetica', 7);
+      cells.forEach((cell, i) => {
+        doc.text(cell, x + 4, doc.y + 4, { width: cols[i].w - 6 });
+        x += cols[i].w;
+      });
+      doc.y += lineH;
+      rowIdx += 1;
     });
 
     doc.end();
@@ -1468,11 +1644,12 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
         && yearMatchesRow(r.academic_year, academicYear)
         && termMatchesRow(r.term, term)
     );
+    const stackedDue = sumTotalDueForMatchingCards(fullRows, className, academicYear, term);
 
     if (totalDueIn == null || Number.isNaN(totalDueIn)) {
-      if (bMatch) {
-        totalDueIn = Number(bMatch.total_due || 0);
-        babyeyiId = Number(bMatch.babyeyi_id || 0) || null;
+      if (stackedDue != null) {
+        totalDueIn = stackedDue;
+        babyeyiId = bMatch ? Number(bMatch.babyeyi_id || 0) || null : null;
       } else {
         // Fallback for legacy/manual classes without a Babyeyi card yet.
         totalDueIn = Math.max(0, amountPaid);
@@ -1570,9 +1747,11 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
 
 // ════════════════════════════════════════════════════════════════
 // Accountant Babyeyi fee cards (totals-only table)
-// GET /api/accountant/babyeyi-fees
-// GET /api/accountant/babyeyi-fees/:id
-// PUT /api/accountant/babyeyi-fees/:id
+// GET  /api/accountant/babyeyi-fees
+// POST /api/accountant/babyeyi-fees
+// GET  /api/accountant/babyeyi-fees/class-options
+// GET  /api/accountant/babyeyi-fees/:id
+// PUT  /api/accountant/babyeyi-fees/:id
 // DELETE /api/accountant/babyeyi-fees/:id
 // ════════════════════════════════════════════════════════════════
 
@@ -1825,6 +2004,146 @@ router.get('/accountant/babyeyi-fees/budget-analysis', requireRole(ACCOUNTANT_ON
   }
 });
 
+router.get('/accountant/babyeyi-fees/class-options', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    const [classRows] = await promisePool.query(
+      `SELECT COALESCE(NULLIF(TRIM(class_name), ''), '—') AS class_name, COUNT(*) AS student_count
+       FROM students
+       WHERE school_id = ?
+       GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), '—')
+       ORDER BY class_name ASC`,
+      [schoolId]
+    );
+    const classes = (classRows || [])
+      .map((r) => ({
+        class_name: trimStr(r.class_name) === '—' ? '' : trimStr(r.class_name),
+        student_count: Number(r.student_count || 0),
+      }))
+      .filter((r) => r.class_name);
+    return res.json({ success: true, data: { classes } });
+  } catch (err) {
+    console.error('GET /accountant/babyeyi-fees/class-options:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load class list' });
+  }
+});
+
+router.post('/accountant/babyeyi-fees', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: 'School not found in session.' });
+    }
+    await ensureAccountantFeeTotalsTableAcct();
+
+    const b = req.body || {};
+    const className = trimStr(b.class_name);
+    if (!className) {
+      return res.status(400).json({ success: false, message: 'Primary class is required.' });
+    }
+
+    const tuition = Number(b.tuition_total || 0);
+    const paidAtSchool = Number(b.paid_at_school_total || 0);
+    if (Number.isNaN(tuition) || tuition < 0 || Number.isNaN(paidAtSchool) || paidAtSchool < 0) {
+      return res.status(400).json({ success: false, message: 'Totals must be non-negative numbers' });
+    }
+    if (tuition + paidAtSchool <= 0) {
+      return res.status(400).json({ success: false, message: 'Enter at least one fee amount greater than zero.' });
+    }
+
+    const termIn = trimStr(b.term || '');
+    const academicYearIn = trimStr(b.academic_year || '');
+    const { academicYear, term } = await resolveAcademicContext(schoolId, academicYearIn, termIn);
+    const classesArr = parseClassesJsonList(normalizeClassesJsonInput(b.classes_json));
+    const mergeIntoExisting = b.merge_into_existing !== false && b.merge_into_existing !== 0;
+
+    const [existingRows] = await promisePool.query(
+      `SELECT id, babyeyi_id, class_name, classes_json, term, academic_year,
+              tuition_total, paid_at_school_total, total_due
+       FROM accountant_babyeyi_fees
+       WHERE school_id = ?
+       ORDER BY updated_at DESC`,
+      [schoolId]
+    );
+
+    const match = mergeIntoExisting
+      ? (existingRows || []).find(
+          (r) =>
+            termMatchesRow(r.term, term)
+            && yearMatchesRow(r.academic_year, academicYear)
+            && feeCardsShareClass(r, className, classesArr)
+        )
+      : null;
+
+    if (match) {
+      const mergedClasses = unionClassNames(
+        match.class_name,
+        match.classes_json,
+        className,
+        classesArr.length ? classesArr : [className]
+      );
+      const primaryClass = trimStr(match.class_name) || className;
+      const newTuition = moneyRound2(Number(match.tuition_total || 0) + tuition);
+      const newPaid = moneyRound2(Number(match.paid_at_school_total || 0) + paidAtSchool);
+      const totalDue = moneyRound2(newTuition + newPaid);
+      const classesJson = JSON.stringify(mergedClasses);
+
+      await promisePool.query(
+        `UPDATE accountant_babyeyi_fees
+         SET class_name = ?, classes_json = ?, tuition_total = ?, paid_at_school_total = ?, total_due = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND school_id = ?`,
+        [primaryClass, classesJson, newTuition, newPaid, totalDue, match.id, schoolId]
+      );
+
+      return res.json({
+        success: true,
+        message: 'Amounts added to the existing fee card for this term and academic year.',
+        data: { id: match.id, merged: true, total_due: totalDue },
+      });
+    }
+
+    const babyeyiId = await nextAccountantOnlyBabyeyiId(schoolId);
+    const applicable = classesArr.length ? classesArr : [className];
+    const classesJson = JSON.stringify(unionClassNames(className, [], className, applicable));
+    const totalDue = moneyRound2(tuition + paidAtSchool);
+
+    const [ins] = await promisePool.query(
+      `INSERT INTO accountant_babyeyi_fees
+         (school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+          tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status, source_updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,1,'accountant',NOW())`,
+      [
+        schoolId,
+        babyeyiId,
+        academicYear,
+        term,
+        className,
+        classesJson,
+        moneyRound2(tuition),
+        moneyRound2(paidAtSchool),
+        totalDue,
+      ]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Fee card created.',
+      data: { id: ins.insertId, babyeyi_id: babyeyiId, merged: false, total_due: totalDue },
+    });
+  } catch (err) {
+    console.error('POST /accountant/babyeyi-fees:', err);
+    return res.status(500).json({ success: false, message: 'Failed to create fee card' });
+  }
+});
+
+function moneyRound2(v) {
+  return Math.round((Number(v || 0) + Number.EPSILON) * 100) / 100;
+}
+
 router.get('/accountant/babyeyi-fees', requireRole(ACCOUNTANT_ONLY), async (req, res) => {
   try {
     const schoolId = resolveSchoolId(req);
@@ -2014,6 +2333,7 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
 
     const [[student]] = await promisePool.query(
       `SELECT s.id, s.student_uid, s.student_code, s.first_name, s.last_name, s.class_name,
+              s.father_full_name, s.father_phone, s.mother_full_name, s.mother_phone,
               sc.school_name
        FROM students s
        LEFT JOIN schools sc ON sc.id = s.school_id
@@ -2023,6 +2343,48 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
     );
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    await ensureAccountantFeeTotalsTableAcct();
+    const [feeCardRows] = await promisePool.query(
+      `SELECT id, babyeyi_id, class_name, classes_json, term, academic_year, total_due
+       FROM accountant_babyeyi_fees
+       WHERE school_id = ?
+       ORDER BY updated_at DESC`,
+      [schoolId]
+    );
+    const totalDue = sumTotalDueForMatchingCards(
+      feeCardRows,
+      student.class_name,
+      academicYear,
+      term
+    );
+    const [collRowsForStudent] = await promisePool.query(
+      `SELECT amount_paid, term, academic_year_label
+       FROM school_fee_collections
+       WHERE school_id = ? AND student_id = ?`,
+      [schoolId, studentId]
+    );
+    let totalPaidManual = 0;
+    for (const row of collRowsForStudent || []) {
+      if (!termMatchesRow(row.term, term)) continue;
+      if (!collectionYearMatchesFilter(row.academic_year_label, academicYear)) continue;
+      totalPaidManual += Number(row.amount_paid || 0);
+    }
+    const EPS = 0.005;
+    let totalPaid = totalPaidManual;
+    let remaining = null;
+    let feeStatus = 'unknown';
+    if (totalDue == null) {
+      feeStatus = 'no_fee_card';
+    } else if (totalDue <= EPS) {
+      feeStatus = 'full';
+      remaining = 0;
+    } else {
+      remaining = Math.max(0, totalDue - totalPaid);
+      if (totalPaid <= EPS) feeStatus = 'not_paid';
+      else if (totalPaid + EPS >= totalDue) feeStatus = 'full_pay';
+      else feeStatus = 'remain_pay';
     }
 
     const [manualRows] = await promisePool.query(
@@ -2216,6 +2578,18 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
           full_name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
           class_name: student.class_name,
           school_name: student.school_name,
+          guardian_name: resolveGuardianLabel(student),
+          parent_phone: resolveParentPhone(student),
+          father_full_name: student.father_full_name,
+          father_phone: student.father_phone,
+          mother_full_name: student.mother_full_name,
+          mother_phone: student.mother_phone,
+        },
+        financial: {
+          amount_to_pay: totalDue,
+          paid_this_term: totalPaid,
+          remaining,
+          status: feeStatus,
         },
         academic_year: academicYear,
         term,
