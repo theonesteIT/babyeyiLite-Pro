@@ -20,13 +20,8 @@ const services = [
   {
     icon: School,
     title: "ShuleKit",
-    desc: "Purchase school materials and kits",
+    desc: "School materials and kits",
     href: "/parents/classkit?kit=shule",
-  }, {
-    icon: CreditCard,
-    title: "ShuleCard",
-    desc: "Order school shoes simply",
-    href: "/parents/shulecard?service=shulecard",
   },
   {
     icon: ShieldCheck,
@@ -46,12 +41,12 @@ const services = [
     desc: "Stationery and supplies shop",
     href: "/parents/shop",
   },
-  {
-    icon: MapPin,
-    title: "Find Agent",
-    desc: "Locate the closest public shop agent for your child",
-    href: "/parents/find-agent",
-  },
+  // {
+  //   icon: MapPin,
+  //   title: "Find Agent",
+  //   desc: "Locate agent for your child",
+  //   href: "/parents/find-agent",
+  // },
 ];
 
 export default function Services() {
@@ -77,7 +72,7 @@ export default function Services() {
               className="group block rounded-[28px] border border-slate-800/20 bg-slate-950/95 px-2 py-2 shadow-[0_18px_45px_-25px_rgba(15,23,42,0.8)] transition hover:border-amber-300/40 hover:bg-slate-900"
             >
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-300 text-slate-950 shadow-lg shadow-amber-500/20">
                   <Icon className="h-6 w-6" strokeWidth={2} />
                 </div>
                 <div className="min-w-0 flex-1">

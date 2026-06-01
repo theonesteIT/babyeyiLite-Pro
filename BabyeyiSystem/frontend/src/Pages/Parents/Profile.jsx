@@ -130,7 +130,8 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-3 pb-4">
+      
       <div className="flex flex-col items-center text-center pt-2">
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-3xl font-extrabold shadow-lg shadow-orange-500/30 border-4 border-white">
           {displayName[0]?.toUpperCase() || "P"}
@@ -139,8 +140,10 @@ export default function Profile() {
           {displayName}
         </h1>
       </div>
-      <div className="w-full gap-4 justify-center flex flex-col sm:flex-row">
-        <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden divide-y divide-slate-100">
+      
+      <ParentPushNotificationsCard />
+      <div className="w-full p-3 px-0 gap-4 justify-between flex flex-col sm:flex-row">
+        <div className="rounded-2xl border border-slate-100 bg-white w-2/5 shadow-sm overflow-hidden divide-slate-100">
           <div className="flex items-center gap-4 p-4">
             <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
               <User className="w-5 h-5 text-slate-600" />
@@ -281,7 +284,7 @@ export default function Profile() {
         )}
 
         {hasFullPortal && !needsCompleteRegistration && (
-          <section className="rounded-2xl border border-slate-100 bg-white p-4 sm:p-5 shadow-sm">
+          <section className="rounded-2xl border border-slate-100 w-3/5 bg-white p-3 sm:p-5 shadow-sm">
             <p className="text-sm font-extrabold text-slate-900 mb-1">
               Recovery email
             </p>
@@ -312,7 +315,7 @@ export default function Profile() {
               <button
                 type="submit"
                 disabled={recoverySaving || !recoveryEmailEdit.trim()}
-                className="inline-flex items-center justify-center w-full sm:w-auto rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+                className="inline-flex items-center float-right justify-center w-full sm:w-auto rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-60"
               >
                 {recoverySaving ? "Saving…" : "Save"}
               </button>
@@ -320,8 +323,6 @@ export default function Profile() {
           </section>
         )}
       </div>
-
-      <ParentPushNotificationsCard />
 
       <button
         type="button"

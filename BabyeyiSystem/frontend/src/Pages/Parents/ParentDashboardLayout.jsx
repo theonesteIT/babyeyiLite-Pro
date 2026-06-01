@@ -364,7 +364,7 @@ export default function ParentDashboardLayout() {
                   >
                     <LifeBuoy size={18} />
                   </a>
-                  <button
+                  {/* <button
                     type="button"
                     onClick={cycleThemeMode}
                     className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
@@ -378,7 +378,7 @@ export default function ParentDashboardLayout() {
                     aria-label="Cycle theme: system, light, dark"
                   >
                     <ThemeIcon size={18} />
-                  </button>
+                  </button> */}
                   <button
                     type="button"
                     className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center text-white hover:bg-white/25 transition-colors"
