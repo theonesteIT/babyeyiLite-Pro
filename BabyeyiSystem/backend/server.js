@@ -1041,6 +1041,14 @@ const startServer = async () => {
     } catch (schemaErr) {
       console.error('❌  Accountant finance schema init failed:', schemaErr.message);
     }
+    try {
+      if (typeof portalOperationsRoutes.ensurePortalOperationsSchema === 'function') {
+        await portalOperationsRoutes.ensurePortalOperationsSchema();
+        console.log('  ✅  Portal operations schema ready');
+      }
+    } catch (schemaErr) {
+      console.error('❌  Portal operations schema init failed:', schemaErr.message);
+    }
     // Migrations now own schema evolution. Keep this call disabled in runtime.
 
     httpServer.listen(PORT, () => {

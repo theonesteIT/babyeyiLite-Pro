@@ -635,7 +635,7 @@ async function ensureTables() {
       unit VARCHAR(40) NULL,
       quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
       reorder_level DECIMAL(14,2) NOT NULL DEFAULT 0,
-      unit_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_cost DECIMAL(14,2) NULL,
       location VARCHAR(180) NULL,
       note TEXT NULL,
       deleted_at DATETIME NULL,
@@ -730,6 +730,9 @@ async function ensureTables() {
   await promisePool.query(`ALTER TABLE store_inventory_items ADD COLUMN deleted_at DATETIME NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_inventory_items ADD COLUMN term VARCHAR(32) NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_inventory_items ADD COLUMN academic_year VARCHAR(64) NULL`).catch(() => {});
+  await promisePool.query(
+    `ALTER TABLE store_inventory_items MODIFY COLUMN unit_cost DECIMAL(14,2) NULL`
+  ).catch(() => {});
   await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN deleted_at DATETIME NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN deleted_at DATETIME NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN term VARCHAR(32) NULL`).catch(() => {});
@@ -4369,7 +4372,7 @@ router.post('/store/inventory', requireRole(STORE_WRITE_ROLES), async (req, res)
     });
     res.status(201).json({ success: true, message: 'Inventory item created', id: r.insertId });
   } catch (e) {
-    console.error('[store/inventory POST]:', e.message);
+    console.error('[store/inventory POST]:', e.message, e.code || '');
     res.status(500).json({ success: false, message: 'Failed to create inventory item' });
   }
 });
@@ -6347,4 +6350,10 @@ router.post('/tools/ticha-ai/assist', requireRole(ALL_SCHOOL_ROLES), async (req,
 router.use(require('./actionPlanRoutes'));
 router.use(require('./accountantReminders'));
 
+async function ensurePortalOperationsSchema() {
+  tablesReady = false;
+  await ensureTables();
+}
+
 module.exports = router;
+module.exports.ensurePortalOperationsSchema = ensurePortalOperationsSchema;
