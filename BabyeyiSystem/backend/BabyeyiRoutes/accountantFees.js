@@ -93,58 +93,79 @@ async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
 }
 
 let collectionsTableReady = false;
+let collectionsTableLock = null;
+
 async function ensureCollectionsTable() {
   if (collectionsTableReady) return;
-  await promisePool.query(`
-    CREATE TABLE IF NOT EXISTS school_fee_collections (
-      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      school_id INT UNSIGNED NOT NULL,
-      student_id INT UNSIGNED NOT NULL,
-      babyeyi_id INT UNSIGNED NULL,
-      academic_year_label VARCHAR(64) NOT NULL,
-      term VARCHAR(32) NOT NULL,
-      class_name VARCHAR(120) NULL,
-      total_due DECIMAL(14,2) NOT NULL DEFAULT 0,
-      amount_paid DECIMAL(14,2) NOT NULL DEFAULT 0,
-      balance_remaining DECIMAL(14,2) NOT NULL DEFAULT 0,
-      recorded_by_user_id INT UNSIGNED NOT NULL,
-      notes TEXT NULL,
-      payment_method VARCHAR(40) NULL,
-      bank_name VARCHAR(120) NULL,
-      paid_by VARCHAR(160) NULL,
-      transaction_ref VARCHAR(120) NULL,
-      momo_phone VARCHAR(32) NULL,
-      receipt_no VARCHAR(64) NULL,
-      paid_at_date DATE NULL,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      KEY idx_sfc_school (school_id),
-      KEY idx_sfc_student (student_id),
-      KEY idx_sfc_created (created_at),
-      KEY idx_sfc_receipt (receipt_no)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-  const alters = [
-    'ALTER TABLE school_fee_collections ADD COLUMN total_due DECIMAL(14,2) NOT NULL DEFAULT 0',
-    'ALTER TABLE school_fee_collections ADD COLUMN amount_paid DECIMAL(14,2) NOT NULL DEFAULT 0',
-    'ALTER TABLE school_fee_collections ADD COLUMN balance_remaining DECIMAL(14,2) NOT NULL DEFAULT 0',
-    'ALTER TABLE school_fee_collections ADD COLUMN babyeyi_id INT UNSIGNED NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN academic_year_label VARCHAR(64) NOT NULL DEFAULT ""',
-    'ALTER TABLE school_fee_collections ADD COLUMN term VARCHAR(32) NOT NULL DEFAULT ""',
-    'ALTER TABLE school_fee_collections ADD COLUMN class_name VARCHAR(120) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN recorded_by_user_id INT UNSIGNED NOT NULL DEFAULT 0',
-    'ALTER TABLE school_fee_collections ADD COLUMN notes TEXT NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN payment_method VARCHAR(40) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN bank_name VARCHAR(120) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN paid_by VARCHAR(160) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN transaction_ref VARCHAR(120) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN momo_phone VARCHAR(32) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN receipt_no VARCHAR(64) NULL',
-    'ALTER TABLE school_fee_collections ADD COLUMN paid_at_date DATE NULL',
-  ];
-  for (const sql of alters) {
-    await promisePool.query(sql).catch(() => {});
+  if (!collectionsTableLock) {
+    collectionsTableLock = (async () => {
+      await promisePool.query(`
+        CREATE TABLE IF NOT EXISTS school_fee_collections (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          school_id INT UNSIGNED NOT NULL,
+          student_id INT UNSIGNED NOT NULL,
+          babyeyi_id BIGINT NULL,
+          academic_year_label VARCHAR(64) NOT NULL,
+          term VARCHAR(32) NOT NULL,
+          class_name VARCHAR(120) NULL,
+          total_due DECIMAL(14,2) NOT NULL DEFAULT 0,
+          amount_paid DECIMAL(14,2) NOT NULL DEFAULT 0,
+          balance_remaining DECIMAL(14,2) NOT NULL DEFAULT 0,
+          recorded_by_user_id INT UNSIGNED NOT NULL,
+          notes TEXT NULL,
+          payment_method VARCHAR(40) NULL,
+          bank_name VARCHAR(120) NULL,
+          paid_by VARCHAR(160) NULL,
+          transaction_ref VARCHAR(120) NULL,
+          momo_phone VARCHAR(32) NULL,
+          receipt_no VARCHAR(64) NULL,
+          paid_at_date DATE NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          KEY idx_sfc_school (school_id),
+          KEY idx_sfc_student (student_id),
+          KEY idx_sfc_created (created_at),
+          KEY idx_sfc_receipt (receipt_no)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      const alters = [
+        'ALTER TABLE school_fee_collections ADD COLUMN total_due DECIMAL(14,2) NOT NULL DEFAULT 0',
+        'ALTER TABLE school_fee_collections ADD COLUMN amount_paid DECIMAL(14,2) NOT NULL DEFAULT 0',
+        'ALTER TABLE school_fee_collections ADD COLUMN balance_remaining DECIMAL(14,2) NOT NULL DEFAULT 0',
+        'ALTER TABLE school_fee_collections ADD COLUMN babyeyi_id BIGINT NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN academic_year_label VARCHAR(64) NOT NULL DEFAULT ""',
+        'ALTER TABLE school_fee_collections ADD COLUMN term VARCHAR(32) NOT NULL DEFAULT ""',
+        'ALTER TABLE school_fee_collections ADD COLUMN class_name VARCHAR(120) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN recorded_by_user_id INT UNSIGNED NOT NULL DEFAULT 0',
+        'ALTER TABLE school_fee_collections ADD COLUMN notes TEXT NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN payment_method VARCHAR(40) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN bank_name VARCHAR(120) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN paid_by VARCHAR(160) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN transaction_ref VARCHAR(120) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN momo_phone VARCHAR(32) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN receipt_no VARCHAR(64) NULL',
+        'ALTER TABLE school_fee_collections ADD COLUMN paid_at_date DATE NULL',
+      ];
+      for (const sql of alters) {
+        try {
+          await promisePool.query(sql);
+        } catch (e) {
+          if (!String(e.message).includes('Duplicate column')) {
+            console.warn('[accountantFees] school_fee_collections alter:', e.message);
+          }
+        }
+      }
+
+      await ensureBabyeyiIdColumnSigned('school_fee_collections', { nullable: true });
+      collectionsTableReady = true;
+      console.log('[accountantFees] school_fee_collections schema ready');
+    })().catch((e) => {
+      collectionsTableLock = null;
+      console.error('[accountantFees] ensureCollectionsTable failed:', e.message);
+      throw e;
+    });
   }
-  collectionsTableReady = true;
+  await collectionsTableLock;
 }
 
 function buildReceiptNo(schoolId, paymentId) {
@@ -1741,7 +1762,13 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
     });
   } catch (err) {
     console.error('POST /accountant/payments:', err);
-    return res.status(500).json({ success: false, message: 'Failed to record payment' });
+    const detail = trimStr(err?.message);
+    return res.status(500).json({
+      success: false,
+      message: detail && process.env.NODE_ENV !== 'production'
+        ? detail
+        : 'Failed to record payment',
+    });
   }
 });
 
@@ -1767,13 +1794,14 @@ async function dbTableExists(tableName) {
   return rows.length > 0;
 }
 
-async function ensureBabyeyiIdColumnSigned(tableName) {
+async function ensureBabyeyiIdColumnSigned(tableName, { nullable = false } = {}) {
   try {
     const [cols] = await promisePool.query(`SHOW COLUMNS FROM \`${tableName}\` LIKE 'babyeyi_id'`);
     const type = String(cols?.[0]?.Type || '').toLowerCase();
     if (type.includes('unsigned')) {
-      await promisePool.query(`ALTER TABLE \`${tableName}\` MODIFY babyeyi_id BIGINT NOT NULL`);
-      console.log(`[accountantFees] ${tableName}.babyeyi_id → signed BIGINT (supports accountant-only negative ids)`);
+      const nullSql = nullable ? 'NULL' : 'NOT NULL';
+      await promisePool.query(`ALTER TABLE \`${tableName}\` MODIFY babyeyi_id BIGINT ${nullSql}`);
+      console.log(`[accountantFees] ${tableName}.babyeyi_id → signed BIGINT (${nullSql})`);
     }
   } catch (e) {
     console.warn(`[accountantFees] ensureBabyeyiIdColumnSigned(${tableName}):`, e.message);
@@ -1871,6 +1899,13 @@ async function ensureAccountantBabyeyiFeeSchema() {
 /** @deprecated alias */
 async function ensureAccountantFeeTotalsTableAcct() {
   return ensureAccountantBabyeyiFeeSchema();
+}
+
+/** All accountant finance tables — run on server start. */
+async function ensureAccountantFinanceSchema() {
+  await ensureCollectionsTable();
+  await ensureAccountantBabyeyiFeeSchema();
+  await ensureExaminationListTables();
 }
 
 function normalizeClassesJsonInput(v) {
@@ -2674,5 +2709,6 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
 router.collectionYearMatchesFilter = collectionYearMatchesFilter;
 router.examinationListPayload = examinationListPayload;
 router.ensureAccountantBabyeyiFeeSchema = ensureAccountantBabyeyiFeeSchema;
+router.ensureAccountantFinanceSchema = ensureAccountantFinanceSchema;
 
 module.exports = router;

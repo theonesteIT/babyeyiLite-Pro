@@ -1035,11 +1035,11 @@ const startServer = async () => {
 
     await ensureFullSystemControllerRole();
     try {
-      if (typeof accountantFeesRoutes.ensureAccountantBabyeyiFeeSchema === 'function') {
-        await accountantFeesRoutes.ensureAccountantBabyeyiFeeSchema();
+      if (typeof accountantFeesRoutes.ensureAccountantFinanceSchema === 'function') {
+        await accountantFeesRoutes.ensureAccountantFinanceSchema();
       }
     } catch (schemaErr) {
-      console.error('❌  Accountant Babyeyi fee schema init failed:', schemaErr.message);
+      console.error('❌  Accountant finance schema init failed:', schemaErr.message);
     }
     // Migrations now own schema evolution. Keep this call disabled in runtime.
 
