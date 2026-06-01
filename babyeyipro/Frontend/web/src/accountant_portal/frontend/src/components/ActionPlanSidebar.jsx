@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { h } from '../utils/href';
 import { ACTION_PLAN_NAV } from '../utils/actionPlanNav';
-const babyeyiIcon = `${import.meta.env.BASE_URL || '/'}babyeyi-icon.png`;
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 
 function NavButton({ item, active, onSelect, onClose }) {
   const ItemIcon = item.Icon;

@@ -242,7 +242,7 @@ async function ensureAccountantFeeArchiveTable() {
     CREATE TABLE IF NOT EXISTS accountant_babyeyi_fee_archive (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       school_id INT UNSIGNED NOT NULL,
-      babyeyi_id INT UNSIGNED NOT NULL,
+      babyeyi_id BIGINT NOT NULL,
       academic_year VARCHAR(64) NOT NULL DEFAULT '',
       term VARCHAR(64) NOT NULL DEFAULT '',
       class_name VARCHAR(255) NULL,
@@ -266,7 +266,7 @@ async function ensureAccountantFeeTotalsTable() {
     CREATE TABLE IF NOT EXISTS accountant_babyeyi_fees (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       school_id INT UNSIGNED NOT NULL,
-      babyeyi_id INT UNSIGNED NOT NULL,
+      babyeyi_id BIGINT NOT NULL,
       academic_year VARCHAR(64) NOT NULL DEFAULT '',
       term VARCHAR(64) NOT NULL DEFAULT '',
       class_name VARCHAR(255) NULL,

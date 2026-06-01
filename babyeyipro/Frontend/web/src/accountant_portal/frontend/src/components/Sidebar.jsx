@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
 import { h } from '../utils/href';
-const babyeyiIcon = `${import.meta.env.BASE_URL || '/'}babyeyi-icon.png`;
+import babyeyiIcon from '../assets/babyeyi-icon.png';
 
 const statusConfig = {
   online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-400', Icon: Wifi },

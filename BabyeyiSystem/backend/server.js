@@ -1034,6 +1034,13 @@ const startServer = async () => {
     console.log('✅  Database connected\n');
 
     await ensureFullSystemControllerRole();
+    try {
+      if (typeof accountantFeesRoutes.ensureAccountantBabyeyiFeeSchema === 'function') {
+        await accountantFeesRoutes.ensureAccountantBabyeyiFeeSchema();
+      }
+    } catch (schemaErr) {
+      console.error('❌  Accountant Babyeyi fee schema init failed:', schemaErr.message);
+    }
     // Migrations now own schema evolution. Keep this call disabled in runtime.
 
     httpServer.listen(PORT, () => {

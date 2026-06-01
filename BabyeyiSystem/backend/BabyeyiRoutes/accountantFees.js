@@ -1755,60 +1755,122 @@ router.post('/accountant/payments', requireRole(ACCOUNTANT_ONLY), async (req, re
 // DELETE /api/accountant/babyeyi-fees/:id
 // ════════════════════════════════════════════════════════════════
 
-let accountantFeeTotalsTableReady = false;
+let accountantBabyeyiSchemaReady = false;
+let accountantBabyeyiSchemaLock = null;
+
+async function dbTableExists(tableName) {
+  const [rows] = await promisePool.query(
+    `SELECT 1 AS ok FROM information_schema.tables
+     WHERE table_schema = DATABASE() AND table_name = ? LIMIT 1`,
+    [tableName]
+  );
+  return rows.length > 0;
+}
+
+async function ensureBabyeyiIdColumnSigned(tableName) {
+  try {
+    const [cols] = await promisePool.query(`SHOW COLUMNS FROM \`${tableName}\` LIKE 'babyeyi_id'`);
+    const type = String(cols?.[0]?.Type || '').toLowerCase();
+    if (type.includes('unsigned')) {
+      await promisePool.query(`ALTER TABLE \`${tableName}\` MODIFY babyeyi_id BIGINT NOT NULL`);
+      console.log(`[accountantFees] ${tableName}.babyeyi_id → signed BIGINT (supports accountant-only negative ids)`);
+    }
+  } catch (e) {
+    console.warn(`[accountantFees] ensureBabyeyiIdColumnSigned(${tableName}):`, e.message);
+  }
+}
+
+/** Creates accountant Babyeyi fee-card tables on first run / server start. */
+async function ensureAccountantBabyeyiFeeSchema() {
+  if (accountantBabyeyiSchemaReady) return;
+  if (!accountantBabyeyiSchemaLock) {
+    accountantBabyeyiSchemaLock = (async () => {
+      await promisePool.query(`
+        CREATE TABLE IF NOT EXISTS accountant_babyeyi_fees (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          school_id INT UNSIGNED NOT NULL,
+          babyeyi_id BIGINT NOT NULL,
+          academic_year VARCHAR(64) NOT NULL DEFAULT '',
+          term VARCHAR(64) NOT NULL DEFAULT '',
+          class_name VARCHAR(255) NULL,
+          classes_json LONGTEXT NULL,
+          tuition_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+          paid_at_school_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+          total_due DECIMAL(14,2) NOT NULL DEFAULT 0,
+          babyeyi_is_active TINYINT(1) NOT NULL DEFAULT 1,
+          babyeyi_status VARCHAR(32) NULL,
+          source_updated_at DATETIME NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_totals_babyeyi (babyeyi_id),
+          KEY idx_totals_school_term (school_id, academic_year, term)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      await promisePool.query(`
+        CREATE TABLE IF NOT EXISTS accountant_babyeyi_fee_archive (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          school_id INT UNSIGNED NOT NULL,
+          babyeyi_id BIGINT NOT NULL,
+          academic_year VARCHAR(64) NOT NULL DEFAULT '',
+          term VARCHAR(64) NOT NULL DEFAULT '',
+          class_name VARCHAR(255) NULL,
+          classes_json LONGTEXT NULL,
+          snapshot_json LONGTEXT NOT NULL,
+          babyeyi_is_active TINYINT(1) NOT NULL DEFAULT 1,
+          source_updated_at DATETIME NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_archive_babyeyi (babyeyi_id),
+          KEY idx_archive_school_term (school_id, academic_year, term)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+      `);
+
+      await ensureBabyeyiIdColumnSigned('accountant_babyeyi_fees');
+      await ensureBabyeyiIdColumnSigned('accountant_babyeyi_fee_archive');
+
+      if (await dbTableExists('accountant_babyeyi_fee_totals')) {
+        await promisePool.query(`
+          INSERT INTO accountant_babyeyi_fees
+            (school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+             tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+             source_updated_at, created_at, updated_at)
+          SELECT school_id, babyeyi_id, academic_year, term, class_name, classes_json,
+                 tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
+                 source_updated_at, created_at, updated_at
+          FROM accountant_babyeyi_fee_totals
+          ON DUPLICATE KEY UPDATE
+            school_id = VALUES(school_id),
+            academic_year = VALUES(academic_year),
+            term = VALUES(term),
+            class_name = VALUES(class_name),
+            classes_json = VALUES(classes_json),
+            tuition_total = VALUES(tuition_total),
+            paid_at_school_total = VALUES(paid_at_school_total),
+            total_due = VALUES(total_due),
+            babyeyi_is_active = VALUES(babyeyi_is_active),
+            babyeyi_status = VALUES(babyeyi_status),
+            source_updated_at = VALUES(source_updated_at),
+            updated_at = VALUES(updated_at)
+        `).catch((e) => {
+          console.warn('[accountantFees] legacy accountant_babyeyi_fee_totals migration:', e.message);
+        });
+      }
+
+      accountantBabyeyiSchemaReady = true;
+      console.log('[accountantFees] Babyeyi fee card schema ready');
+    })().catch((e) => {
+      accountantBabyeyiSchemaLock = null;
+      console.error('[accountantFees] ensureAccountantBabyeyiFeeSchema failed:', e.message);
+      throw e;
+    });
+  }
+  await accountantBabyeyiSchemaLock;
+}
+
+/** @deprecated alias */
 async function ensureAccountantFeeTotalsTableAcct() {
-  if (accountantFeeTotalsTableReady) return;
-  await promisePool
-    .query(
-      `
-    CREATE TABLE IF NOT EXISTS accountant_babyeyi_fees (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      school_id INT UNSIGNED NOT NULL,
-      babyeyi_id INT UNSIGNED NOT NULL,
-      academic_year VARCHAR(64) NOT NULL DEFAULT '',
-      term VARCHAR(64) NOT NULL DEFAULT '',
-      class_name VARCHAR(255) NULL,
-      classes_json LONGTEXT NULL,
-      tuition_total DECIMAL(14,2) NOT NULL DEFAULT 0,
-      paid_at_school_total DECIMAL(14,2) NOT NULL DEFAULT 0,
-      total_due DECIMAL(14,2) NOT NULL DEFAULT 0,
-      babyeyi_is_active TINYINT(1) NOT NULL DEFAULT 1,
-      babyeyi_status VARCHAR(32) NULL,
-      source_updated_at DATETIME NULL,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_totals_babyeyi (babyeyi_id),
-      KEY idx_totals_school_term (school_id, academic_year, term)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `
-    )
-    .catch(() => {});
-  await promisePool
-    .query(
-      `INSERT INTO accountant_babyeyi_fees
-         (school_id, babyeyi_id, academic_year, term, class_name, classes_json,
-          tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
-          source_updated_at, created_at, updated_at)
-       SELECT school_id, babyeyi_id, academic_year, term, class_name, classes_json,
-              tuition_total, paid_at_school_total, total_due, babyeyi_is_active, babyeyi_status,
-              source_updated_at, created_at, updated_at
-       FROM accountant_babyeyi_fee_totals
-       ON DUPLICATE KEY UPDATE
-         school_id = VALUES(school_id),
-         academic_year = VALUES(academic_year),
-         term = VALUES(term),
-         class_name = VALUES(class_name),
-         classes_json = VALUES(classes_json),
-         tuition_total = VALUES(tuition_total),
-         paid_at_school_total = VALUES(paid_at_school_total),
-         total_due = VALUES(total_due),
-         babyeyi_is_active = VALUES(babyeyi_is_active),
-         babyeyi_status = VALUES(babyeyi_status),
-         source_updated_at = VALUES(source_updated_at),
-         updated_at = VALUES(updated_at)`
-    )
-    .catch(() => {});
-  accountantFeeTotalsTableReady = true;
+  return ensureAccountantBabyeyiFeeSchema();
 }
 
 function normalizeClassesJsonInput(v) {
@@ -2136,7 +2198,13 @@ router.post('/accountant/babyeyi-fees', requireRole(ACCOUNTANT_ONLY), async (req
     });
   } catch (err) {
     console.error('POST /accountant/babyeyi-fees:', err);
-    return res.status(500).json({ success: false, message: 'Failed to create fee card' });
+    const detail = trimStr(err?.message);
+    return res.status(500).json({
+      success: false,
+      message: detail && process.env.NODE_ENV !== 'production'
+        ? detail
+        : 'Failed to create fee card',
+    });
   }
 });
 
@@ -2605,5 +2673,6 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
 
 router.collectionYearMatchesFilter = collectionYearMatchesFilter;
 router.examinationListPayload = examinationListPayload;
+router.ensureAccountantBabyeyiFeeSchema = ensureAccountantBabyeyiFeeSchema;
 
 module.exports = router;
