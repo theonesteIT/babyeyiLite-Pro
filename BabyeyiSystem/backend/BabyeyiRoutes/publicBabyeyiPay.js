@@ -2511,7 +2511,7 @@ router.get('/admin-webhook-logs', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTRO
       params.push(dateTo);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const [rows] = await db.promisePool.execute(
+    const [rows] = await db.promisePool.query(
       `SELECT w.id, w.event_type, w.provider_status, w.reference_value, w.intent_id, w.matched_intent,
               w.processing_status, w.error_message, w.created_at, w.processed_at, i.status AS intent_status
        FROM xentripay_webhook_logs w
@@ -2521,7 +2521,7 @@ router.get('/admin-webhook-logs', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTRO
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
-    const [countRows] = await db.promisePool.execute(
+    const [countRows] = await db.promisePool.query(
       `SELECT COUNT(*) AS total FROM xentripay_webhook_logs w ${whereSql}`,
       params
     );
@@ -2764,7 +2764,7 @@ router.get('/admin-intents', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'
     const offset = (page - 1) * limit;
     const { where, params } = buildIntentFilters(req.query);
 
-    const [rows] = await db.promisePool.execute(
+    const [rows] = await db.promisePool.query(
       `SELECT i.id, i.school_id, i.babyeyi_id, i.total_rwf, i.status, i.created_at,
               i.payer_name, i.payer_phone, i.payer_email,
               i.provider, i.provider_status, i.provider_reference, i.provider_tid, i.last_provider_check_at, i.provider_payload_json,
@@ -2785,7 +2785,7 @@ router.get('/admin-intents', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'
       provider_error_message: extractProviderErrorMessage(r.provider_payload_json),
       is_guest_finder: String(r.pay_channel || '') === 'guest_finder',
     }));
-    const [countRows] = await db.promisePool.execute(
+    const [countRows] = await db.promisePool.query(
       `SELECT COUNT(*) AS total
        FROM babyeyi_payment_intents i
        LEFT JOIN schools s ON s.id = i.school_id
@@ -3541,7 +3541,7 @@ router.get('/invoices', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SC
     const role = String(req.user?.role_code || '').toUpperCase();
     const userSchoolId = Number(req.user?.school_id || 0);
     const page = Math.max(Number(req.query.page) || 1, 1);
-    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 500);
     const offset = (page - 1) * limit;
     const student = String(req.query.student || '').trim();
     const email = String(req.query.email || '').trim();
@@ -3554,7 +3554,7 @@ router.get('/invoices', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SC
       { schoolId: scopedSchoolId }
     );
 
-    const [rows] = await db.promisePool.execute(
+    const [rows] = await db.promisePool.query(
       `SELECT i.id, i.invoice_no, i.invoice_status, i.invoice_paid_at, i.invoice_sent_at, i.created_at,
               i.status, i.total_rwf, i.payer_name, i.payer_phone, i.payer_email,
               i.school_id, i.babyeyi_id, i.provider, i.provider_status,
@@ -3572,7 +3572,7 @@ router.get('/invoices', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SC
        LIMIT ? OFFSET ?`,
       [...finalParams, limit, offset]
     );
-    const [countRows] = await db.promisePool.execute(
+    const [countRows] = await db.promisePool.query(
       `SELECT COUNT(*) AS total
        FROM babyeyi_payment_intents i
        LEFT JOIN schools s ON s.id = i.school_id
