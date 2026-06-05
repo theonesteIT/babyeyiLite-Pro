@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import QRCode from 'react-qr-code'
+import QRCode from '../../../assets_portal/components/AssetQrCode'
 import { formatRwf, formatLocationValue, groupAssetsByType } from '../../../assets_portal/utils/assetsCalculations'
 import { buildAssetQrValue } from '../../../assets_portal/utils/assetsQr'
 

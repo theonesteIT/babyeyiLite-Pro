@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Wrench, Users, TrendingDown, Loader2, MapPin, Pencil } from 'lucide-react'
-import QRCode from 'react-qr-code'
+import QRCode from '../../../assets_portal/components/AssetQrCode'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import assetsApi from '../../../assets_portal/services/assetsApi'
 import { buildAssetQrValue } from '../../../assets_portal/utils/assetsQr'

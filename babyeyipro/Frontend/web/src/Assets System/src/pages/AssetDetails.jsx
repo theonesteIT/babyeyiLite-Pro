@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import QRCode from 'react-qr-code'
+import QRCode from '../../../assets_portal/components/AssetQrCode'
 import { assets, recentActivities, maintenanceRecords } from '../data/mockData'
 import { Eye, Edit3, ArrowLeftRight, Wrench, Trash2, Clock, User, MapPin, FileText, Activity, Download, Printer } from 'lucide-react'
 

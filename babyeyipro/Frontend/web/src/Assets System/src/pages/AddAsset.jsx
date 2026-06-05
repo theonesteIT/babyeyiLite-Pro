@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { assetsHref } from '../../../assets_portal/config/portal'
 import { Upload, X, FileText, CreditCard, BookOpen, Save } from 'lucide-react'
-import QRCode from 'react-qr-code'
+import QRCode from '../../../assets_portal/components/AssetQrCode'
 
 export default function AddAsset() {
   const navigate = useNavigate()

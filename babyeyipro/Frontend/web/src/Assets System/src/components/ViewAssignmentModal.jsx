@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   X, Eye, ArrowLeftRight, Wrench, Clock, User, CheckCircle2, Loader2,
 } from 'lucide-react'
-import QRCode from 'react-qr-code'
+import QRCode from '../../../assets_portal/components/AssetQrCode'
 import assetsApi from '../../../assets_portal/services/assetsApi'
 import { formatRwf, formatLocationValue } from '../../../assets_portal/utils/assetsCalculations'
 import { normalizeAssignment } from '../../../assets_portal/utils/assignmentHelpers'

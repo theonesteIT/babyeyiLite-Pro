@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, Check, ChevronLeft, ChevronRight, Save, Plus, AlertCircle, Loader2, Boxes } from 'lucide-react'
-import QRCode from 'react-qr-code'
+import QRCode from '../../../assets_portal/components/AssetQrCode'
 import assetsApi, { formToAssetPayload } from '../../../assets_portal/services/assetsApi'
 import { FUNDING_SOURCES, DEPRECIATION_MODES } from '../../../assets_portal/utils/assetsConstants'
 import { computeTotalBalance, computeDepreciation, formatRwf } from '../../../assets_portal/utils/assetsCalculations'
