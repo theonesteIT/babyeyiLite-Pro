@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { X, Upload, FileSpreadsheet, Loader2, CheckCircle2, AlertTriangle, Copy, ChevronLeft } from 'lucide-react'
-import { QRCode } from 'react-qr-code'
+import QRCode from 'react-qr-code'
 import assetsApi from '../../../assets_portal/services/assetsApi'
 import { parseAssetsExcelFile, buildImportPreview } from '../../../assets_portal/utils/assetExcelRegister'
 import { currentRegisterYear } from '../../../assets_portal/utils/assetFormMapper'

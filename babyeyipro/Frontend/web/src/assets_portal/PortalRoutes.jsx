@@ -47,7 +47,6 @@ function AssetsRoutesInner() {
   return (
     <Routes>
       <Route
-        path=""
         element={
           <ProtectedShell>
             <Layout />
@@ -76,7 +75,7 @@ function AssetsRoutesInner() {
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
-      <Route path="*" element={<Navigate to={`${PORTAL.basePath}/`} replace />} />
+      <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>
   )
 }

@@ -131,17 +131,8 @@ function SubNavLink({ name, path, onClose }) {
         }`
       }
     >
-      {({ isActive }) => (
-        <>
-          <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              isActive ? 'bg-[#FEBF10]' : 'bg-white/30'
-            }`}
-            aria-hidden
-          />
-          <span className="truncate flex-1">{name}</span>
-        </>
-      )}
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/30 aria-[current=page]:bg-[#FEBF10]" aria-hidden />
+      <span className="truncate flex-1">{name}</span>
     </NavLink>
   )
 }

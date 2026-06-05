@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { QRCode } from 'react-qr-code'
+import QRCode from 'react-qr-code'
 import { QrCode, Printer, Download, FileText } from 'lucide-react'
 import { assets } from '../data/mockData'
 
