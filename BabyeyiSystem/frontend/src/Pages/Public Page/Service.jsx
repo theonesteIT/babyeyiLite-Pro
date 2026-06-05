@@ -142,8 +142,7 @@ function ShuleKitHeroCard() {
     <>
       <style>{`
         .sk-hero { background:#fff; border:1px solid #E6EDF7; border-radius:22px; overflow:hidden; display:grid; grid-template-columns:1fr; box-shadow:0 14px 44px rgba(0,4,53,.09); }
-        .sk-hero-media { position:relative; min-height:290px; background:linear-gradient(155deg,#FFF8E8 0%, #FFFDF6 100%); display:flex; align-items:center; justify-content:center; padding:1rem .8rem 0; overflow:hidden; }
-        .sk-hero-media::before { content:""; position:absolute; width:235px; height:235px; border-radius:999px; background:radial-gradient(circle,#FBBF24 0%, #F59E0B 66%, rgba(245,158,11,.0) 69%); bottom:-52px; left:50%; transform:translateX(-50%); opacity:.95; }
+        .sk-hero-media { position:relative; min-height:290px; background:#fff; display:flex; align-items:center; justify-content:center; padding:1rem .8rem 0; overflow:hidden; }
         .sk-hero-media img {
           width:min(100%, 310px);
           height:min(100%, 265px);
@@ -269,169 +268,169 @@ function ServicesBridge() {
   );
 }
 
-function PremiumCTA() {
-  const { t } = useTranslation();
-  return (
-    <section
-      className="premium-cta-shell"
-      style={{
-        margin: "24px 0 18px",
-        borderRadius: 26,
-        border: "1px solid rgba(251,191,36,0.42)",
-        background: "linear-gradient(132deg,#000435 0%, #00084B 58%, #FBBF24 58%, #F59E0B 100%)",
-        boxShadow: "0 22px 50px rgba(0,4,53,0.34)",
-        overflow: "hidden",
-      }}
-    >
-      <div style={{ padding: "1.15rem 1rem 1.05rem" }}>
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr" }} className="cta-grid-hero">
-          <div style={{ position: "relative", zIndex: 2 }}>
-            <div className="premium-cta-badge"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "6px 10px", borderRadius: 999, background: "rgba(255,255,255,0.09)", border: "1px solid rgba(251,191,36,0.38)" }}>
-              <Sparkles size={13} color={AMB} />
-              <span style={{ color: "#fff", fontFamily: MTN, fontSize: 11, fontWeight: 900 }}>
-                {t("servicePage.premiumCtaBadge", { defaultValue: "Babyeyi App" })}
-              </span>
-            </div>
-            <h3 className="premium-cta-title" style={{ margin: "0 0 8px", color: "#fff", fontFamily: MTN, fontWeight: 900, fontSize: "clamp(28px, 4.7vw, 48px)", lineHeight: 1.02 }}>
-              {t("servicePage.premiumCtaTitle", { defaultValue: "Fata serivisi, ishyura cyangwa ubisabe babyeyi" })}
-            </h3>
-            <p style={{ margin: "0 0 14px", color: "rgba(255,255,255,0.78)", fontFamily: MTN, fontSize: 14, lineHeight: 1.55, maxWidth: 620 }}>
-              {t("servicePage.premiumCtaSub", { defaultValue: "Babyeyi app iguha uburenganzira bwo kubona serivisi z'uburezi, kwishyura amafaranga, kuganira na agent no gukurikirana byose aho uri hose." })}
-            </p>
-            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", marginBottom: 12 }}>
-              <a className="premium-cta-btn-main" href="#" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontFamily: MTN, fontWeight: 900, fontSize: 13, color: NAVY, background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                <Smartphone size={14} />
-                App Store
-              </a>
-              <a className="premium-cta-btn-alt" href="#" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontFamily: MTN, fontWeight: 800, fontSize: 13, color: "#fff", border: "1px solid rgba(251,191,36,0.5)", background: "rgba(255,255,255,0.06)" }}>
-                <Smartphone size={14} color={AMB} />
-                Google Play
-              </a>
-              <Link className="premium-cta-btn-alt" to="/find-agent" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontFamily: MTN, fontWeight: 800, fontSize: 13, color: "#fff", border: "1px solid rgba(255,255,255,0.24)", background: "rgba(255,255,255,0.04)" }}>
-                <MessageCircle size={14} />
-                {t("servicePage.premiumCtaSecondary", { defaultValue: "Ganira na Agent" })}
-              </Link>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
-              {[t("servicePage.premiumTrustSecure", { defaultValue: "Byihuse & byizewe" }), t("servicePage.premiumTrustFast", { defaultValue: "Ishyura umutekano" }), t("servicePage.premiumTrustCloud", { defaultValue: "Ganira na Agent" }), t("servicePage.premiumTrustRwanda", { defaultValue: "Amakuru ku gihe" })].map((tag) => (
-                <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 10, border: "1px solid rgba(251,191,36,0.35)", background: "rgba(255,255,255,0.05)", color: "#fff", fontFamily: MTN, fontWeight: 700, fontSize: 11.5 }}>
-                  <Shield size={12} color={AMB} />
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
+// function PremiumCTA() {
+//   const { t } = useTranslation();
+//   return (
+//     <section
+//       className="premium-cta-shell"
+//       style={{
+//         margin: "24px 0 18px",
+//         borderRadius: 26,
+//         border: "1px solid rgba(251,191,36,0.42)",
+//         background: "linear-gradient(132deg,#000435 0%, #00084B 58%, #FBBF24 58%, #F59E0B 100%)",
+//         boxShadow: "0 22px 50px rgba(0,4,53,0.34)",
+//         overflow: "hidden",
+//       }}
+//     >
+//       <div style={{ padding: "1.15rem 1rem 1.05rem" }}>
+//         <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr" }} className="cta-grid-hero">
+//           <div style={{ position: "relative", zIndex: 2 }}>
+//             <div className="premium-cta-badge"
+//               style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "6px 10px", borderRadius: 999, background: "rgba(255,255,255,0.09)", border: "1px solid rgba(251,191,36,0.38)" }}>
+//               <Sparkles size={13} color={AMB} />
+//               <span style={{ color: "#fff", fontFamily: MTN, fontSize: 11, fontWeight: 900 }}>
+//                 {t("servicePage.premiumCtaBadge", { defaultValue: "Babyeyi App" })}
+//               </span>
+//             </div>
+//             <h3 className="premium-cta-title" style={{ margin: "0 0 8px", color: "#fff", fontFamily: MTN, fontWeight: 900, fontSize: "clamp(28px, 4.7vw, 48px)", lineHeight: 1.02 }}>
+//               {t("servicePage.premiumCtaTitle", { defaultValue: "Fata serivisi, ishyura cyangwa ubisabe babyeyi" })}
+//             </h3>
+//             <p style={{ margin: "0 0 14px", color: "rgba(255,255,255,0.78)", fontFamily: MTN, fontSize: 14, lineHeight: 1.55, maxWidth: 620 }}>
+//               {t("servicePage.premiumCtaSub", { defaultValue: "Babyeyi app iguha uburenganzira bwo kubona serivisi z'uburezi, kwishyura amafaranga, kuganira na agent no gukurikirana byose aho uri hose." })}
+//             </p>
+//             <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(155px,1fr))", marginBottom: 12 }}>
+//               <a className="premium-cta-btn-main" href="#" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontFamily: MTN, fontWeight: 900, fontSize: 13, color: NAVY, background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
+//                 <Smartphone size={14} />
+//                 App Store
+//               </a>
+//               <a className="premium-cta-btn-alt" href="#" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontFamily: MTN, fontWeight: 800, fontSize: 13, color: "#fff", border: "1px solid rgba(251,191,36,0.5)", background: "rgba(255,255,255,0.06)" }}>
+//                 <Smartphone size={14} color={AMB} />
+//                 Google Play
+//               </a>
+//               <Link className="premium-cta-btn-alt" to="/find-agent" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 45, borderRadius: 12, textDecoration: "none", fontFamily: MTN, fontWeight: 800, fontSize: 13, color: "#fff", border: "1px solid rgba(255,255,255,0.24)", background: "rgba(255,255,255,0.04)" }}>
+//                 <MessageCircle size={14} />
+//                 {t("servicePage.premiumCtaSecondary", { defaultValue: "Ganira na Agent" })}
+//               </Link>
+//             </div>
+//             <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 }}>
+//               {[t("servicePage.premiumTrustSecure", { defaultValue: "Byihuse & byizewe" }), t("servicePage.premiumTrustFast", { defaultValue: "Ishyura umutekano" }), t("servicePage.premiumTrustCloud", { defaultValue: "Ganira na Agent" }), t("servicePage.premiumTrustRwanda", { defaultValue: "Amakuru ku gihe" })].map((tag) => (
+//                 <span key={tag} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", borderRadius: 10, border: "1px solid rgba(251,191,36,0.35)", background: "rgba(255,255,255,0.05)", color: "#fff", fontFamily: MTN, fontWeight: 700, fontSize: 11.5 }}>
+//                   <Shield size={12} color={AMB} />
+//                   {tag}
+//                 </span>
+//               ))}
+//             </div>
+//           </div>
 
-          <div className="cta-visual-wrap premium-cta-visual" style={{ position: "relative", minHeight: 290 }}>
-            <div style={{ position: "absolute", right: 6, top: 8, bottom: 8, left: "22%", borderRadius: 18, background: "rgba(0,4,53,0.12)", border: "1px solid rgba(255,255,255,0.25)" }} />
-            <div
-              className="premium-cta-card"
-              style={{
-                position: "absolute",
-                left: "2%",
-                top: "8%",
-                width: "42%",
-                maxWidth: 220,
-                minWidth: 150,
-                borderRadius: 24,
-                background: "#fff",
-                border: "6px solid #111",
-                boxShadow: "0 20px 36px rgba(0,0,0,.24)",
-                transform: "rotate(-4deg)",
-                padding: 10,
-              }}
-            >
-              <div style={{ height: 14, borderRadius: 99, background: "#E2E8F0", marginBottom: 10 }} />
-              <div style={{ height: 18, borderRadius: 8, background: "#FFF4D6", marginBottom: 8 }} />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                <div style={{ height: 34, borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
-                <div style={{ height: 34, borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
-              </div>
-              <div style={{ height: 42, borderRadius: 10, background: "#000435", color: "#FBBF24", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MTN, fontSize: 11, fontWeight: 800 }}>
-                babyeyi
-              </div>
-            </div>
-            <img
-              src={mobileHero}
-              alt={t("servicePage.shulekitImageAlt")}
-              style={{
-                position: "absolute",
-                right: 0,
-                bottom: 0,
-                width: "72%",
-                maxWidth: 380,
-                height: "auto",
-                objectFit: "contain",
-                filter: "drop-shadow(0 16px 26px rgba(0,4,53,.34))",
-              }}
-            />
-          </div>
-        </div>
-      </div>
-      <style>{`
-        .premium-cta-shell {
-          position: relative;
-          isolation: isolate;
-        }
-        .premium-cta-shell::before {
-          content: "";
-          position: absolute;
-          inset: -25% auto auto -20%;
-          width: 52%;
-          aspect-ratio: 1;
-          border-radius: 999px;
-          background: radial-gradient(circle, rgba(251,191,36,0.22) 0%, rgba(251,191,36,0) 72%);
-          pointer-events: none;
-          animation: premiumCtaGlow 5.2s ease-in-out infinite;
-        }
-        .premium-cta-shell::after {
-          content: "";
-          position: absolute;
-          inset: auto -18% -30% auto;
-          width: 48%;
-          aspect-ratio: 1;
-          border-radius: 999px;
-          background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 74%);
-          pointer-events: none;
-          animation: premiumCtaGlow 6.4s ease-in-out infinite reverse;
-        }
-        .premium-cta-badge { animation: premiumBadgeFloat 3.8s ease-in-out infinite; }
-        .premium-cta-title { animation: premiumTitleIn .72s ease-out both; }
-        .premium-cta-visual { animation: premiumVisualFloat 4.4s ease-in-out infinite; }
-        .premium-cta-card { animation: premiumCardTilt 6s ease-in-out infinite; transform-origin: center; }
-        .premium-cta-btn-main, .premium-cta-btn-alt { transition: transform .22s ease, box-shadow .22s ease, background .22s ease; }
-        .premium-cta-btn-main:hover, .premium-cta-btn-alt:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,4,53,.22); }
-        @keyframes premiumCtaGlow {
-          0%, 100% { transform: scale(1); opacity: .6; }
-          50% { transform: scale(1.08); opacity: 1; }
-        }
-        @keyframes premiumBadgeFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
-        @keyframes premiumVisualFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-8px); }
-        }
-        @keyframes premiumCardTilt {
-          0%, 100% { transform: rotate(-4deg); }
-          50% { transform: rotate(-1deg); }
-        }
-        @keyframes premiumTitleIn {
-          0% { opacity: 0; transform: translateY(12px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        @media (min-width: 980px) {
-          .cta-grid-hero { grid-template-columns: 56% 44% !important; align-items: center; min-height: 430px; }
-        }
-        @media (max-width: 640px) {
-          .cta-visual-wrap { min-height: 220px !important; }
-        }
-      `}</style>
-    </section>
-  );
-}
+//           <div className="cta-visual-wrap premium-cta-visual" style={{ position: "relative", minHeight: 290 }}>
+//             <div style={{ position: "absolute", right: 6, top: 8, bottom: 8, left: "22%", borderRadius: 18, background: "rgba(0,4,53,0.12)", border: "1px solid rgba(255,255,255,0.25)" }} />
+//             <div
+//               className="premium-cta-card"
+//               style={{
+//                 position: "absolute",
+//                 left: "2%",
+//                 top: "8%",
+//                 width: "42%",
+//                 maxWidth: 220,
+//                 minWidth: 150,
+//                 borderRadius: 24,
+//                 background: "#fff",
+//                 border: "6px solid #111",
+//                 boxShadow: "0 20px 36px rgba(0,0,0,.24)",
+//                 transform: "rotate(-4deg)",
+//                 padding: 10,
+//               }}
+//             >
+//               <div style={{ height: 14, borderRadius: 99, background: "#E2E8F0", marginBottom: 10 }} />
+//               <div style={{ height: 18, borderRadius: 8, background: "#FFF4D6", marginBottom: 8 }} />
+//               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
+//                 <div style={{ height: 34, borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
+//                 <div style={{ height: 34, borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }} />
+//               </div>
+//               <div style={{ height: 42, borderRadius: 10, background: "#000435", color: "#FBBF24", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: MTN, fontSize: 11, fontWeight: 800 }}>
+//                 babyeyi
+//               </div>
+//             </div>
+//             <img
+//               src={mobileHero}
+//               alt={t("servicePage.shulekitImageAlt")}
+//               style={{
+//                 position: "absolute",
+//                 right: 0,
+//                 bottom: 0,
+//                 width: "72%",
+//                 maxWidth: 380,
+//                 height: "auto",
+//                 objectFit: "contain",
+//                 filter: "drop-shadow(0 16px 26px rgba(0,4,53,.34))",
+//               }}
+//             />
+//           </div>
+//         </div>
+//       </div>
+//       <style>{`
+//         .premium-cta-shell {
+//           position: relative;
+//           isolation: isolate;
+//         }
+//         .premium-cta-shell::before {
+//           content: "";
+//           position: absolute;
+//           inset: -25% auto auto -20%;
+//           width: 52%;
+//           aspect-ratio: 1;
+//           border-radius: 999px;
+//           background: radial-gradient(circle, rgba(251,191,36,0.22) 0%, rgba(251,191,36,0) 72%);
+//           pointer-events: none;
+//           animation: premiumCtaGlow 5.2s ease-in-out infinite;
+//         }
+//         .premium-cta-shell::after {
+//           content: "";
+//           position: absolute;
+//           inset: auto -18% -30% auto;
+//           width: 48%;
+//           aspect-ratio: 1;
+//           border-radius: 999px;
+//           background: radial-gradient(circle, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 74%);
+//           pointer-events: none;
+//           animation: premiumCtaGlow 6.4s ease-in-out infinite reverse;
+//         }
+//         .premium-cta-badge { animation: premiumBadgeFloat 3.8s ease-in-out infinite; }
+//         .premium-cta-title { animation: premiumTitleIn .72s ease-out both; }
+//         .premium-cta-visual { animation: premiumVisualFloat 4.4s ease-in-out infinite; }
+//         .premium-cta-card { animation: premiumCardTilt 6s ease-in-out infinite; transform-origin: center; }
+//         .premium-cta-btn-main, .premium-cta-btn-alt { transition: transform .22s ease, box-shadow .22s ease, background .22s ease; }
+//         .premium-cta-btn-main:hover, .premium-cta-btn-alt:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,4,53,.22); }
+//         @keyframes premiumCtaGlow {
+//           0%, 100% { transform: scale(1); opacity: .6; }
+//           50% { transform: scale(1.08); opacity: 1; }
+//         }
+//         @keyframes premiumBadgeFloat {
+//           0%, 100% { transform: translateY(0); }
+//           50% { transform: translateY(-3px); }
+//         }
+//         @keyframes premiumVisualFloat {
+//           0%, 100% { transform: translateY(0); }
+//           50% { transform: translateY(-8px); }
+//         }
+//         @keyframes premiumCardTilt {
+//           0%, 100% { transform: rotate(-4deg); }
+//           50% { transform: rotate(-1deg); }
+//         }
+//         @keyframes premiumTitleIn {
+//           0% { opacity: 0; transform: translateY(12px); }
+//           100% { opacity: 1; transform: translateY(0); }
+//         }
+//         @media (min-width: 980px) {
+//           .cta-grid-hero { grid-template-columns: 56% 44% !important; align-items: center; min-height: 430px; }
+//         }
+//         @media (max-width: 640px) {
+//           .cta-visual-wrap { min-height: 220px !important; }
+//         }
+//       `}</style>
+//     </section>
+//   );
+// }
 
 /* ─── Page ───────────────────────────────────────────────── */
 export default function Service() {
@@ -468,7 +467,7 @@ export default function Service() {
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))", gap:15 }}>
           {SERVICES.map(s => <SvcCard key={s.key} {...s}/>)}
         </div>
-        <PremiumCTA />
+        {/* <PremiumCTA /> */}
       </section>
 
       <HeroPopup />

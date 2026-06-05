@@ -72,6 +72,7 @@ app.set('etag', false);
   'uploads/platform-content',
   'uploads/temp',
   'uploads/library-covers',
+  'uploads/hr-staff-documents',
 ].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -568,6 +569,8 @@ const globalUpload = multer({
 const MULTER_SELF_MANAGED = [
   '/api/babyeyi',
   '/api/district/babyeyi',
+  '/api/school/hr',
+  '/api/school/staff',
   '/api/fee-limits',
   '/api/schools',
   '/api/mini-websites',
@@ -834,6 +837,10 @@ const studentRoutes    = require('./BabyeyiRoutes/students');
 console.log('  ✅  students.js');
 const schoolStaffRoutes = require('./BabyeyiRoutes/schoolStaff');
 console.log('  ✅  schoolStaff.js');
+const hrCenterRoutes = require('./BabyeyiRoutes/hrCenter');
+console.log('  ✅  hrCenter.js');
+const schoolAssetsRoutes = require('./BabyeyiRoutes/schoolAssets');
+console.log('  ✅  schoolAssets.js');
 const accountantFeesRoutes = require('./BabyeyiRoutes/accountantFees');
 console.log('  ✅  accountantFees.js');
 const disciplineRoutes = require('./BabyeyiRoutes/discipline');
@@ -962,6 +969,9 @@ app.use('/api', studentRoutes);
 console.log('  ✅  /api/students/*');
 app.use('/api', schoolStaffRoutes);
 console.log('  ✅  /api/school/staff/*');
+app.use('/api', hrCenterRoutes);
+app.use('/api', schoolAssetsRoutes);
+console.log('  ✅  /api/school/hr/*');
 app.use('/api', accountantFeesRoutes);
 console.log('  ✅  /api/accountant/*');
 app.use('/api', disciplineRoutes);

@@ -1,0 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  --color-navy: #000435;
+  --color-navy-50: #e6e6eb;
+  --color-navy-100: #b3b4c2;
+  --color-navy-500: #000435;
+  --color-navy-600: #00032a;
+}
+
+.assets-portal-root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1f2937;
+}
+
+.assets-portal-root .btn-primary {
+  background-color: #ffc107;
+  color: #fff;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+.assets-portal-root .btn-primary:hover {
+  background-color: #ffb300;
+}
+
+.assets-portal-root .btn-outline {
+  border: 2px solid #000435;
+  color: #000435;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+}
+.assets-portal-root .btn-outline:hover {
+  background-color: #000435;
+  color: #fff;
+}
+
+.assets-portal-root .card {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid #f3f4f6;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.assets-portal-root .input-field,
+.assets-portal-root .select-field {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+.assets-portal-root .input-field:focus,
+.assets-portal-root .select-field:focus {
+  border-color: #ffc107;
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25);
+}
+
+.assets-portal-root .table-header {
+  padding: 0.75rem 1.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.assets-portal-root .table-cell {
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+  white-space: nowrap;
+}
+
+@keyframes assets-slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes assets-slide-in-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.assets-portal-root .animate-in.slide-in-from-right {
+  animation: assets-slide-in-right 0.28s ease-out;
+}
+.assets-portal-root .animate-in.slide-in-from-left {
+  animation: assets-slide-in-left 0.28s ease-out;
+}
+
+.assets-portal-root .badge {
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.assets-portal-root .sidebar-transition {
+  transition: width 0.3s ease, transform 0.3s ease;
+}
+
+.assets-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(254, 191, 16, 0.35) transparent;
+}
+
+.assets-sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.assets-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.assets-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+.assets-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(254, 191, 16, 0.45);
+}
+
+/* Add Asset Wizard */
+.assets-wizard-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #0e1f35;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.assets-wizard-input:focus {
+  border-color: rgba(254, 191, 16, 0.6);
+  box-shadow: 0 0 0 3px rgba(254, 191, 16, 0.15);
+}
+.assets-wizard-input.assets-wizard-input-error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+}
+select.assets-wizard-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+/* Date inputs — readable picker, not clipped by modal scroll */
+.assets-date-field {
+  position: relative;
+  z-index: 2;
+}
+input[type="date"].assets-date-input,
+.assets-wizard-input[type="date"] {
+  min-height: 2.75rem;
+  line-height: 1.4;
+  color-scheme: light;
+}
+input[type="date"].assets-date-input::-webkit-calendar-picker-indicator,
+.assets-wizard-input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.85;
+  padding: 0.25rem;
+  margin-right: 0.125rem;
+  border-radius: 6px;
+}
+input[type="date"].assets-date-input::-webkit-calendar-picker-indicator:hover,
+.assets-wizard-input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  background: rgba(254, 191, 16, 0.25);
+}
+input[type="date"].assets-date-input::-webkit-datetime-edit,
+.assets-wizard-input[type="date"]::-webkit-datetime-edit {
+  padding: 0;
+}
+input[type="date"].assets-date-input::-webkit-datetime-edit-fields-wrapper,
+.assets-wizard-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}

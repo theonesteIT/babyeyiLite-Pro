@@ -1747,8 +1747,8 @@ router.post("/upload-asset", uploadAsset.single("file"), async (req, res) => {
     const assetType = req.body?.asset_type;
     if (!schoolId)  return res.status(400).json({ success: false, message: "school_id missing from session" });
     if (!req.file)  return res.status(400).json({ success: false, message: "No file uploaded" });
-    if (!["logo","signature","stamp","other_logo"].includes(assetType)) {
-      return res.status(400).json({ success: false, message: "asset_type must be logo, other_logo, signature, or stamp" });
+    if (!["logo","signature","stamp","other_logo","accountant_signature"].includes(assetType)) {
+      return res.status(400).json({ success: false, message: "asset_type must be logo, other_logo, signature, stamp, or accountant_signature" });
     }
     const fileUrl = `/${ASSET_DIR}${req.file.filename}`;
     if (assetType === "logo") {
@@ -1765,6 +1765,10 @@ router.post("/upload-asset", uploadAsset.single("file"), async (req, res) => {
       const userId = req.user?.id || req.session?.userId;
       if (userId) await query(`UPDATE users SET signature_url=? WHERE id=?`, [fileUrl, userId]);
       await query(`UPDATE schools SET head_signature_url=? WHERE id=?`, [fileUrl, schoolId]).catch(() => {});
+    } else if (assetType === "accountant_signature") {
+      const userId = req.user?.id || req.session?.userId;
+      if (!userId) return res.status(400).json({ success: false, message: "User session required for accountant signature" });
+      await query(`UPDATE users SET signature_url=? WHERE id=?`, [fileUrl, userId]);
     }
     res.json({ success: true, url: fileUrl, asset_type: assetType, message: `${assetType} uploaded successfully` });
   } catch (err) {

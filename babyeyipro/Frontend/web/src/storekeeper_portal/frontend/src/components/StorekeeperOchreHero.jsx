@@ -1,13 +1,12 @@
-import { createElement } from 'react';
+import { createElement } from 'react'
 
 /**
- * Ochre institutional hero — aligns with accountant/manager dashboards (#c87800).
+ * Ochre institutional hero — matches accountant Dashboard (#c87800 + gold hairline).
  */
 export default function StorekeeperOchreHero({
-  eyebrow,
+  eyebrow = 'Storekeeper Portal',
   titleLine,
   titleAccent = '',
-  titleSuffix = '',
   subtitle,
   icon: Icon,
   rightSlot,
@@ -31,7 +30,7 @@ export default function StorekeeperOchreHero({
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-col sm:flex-row gap-5 sm:gap-6 lg:gap-8 items-start">
             {Icon ? (
-              <div className="hidden sm:flex shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-[24px] md:rounded-[28px] border border-white/20 bg-white/10 items-center justify-center">
+              <div className="hidden sm:flex shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-[24px] md:rounded-[28px] border border-white/10 bg-white/5 items-center justify-center backdrop-blur-sm shadow-sm">
                 {createElement(Icon, {
                   size: 32,
                   className: 'text-[#FEBF10]',
@@ -42,10 +41,10 @@ export default function StorekeeperOchreHero({
             <div className="space-y-1 max-w-3xl">
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/95">{eyebrow}</p>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-white/85">{eyebrow}</p>
               </div>
               <h1
-                className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight uppercase"
+                className="text-xl sm:text-2xl md:text-3xl font-medium text-white tracking-tight leading-tight uppercase"
                 style={{ fontFamily: "'Montserrat', sans-serif" }}
               >
                 {titleLine}
@@ -55,10 +54,9 @@ export default function StorekeeperOchreHero({
                     <span className="text-[#FEBF10]">{titleAccent}</span>
                   </>
                 ) : null}
-                {titleSuffix ? <span className="text-white"> {titleSuffix}</span> : null}
               </h1>
               {subtitle ? (
-                <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85 max-w-xl leading-relaxed">
+                <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.16em] text-white/85 max-w-xl leading-relaxed">
                   {subtitle}
                 </p>
               ) : null}
@@ -70,5 +68,5 @@ export default function StorekeeperOchreHero({
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -245,7 +245,7 @@
     "accountLocked": "Konti ifunzwe.",
     "schoolPendingApproval": "Iyandikisha ry'ishuri rirategereje kwemezwa. Tegereza Super Admin.",
     "schoolInactive": "Ishuri ryanyu ntirikora. Vugisha Super Admin kugira ngo aryongere rikore.",
-    "schoolNotLinked": "Konti y'ishuri ntirahuza. Vugisha Super Admin.",
+    "schoolNotLinked": "Nta kigo gihujwe n'iyi konti. Vugisha Super Admin.",
     "schoolCodeRequired": "Andika kode y'ishuri kugira ngo winjire nka School Manager.",
     "systemMaintenanceOnlySuper": "Sisitemu iri mu kubungabungwa - Super Administrator ni we wenyine ushobora kwinjira.",
     "attemptsLeft": "{{message}} - hasigaye igerageza {{count}}.",

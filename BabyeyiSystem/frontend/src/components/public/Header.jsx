@@ -447,7 +447,7 @@ function Navbar() {
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-bold text-white bg-white/5 border border-white/10"
             >
               <LayoutGrid size={16} className="text-amber-300 shrink-0" />
-              {t('public.otherPortal')}
+              {t('public.otherPorta')}
             </Link>
             <Link
               to="/login-portal-select"
@@ -488,9 +488,9 @@ export default function PublicHeader({
 
   return (
     <>
-      <BannerStyles />
+      {/* <BannerStyles /> */}
       <header className="fixed inset-x-0 top-0 z-50">
-        {bannerVisible && <TopAnnouncementBar onClose={dismiss} banners={banners} />}
+        {/* {bannerVisible && <TopAnnouncementBar onClose={dismiss} banners={banners} />} */}
         <Navbar />
       </header>
     </>

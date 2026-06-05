@@ -14,6 +14,7 @@ import TeacherPortalRoutes from './teacher/PortalRoutes'
 import DisciplinePortalRoutes from './discipline/PortalRoutes'
 import GateKeeperPortalRoutes from './GateKeeper/PortalRoutes'
 import RepresentativePortalRoutes from './Representative/PortalRoutes'
+import AssetsPortalRoutes from './assets_portal/PortalRoutes'
 
 const PRO_BASENAME = (() => {
   const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
@@ -37,6 +38,8 @@ const ROLE_HOME_PORTAL = {
   ACCOUNTANT: 'accountant',
   STOREKEEPER: 'storekeeper',
   STORE_MANAGER: 'storekeeper',
+  ASSETS_MANAGER: 'assets',
+  ASSET_MANAGER: 'assets',
   LIBRARIAN: 'librarian',
   DISCIPLINE_STAFF: 'discipline',
   DISCIPLINE: 'discipline',
@@ -52,6 +55,7 @@ const KNOWN_ROOTS = [
   '/manager',
   '/accountant',
   '/storekeeper',
+  '/assets',
   '/librarian',
   '/gatekeeper',
   '/discipline-staff',
@@ -133,6 +137,14 @@ export default function App() {
             element={
               <ProGate portal="librarian">
                 <LibrarianPortalRoutes />
+              </ProGate>
+            }
+          />
+          <Route
+            path="/assets/*"
+            element={
+              <ProGate portal="assets">
+                <AssetsPortalRoutes />
               </ProGate>
             }
           />

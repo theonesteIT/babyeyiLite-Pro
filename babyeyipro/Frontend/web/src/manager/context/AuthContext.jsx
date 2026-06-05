@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo } from 'react'
 import { useMasterAuth } from '../../context/MasterAuthContext'
 import { canAccessSchoolConsole } from '../utils/schoolConsoleAccess'
 
-const AuthContext = createContext()
+const AuthContext = createContext({})
 
 export const AuthProvider = ({ children }) => {
   const m = useMasterAuth()

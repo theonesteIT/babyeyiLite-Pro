@@ -245,7 +245,7 @@
     "accountLocked": "Compte bloqué.",
     "schoolPendingApproval": "L'inscription de votre école est en attente d'approbation. Veuillez patienter.",
     "schoolInactive": "Votre école est inactive. Contactez le Super Admin pour l'activer.",
-    "schoolNotLinked": "Le compte de votre école n'est pas encore lié. Contactez le Super Admin.",
+    "schoolNotLinked": "Aucune école n'est liée à ce compte. Veuillez contacter le Super Admin.",
     "schoolCodeRequired": "Saisissez le code de votre école pour vous connecter en tant que gestionnaire scolaire.",
     "systemMaintenanceOnlySuper": "Maintenance système - seul le Super Administrateur peut se connecter.",
     "attemptsLeft": "{{message}} - {{count}} tentative restante.",

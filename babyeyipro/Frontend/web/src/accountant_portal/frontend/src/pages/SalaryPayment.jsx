@@ -1,265 +1,479 @@
-import React, { useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, CreditCard, Smartphone, Banknote, User, AlertCircle } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Banknote, ChevronDown, Download, FileSpreadsheet, Loader2, RefreshCw, Search,
+  Trash2, CheckCircle, AlertCircle,
+} from 'lucide-react';
+import AccountantOchreHero from '../components/AccountantOchreHero';
+import PayrollRegisterTable from '../components/PayrollRegisterTable';
+import {
+  mapApiLineToRegisterRow,
+  sumPayrollRegisterRows,
+  downloadPayrollRegisterCsv,
+  downloadPayrollRegisterExcel,
+} from '../utils/payrollRegister';
+import {
+  getPayrollRun,
+  getPayrollRuns,
+  deletePayrollRun,
+  markPayrollRunPaid,
+  isPayrollRunDeletable,
+  isPayrollRunPaid,
+  payrollRunStatusLabel,
+} from '../services/payrollRunService';
+import {
+  parseManagerAcademicSettings,
+  termsForRegistryYear,
+  inferCurrentTerm,
+  yearOptionLabel,
+} from '../utils/academicCalendarFilters';
 import api from '../services/api';
 
-const fmt = (v) => `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number(v) || 0)}`;
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function toPayrollYear(y) {
+  const txt = String(y || '').trim();
+  const m = txt.match(/\b(20\d{2}|19\d{2})\b/);
+  if (m) return Number(m[1]);
+  const n = Number(txt);
+  return Number.isFinite(n) ? n : new Date().getFullYear();
+}
+
+function monthToNumber(label) {
+  const i = MONTHS.findIndex((m) => m.toLowerCase() === String(label || '').toLowerCase());
+  return i >= 0 ? i + 1 : new Date().getMonth() + 1;
+}
+
+function statusBadge(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'paid') return { label: 'Paid', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+  if (s === 'processing' || s === 'processed') return { label: 'Processing', cls: 'bg-amber-100 text-amber-800 border-amber-200' };
+  if (s === 'draft') return { label: 'Draft', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+  return { label: payrollRunStatusLabel(status), cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+}
+
+function FieldSelect({ label, value, onChange, options, disabled }) {
+  return (
+    <label className="block">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-1.5 block">{label}</span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-[#000435] focus:outline-none focus:ring-2 focus:ring-[#F59E0B]/40 disabled:opacity-60 pr-10"
+        >
+          {options.map((o) => (
+            <option key={typeof o === 'string' ? o : o.value} value={typeof o === 'string' ? o : o.value}>
+              {typeof o === 'string' ? o : o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      </div>
+    </label>
+  );
+}
 
 export default function SalaryPayment() {
-  const navigate = useNavigate();
-  const { state } = useLocation();
-  const draft = state?.payrollDraft || null;
-  const [paymentMethod, setPaymentMethod] = useState('MTN');
-  const [mtnPhone, setMtnPhone] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [bankAccount, setBankAccount] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [academicYear, setAcademicYear] = useState('');
+  const [month, setMonth] = useState(MONTHS[new Date().getMonth()]);
+  const [academicRegistry, setAcademicRegistry] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [academicLoaded, setAcademicLoaded] = useState(false);
 
-  if (!draft) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 font-sans" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-sm border border-slate-100 p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-red-50 border border-red-100 flex items-center justify-center mx-auto mb-4">
-            <AlertCircle size={24} className="text-red-500" />
-          </div>
-          <h2 className="text-xl font-medium text-[#000435]">No Draft Found</h2>
-          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest leading-relaxed">
-            Please start the payment process from the Payroll Configuration page.
-          </p>
-          <button
-            onClick={() => navigate('/accountant/payroll/config')}
-            className="mt-6 w-full h-12 rounded-xl bg-[#000435] text-[#FEBF10] text-[11px] font-medium uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#000435]/90 transition-all shadow-lg shadow-[#000435]/20"
-          >
-            <ArrowLeft size={16} /> Back To Payroll Config
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const [runs, setRuns] = useState([]);
+  const [selectedRunId, setSelectedRunId] = useState(null);
+  const [runDetail, setRunDetail] = useState(null);
+  const [loadingRuns, setLoadingRuns] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [search, setSearch] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [notice, setNotice] = useState('');
 
-  const handlePay = async () => {
-    setError('');
-    if (!draft?.staffUserId || !draft?.staffName || !draft?.month || !draft?.term || !draft?.year || !(Number(draft?.amount) > 0)) {
-      setError('PAYROLL DRAFT IS INCOMPLETE. GO BACK AND REGENERATE PAYMENT PAYLOAD.');
-      return;
-    }
-    if (paymentMethod === 'MTN' && !mtnPhone.trim()) {
-      setError('PLEASE ENTER A VALID MTN PHONE NUMBER.');
-      return;
-    }
-    if (paymentMethod === 'BANK' && (!bankName.trim() || !bankAccount.trim())) {
-      setError('PLEASE PROVIDE BOTH BANK NAME AND ACCOUNT NUMBER.');
-      return;
-    }
+  const payrollYear = useMemo(() => toPayrollYear(academicYear), [academicYear]);
+  const payMonthNum = useMemo(() => monthToNumber(month), [month]);
 
-    setLoading(true);
+  const schoolName = useMemo(() => {
     try {
-      const reqId = draft.id || (draft.payrollId ? draft.payrollId.replace('PAY-', '') : null);
-      if (!reqId) throw new Error('Missing request ID');
+      const raw = localStorage.getItem('user') || localStorage.getItem('authUser') || '{}';
+      const u = JSON.parse(raw);
+      return u?.school?.name || u?.school_name || 'School';
+    } catch {
+      return 'School';
+    }
+  }, []);
 
-      await api.patch(`/manager/payroll-requests/${reqId}/decision`, {
-        decision: 'pay',
-        paymentMethod,
-        paymentMeta: paymentMethod === 'MTN'
-          ? { mtnPhone: mtnPhone.trim() || null }
-          : { bankName: bankName.trim() || null, bankAccount: bankAccount.trim() || null },
+  const yearOptions = useMemo(() => {
+    if (!availableYears.length) return [{ value: String(new Date().getFullYear()), label: String(new Date().getFullYear()) }];
+    return availableYears.map((y) => {
+      const row = academicRegistry.find((r) => String(r.academic_year) === String(y));
+      return { value: y, label: yearOptionLabel(row) || y };
+    });
+  }, [availableYears, academicRegistry]);
+
+  useEffect(() => {
+    api.get('/dos/academic-calendar-settings')
+      .then((res) => {
+        if (!res.data?.success) return;
+        const parsed = parseManagerAcademicSettings(res.data.data || {});
+        const year = parsed.currentYear || String(new Date().getFullYear());
+        const years = parsed.years?.length ? parsed.years : [year];
+        setAcademicRegistry(parsed.registry);
+        setAvailableYears(years);
+        setAcademicYear(year);
+        setAcademicLoaded(true);
+      })
+      .catch(() => {
+        const y = String(new Date().getFullYear());
+        setAvailableYears([y]);
+        setAcademicYear(y);
+        setAcademicLoaded(true);
       });
-      navigate('/accountant/payroll/config', { state: { payrollPaymentSaved: true } });
-    } catch (e) {
-      setError((e?.response?.data?.message || e?.message || 'FAILED TO COMPLETE SALARY PAYMENT.').toUpperCase());
+  }, []);
+
+  const loadRuns = useCallback(async () => {
+    if (!academicYear) return;
+    setLoadingRuns(true);
+    try {
+      const data = await getPayrollRuns({
+        month,
+        year: payrollYear,
+        academicYear,
+        limit: 100,
+      });
+      setRuns(data);
+      setSelectedRunId((prev) => {
+        if (prev && data.some((r) => r.db_id === prev)) return prev;
+        return data[0]?.db_id ?? null;
+      });
+    } catch {
+      setRuns([]);
+      setSelectedRunId(null);
     } finally {
-      setLoading(false);
+      setLoadingRuns(false);
+    }
+  }, [academicYear, month, payrollYear]);
+
+  useEffect(() => {
+    if (academicLoaded) loadRuns();
+  }, [academicLoaded, loadRuns]);
+
+  const loadRunDetail = useCallback(async (id) => {
+    if (!id) {
+      setRunDetail(null);
+      return;
+    }
+    setLoadingDetail(true);
+    try {
+      const data = await getPayrollRun(id);
+      setRunDetail(data);
+    } catch {
+      setRunDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedRunId) loadRunDetail(selectedRunId);
+    else setRunDetail(null);
+  }, [selectedRunId, loadRunDetail]);
+
+  const registerRows = useMemo(() => {
+    const lines = Array.isArray(runDetail?.lines) ? runDetail.lines : [];
+    let rows = lines.map((l) => mapApiLineToRegisterRow(l));
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((r) =>
+        [r.firstName, r.familyName, r.rssbNumber, r.nationalId].some((v) =>
+          String(v || '').toLowerCase().includes(q)
+        )
+      );
+    }
+    return rows;
+  }, [runDetail, search]);
+
+  const registerTotals = useMemo(
+    () => (registerRows.length ? sumPayrollRegisterRows(registerRows) : null),
+    [registerRows]
+  );
+
+  const periodLabel = useMemo(() => {
+    const m = runDetail?.monthLabel || month;
+    const y = runDetail?.payYear || payrollYear;
+    return `PAYROLL FOR ${String(m).toUpperCase()} ${y}`;
+  }, [runDetail, month, payrollYear]);
+
+  const selectedRun = runs.find((r) => r.db_id === selectedRunId);
+  const badge = selectedRun ? statusBadge(selectedRun.status) : statusBadge(runDetail?.status);
+  const canDelete = selectedRun && isPayrollRunDeletable(selectedRun.status);
+  const canMarkPaid = selectedRun && isPayrollRunDeletable(selectedRun.status);
+
+  const handleDeleteRun = async () => {
+    if (!selectedRunId || !canDelete) return;
+    const ok = window.confirm(
+      `Delete payroll for ${month} ${payrollYear} (${academicYear})?\n\n`
+      + 'This permanently removes the run and all staff lines from the database.\n\nContinue?'
+    );
+    if (!ok) return;
+    setActionBusy(true);
+    setActionError('');
+    setNotice('');
+    try {
+      await deletePayrollRun(selectedRunId);
+      setNotice('Payroll run deleted.');
+      setSelectedRunId(null);
+      setRunDetail(null);
+      await loadRuns();
+    } catch (e) {
+      const msg = e?.response?.data?.message || e?.message || 'Failed to delete payroll run';
+      setActionError(msg);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!selectedRunId || !canMarkPaid) return;
+    const ok = window.confirm(
+      `Mark this payroll as Paid?\n\n`
+      + `${month} ${payrollYear} · Net ${(runDetail?.netTotal ?? selectedRun?.netTotal ?? 0).toLocaleString()} RWF\n\n`
+      + 'Paid payroll cannot be deleted.'
+    );
+    if (!ok) return;
+    setActionBusy(true);
+    setActionError('');
+    try {
+      await markPayrollRunPaid(selectedRunId);
+      setNotice('Payroll marked as paid.');
+      await loadRuns();
+      await loadRunDetail(selectedRunId);
+    } catch (e) {
+      setActionError(e?.response?.data?.message || 'Failed to mark payroll as paid');
+    } finally {
+      setActionBusy(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div className="min-h-screen bg-slate-50" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <AccountantOchreHero
+        eyebrow="Finance · Payroll"
+        titleLine="Salary"
+        titleAccent="Payment"
+        subtitle="View saved payroll runs by academic year and month — full school register with net pay per staff."
+        icon={Banknote}
+      />
 
-      {/* ── Hero Header ── */}
-      <div className="relative bg-[#000435] overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full border border-white/5" />
-        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full border border-white/5" />
-        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent" />
+      <div className="acct-shell-wide -mt-10 relative z-10 pb-16 space-y-5 max-w-[min(100%,1920px)]">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <FieldSelect
+              label="Academic year"
+              value={academicYear}
+              onChange={setAcademicYear}
+              options={yearOptions}
+              disabled={!academicLoaded}
+            />
+            <FieldSelect label="Payroll month" value={month} onChange={setMonth} options={MONTHS} />
+            <label className="block sm:col-span-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-1.5 block">
+                Search staff in register
+              </span>
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Name, RSSB, National ID…"
+                  className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-3 text-sm font-medium text-[#000435] focus:outline-none focus:ring-2 focus:ring-[#F59E0B]/40"
+                />
+              </div>
+            </label>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRunId(null);
+                loadRuns();
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              <RefreshCw size={14} className={loadingRuns ? 'animate-spin' : ''} /> Refresh
+            </button>
+          </div>
+        </div>
 
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-8 pt-10 pb-24 sm:pb-32">
-          <button
-            onClick={() => navigate(-1)}
-            className="mb-6 h-9 px-3 rounded-lg bg-white/5 border border-white/10 text-white/70 text-[10px] font-medium uppercase tracking-wider inline-flex items-center gap-2 hover:bg-white/10 hover:text-white transition-all"
-          >
-            <ArrowLeft size={13} /> Go Back
-          </button>
+        {actionError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-2.5 text-red-800 text-sm">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{actionError}</span>
+          </div>
+        ) : null}
+        {notice ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-start gap-2.5 text-emerald-800 text-sm">
+            <CheckCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{notice}</span>
+          </div>
+        ) : null}
 
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-[#FEBF10]/10 border border-[#FEBF10]/20 flex items-center justify-center shrink-0">
-              <Banknote size={24} className="text-[#FEBF10]" />
+        {/* Saved payroll runs — full width above stats */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100">
+            <p className="text-sm font-semibold text-[#000435]">Saved payroll runs</p>
+            <p className="text-[11px] text-slate-500 mt-0.5 font-normal">
+              {month} {payrollYear} · {academicYear || '—'}
+            </p>
+          </div>
+          <div className="p-4">
+            {loadingRuns ? (
+              <div className="py-8 text-center text-slate-400 text-sm font-normal">
+                <Loader2 size={20} className="animate-spin mx-auto mb-2" /> Loading…
+              </div>
+            ) : runs.length === 0 ? (
+              <p className="py-6 text-sm text-slate-500 text-center font-normal">
+                No payroll saved for this period. Run payroll from Payroll Run first.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {runs.map((r) => {
+                  const b = statusBadge(r.status);
+                  const active = selectedRunId === r.db_id;
+                  return (
+                    <button
+                      key={r.db_id}
+                      type="button"
+                      onClick={() => setSelectedRunId(r.db_id)}
+                      className={`min-w-[200px] flex-1 max-w-sm text-left rounded-xl border px-4 py-3 transition-colors ${
+                        active
+                          ? 'border-[#FEBF10] bg-amber-50/90 ring-1 ring-[#FEBF10]/40'
+                          : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-semibold text-[#000435]">{r.period || r.id}</p>
+                        <span className={`text-[9px] font-semibold uppercase px-2 py-0.5 rounded-full border shrink-0 ${b.cls}`}>
+                          {b.label}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 font-normal">
+                        {r.staffCount} staff · Net {(r.netTotal || 0).toLocaleString()} RWF
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5 font-normal">
+                        {new Date(r.created_at).toLocaleString()}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stats row — below saved runs */}
+        {selectedRun || runDetail ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Status', value: badge.label, isBadge: true },
+                { label: 'Staff', value: runDetail?.staffCount ?? selectedRun?.staffCount ?? 0 },
+                { label: 'Gross total', value: `${(runDetail?.grossTotal ?? selectedRun?.grossTotal ?? 0).toLocaleString()} RWF` },
+                { label: 'Net total', value: `${(runDetail?.netTotal ?? selectedRun?.netTotal ?? 0).toLocaleString()} RWF` },
+              ].map(({ label, value, isBadge }) => (
+                <div key={label} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wide font-normal">{label}</p>
+                  {isBadge ? (
+                    <span className={`inline-block mt-1 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${badge.cls}`}>
+                      {value}
+                    </span>
+                  ) : (
+                    <p className="text-sm font-semibold text-[#000435] mt-1 tabular-nums">{value}</p>
+                  )}
+                </div>
+              ))}
             </div>
+            {canMarkPaid || canDelete ? (
+              <div className="flex flex-wrap gap-2">
+                {canMarkPaid ? (
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={handleMarkPaid}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    <CheckCircle size={14} /> Mark as paid
+                  </button>
+                ) : null}
+                {canDelete ? (
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={handleDeleteRun}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-red-200 text-red-700 text-xs font-semibold hover:bg-red-50 disabled:opacity-50"
+                  >
+                    <Trash2 size={14} /> Delete payroll run
+                  </button>
+                ) : null}
+              </div>
+            ) : isPayrollRunPaid(selectedRun?.status || runDetail?.status) ? (
+              <p className="text-[11px] text-slate-500 font-normal">This payroll is paid and locked — it cannot be deleted.</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Payroll register — full width */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden w-full">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-[0.3em] text-[#FEBF10]/80 mb-1">FINANCE · DISBURSEMENT</p>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium text-white tracking-tight leading-none">
-                Salary <span className="text-[#FEBF10]">Payment</span>
-              </h1>
-              <p className="text-[10px] sm:text-xs text-white/40 mt-2 font-medium uppercase tracking-widest max-w-md leading-relaxed">
-                PROCESS SALARY DISBURSEMENTS SECURELY VIA MTN MOBILE MONEY OR BANK TRANSFER.
-              </p>
+              <p className="text-sm font-semibold text-[#000435]">{schoolName.toUpperCase()}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5 font-normal">{periodLabel}</p>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Main Content ── */}
-      <div className="acct-shell-salary space-y-6">
-
-        {/* Payroll Summary Card */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8">
-          <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-            <div className="w-8 h-8 rounded-full bg-[#000435]/5 flex items-center justify-center">
-              <User size={14} className="text-[#000435]" />
-            </div>
-            <h2 className="text-[13px] font-medium text-[#000435] uppercase tracking-wider">Payroll Summary</h2>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-              <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><User size={10} /> STAFF</p>
-              <p className="text-[13px] font-medium text-[#000435] truncate">{draft.staffName}</p>
-            </div>
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-              <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mb-1.5">STAFF CODE</p>
-              <p className="text-[13px] font-medium text-[#000435] truncate">{draft.staffCode}</p>
-            </div>
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-              <p className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mb-1.5">PERIOD</p>
-              <p className="text-[11px] font-medium text-[#000435]">{draft.month} · {draft.term} · {draft.year}</p>
-            </div>
-            <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100/50 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10"><Banknote size={48} /></div>
-              <p className="text-[9px] font-medium text-emerald-600/60 uppercase tracking-widest mb-1.5 relative z-10">AMOUNT TO PAY</p>
-              <p className="text-[16px] xl:text-[18px] font-medium text-emerald-600 tabular-nums relative z-10">{fmt(draft.amount)} <span className="text-[10px]">RWF</span></p>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Configuration Card */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-8">
-          <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-            <div className="w-8 h-8 rounded-full bg-[#FEBF10]/10 flex items-center justify-center">
-              <Banknote size={14} className="text-[#FEBF10]" />
-            </div>
-            <h2 className="text-[13px] font-medium text-[#000435] uppercase tracking-wider">Payment Configuration</h2>
-          </div>
-
-          {/* Method Selection */}
-          <div className="mb-8">
-            <label className="block text-[10px] font-medium text-slate-400 uppercase tracking-widest mb-3">SELECT DISBURSEMENT METHOD</label>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:w-2/3">
+            <div className="flex gap-2">
               <button
-                onClick={() => setPaymentMethod('MTN')}
-                className={`relative flex flex-col items-center justify-center gap-2.5 h-24 sm:h-28 rounded-2xl border-2 transition-all ${paymentMethod === 'MTN' ? 'border-[#000435] bg-[#000435]/5 text-[#000435] shadow-lg shadow-[#000435]/5' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50'}`}
+                type="button"
+                disabled={!registerRows.length}
+                onClick={() => downloadPayrollRegisterCsv({
+                  schoolName,
+                  periodLabel,
+                  rows: registerRows,
+                  filename: `salary-payment-${month}-${payrollYear}.csv`,
+                })}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
-                {paymentMethod === 'MTN' && <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#FEBF10] animate-pulse" />}
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'MTN' ? 'bg-[#000435]/10' : 'bg-slate-100'}`}>
-                  <Smartphone size={20} className={paymentMethod === 'MTN' ? 'text-[#000435]' : 'text-slate-400'} />
-                </div>
-                <span className="text-[10px] font-medium uppercase tracking-widest">MTN Mobile</span>
+                <Download size={14} /> CSV
               </button>
-
               <button
-                onClick={() => setPaymentMethod('BANK')}
-                className={`relative flex flex-col items-center justify-center gap-2.5 h-24 sm:h-28 rounded-2xl border-2 transition-all ${paymentMethod === 'BANK' ? 'border-[#000435] bg-[#000435]/5 text-[#000435] shadow-lg shadow-[#000435]/5' : 'border-slate-100 bg-white text-slate-400 hover:border-slate-300 hover:bg-slate-50'}`}
+                type="button"
+                disabled={!registerRows.length}
+                onClick={() => downloadPayrollRegisterExcel({
+                  schoolName,
+                  periodLabel,
+                  rows: registerRows,
+                  filename: `salary-payment-${month}-${payrollYear}.xlsx`,
+                })}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F59E0B] text-[#000435] text-xs font-semibold disabled:opacity-50"
               >
-                {paymentMethod === 'BANK' && <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#FEBF10] animate-pulse" />}
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'BANK' ? 'bg-[#000435]/10' : 'bg-slate-100'}`}>
-                  <CreditCard size={20} className={paymentMethod === 'BANK' ? 'text-[#000435]' : 'text-slate-400'} />
-                </div>
-                <span className="text-[10px] font-medium uppercase tracking-widest">Bank Transfer</span>
+                <FileSpreadsheet size={14} /> Excel
               </button>
             </div>
           </div>
-
-          {/* Form Fields */}
-          <div className="max-w-2xl bg-slate-50 rounded-2xl p-5 sm:p-6 border border-slate-100">
-            {paymentMethod === 'MTN' && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-2">MTN PHONE NUMBER</label>
-                <div className="relative">
-                  <Smartphone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
-                  <input
-                    value={mtnPhone}
-                    onChange={(e) => setMtnPhone(e.target.value.replace(/[^\d+ ]/g, ''))}
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-white px-11 text-[13px] font-medium text-[#000435] outline-none focus:border-[#000435]/40 focus:bg-white transition-all placeholder:text-slate-300/80 hover:border-slate-300 shadow-sm"
-                    placeholder="e.g. 078XXXXXXX"
-                    inputMode="tel"
-                  />
-                </div>
-                <p className="mt-2 text-[9px] font-medium text-slate-400 uppercase tracking-widest">Verify the mobile money number before proceeding.</p>
+          <div className="w-full min-w-0 overflow-x-auto px-2 sm:px-4 pb-4">
+            {loadingDetail ? (
+              <div className="py-16 text-center text-slate-400 text-sm font-normal">
+                <Loader2 size={22} className="animate-spin mx-auto mb-2 text-[#F59E0B]" />
+                Loading register…
               </div>
-            )}
-
-            {paymentMethod === 'BANK' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div>
-                  <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-2">BANK NAME</label>
-                  <div className="relative">
-                    <Banknote size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
-                    <input
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-white px-11 text-[13px] font-medium text-[#000435] outline-none focus:border-[#000435]/40 focus:bg-white transition-all placeholder:text-slate-300/80 hover:border-slate-300 shadow-sm"
-                      placeholder="e.g. Bank of Kigali"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium uppercase tracking-widest text-slate-500 mb-2">ACCOUNT NUMBER</label>
-                  <div className="relative">
-                    <CreditCard size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400/80" />
-                    <input
-                      value={bankAccount}
-                      onChange={(e) => setBankAccount(e.target.value.replace(/[^\d-]/g, ''))}
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-white px-11 text-[13px] font-medium text-[#000435] outline-none focus:border-[#000435]/40 focus:bg-white transition-all placeholder:text-slate-300/80 hover:border-slate-300 shadow-sm"
-                      placeholder="XXXX-XXXX-XXXX"
-                    />
-                  </div>
-                </div>
-              </div>
+            ) : !selectedRunId ? (
+              <p className="py-16 text-center text-sm text-slate-500 font-normal">Select a payroll run above to view the register.</p>
+            ) : (
+              <PayrollRegisterTable rows={registerRows} totalRow={registerTotals} maxHeight={640} />
             )}
           </div>
-
-          {error && (
-            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 animate-in fade-in zoom-in-95 shadow-sm">
-              <p className="text-[10px] font-medium text-red-600 flex items-center gap-2 uppercase tracking-wider">
-                <AlertCircle size={14} /> {error}
-              </p>
-            </div>
-          )}
-
-          {/* Action Footer */}
-          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col-reverse sm:flex-row justify-between items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              disabled={loading}
-              className="w-full sm:w-auto h-12 px-6 rounded-xl border border-slate-200 bg-white text-slate-600 text-[11px] font-medium uppercase tracking-widest hover:bg-slate-50 hover:text-slate-800 transition-all disabled:opacity-50"
-            >
-              Cancel Payment
-            </button>
-            <button
-              onClick={handlePay}
-              disabled={loading}
-              className="w-full sm:w-auto h-12 px-10 rounded-xl bg-[#000435] text-[#FEBF10] text-[11px] font-medium uppercase tracking-widest inline-flex items-center justify-center gap-2.5 hover:bg-[#000435]/90 active:scale-95 transition-all shadow-sm shadow-[#000435]/30 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin text-[#FEBF10]" /> PROCESSING...
-                </>
-              ) : (
-                <>
-                  CONFIRM PAYMENT <CheckCircle2 size={16} />
-                </>
-              )}
-            </button>
-          </div>
-
         </div>
       </div>
     </div>

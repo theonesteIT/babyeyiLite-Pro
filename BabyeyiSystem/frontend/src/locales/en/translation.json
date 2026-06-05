@@ -245,7 +245,7 @@
     "accountLocked": "Account locked.",
     "schoolPendingApproval": "Your school registration is pending approval. Please wait for the Super Admin to activate your school.",
     "schoolInactive": "Your school is inactive. Please contact the Super Admin to activate it.",
-    "schoolNotLinked": "Your school account is not linked yet. Please contact the Super Admin.",
+    "schoolNotLinked": "No school is linked to this account. Please contact the Super Admin.",
     "schoolCodeRequired": "Enter your school code to sign in as School Manager.",
     "systemMaintenanceOnlySuper": "System maintenance - only Super Administrator can sign in.",
     "attemptsLeft": "{{message}} - {{count}} attempt left.",

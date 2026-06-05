@@ -24,13 +24,13 @@ const { computeProAccessEffective } = require('../utils/schoolSubscription');
 
 const router = express.Router();
 
-const CREATOR_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS'];
+const CREATOR_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'ACCOUNTANT'];
 /** Smart Access + staff directory: elevated roles scope with `school_id` query / header. */
 const SMART_ACCESS_STAFF_ROLES = [...CREATOR_ROLES, 'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'];
-const STAFF_CARD_ROLES = ['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS'];
+const STAFF_CARD_ROLES = ['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER', 'SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'ACCOUNTANT'];
 const CREATABLE_ROLE_CODES = [
   'TEACHER', 'ACCOUNTANT', 'HOD', 'DOS',
-  'GATE_OFFICER', 'GATE_KEEPER', 'LIBRARIAN', 'STORE_MANAGER',
+  'GATE_OFFICER', 'GATE_KEEPER', 'LIBRARIAN', 'STORE_MANAGER', 'ASSETS_MANAGER',
   'SECRETARY', 'HR', 'DISCIPLINE', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ];
 const ROLE_CODE_ALIASES = {
@@ -39,6 +39,7 @@ const ROLE_CODE_ALIASES = {
   GATE_KEEPER: ['GATE_OFFICER'],
   GATE_OFFICER: ['GATE_KEEPER'],
   STORE_MANAGER: ['STOREKEEPER'],
+  ASSETS_MANAGER: ['ASSET_MANAGER'],
   SCHOOL_MANAGER: ['SCHOOL MANAGER'],
   SCHOOL_DIRECTOR: ['SCHOOL DIRECTOR'],
 };
@@ -183,6 +184,85 @@ function generateStaffPassword() {
 function trimStr(v) {
   if (v === undefined || v === null) return '';
   return String(v).trim();
+}
+
+function normImportKey(v) {
+  return String(v || '').trim().toLowerCase();
+}
+
+/** Excel sometimes truncates long national IDs — allow near-matches (mirrors frontend import). */
+function nationalIdsMatch(a, b) {
+  const x = normImportKey(a);
+  const y = normImportKey(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (x.length >= 8 && y.length >= 8) {
+    if (x.startsWith(y) || y.startsWith(x)) return Math.abs(x.length - y.length) <= 3;
+    if (x.endsWith(y) || y.endsWith(x)) return Math.abs(x.length - y.length) <= 3;
+  }
+  return false;
+}
+
+function parseHrProfileJson(raw) {
+  if (!raw) return {};
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
+  } catch {
+    return {};
+  }
+}
+
+/** Find staff user_id by National ID / RSSB within a school (exact + fuzzy NID). */
+async function findStaffUserIdForImport(poolOrConn, schoolId, { nationalId = '', rssbNumber = '' } = {}) {
+  const nid = trimStr(nationalId);
+  const rssb = normImportKey(rssbNumber);
+  if (!nid && !rssb) return null;
+
+  if (nid) {
+    const [[exact]] = await poolOrConn.query(
+      `SELECT st.user_id
+       FROM staff st
+       INNER JOIN users u ON u.id = st.user_id AND u.deleted_at IS NULL
+       WHERE st.school_id = ? AND st.national_id = ?
+       LIMIT 1`,
+      [schoolId, nid]
+    );
+    if (exact?.user_id) return Number(exact.user_id);
+  }
+
+  const [rows] = await poolOrConn.query(
+    `SELECT st.user_id, st.national_id, st.hr_profile_json
+     FROM staff st
+     INNER JOIN users u ON u.id = st.user_id AND u.deleted_at IS NULL
+     WHERE st.school_id = ?`,
+    [schoolId]
+  );
+
+  for (const r of rows || []) {
+    const hr = parseHrProfileJson(r.hr_profile_json);
+    const hrNid = hr.national_id || hr.nid || '';
+    const hrRssb = normImportKey(hr.rssb_number || hr.rssb || '');
+    if (nid && (nationalIdsMatch(r.national_id, nid) || nationalIdsMatch(hrNid, nid))) {
+      return Number(r.user_id);
+    }
+    if (rssb && hrRssb && hrRssb === rssb) {
+      return Number(r.user_id);
+    }
+  }
+  return null;
+}
+
+async function loadStaffRowForImport(poolOrConn, schoolId, userId) {
+  const [[row]] = await poolOrConn.query(
+    `SELECT u.id, u.email, u.phone, u.first_name, u.last_name,
+            st.full_name, st.gender, st.national_id, st.payroll_basic_salary, st.hr_profile_json
+     FROM users u
+     INNER JOIN staff st ON st.user_id = u.id AND st.school_id = ?
+     WHERE u.id = ? AND u.school_id = ? AND u.deleted_at IS NULL
+     LIMIT 1`,
+    [schoolId, userId, schoolId]
+  );
+  return row || null;
 }
 
 function normalizeRfidUid(value) {
@@ -420,6 +500,8 @@ async function ensureStaffProfessionalColumns() {
     "ALTER TABLE staff ADD COLUMN advance_deduction_type VARCHAR(16) NULL",
     "ALTER TABLE staff ADD COLUMN advance_deduction_value DECIMAL(14,2) NULL",
     "ALTER TABLE staff ADD COLUMN account_enabled TINYINT(1) NULL DEFAULT 1",
+    "ALTER TABLE staff ADD COLUMN hr_profile_json JSON NULL",
+    "ALTER TABLE staff ADD COLUMN payroll_account_holder VARCHAR(180) NULL",
   ];
   for (const sql of changes) {
     // Compatible with environments where IF NOT EXISTS is unavailable.
@@ -497,41 +579,77 @@ async function sendStaffCredentialsEmail({
   schoolName,
   username,
   password,
+  positionLabel,
 }) {
   const from = process.env.SMTP_FROM || `"Babyeyi" <${process.env.SMTP_USER}>`;
   const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5174'}/login`;
+  const safeName = String(firstName || 'there').replace(/</g, '');
+  const safeSchool = String(schoolName || 'Your school').replace(/</g, '');
+  const roleLine = positionLabel ? `<p style="margin:0;color:#94a3b8;font-size:13px;">${String(positionLabel).replace(/</g, '')}</p>` : '';
   const html = `
-<!DOCTYPE html><html><body style="font-family:Segoe UI,Arial,sans-serif;background:#f8fafc;padding:24px;">
-  <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:28px;">
-    <h1 style="color:#000435;font-size:20px;margin:0 0 12px;">Welcome to Babyeyi — staff account</h1>
-    <p style="color:#334155;font-size:14px;line-height:1.6;">Hello ${firstName || ''},</p>
-    <p style="color:#334155;font-size:14px;line-height:1.6;">
-      <strong>${schoolName}</strong> has created an account for you. Use the credentials below to sign in at the staff login page.
-    </p>
-    <div style="background:#FFFBEB;border:1px solid #FBBF24;border-radius:10px;padding:16px;margin:16px 0;">
-      <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#854d0e;text-transform:uppercase;">Login</p>
-      <p style="margin:4px 0;font-size:14px;"><strong>Email</strong><br/>${to}</p>
-      <p style="margin:4px 0;font-size:14px;"><strong>Username</strong><br/><span style="font-family:monospace">${username}</span></p>
-      <p style="margin:4px 0;font-size:14px;"><strong>Temporary password</strong><br/>
-        <span style="font-family:monospace;background:#000435;color:#FBBF24;padding:4px 10px;border-radius:6px;display:inline-block;">${password}</span>
-      </p>
-    </div>
-    <p style="color:#64748b;font-size:13px;">After login, open your profile and change this password. School code is optional on login if your email is unique.</p>
-    <p style="margin-top:20px;"><a href="${loginUrl}" style="display:inline-block;background:#000435;color:#FBBF24;text-decoration:none;font-weight:700;padding:12px 24px;border-radius:8px;">Open login</a></p>
-  </div>
-</body></html>`;
-  const text = `Babyeyi staff account\n\nSchool: ${schoolName}\nEmail: ${to}\nUsername: ${username}\nTemporary password: ${password}\n\nLogin: ${loginUrl}\n\nChange your password after signing in.`;
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,4,53,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#000435 0%,#1e3a5f 100%);padding:28px 32px;text-align:center;">
+            <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#FBBF24;font-weight:600;">Babyeyi</p>
+            <h1 style="margin:0;font-size:22px;font-weight:600;color:#ffffff;line-height:1.3;">Your staff portal is ready</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 12px;font-size:15px;color:#334155;line-height:1.6;">Hello <strong>${safeName}</strong>,</p>
+            <p style="margin:0 0 20px;font-size:14px;color:#64748b;line-height:1.65;">
+              <strong style="color:#000435;">${safeSchool}</strong> has created your staff account. Sign in to access your personal dashboard, attendance, and school tools.
+            </p>
+            ${roleLine}
+            <table role="presentation" width="100%" style="margin:24px 0;background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;">
+              <tr><td style="padding:20px 22px;">
+                <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;">Login credentials</p>
+                <table role="presentation" width="100%" style="font-size:14px;color:#334155;">
+                  <tr><td style="padding:6px 0;color:#94a3b8;width:110px;vertical-align:top;">Login email</td><td style="padding:6px 0;font-weight:600;color:#000435;">${to}</td></tr>
+                  <tr><td style="padding:6px 0;color:#94a3b8;vertical-align:top;">Username</td><td style="padding:6px 0;font-family:ui-monospace,monospace;font-weight:600;color:#000435;">${username}</td></tr>
+                  <tr><td style="padding:6px 0;color:#94a3b8;vertical-align:top;">Password</td><td style="padding:6px 0;">
+                    <span style="display:inline-block;font-family:ui-monospace,monospace;font-size:15px;font-weight:700;background:#000435;color:#FBBF24;padding:8px 14px;border-radius:8px;letter-spacing:0.05em;">${password}</span>
+                  </td></tr>
+                </table>
+              </td></tr>
+            </table>
+            <p style="margin:0 0 24px;font-size:13px;color:#94a3b8;line-height:1.5;">For security, change this password after your first login. Keep these details confidential.</p>
+            <table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:10px;background:#c87800;">
+              <a href="${loginUrl}" style="display:inline-block;padding:14px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">Sign in to Babyeyi</a>
+            </td></tr></table>
+            <p style="margin:20px 0 0;font-size:12px;color:#cbd5e1;word-break:break-all;">${loginUrl}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px 24px;border-top:1px solid #f1f5f9;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#94a3b8;">© Babyeyi · School management platform</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  const text = `Babyeyi — Your staff portal is ready\n\nHello ${safeName},\n\n${safeSchool} has created your account.\n\nLogin email: ${to}\nUsername: ${username}\nTemporary password: ${password}\n\nSign in: ${loginUrl}\n\nChange your password after the first login.`;
   try {
     await transporter.sendMail({
       from,
       to,
-      subject: `Your Babyeyi staff login — ${schoolName}`,
+      subject: `Your Babyeyi staff login — ${safeSchool}`,
       text,
       html,
     });
     console.log(`[schoolStaff] Welcome email sent to ${to}`);
+    return true;
   } catch (e) {
     console.error('[schoolStaff] Email failed:', e.message);
+    return false;
   }
 }
 
@@ -598,7 +716,9 @@ router.get('/school/staff', requireRole(SMART_ACCESS_STAFF_ROLES), async (req, r
          st.max_advance_limit,
          st.advance_deduction_type,
          st.advance_deduction_value,
-         st.account_enabled
+         st.account_enabled,
+         st.hr_profile_json,
+         st.payroll_account_holder
        FROM staff st
        INNER JOIN users u ON u.id = st.user_id AND u.deleted_at IS NULL
        INNER JOIN roles r ON r.id = u.role_id
@@ -611,6 +731,29 @@ router.get('/school/staff', requireRole(SMART_ACCESS_STAFF_ROLES), async (req, r
   } catch (err) {
     console.error('GET /api/school/staff:', err);
     return res.status(500).json({ success: false, message: 'Failed to list staff' });
+  }
+});
+
+// GET /api/school/staff/import-lookup?national_id=&rssb_number=
+router.get('/school/staff/import-lookup', requireRole(SMART_ACCESS_STAFF_ROLES), async (req, res) => {
+  try {
+    const ctx = await ensureProSchoolForStaffFeature(req, res);
+    if (!ctx) return;
+    const { schoolId } = ctx;
+    const nationalId = trimStr(req.query?.national_id || req.query?.nationalId);
+    const rssbNumber = trimStr(req.query?.rssb_number || req.query?.rssbNumber);
+    const userId = await findStaffUserIdForImport(promisePool, schoolId, { nationalId, rssbNumber });
+    if (!userId) {
+      return res.status(404).json({ success: false, message: 'No matching employee found.' });
+    }
+    const row = await loadStaffRowForImport(promisePool, schoolId, userId);
+    if (!row) {
+      return res.status(404).json({ success: false, message: 'Employee record not found.' });
+    }
+    return res.json({ success: true, data: row });
+  } catch (err) {
+    console.error('GET /api/school/staff/import-lookup:', err);
+    return res.status(500).json({ success: false, message: 'Import lookup failed' });
   }
 });
 
@@ -885,7 +1028,11 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const payrollPaymentMethod = trimStr(body.payroll_payment_method) || null;
     const payrollBankName = trimStr(body.payroll_bank_name) || null;
     const payrollAccountNumber = trimStr(body.payroll_account_number) || null;
+    const payrollAccountHolder = trimStr(body.payroll_account_holder) || null;
     const payrollMobileMoneyPhone = trimStr(body.payroll_mobile_money_phone) || null;
+    const hrProfileJson = body.hr_profile_json != null
+      ? (typeof body.hr_profile_json === 'string' ? body.hr_profile_json : JSON.stringify(body.hr_profile_json))
+      : null;
     const payrollPartTimeRate = body.payroll_part_time_rate ?? null;
     const payrollPartTimeUnit = trimStr(body.payroll_part_time_unit) || null;
     const allowAdvance = body.allow_advance ? 1 : 0;
@@ -893,6 +1040,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const advanceDeductionType = trimStr(body.advance_deduction_type) || null;
     const advanceDeductionValue = body.advance_deduction_value ?? null;
     const accountEnabled = body.account_enabled === false ? 0 : 1;
+    const sendWelcomeEmail = body.send_welcome_email !== false;
 
     const STAFF_NO_EMAIL_DOMAIN = 'staff.noemail.local';
 
@@ -909,9 +1057,12 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
         ? emailInput
         : `${userUid.toLowerCase().replace(/[^a-z0-9]/g, '')}@${STAFF_NO_EMAIL_DOMAIN}`;
     const usedPlaceholderEmail = email.endsWith(`@${STAFF_NO_EMAIL_DOMAIN}`);
-    if (!username || username.length < 3) {
+    if (accountEnabled && (!username || username.length < 3)) {
       return res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
     }
+    const resolvedUsername = username && username.length >= 3
+      ? username
+      : `${String(firstName || 'staff').toLowerCase().replace(/[^a-z0-9]/g, '')}${Date.now().toString().slice(-5)}`;
     const autoPassword = !password || password.length < 8;
     if (!autoPassword && password.length < 8) {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
@@ -935,12 +1086,13 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
         code: 'DUPLICATE_EMAIL',
         field: 'email',
         message: 'An account with this email already exists.',
+        existingUserId: Number(dupEmail.id) || null,
       });
     }
 
     const [[dupUser]] = await conn.query(
       'SELECT id FROM users WHERE LOWER(username) = ? AND deleted_at IS NULL LIMIT 1',
-      [username.toLowerCase()]
+      [resolvedUsername.toLowerCase()]
     );
     if (dupUser) {
       return res.status(409).json({
@@ -958,7 +1110,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
        WHERE LOWER(st.username) = ?
          AND u.deleted_at IS NULL
        LIMIT 1`,
-      [username.toLowerCase()]
+      [resolvedUsername.toLowerCase()]
     );
     if (dupStaffUser) {
       return res.status(409).json({
@@ -969,16 +1121,14 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
       });
     }
     if (nationalId) {
-      const [[dupNationalId]] = await conn.query(
-        'SELECT id FROM staff WHERE national_id = ? LIMIT 1',
-        [nationalId]
-      );
-      if (dupNationalId) {
+      const existingUserId = await findStaffUserIdForImport(conn, schoolId, { nationalId });
+      if (existingUserId) {
         return res.status(409).json({
           success: false,
           code: 'DUPLICATE_NATIONAL_ID',
           field: 'national_id',
           message: 'This national ID/passport is already in use.',
+          existingUserId,
         });
       }
     }
@@ -994,6 +1144,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
           code: 'DUPLICATE_PHONE',
           field: 'phone',
           message: 'An account with this phone number already exists.',
+          existingUserId: Number(dupPhone.id) || null,
         });
       }
     }
@@ -1011,10 +1162,10 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
          role_id, school_id,
          is_active, is_verified, force_password_change,
          created_at, updated_at
-       ) VALUES (?,?,?,?,?,?,?,?,?,1,1,1,NOW(),NOW())`,
+       ) VALUES (?,?,?,?,?,?,?,?,?,?,1,1,NOW(),NOW())`,
       [
         userUid,
-        username,
+        resolvedUsername,
         email,
         phone,
         passwordHash,
@@ -1022,6 +1173,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
         lastName,
         roleRow.id,
         schoolId,
+        accountEnabled ? 1 : 0,
       ]
     );
 
@@ -1037,7 +1189,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     }
 
     const staffInsertValues = [
-      newUserId, schoolId, staffIdLabel, username, new Date(),
+      newUserId, schoolId, staffIdLabel, resolvedUsername, new Date(),
       fullName, gender, dateOfBirth, nationalId, passportNumber, address,
       employmentType, jobTitle, dateOfEmployment, contractStartDate, contractEndDate, employmentStatus,
       department, subDepartment,
@@ -1045,9 +1197,10 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
       payrollOtherAllowances ? JSON.stringify(payrollOtherAllowances) : null,
       payrollTaxPercent, payrollPensionAmount,
       payrollOtherDeductions ? JSON.stringify(payrollOtherDeductions) : null,
-      payrollPaymentFrequency, payrollPaymentMethod, payrollBankName, payrollAccountNumber, payrollMobileMoneyPhone,
+      payrollPaymentFrequency, payrollPaymentMethod, payrollBankName, payrollAccountNumber, payrollAccountHolder, payrollMobileMoneyPhone,
       payrollPartTimeRate, payrollPartTimeUnit,
       allowAdvance, maxAdvanceLimit, advanceDeductionType, advanceDeductionValue, accountEnabled,
+      hrProfileJson,
     ];
     const placeholders = staffInsertValues.map(() => '?').join(',');
     await conn.query(
@@ -1058,41 +1211,56 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
          department, sub_department,
          payroll_basic_salary, payroll_transport_allowance, payroll_housing_allowance, payroll_meal_allowance,
          payroll_other_allowances, payroll_tax_percent, payroll_pension_amount, payroll_other_deductions,
-         payroll_payment_frequency, payroll_payment_method, payroll_bank_name, payroll_account_number, payroll_mobile_money_phone,
+         payroll_payment_frequency, payroll_payment_method, payroll_bank_name, payroll_account_number, payroll_account_holder, payroll_mobile_money_phone,
          payroll_part_time_rate, payroll_part_time_unit,
-         allow_advance, max_advance_limit, advance_deduction_type, advance_deduction_value, account_enabled
+         allow_advance, max_advance_limit, advance_deduction_type, advance_deduction_value, account_enabled,
+         hr_profile_json
        ) VALUES (${placeholders})`,
       staffInsertValues
     );
 
     await conn.commit();
 
-    if (!usedPlaceholderEmail) {
-      sendStaffCredentialsEmail({
+    let emailSent = false;
+    if (accountEnabled && sendWelcomeEmail && !usedPlaceholderEmail) {
+      emailSent = await sendStaffCredentialsEmail({
         to: email,
         firstName,
         schoolName,
-        username,
+        username: resolvedUsername,
         password,
+        positionLabel: jobTitle || roleRow.role_name || roleCode,
       });
+    }
+
+    let message = 'Staff record created.';
+    if (!accountEnabled) {
+      message = 'Employee saved. Portal login was not enabled — you can enable it later from the profile.';
+    } else if (usedPlaceholderEmail) {
+      message = autoPassword
+        ? 'Staff created. Add a login email to send welcome credentials.'
+        : 'Staff account created.';
+    } else if (emailSent) {
+      message = autoPassword
+        ? 'Staff account created. Login credentials were sent by email.'
+        : 'Staff account created. Welcome email sent with login details.';
+    } else if (sendWelcomeEmail) {
+      message = 'Staff account created. Welcome email could not be sent — share credentials manually.';
+    } else {
+      message = 'Staff account created. Share login credentials with the employee.';
     }
 
     return res.status(201).json({
       success: true,
-      message: usedPlaceholderEmail
-        ? autoPassword
-          ? 'Staff created. No work email was provided — share login details securely (welcome email was not sent).'
-          : 'Staff created.'
-        : autoPassword
-          ? 'Staff account created. A temporary password was sent by email.'
-          : 'Staff account created.',
+      message,
       data: {
         id: newUserId,
         user_uid: userUid,
         email: usedPlaceholderEmail ? null : email,
-        username,
+        username: resolvedUsername,
         role_code: roleRow.role_code || roleCode,
-        password_sent_by_email: autoPassword && !usedPlaceholderEmail,
+        password_sent_by_email: emailSent,
+        account_enabled: !!accountEnabled,
         staff_id: staffIdLabel,
       },
     });
@@ -1124,7 +1292,7 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
     await ensureStaffProfessionalColumns();
     const ctx = await ensureProSchoolForStaffFeature(req, res);
     if (!ctx) return;
-    const { schoolId } = ctx;
+    const { schoolId, schoolName } = ctx;
     const userId = parseInt(req.params.userId, 10);
     if (!Number.isFinite(userId)) {
       return res.status(400).json({ success: false, message: 'Invalid user id' });
@@ -1141,6 +1309,8 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
     const phone = body.phone !== undefined ? (trimStr(body.phone) || null) : undefined;
     const email = body.email != null ? trimStr(body.email).toLowerCase() : null;
     const password = body.password !== undefined ? String(body.password || '').trim() : undefined;
+    const username = body.username !== undefined ? trimStr(body.username) : undefined;
+    const sendWelcomeEmail = body.send_welcome_email !== false;
     const isActive = body.is_active !== undefined ? !!body.is_active : undefined;
     const roleCode = body.role_code != null ? trimStr(body.role_code).toUpperCase() : null;
     const customRoleName = trimStr(body.custom_role_name || body.role_name || body.job_title);
@@ -1174,15 +1344,17 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
       updates.push('email = ?');
       params.push(email);
     }
+    let newPasswordPlain = null;
     if (password !== undefined && password.length > 0) {
       if (password.length < 8) {
         return res.status(400).json({ success: false, message: 'Password must be at least 8 characters.' });
       }
+      newPasswordPlain = password;
       const passwordHash = await bcrypt.hash(password, 12);
       updates.push('password_hash = ?');
       params.push(passwordHash);
       updates.push('force_password_change = ?');
-      params.push(0);
+      params.push(1);
     }
     if (isActive !== undefined) {
       updates.push('is_active = ?');
@@ -1214,6 +1386,22 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
         staffParams.push(parser(body[field]));
       }
     };
+    if (username !== undefined) {
+      if (!username || username.length < 3) {
+        return res.status(400).json({ success: false, message: 'Username must be at least 3 characters.' });
+      }
+      const [[dupUser]] = await promisePool.query(
+        'SELECT id FROM users WHERE LOWER(username) = ? AND id != ? AND deleted_at IS NULL LIMIT 1',
+        [username.toLowerCase(), userId]
+      );
+      if (dupUser) {
+        return res.status(409).json({ success: false, message: 'This username is already taken.', field: 'username' });
+      }
+      updates.push('username = ?');
+      params.push(username);
+      staffSet.push('username = ?');
+      staffParams.push(username);
+    }
     putStaff('full_name', (v) => (v == null ? null : trimStr(v)));
     putStaff('gender', (v) => (v == null ? null : trimStr(v)));
     putStaff('date_of_birth', (v) => (v == null ? null : trimStr(v)));
@@ -1240,7 +1428,9 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
     putStaff('payroll_payment_method', (v) => (v == null ? null : trimStr(v)));
     putStaff('payroll_bank_name', (v) => (v == null ? null : trimStr(v)));
     putStaff('payroll_account_number', (v) => (v == null ? null : trimStr(v)));
+    putStaff('payroll_account_holder', (v) => (v == null ? null : trimStr(v)));
     putStaff('payroll_mobile_money_phone', (v) => (v == null ? null : trimStr(v)));
+    putStaff('hr_profile_json', (v) => (v == null ? null : (typeof v === 'string' ? v : JSON.stringify(v))));
     putStaff('payroll_part_time_rate');
     putStaff('payroll_part_time_unit', (v) => (v == null ? null : trimStr(v)));
     putStaff('allow_advance', (v) => (v ? 1 : 0));
@@ -1268,7 +1458,34 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
       );
     }
 
-    return res.json({ success: true, message: 'Updated.' });
+    let emailSent = false;
+    if (newPasswordPlain && sendWelcomeEmail) {
+      const [[userRow]] = await promisePool.query(
+        `SELECT u.email, u.username, u.first_name, st.job_title, r.role_name
+         FROM users u
+         INNER JOIN staff st ON st.user_id = u.id AND st.school_id = ?
+         INNER JOIN roles r ON r.id = u.role_id
+         WHERE u.id = ? AND u.deleted_at IS NULL LIMIT 1`,
+        [schoolId, userId]
+      );
+      const toEmail = userRow?.email;
+      if (toEmail && !String(toEmail).includes('staff.noemail.local')) {
+        emailSent = await sendStaffCredentialsEmail({
+          to: toEmail,
+          firstName: userRow.first_name || firstName || row.first_name,
+          schoolName,
+          username: username || userRow.username,
+          password: newPasswordPlain,
+          positionLabel: userRow.job_title || userRow.role_name,
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: emailSent ? 'Updated. New login credentials were sent by email.' : 'Updated.',
+      data: { password_sent_by_email: emailSent },
+    });
   } catch (err) {
     console.error('PATCH /api/school/staff/:userId', err);
     return res.status(500).json({ success: false, message: err.message || 'Update failed' });

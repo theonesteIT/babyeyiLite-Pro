@@ -134,7 +134,7 @@ export default function SchoolManagerLogin({
         }
         if (json.code === 'SCHOOL_NOT_LINKED') {
           setAttempts(0);
-          notify('Your account is not linked to a school. Contact the Super Admin.', 'error');
+          notify('No school is linked to this account. Contact the Super Admin.', 'error');
           return;
         }
         if (json.code === 'SCHOOL_CODE_REQUIRED') {

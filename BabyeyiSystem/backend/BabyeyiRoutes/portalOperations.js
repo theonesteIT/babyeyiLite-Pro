@@ -2,6 +2,12 @@
 
 const express = require('express');
 const { promisePool } = require('../config/database');
+const {
+  calcRwandaPayroll,
+  mergeRegisterAllowanceAmounts,
+  splitAllowanceBreakdown,
+  DEFAULT_PAYE_BRACKETS,
+} = require('../utils/rwandaPayrollEngine');
 const { fetchActiveCatalogMaps } = require('./shuleAvanceCatalogStore');
 const {
   upsertSubscription,
@@ -35,7 +41,7 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities|fee-reminders)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements)|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities|fee-reminders)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements|fabric-receipts|fabric-stockouts|food-stock-ins|food-consumptions|food-alerts|food-alert-settings|other-stock-ins|other-stock-outs|stock-adjustments|finished-goods|uniform-issues|student-requirements|academic-calendar-settings)|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
 
 const BUDGET_LARGE_EXPENSE_RWF = Number(process.env.BUDGET_LARGE_EXPENSE_RWF || 5_000_000);
 
@@ -100,6 +106,32 @@ function toMoney(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function parseJsonSafe(value, fallback) {
+  if (value == null || value === '') return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function calcProgressivePAYE(taxableIncome, rates = []) {
+  const taxable = Math.max(0, Number(taxableIncome || 0));
+  let tax = 0;
+  for (const b of rates) {
+    const min = Number(b?.min || 0);
+    const max = b?.max == null ? null : Number(b.max);
+    const rate = Number(b?.rate || 0) / 100;
+    const upper = max == null ? taxable : Math.min(taxable, max);
+    if (upper >= min) {
+      const amount = upper - min + (min === 0 ? 0 : 1);
+      tax += Math.max(0, amount) * rate;
+    }
+  }
+  return Math.round(Math.max(0, tax));
+}
+
 function toDateOrNow(v) {
   const d = v ? new Date(v) : new Date();
   return Number.isNaN(d.getTime()) ? new Date() : d;
@@ -120,6 +152,27 @@ function numberToMonthLabel(n) {
   const idx = Number(n) - 1;
   const labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   return labels[idx] || String(n || '');
+}
+
+function formatPayrollRunNumber(run) {
+  const id = Number(run?.id ?? run?.db_id ?? 0);
+  const y = Number(run?.pay_year ?? run?.payYear ?? 0) || new Date().getFullYear();
+  const m = String(Number(run?.pay_month ?? run?.payMonth ?? 1)).padStart(2, '0');
+  return `PR-${y}-${m}-${String(id).padStart(3, '0')}`;
+}
+
+function isPayrollRunDisbursable(status) {
+  const s = String(status || '').toLowerCase();
+  return s === 'processing' || s === 'processed';
+}
+
+function payrollDisbursementStatusLabel(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'paid') return 'Paid';
+  if (isPayrollRunDisbursable(s)) return 'Approved';
+  if (s === 'draft') return 'Draft';
+  if (s === 'rejected') return 'Rejected';
+  return status || 'Unknown';
 }
 
 function normalizePayrollTerm(v) {
@@ -499,6 +552,11 @@ async function ensureTables() {
       KEY idx_payroll_runs_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN pay_month TINYINT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN pay_year SMALLINT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN pay_term VARCHAR(32) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN academic_year_label VARCHAR(64) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN template_id INT UNSIGNED NULL`).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS accountant_payroll_run_lines (
@@ -513,6 +571,131 @@ async function ensureTables() {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       KEY idx_payroll_line_run (run_id),
       KEY idx_payroll_line_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN basic_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN allowances_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN deductions_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN paye_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN rssb_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN rama_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN maternity_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN cbhi_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN net_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_run_lines ADD COLUMN register_json LONGTEXT NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN net_total_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN payment_date DATE NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN payment_reference VARCHAR(120) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN transaction_number VARCHAR(120) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN payment_method VARCHAR(64) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN paid_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN paid_by_user_id INT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE accountant_payroll_runs ADD COLUMN disbursement_total_rwf DECIMAL(14,2) NOT NULL DEFAULT 0`).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_payroll_disbursement_deduction_rules (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      academic_year_label VARCHAR(64) NULL,
+      deduction_type VARCHAR(64) NOT NULL,
+      apply_to VARCHAR(24) NOT NULL DEFAULT 'all',
+      staff_user_ids_json LONGTEXT NULL,
+      amount_type VARCHAR(24) NOT NULL DEFAULT 'fixed',
+      amount_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+      reason VARCHAR(500) NULL,
+      month_scope VARCHAR(16) NOT NULL DEFAULT 'single',
+      effective_month TINYINT UNSIGNED NULL,
+      frequency VARCHAR(16) NOT NULL DEFAULT 'always',
+      status VARCHAR(16) NOT NULL DEFAULT 'active',
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      KEY idx_disb_ded_school (school_id),
+      KEY idx_disb_ded_active (school_id, status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_payroll_disbursement_deduction_applications (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      rule_id INT UNSIGNED NOT NULL,
+      run_id INT UNSIGNED NOT NULL,
+      pay_month TINYINT UNSIGNED NULL,
+      pay_year SMALLINT UNSIGNED NULL,
+      applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_disb_ded_app (school_id, rule_id, run_id),
+      KEY idx_disb_ded_app_rule (rule_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_payroll_templates (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      version_no INT UNSIGNED NOT NULL DEFAULT 1,
+      name VARCHAR(180) NOT NULL,
+      description TEXT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'Draft',
+      effective_date DATE NULL,
+      apply_to_all TINYINT(1) NOT NULL DEFAULT 1,
+      allowances_json LONGTEXT NULL,
+      deductions_json LONGTEXT NULL,
+      paye_rates_json LONGTEXT NULL,
+      statutory_json LONGTEXT NULL,
+      rules_json LONGTEXT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 0,
+      created_by_user_id INT UNSIGNED NULL,
+      updated_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      KEY idx_payroll_tpl_school (school_id),
+      KEY idx_payroll_tpl_active (school_id, is_active),
+      KEY idx_payroll_tpl_version (school_id, version_no)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_payroll_template_versions (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      template_id INT UNSIGNED NOT NULL,
+      version_no INT UNSIGNED NOT NULL,
+      snapshot_json LONGTEXT NOT NULL,
+      created_by_user_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_payroll_tplv_school (school_id),
+      KEY idx_payroll_tplv_template (template_id),
+      KEY idx_payroll_tplv_version (school_id, version_no)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS accountant_payroll_employee_deductions (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      staff_user_id INT UNSIGNED NOT NULL,
+      staff_name VARCHAR(180) NULL,
+      deduction_type VARCHAR(64) NOT NULL,
+      custom_name VARCHAR(180) NULL,
+      total_amount_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+      monthly_installment_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+      repayment_months INT UNSIGNED NULL,
+      start_month TINYINT UNSIGNED NULL,
+      start_year SMALLINT UNSIGNED NULL,
+      end_month TINYINT UNSIGNED NULL,
+      end_year SMALLINT UNSIGNED NULL,
+      remaining_balance_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+      notes TEXT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'Active',
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_emp_ded_school (school_id),
+      KEY idx_emp_ded_staff (staff_user_id),
+      KEY idx_emp_ded_status (status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
@@ -734,6 +917,330 @@ async function ensureTables() {
     `ALTER TABLE store_inventory_items MODIFY COLUMN unit_cost DECIMAL(14,2) NULL`
   ).catch(() => {});
   await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN deleted_at DATETIME NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN tin VARCHAR(64) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN website VARCHAR(255) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'Active'`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN last_purchase_date DATE NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_suppliers ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_receipts (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      supplier_id INT UNSIGNED NULL,
+      purchase_date DATE NULL,
+      invoice_number VARCHAR(80) NULL,
+      fabric_type VARCHAR(120) NOT NULL,
+      color VARCHAR(80) NULL,
+      meters DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_cost DECIMAL(14,2) NULL,
+      total_cost DECIMAL(14,2) NULL,
+      remaining_meters DECIMAL(14,2) NOT NULL DEFAULT 0,
+      note TEXT NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_fabric_rcpt_school (school_id),
+      KEY idx_fabric_rcpt_year_term (school_id, academic_year, term)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_stockouts (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      fabric_receipt_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      out_date DATE NOT NULL,
+      meters_out DECIMAL(14,2) NOT NULL DEFAULT 0,
+      purpose VARCHAR(200) NULL,
+      note TEXT NULL,
+      remaining_after DECIMAL(14,2) NOT NULL DEFAULT 0,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_fabric_out_school (school_id),
+      KEY idx_fabric_out_receipt (fabric_receipt_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_food_stock_ins (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      supplier_id INT UNSIGNED NULL,
+      receive_date DATE NULL,
+      invoice_number VARCHAR(80) NULL,
+      item_name VARCHAR(160) NOT NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_type VARCHAR(32) NOT NULL DEFAULT 'kg',
+      unit_cost DECIMAL(14,2) NULL,
+      total_cost DECIMAL(14,2) NULL,
+      remaining_quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      min_level DECIMAL(14,2) NOT NULL DEFAULT 0,
+      expiry_date DATE NULL,
+      store_location VARCHAR(200) NULL,
+      note TEXT NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_food_in_school (school_id),
+      KEY idx_food_in_year_term (school_id, academic_year, term),
+      KEY idx_food_in_item (school_id, item_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_food_consumptions (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      food_stock_in_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      consumption_date DATE NOT NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_type VARCHAR(32) NOT NULL DEFAULT 'kg',
+      allocated_to VARCHAR(120) NOT NULL,
+      allocated_other VARCHAR(200) NULL,
+      note TEXT NULL,
+      remaining_after DECIMAL(14,2) NOT NULL DEFAULT 0,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_food_out_school (school_id),
+      KEY idx_food_out_stock (food_stock_in_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_food_alert_settings (
+      school_id INT UNSIGNED NOT NULL PRIMARY KEY,
+      low_stock_enabled TINYINT(1) NOT NULL DEFAULT 1,
+      expiry_alerts_enabled TINYINT(1) NOT NULL DEFAULT 1,
+      expiry_alert_days INT UNSIGNED NOT NULL DEFAULT 14,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_other_stock_ins (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      supplier_id INT UNSIGNED NULL,
+      receive_date DATE NULL,
+      invoice_number VARCHAR(80) NULL,
+      category VARCHAR(120) NULL,
+      item_name VARCHAR(160) NOT NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_type VARCHAR(32) NOT NULL DEFAULT 'pcs',
+      unit_cost DECIMAL(14,2) NULL,
+      total_cost DECIMAL(14,2) NULL,
+      remaining_quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      min_level DECIMAL(14,2) NOT NULL DEFAULT 0,
+      store_location VARCHAR(200) NULL,
+      note TEXT NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_other_in_school (school_id),
+      KEY idx_other_in_year_term (school_id, academic_year, term),
+      KEY idx_other_in_item (school_id, item_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_other_stock_outs (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      other_stock_in_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      issue_date DATE NOT NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_type VARCHAR(32) NOT NULL DEFAULT 'pcs',
+      issued_to VARCHAR(120) NOT NULL,
+      issued_other VARCHAR(200) NULL,
+      note TEXT NULL,
+      remaining_after DECIMAL(14,2) NOT NULL DEFAULT 0,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_other_out_school (school_id),
+      KEY idx_other_out_stock (other_stock_in_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_stock_adjustments (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      source_type VARCHAR(32) NOT NULL,
+      source_id INT UNSIGNED NOT NULL,
+      item_name VARCHAR(160) NOT NULL,
+      category VARCHAR(120) NULL,
+      unit VARCHAR(40) NULL,
+      mode VARCHAR(16) NOT NULL DEFAULT 'decrease',
+      reason VARCHAR(120) NOT NULL,
+      note TEXT NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      quantity_before DECIMAL(14,2) NOT NULL DEFAULT 0,
+      quantity_after DECIMAL(14,2) NOT NULL DEFAULT 0,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      adjustment_date DATE NOT NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_adj_school (school_id),
+      KEY idx_adj_date (school_id, adjustment_date),
+      KEY idx_adj_source (school_id, source_type, source_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`ALTER TABLE store_food_stock_ins ADD COLUMN expiry_date DATE NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_food_stock_ins ADD COLUMN store_location VARCHAR(200) NULL`).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_finished_goods (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      fabric_receipt_id INT UNSIGNED NULL,
+      uniform_name VARCHAR(120) NOT NULL,
+      size VARCHAR(40) NULL,
+      stock DECIMAL(14,2) NOT NULL DEFAULT 0,
+      avg_cost DECIMAL(14,2) NULL,
+      selling_price DECIMAL(14,2) NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      note TEXT NULL,
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_finished_goods_school (school_id),
+      KEY idx_finished_goods_fabric (fabric_receipt_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_uniform_issues (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      issue_no VARCHAR(32) NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      class_name VARCHAR(120) NULL,
+      students_count INT UNSIGNED NOT NULL DEFAULT 0,
+      total_pieces DECIMAL(14,2) NOT NULL DEFAULT 0,
+      total_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      issued_by_user_id INT UNSIGNED NULL,
+      issued_by_name VARCHAR(180) NULL,
+      status VARCHAR(24) NOT NULL DEFAULT 'posted',
+      deleted_at DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_uniform_issue_no (school_id, issue_no),
+      KEY idx_uniform_issue_school (school_id),
+      KEY idx_uniform_issue_class (school_id, class_name, academic_year, term)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_uniform_issue_lines (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      issue_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      finished_good_id INT UNSIGNED NULL,
+      item_name VARCHAR(120) NOT NULL,
+      qty_per_student DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+      total_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+      line_total DECIMAL(14,2) NOT NULL DEFAULT 0,
+      KEY idx_uniform_issue_lines_issue (issue_id),
+      KEY idx_uniform_issue_lines_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_uniform_issue_student_lines (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      issue_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      student_id INT UNSIGNED NOT NULL,
+      student_uid VARCHAR(50) NULL,
+      student_name VARCHAR(200) NULL,
+      finished_good_id INT UNSIGNED NULL,
+      item_name VARCHAR(120) NOT NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+      amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      class_name VARCHAR(120) NULL,
+      issue_date DATE NULL,
+      KEY idx_uniform_stu_lines_issue (issue_id),
+      KEY idx_uniform_stu_lines_student (school_id, student_id),
+      KEY idx_uniform_stu_lines_item (school_id, item_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_uniform_student_charges (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      issue_id INT UNSIGNED NOT NULL,
+      student_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NULL,
+      term VARCHAR(32) NULL,
+      class_name VARCHAR(120) NULL,
+      amount_rwf DECIMAL(14,2) NOT NULL DEFAULT 0,
+      description VARCHAR(255) NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'pending_accounting',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_uniform_charges_school (school_id),
+      KEY idx_uniform_charges_student (school_id, student_id),
+      KEY idx_uniform_charges_issue (issue_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_uniform_issue_students (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      issue_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      student_id INT UNSIGNED NOT NULL,
+      student_uid VARCHAR(50) NULL,
+      student_name VARCHAR(200) NULL,
+      total_qty DECIMAL(14,2) NOT NULL DEFAULT 0,
+      total_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      KEY idx_uniform_issue_stu_issue (issue_id),
+      KEY idx_uniform_issue_stu_student (school_id, student_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_uniform_issue_slots (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      student_issue_id INT UNSIGNED NOT NULL,
+      issue_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      student_id INT UNSIGNED NOT NULL,
+      slot_number TINYINT UNSIGNED NOT NULL,
+      slot_name VARCHAR(80) NULL,
+      label_name VARCHAR(120) NOT NULL,
+      finished_good_id INT UNSIGNED NULL,
+      quantity DECIMAL(14,2) NOT NULL DEFAULT 0,
+      unit_price DECIMAL(14,2) NOT NULL DEFAULT 0,
+      total_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+      KEY idx_uniform_slots_stu_issue (student_issue_id),
+      KEY idx_uniform_slots_issue (issue_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`ALTER TABLE store_movements ADD COLUMN finished_good_id INT UNSIGNED NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_movements ADD COLUMN uniform_issue_id INT UNSIGNED NULL`).catch(() => {});
+
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN deleted_at DATETIME NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN term VARCHAR(32) NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE store_movements ADD COLUMN academic_year VARCHAR(64) NULL`).catch(() => {});
@@ -2934,7 +3441,7 @@ router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES
     const { schoolId } = req.ctx;
     const qRaw = String(req.query?.query || req.query?.q || '').trim();
     const q = `%${qRaw}%`;
-    const limit = Math.min(50, Math.max(1, Number(req.query?.limit) || 20));
+    const limit = Math.min(500, Math.max(1, Number(req.query?.limit) || 20));
 
     const [rows] = await promisePool.query(
       `SELECT u.id, u.user_uid, u.first_name, u.last_name, r.role_code,
@@ -2942,6 +3449,9 @@ router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES
               COALESCE(pr.base_rwf, 0) AS base_rwf,
               COALESCE(pr.allowance_rwf, 0) AS allowance_rwf,
               st.payroll_basic_salary,
+              st.national_id,
+              st.gender,
+              st.hr_profile_json,
               st.payroll_transport_allowance,
               st.payroll_housing_allowance,
               st.payroll_meal_allowance,
@@ -2975,11 +3485,22 @@ router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES
         const assignedRole = String(r.assigned_role_code || roleCode).toUpperCase();
         const basicSalary = Number(r.base_rwf || 0);
         const allowance = Number(r.allowance_rwf || 0);
+        let hrProfile = {};
+        try {
+          hrProfile = typeof r.hr_profile_json === 'string'
+            ? JSON.parse(r.hr_profile_json || '{}')
+            : (r.hr_profile_json || {});
+        } catch {
+          hrProfile = {};
+        }
         return {
           staffUserId: Number(r.id),
           staffId: `STF-${r.id}`,
           staffCode: r.user_uid || `STF-${r.id}`,
           fullName: `${r.first_name || ''} ${r.last_name || ''}`.trim() || `User ${r.id}`,
+          nationalId: r.national_id || hrProfile.national_id || '',
+          rssbNumber: hrProfile.rssb_number || hrProfile.rssb || '',
+          sex: r.gender || hrProfile.gender || '',
           role: assignedRole,
           position: assignedRole,
           department: roleCode,
@@ -3942,24 +4463,202 @@ router.put('/accountant/payroll/rates', requireRole(ACCOUNTANT_WRITE_ROLES), asy
   }
 });
 
+function parseStaffPayrollAllowanceProfileRow(staffRow = {}) {
+  const transport = toMoney(staffRow.payroll_transport_allowance);
+  const housing = toMoney(staffRow.payroll_housing_allowance);
+  const meal = toMoney(staffRow.payroll_meal_allowance);
+  let others = 0;
+  const customAllowances = [];
+  let raw = staffRow.payroll_other_allowances;
+  if (raw) {
+    try {
+      const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(arr)) {
+        for (const item of arr) {
+          const name = String(item?.name || item?.category || 'Allowance').trim();
+          const amount = toMoney(item?.amount ?? item?.value);
+          if (!amount) continue;
+          if (name.toLowerCase() === 'others') others += amount;
+          else customAllowances.push({ name: name || 'Allowance', amount });
+        }
+      }
+    } catch {
+      /* ignore malformed JSON */
+    }
+  }
+  const customTotal = customAllowances.reduce((sum, item) => sum + toMoney(item.amount), 0);
+  const total = transport + housing + others + meal + customTotal;
+  return {
+    transport,
+    housing,
+    others,
+    meal,
+    customAllowances,
+    total,
+    hasStored: total > 0,
+  };
+}
+
+function isEmployeeDeductionActiveForPayrollRow(d = {}) {
+  if (String(d.status || 'Active').toLowerCase() !== 'active') return false;
+  const monthly = toMoney(d.monthly_installment_rwf ?? d.monthlyInstallment);
+  if (monthly <= 0) return false;
+  const type = String(d.deduction_type || d.deductionType || '');
+  if (type === 'Salary Advance') {
+    const remaining = toMoney(d.remaining_balance_rwf ?? d.remainingBalance);
+    if (remaining <= 0) return false;
+    const months = Number(d.repayment_months ?? d.repaymentMonths ?? 0);
+    if (months > 0) {
+      const total = toMoney(d.total_amount_rwf ?? d.totalAmount);
+      const paidInstallments = monthly > 0
+        ? Math.max(0, Math.ceil((total - remaining) / monthly))
+        : 0;
+      if (paidInstallments >= months) return false;
+    }
+  }
+  return true;
+}
+
+function mapEmployeeDeductionForPayrollRow(d = {}) {
+  return {
+    id: Number(d.id || 0),
+    monthlyInstallment: toMoney(d.monthly_installment_rwf ?? d.monthlyInstallment),
+    deductionType: d.deduction_type || d.deductionType || '',
+    customName: d.custom_name || d.customName || '',
+    repaymentMonths: d.repayment_months != null ? Number(d.repayment_months) : (d.repaymentMonths ?? null),
+    remainingBalance: toMoney(d.remaining_balance_rwf ?? d.remainingBalance),
+    totalAmount: toMoney(d.total_amount_rwf ?? d.totalAmount),
+  };
+}
+
+async function applyPayrollAdvanceRepayments(conn, schoolId, runId) {
+  const [lineRows] = await conn.query(
+    `SELECT user_id, register_json FROM accountant_payroll_run_lines WHERE school_id = ? AND run_id = ?`,
+    [schoolId, runId]
+  );
+  for (const line of lineRows || []) {
+    let snap = {};
+    try {
+      snap = line.register_json
+        ? (typeof line.register_json === 'string' ? JSON.parse(line.register_json) : line.register_json)
+        : {};
+    } catch {
+      snap = {};
+    }
+    const applied = Array.isArray(snap.appliedEmployeeDeductions) ? snap.appliedEmployeeDeductions : [];
+    for (const ded of applied) {
+      if (String(ded.deductionType || '') !== 'Salary Advance' || !ded.id) continue;
+      const [[row]] = await conn.query(
+        `SELECT id, total_amount_rwf, monthly_installment_rwf, repayment_months, remaining_balance_rwf, status
+         FROM accountant_payroll_employee_deductions
+         WHERE id = ? AND school_id = ? AND deleted_at IS NULL
+         LIMIT 1`,
+        [Number(ded.id), schoolId]
+      );
+      if (!row) continue;
+      const monthly = toMoney(ded.monthlyInstallment ?? row.monthly_installment_rwf);
+      const newRemaining = Math.max(0, toMoney(row.remaining_balance_rwf) - monthly);
+      let newStatus = newRemaining <= 0 ? 'Completed' : 'Active';
+      const repaymentMonths = Number(row.repayment_months || 0);
+      if (newStatus === 'Active' && repaymentMonths > 0 && monthly > 0) {
+        const installmentsAfter = Math.ceil((toMoney(row.total_amount_rwf) - newRemaining) / monthly);
+        if (installmentsAfter >= repaymentMonths) newStatus = 'Completed';
+      }
+      await conn.query(
+        `UPDATE accountant_payroll_employee_deductions
+         SET remaining_balance_rwf = ?, status = ?, updated_at = NOW()
+         WHERE id = ? AND school_id = ?`,
+        [newRemaining, newStatus, Number(ded.id), schoolId]
+      );
+    }
+  }
+}
+
+function normalizePayrollOtherAllowances(raw) {
+  if (raw === undefined || raw === null) return null;
+  let list = raw;
+  if (typeof raw === 'string') {
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      list = [];
+    }
+  }
+  if (!Array.isArray(list)) return '[]';
+  const normalized = list
+    .map((item) => ({
+      name: String(item?.name || item?.category || 'Allowance').trim() || 'Allowance',
+      amount: toMoney(item?.amount ?? item?.value),
+    }))
+    .filter((item) => item.amount > 0);
+  return JSON.stringify(normalized);
+}
+
 router.patch('/accountant/payroll/staff/:userId', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
   try {
     const { schoolId, userId: actorId, roleCode } = req.ctx;
     const userId = Number(req.params.userId);
     if (!userId) return res.status(400).json({ success: false, message: 'Invalid userId' });
-    const rateId = String(req.body?.rateId || '').trim();
-    const activeRaw = req.body?.active;
+    const body = req.body || {};
+    const rateId = String(body.rateId || '').trim();
+    const activeRaw = body.active;
     const active = activeRaw === undefined ? 1 : activeRaw ? 1 : 0;
     const rateRoleCode = rateId.startsWith('RATE-') ? rateId.slice(5).toUpperCase() : null;
 
-    await promisePool.query(
-      `INSERT INTO accountant_payroll_staff_overrides (school_id, user_id, rate_role_code, is_active)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         rate_role_code = COALESCE(VALUES(rate_role_code), rate_role_code),
-         is_active = VALUES(is_active)`,
-      [schoolId, userId, rateRoleCode, active]
-    );
+    const staffUpdates = {};
+    const basicRaw = body.payroll_basic_salary ?? body.basicSalary;
+    if (basicRaw !== undefined && basicRaw !== null && String(basicRaw).trim() !== '') {
+      staffUpdates.payroll_basic_salary = toMoney(basicRaw);
+    }
+    if (body.payroll_transport_allowance !== undefined || body.transportAllowance !== undefined) {
+      staffUpdates.payroll_transport_allowance = toMoney(body.payroll_transport_allowance ?? body.transportAllowance);
+    }
+    if (body.payroll_housing_allowance !== undefined || body.housingAllowance !== undefined) {
+      staffUpdates.payroll_housing_allowance = toMoney(body.payroll_housing_allowance ?? body.housingAllowance);
+    }
+    if (body.payroll_meal_allowance !== undefined || body.mealAllowance !== undefined) {
+      staffUpdates.payroll_meal_allowance = toMoney(body.payroll_meal_allowance ?? body.mealAllowance);
+    }
+    if (body.payroll_other_allowances !== undefined || body.otherAllowances !== undefined) {
+      staffUpdates.payroll_other_allowances = normalizePayrollOtherAllowances(
+        body.payroll_other_allowances ?? body.otherAllowances
+      );
+    }
+
+    if (Object.keys(staffUpdates).length > 0) {
+      const [[staffRow]] = await promisePool.query(
+        `SELECT id FROM staff WHERE school_id = ? AND user_id = ? LIMIT 1`,
+        [schoolId, userId]
+      );
+      if (staffRow?.id) {
+        const cols = Object.keys(staffUpdates);
+        const sets = cols.map((c) => `${c} = ?`).join(', ');
+        await promisePool.query(
+          `UPDATE staff SET ${sets} WHERE id = ? AND school_id = ?`,
+          [...cols.map((c) => staffUpdates[c]), staffRow.id, schoolId]
+        );
+      } else {
+        const cols = Object.keys(staffUpdates);
+        const placeholders = cols.map(() => '?').join(', ');
+        await promisePool.query(
+          `INSERT INTO staff (school_id, user_id, full_name, ${cols.join(', ')}, created_at)
+           VALUES (?, ?, '', ${placeholders}, NOW())`,
+          [schoolId, userId, ...cols.map((c) => staffUpdates[c])]
+        );
+      }
+    }
+
+    if (rateId || activeRaw !== undefined) {
+      await promisePool.query(
+        `INSERT INTO accountant_payroll_staff_overrides (school_id, user_id, rate_role_code, is_active)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           rate_role_code = COALESCE(VALUES(rate_role_code), rate_role_code),
+           is_active = VALUES(is_active)`,
+        [schoolId, userId, rateRoleCode, active]
+      );
+    }
+
     await appendAuditLog({
       schoolId,
       userId: actorId,
@@ -3968,12 +4667,638 @@ router.patch('/accountant/payroll/staff/:userId', requireRole(ACCOUNTANT_WRITE_R
       entityType: 'payroll_staff_override',
       entityId: userId,
       action: 'upsert',
-      afterState: { rate_role_code: rateRoleCode, is_active: active },
+      afterState: { rate_role_code: rateRoleCode, is_active: active, ...staffUpdates },
     });
-    res.json({ success: true, message: 'Staff payroll assignment updated' });
+    res.json({
+      success: true,
+      message: 'Staff payroll updated',
+      payroll_basic_salary: staffUpdates.payroll_basic_salary ?? null,
+      payroll: staffUpdates,
+    });
   } catch (e) {
     console.error('[accountant/payroll/staff/:userId PATCH]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to update staff payroll assignment' });
+  }
+});
+
+router.get('/accountant/payroll/templates/active', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const [[row]] = await promisePool.query(
+      `SELECT id, version_no, name, description, status, effective_date, apply_to_all,
+              allowances_json, deductions_json, paye_rates_json, statutory_json, rules_json,
+              is_active, updated_at, created_at
+       FROM accountant_payroll_templates
+       WHERE school_id = ? AND deleted_at IS NULL
+       ORDER BY is_active DESC, version_no DESC, id DESC
+       LIMIT 1`,
+      [schoolId]
+    );
+    if (!row) return res.json({ success: true, data: null });
+    return res.json({
+      success: true,
+      data: {
+        id: row.id,
+        version: Number(row.version_no || 1),
+        name: row.name || 'Payroll Salary Template',
+        description: row.description || '',
+        status: row.status || 'Draft',
+        effectiveDate: row.effective_date || null,
+        applyToAll: Number(row.apply_to_all) === 1,
+        allowances: parseJsonSafe(row.allowances_json, []),
+        deductions: parseJsonSafe(row.deductions_json, []),
+        payeRates: parseJsonSafe(row.paye_rates_json, []),
+        statutory: parseJsonSafe(row.statutory_json, {}),
+        rules: parseJsonSafe(row.rules_json, {}),
+        isActive: Number(row.is_active) === 1,
+        updatedAt: row.updated_at || row.created_at,
+      },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/templates/active GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load active payroll template' });
+  }
+});
+
+router.get('/accountant/payroll/templates/history', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const limit = Math.min(50, Math.max(1, Number(req.query?.limit) || 15));
+    const [rows] = await promisePool.query(
+      `SELECT id, version_no, name, status, effective_date, is_active, created_at, updated_at
+       FROM accountant_payroll_templates
+       WHERE school_id = ? AND deleted_at IS NULL
+       ORDER BY version_no DESC, id DESC
+       LIMIT ?`,
+      [schoolId, limit]
+    );
+    return res.json({
+      success: true,
+      data: rows.map((r) => ({
+        id: Number(r.id),
+        version: Number(r.version_no || 1),
+        name: r.name || 'Payroll Salary Template',
+        status: r.status || 'Draft',
+        effectiveDate: r.effective_date || null,
+        isActive: Number(r.is_active) === 1,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/templates/history GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load template history' });
+  }
+});
+
+router.post('/accountant/payroll/templates', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const payload = req.body || {};
+    const action = String(payload.action || 'save_draft').toLowerCase();
+    const templateId = Number(payload.templateId || payload.id || 0);
+    const allowancesJson = JSON.stringify(Array.isArray(payload.allowances) ? payload.allowances : []);
+    const deductionsJson = JSON.stringify(Array.isArray(payload.deductions) ? payload.deductions : []);
+    const payeRatesJson = JSON.stringify(Array.isArray(payload.payeRates) ? payload.payeRates : []);
+    const statutoryJson = JSON.stringify(payload.statutory || {});
+    const rulesJson = JSON.stringify(payload.rules || {});
+    const applyToAll = payload.applyToAll ? 1 : 0;
+    const templateName = String(payload.name || 'Payroll Salary Template');
+    const templateDesc = payload.description || '';
+
+    await conn.beginTransaction();
+
+    if (action === 'deactivate') {
+      if (templateId) {
+        await conn.query(
+          `UPDATE accountant_payroll_templates
+           SET is_active = 0, status = 'Inactive', updated_by_user_id = ?
+           WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+          [userId, templateId, schoolId]
+        );
+      } else {
+        await conn.query(
+          `UPDATE accountant_payroll_templates
+           SET is_active = 0, status = 'Inactive', updated_by_user_id = ?
+           WHERE school_id = ? AND is_active = 1 AND deleted_at IS NULL`,
+          [userId, schoolId]
+        );
+      }
+      await conn.commit();
+      await appendAuditLog({
+        schoolId,
+        userId,
+        roleCode,
+        endpoint: '/accountant/payroll/templates',
+        entityType: 'payroll_template',
+        entityId: templateId || null,
+        action: 'deactivate',
+        afterState: { status: 'Inactive', is_active: 0 },
+      });
+      return res.json({
+        success: true,
+        message: 'Payroll template deactivated',
+        data: { id: templateId || null, status: 'Inactive', isActive: false },
+      });
+    }
+
+    if (action === 'update' && templateId) {
+      await conn.query(
+        `UPDATE accountant_payroll_templates
+         SET name = ?, description = ?, apply_to_all = ?,
+             allowances_json = ?, deductions_json = ?, paye_rates_json = ?, statutory_json = ?, rules_json = ?,
+             updated_by_user_id = ?
+         WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+        [
+          templateName,
+          templateDesc,
+          applyToAll,
+          allowancesJson,
+          deductionsJson,
+          payeRatesJson,
+          statutoryJson,
+          rulesJson,
+          userId,
+          templateId,
+          schoolId,
+        ]
+      );
+      const [[row]] = await conn.query(
+        `SELECT status, is_active FROM accountant_payroll_templates WHERE id = ? AND school_id = ?`,
+        [templateId, schoolId]
+      );
+      await conn.commit();
+      await appendAuditLog({
+        schoolId,
+        userId,
+        roleCode,
+        endpoint: '/accountant/payroll/templates',
+        entityType: 'payroll_template',
+        entityId: templateId,
+        action: 'update',
+        afterState: { status: row?.status, is_active: row?.is_active },
+      });
+      return res.json({
+        success: true,
+        message: 'Template updated',
+        data: {
+          id: templateId,
+          status: row?.status || 'Draft',
+          isActive: Number(row?.is_active) === 1,
+        },
+      });
+    }
+
+    if (action === 'save_draft' && templateId) {
+      await conn.query(
+        `UPDATE accountant_payroll_templates
+         SET name = ?, description = ?, status = 'Draft', apply_to_all = ?,
+             allowances_json = ?, deductions_json = ?, paye_rates_json = ?, statutory_json = ?, rules_json = ?,
+             is_active = 0, updated_by_user_id = ?
+         WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+        [
+          templateName,
+          templateDesc,
+          applyToAll,
+          allowancesJson,
+          deductionsJson,
+          payeRatesJson,
+          statutoryJson,
+          rulesJson,
+          userId,
+          templateId,
+          schoolId,
+        ]
+      );
+      await conn.commit();
+      return res.json({
+        success: true,
+        message: 'Template saved as draft',
+        data: { id: templateId, status: 'Draft', isActive: false },
+      });
+    }
+
+    if (action === 'activate' && templateId) {
+      await conn.query(
+        `UPDATE accountant_payroll_templates SET is_active = 0, updated_by_user_id = ?
+         WHERE school_id = ? AND deleted_at IS NULL`,
+        [userId, schoolId]
+      );
+      await conn.query(
+        `UPDATE accountant_payroll_templates
+         SET name = ?, description = ?, status = 'Active', apply_to_all = ?,
+             allowances_json = ?, deductions_json = ?, paye_rates_json = ?, statutory_json = ?, rules_json = ?,
+             is_active = 1, updated_by_user_id = ?
+         WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+        [
+          templateName,
+          templateDesc,
+          applyToAll,
+          allowancesJson,
+          deductionsJson,
+          payeRatesJson,
+          statutoryJson,
+          rulesJson,
+          userId,
+          templateId,
+          schoolId,
+        ]
+      );
+      await conn.commit();
+      await appendAuditLog({
+        schoolId,
+        userId,
+        roleCode,
+        endpoint: '/accountant/payroll/templates',
+        entityType: 'payroll_template',
+        entityId: templateId,
+        action: 'activate',
+        afterState: { status: 'Active', is_active: 1 },
+      });
+      return res.json({
+        success: true,
+        message: 'Payroll template activated',
+        data: { id: templateId, status: 'Active', isActive: true },
+      });
+    }
+
+    const status = action === 'activate' ? 'Active' : (payload.status || 'Draft');
+    const isActive = status === 'Active' ? 1 : 0;
+    const [[last]] = await conn.query(
+      `SELECT version_no FROM accountant_payroll_templates
+       WHERE school_id = ? AND deleted_at IS NULL
+       ORDER BY version_no DESC, id DESC LIMIT 1`,
+      [schoolId]
+    );
+    const versionNo = Number(last?.version_no || 0) + 1;
+
+    if (isActive === 1) {
+      await conn.query(
+        `UPDATE accountant_payroll_templates SET is_active = 0, updated_by_user_id = ?
+         WHERE school_id = ? AND deleted_at IS NULL`,
+        [userId, schoolId]
+      );
+    }
+
+    const [result] = await conn.query(
+      `INSERT INTO accountant_payroll_templates
+       (school_id, version_no, name, description, status, effective_date, apply_to_all,
+        allowances_json, deductions_json, paye_rates_json, statutory_json, rules_json,
+        is_active, created_by_user_id, updated_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        versionNo,
+        templateName,
+        templateDesc,
+        status,
+        payload.effectiveDate || null,
+        applyToAll,
+        allowancesJson,
+        deductionsJson,
+        payeRatesJson,
+        statutoryJson,
+        rulesJson,
+        isActive,
+        userId,
+        userId,
+      ]
+    );
+
+    const newTemplateId = Number(result.insertId);
+    await conn.query(
+      `INSERT INTO accountant_payroll_template_versions
+       (school_id, template_id, version_no, snapshot_json, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [schoolId, newTemplateId, versionNo, JSON.stringify(payload || {}), userId]
+    );
+
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/templates',
+      entityType: 'payroll_template',
+      entityId: newTemplateId,
+      action: 'create_version',
+      afterState: { version_no: versionNo, status, is_active: isActive },
+    });
+    return res.status(201).json({
+      success: true,
+      message: 'Payroll template saved',
+      data: { id: newTemplateId, version: versionNo, isActive: isActive === 1, status },
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[accountant/payroll/templates POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to save payroll template' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/accountant/payroll/templates/preview', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const body = req.body || {};
+    const result = calcRwandaPayroll({
+      basicSalary: body.basicSalary,
+      allowances: body.allowances || [],
+      templateDeductions: body.deductions || body.templateDeductions || [],
+      employeeDeductions: body.employeeDeductions || [],
+      statutory: body.statutory || {},
+      payeRates: body.payeRates?.length ? body.payeRates : DEFAULT_PAYE_BRACKETS,
+      allowanceRules: body.allowanceRules || body.rules?.allowanceAuto || body.rules || {},
+      runAllowances: body.runAllowances,
+    });
+    return res.json({ success: true, data: result });
+  } catch (e) {
+    console.error('[accountant/payroll/templates/preview POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to preview payroll' });
+  }
+});
+
+function addMonthsToPeriod(startMonth, startYear, monthsToAdd) {
+  let m = Number(startMonth) || 1;
+  let y = Number(startYear) || new Date().getFullYear();
+  const add = Math.max(0, Number(monthsToAdd) || 0);
+  m += add;
+  while (m > 12) {
+    m -= 12;
+    y += 1;
+  }
+  return { endMonth: m, endYear: y };
+}
+
+router.get('/accountant/payroll/employee-deductions', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const staffUserId = Number(req.query?.staffUserId || 0);
+    const qRaw = String(req.query?.query || req.query?.q || '').trim();
+    const where = ['school_id = ?', 'deleted_at IS NULL'];
+    const params = [schoolId];
+    if (staffUserId > 0) {
+      where.push('staff_user_id = ?');
+      params.push(staffUserId);
+    }
+    if (qRaw) {
+      where.push('(staff_name LIKE ? OR deduction_type LIKE ? OR custom_name LIKE ?)');
+      const q = `%${qRaw}%`;
+      params.push(q, q, q);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT id, staff_user_id, staff_name, deduction_type, custom_name,
+              total_amount_rwf, monthly_installment_rwf, repayment_months,
+              start_month, start_year, end_month, end_year, remaining_balance_rwf,
+              notes, status, created_at, updated_at
+       FROM accountant_payroll_employee_deductions
+       WHERE ${where.join(' AND ')}
+       ORDER BY updated_at DESC
+       LIMIT 200`,
+      params
+    );
+    return res.json({
+      success: true,
+      data: rows.map((r) => ({
+        id: Number(r.id),
+        staffUserId: Number(r.staff_user_id),
+        staffName: r.staff_name || '',
+        deductionType: r.deduction_type,
+        customName: r.custom_name || '',
+        totalAmount: Number(r.total_amount_rwf || 0),
+        monthlyInstallment: Number(r.monthly_installment_rwf || 0),
+        repaymentMonths: r.repayment_months != null ? Number(r.repayment_months) : null,
+        startMonth: r.start_month != null ? Number(r.start_month) : null,
+        startYear: r.start_year != null ? Number(r.start_year) : null,
+        endMonth: r.end_month != null ? Number(r.end_month) : null,
+        endYear: r.end_year != null ? Number(r.end_year) : null,
+        remainingBalance: Number(r.remaining_balance_rwf || 0),
+        notes: r.notes || '',
+        status: r.status || 'Active',
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      })),
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/employee-deductions GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load employee deductions' });
+  }
+});
+
+router.post('/accountant/payroll/employee-deductions', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const b = req.body || {};
+    const staffUserId = Number(b.staffUserId || 0);
+    if (!staffUserId) return res.status(400).json({ success: false, message: 'staffUserId is required' });
+    const totalAmount = toMoney(b.totalAmount);
+    const repaymentMonths = Number(b.repaymentMonths || 0) || null;
+    let monthlyInstallment = toMoney(b.monthlyInstallment);
+    if (!monthlyInstallment && totalAmount && repaymentMonths) {
+      monthlyInstallment = Math.round(totalAmount / repaymentMonths);
+    }
+    const startMonth = monthLabelToNumber(b.startMonth) || Number(b.startMonth) || null;
+    const startYear = parsePayrollYear(b.startYear) || null;
+    let endMonth = monthLabelToNumber(b.endMonth) || Number(b.endMonth) || null;
+    let endYear = parsePayrollYear(b.endYear) || null;
+    if (startMonth && startYear && repaymentMonths && !endMonth) {
+      const end = addMonthsToPeriod(startMonth, startYear, repaymentMonths - 1);
+      endMonth = end.endMonth;
+      endYear = end.endYear;
+    }
+    const remaining = b.remainingBalance != null ? toMoney(b.remainingBalance) : totalAmount;
+    const [result] = await promisePool.query(
+      `INSERT INTO accountant_payroll_employee_deductions
+       (school_id, staff_user_id, staff_name, deduction_type, custom_name,
+        total_amount_rwf, monthly_installment_rwf, repayment_months,
+        start_month, start_year, end_month, end_year, remaining_balance_rwf, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        staffUserId,
+        String(b.staffName || '').trim(),
+        String(b.deductionType || 'Loan'),
+        b.customName || null,
+        totalAmount,
+        monthlyInstallment,
+        repaymentMonths,
+        startMonth,
+        startYear,
+        endMonth,
+        endYear,
+        remaining,
+        b.notes || null,
+        String(b.status || 'Active'),
+      ]
+    );
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/employee-deductions',
+      entityType: 'payroll_employee_deduction',
+      entityId: result.insertId,
+      action: 'create',
+    });
+    return res.status(201).json({ success: true, data: { id: Number(result.insertId) } });
+  } catch (e) {
+    console.error('[accountant/payroll/employee-deductions POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to create employee deduction' });
+  }
+});
+
+router.patch('/accountant/payroll/employee-deductions/:id', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id || 0);
+    const b = req.body || {};
+    const fields = [];
+    const params = [];
+    const map = {
+      staffName: 'staff_name',
+      deductionType: 'deduction_type',
+      customName: 'custom_name',
+      totalAmount: 'total_amount_rwf',
+      monthlyInstallment: 'monthly_installment_rwf',
+      repaymentMonths: 'repayment_months',
+      startMonth: 'start_month',
+      startYear: 'start_year',
+      endMonth: 'end_month',
+      endYear: 'end_year',
+      remainingBalance: 'remaining_balance_rwf',
+      notes: 'notes',
+      status: 'status',
+    };
+    for (const [k, col] of Object.entries(map)) {
+      if (b[k] !== undefined) {
+        fields.push(`${col} = ?`);
+        let val = b[k];
+        if (col.includes('_rwf')) val = toMoney(val);
+        if (col === 'start_month' || col === 'end_month') val = monthLabelToNumber(val) || Number(val) || null;
+        if (col === 'start_year' || col === 'end_year') val = parsePayrollYear(val) || Number(val) || null;
+        params.push(val);
+      }
+    }
+    if (!fields.length) return res.status(400).json({ success: false, message: 'No fields to update' });
+    params.push(id, schoolId);
+    const [result] = await promisePool.query(
+      `UPDATE accountant_payroll_employee_deductions SET ${fields.join(', ')}
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      params
+    );
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Deduction not found' });
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/employee-deductions/:id',
+      entityType: 'payroll_employee_deduction',
+      entityId: id,
+      action: 'update',
+    });
+    return res.json({ success: true, message: 'Employee deduction updated' });
+  } catch (e) {
+    console.error('[accountant/payroll/employee-deductions PATCH]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to update employee deduction' });
+  }
+});
+
+router.delete('/accountant/payroll/employee-deductions/:id', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(req.params.id || 0);
+    const [result] = await promisePool.query(
+      `UPDATE accountant_payroll_employee_deductions SET deleted_at = NOW(), status = 'Completed'
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Deduction not found' });
+    return res.json({ success: true, message: 'Employee deduction removed' });
+  } catch (e) {
+    console.error('[accountant/payroll/employee-deductions DELETE]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to delete employee deduction' });
+  }
+});
+
+router.get('/accountant/payroll/payslip-branding', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId } = req.ctx;
+    const trim = (v) => String(v ?? '').trim() || null;
+
+    const [[school]] = await promisePool.query(
+      `SELECT school_name, logo_url, school_stamp_url, head_signature_url, head_teacher_name
+       FROM schools WHERE id = ? LIMIT 1`,
+      [schoolId]
+    );
+    if (!school) {
+      return res.status(404).json({ success: false, message: 'School not found' });
+    }
+
+    let accountantName = '';
+    let accountantSignatureUrl = null;
+
+    if (userId) {
+      const [[me]] = await promisePool.query(
+        `SELECT CONCAT(TRIM(COALESCE(first_name, '')), ' ', TRIM(COALESCE(last_name, ''))) AS full_name,
+                signature_url
+         FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+        [userId]
+      );
+      if (me) {
+        accountantName = trim(me.full_name) || '';
+        accountantSignatureUrl = trim(me.signature_url);
+      }
+    }
+
+    if (!accountantSignatureUrl) {
+      const [acctRows] = await promisePool.query(
+        `SELECT CONCAT(TRIM(COALESCE(u.first_name, '')), ' ', TRIM(COALESCE(u.last_name, ''))) AS full_name,
+                u.signature_url
+         FROM users u
+         LEFT JOIN roles r ON r.id = u.role_id
+         WHERE u.school_id = ? AND u.deleted_at IS NULL
+           AND UPPER(COALESCE(r.role_code, '')) = 'ACCOUNTANT'
+           AND u.signature_url IS NOT NULL AND TRIM(u.signature_url) != ''
+         ORDER BY (u.id = ?) DESC, u.id ASC
+         LIMIT 1`,
+        [schoolId, userId || 0]
+      ).catch(() => [[]]);
+      const row = acctRows?.[0];
+      if (row) {
+        accountantName = trim(row.full_name) || accountantName;
+        accountantSignatureUrl = trim(row.signature_url);
+      }
+    }
+
+    if (!accountantSignatureUrl) {
+      const [sigRows] = await promisePool.query(
+        `SELECT bs.accountant_sig_path
+         FROM babyeyi_signatures bs
+         INNER JOIN school_babyeyi b ON b.id = bs.babyeyi_id
+         WHERE b.school_id = ? AND bs.accountant_sig_path IS NOT NULL AND TRIM(bs.accountant_sig_path) != ''
+         ORDER BY b.created_at DESC
+         LIMIT 1`,
+        [schoolId]
+      ).catch(() => [[]]);
+      accountantSignatureUrl = trim(sigRows?.[0]?.accountant_sig_path);
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        school_name: trim(school.school_name) || '',
+        logo_url: trim(school.logo_url),
+        stamp_url: trim(school.school_stamp_url),
+        head_teacher_name: trim(school.head_teacher_name) || '',
+        head_signature_url: trim(school.head_signature_url),
+        accountant_name: accountantName,
+        accountant_signature_url: accountantSignatureUrl,
+      },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/payslip-branding GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payslip branding' });
   }
 });
 
@@ -3981,23 +5306,64 @@ router.get('/accountant/payroll/runs', requireRole(ACCOUNTANT_READ_ROLES), async
   try {
     const { schoolId } = req.ctx;
     const limit = Math.min(300, Math.max(1, Number(req.query?.limit) || 100));
+    const month = monthLabelToNumber(req.query?.month) || Number(req.query?.month) || 0;
+    const year = parsePayrollYear(req.query?.year ?? req.query?.academicYear) || 0;
+    const academicYear = String(req.query?.academicYear || req.query?.academic_year || '').trim();
+    const statusFilter = String(req.query?.status || '').trim().toLowerCase();
+    const where = ['school_id = ?'];
+    const params = [schoolId];
+    if (month >= 1 && month <= 12) {
+      where.push('pay_month = ?');
+      params.push(month);
+    }
+    if (year >= 2000 && year <= 3000) {
+      where.push('pay_year = ?');
+      params.push(year);
+    }
+    if (academicYear) {
+      where.push('academic_year_label = ?');
+      params.push(academicYear);
+    }
+    if (statusFilter === 'approved') {
+      where.push(`LOWER(status) IN ('processing', 'processed')`);
+    } else if (statusFilter === 'paid') {
+      where.push(`LOWER(status) = 'paid'`);
+    } else if (statusFilter === 'draft') {
+      where.push(`LOWER(status) = 'draft'`);
+    } else if (statusFilter === 'rejected') {
+      where.push(`LOWER(status) = 'rejected'`);
+    }
+    params.push(limit);
     const [rows] = await promisePool.query(
-      `SELECT id, run_period, status, gross_total_rwf, staff_count, created_at
+      `SELECT id, run_period, status, gross_total_rwf, net_total_rwf, disbursement_total_rwf, staff_count,
+              pay_month, pay_year, pay_term, academic_year_label, payment_date, payment_method, paid_at, created_at
        FROM accountant_payroll_runs
-       WHERE school_id = ?
+       WHERE ${where.join(' AND ')}
        ORDER BY id DESC
        LIMIT ?`,
-      [schoolId, limit]
+      params
     );
     res.json({
       success: true,
       data: rows.map((r) => ({
         db_id: r.id,
         id: `RUN-${r.id}`,
+        runNumber: formatPayrollRunNumber(r),
         period: r.run_period,
         status: r.status,
+        statusLabel: payrollDisbursementStatusLabel(r.status),
         staffCount: Number(r.staff_count || 0),
         grossTotal: Number(r.gross_total_rwf || 0),
+        netTotal: Number(r.net_total_rwf || 0),
+        disbursementTotal: Number(r.disbursement_total_rwf || r.net_total_rwf || 0),
+        payMonth: Number(r.pay_month || 0),
+        payYear: Number(r.pay_year || 0),
+        payTerm: r.pay_term || '',
+        academicYear: r.academic_year_label || '',
+        monthLabel: r.pay_month ? numberToMonthLabel(Number(r.pay_month)) : '',
+        paymentDate: r.payment_date || null,
+        paymentMethod: r.payment_method || '',
+        paidAt: r.paid_at || null,
         created_at: r.created_at,
       })),
     });
@@ -4015,7 +5381,9 @@ router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), a
     if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
 
     const [[run]] = await promisePool.query(
-      `SELECT id, run_period, status, gross_total_rwf, staff_count, created_at
+      `SELECT id, run_period, status, gross_total_rwf, net_total_rwf, disbursement_total_rwf, staff_count,
+              pay_month, pay_year, pay_term, academic_year_label,
+              payment_date, payment_reference, transaction_number, payment_method, paid_at, created_at
        FROM accountant_payroll_runs
        WHERE school_id = ? AND id = ?
        LIMIT 1`,
@@ -4024,30 +5392,85 @@ router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), a
     if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
 
     const [lines] = await promisePool.query(
-      `SELECT id, staff_name, dept, role_code, gross_rwf
-       FROM accountant_payroll_run_lines
-       WHERE school_id = ? AND run_id = ?
-       ORDER BY id ASC`,
+      `SELECT l.id, l.user_id, l.staff_name, l.dept, l.role_code, l.basic_rwf, l.allowances_rwf, l.deductions_rwf,
+              l.paye_rwf, l.rssb_rwf, l.rama_rwf, l.maternity_rwf, l.cbhi_rwf, l.gross_rwf, l.net_rwf, l.register_json,
+              u.user_uid AS staff_code,
+              st.payroll_bank_name, st.payroll_account_number, st.payroll_account_holder
+       FROM accountant_payroll_run_lines l
+       LEFT JOIN users u ON u.id = l.user_id AND u.school_id = l.school_id
+       LEFT JOIN staff st ON st.user_id = l.user_id AND st.school_id = l.school_id
+       WHERE l.school_id = ? AND l.run_id = ?
+       ORDER BY l.id ASC`,
       [schoolId, id]
     );
+
+    const mapLine = (l) => {
+      let snap = null;
+      try {
+        snap = l.register_json
+          ? (typeof l.register_json === 'string' ? JSON.parse(l.register_json) : l.register_json)
+          : null;
+      } catch {
+        snap = null;
+      }
+      const netSalary = Number(l.net_rwf || 0);
+      const extraDeduction = Number(snap?.extraDeduction || 0);
+      const finalPayable = Number(snap?.finalPayable ?? (netSalary - extraDeduction));
+      const base = {
+        lineDbId: Number(l.id),
+        id: `RUNL-${l.id}`,
+        staffUserId: Number(l.user_id || 0) || null,
+        staffCode: l.staff_code || '',
+        staff: l.staff_name,
+        dept: l.dept || l.role_code || 'STAFF',
+        role: l.role_code || 'STAFF',
+        bankName: l.payroll_bank_name || snap?.bankName || '',
+        bankAccount: l.payroll_account_number || snap?.bankAccount || '',
+        accountHolder: l.payroll_account_holder || snap?.accountHolder || '',
+        basic: Number(l.basic_rwf || 0),
+        allowances: Number(l.allowances_rwf || 0),
+        deductions: Number(l.deductions_rwf || 0),
+        paye: Number(l.paye_rwf || 0),
+        rssb: Number(l.rssb_rwf || 0),
+        rama: Number(l.rama_rwf || 0),
+        maternity: Number(l.maternity_rwf || 0),
+        cbhi: Number(l.cbhi_rwf || 0),
+        gross: Number(l.gross_rwf || 0),
+        net: netSalary,
+        netSalary,
+        extraDeduction,
+        finalPayable,
+      };
+      if (snap && typeof snap === 'object') return { ...base, ...snap, ...base };
+      return base;
+    };
 
     res.json({
       success: true,
       data: {
         db_id: run.id,
         id: `RUN-${run.id}`,
+        runNumber: formatPayrollRunNumber(run),
         period: run.run_period,
         status: run.status,
+        statusLabel: payrollDisbursementStatusLabel(run.status),
+        isLocked: String(run.status || '').toLowerCase() === 'paid',
         staffCount: Number(run.staff_count || 0),
         grossTotal: Number(run.gross_total_rwf || 0),
+        netTotal: Number(run.net_total_rwf || 0),
+        disbursementTotal: Number(run.disbursement_total_rwf || run.net_total_rwf || 0),
+        payMonth: Number(run.pay_month || 0),
+        payYear: Number(run.pay_year || 0),
+        payTerm: run.pay_term || '',
+        academicYear: run.academic_year_label || '',
+        monthLabel: run.pay_month ? numberToMonthLabel(Number(run.pay_month)) : '',
+        paymentDate: run.payment_date || null,
+        paymentReference: run.payment_reference || '',
+        transactionNumber: run.transaction_number || '',
+        paymentMethod: run.payment_method || '',
+        paidAt: run.paid_at || null,
         created_at: run.created_at,
-        lines: lines.map((l) => ({
-          id: `RUNL-${l.id}`,
-          staff: l.staff_name,
-          dept: l.dept || l.role_code || 'STAFF',
-          role: l.role_code || 'STAFF',
-          gross: Number(l.gross_rwf || 0),
-        })),
+        lines: lines.map(mapLine),
       },
     });
   } catch (e) {
@@ -4056,11 +5479,960 @@ router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), a
   }
 });
 
-router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+router.patch('/accountant/payroll/runs/:id/status', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const raw = String(req.params.id || '');
+    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
+    const nextStatus = String(req.body?.status || '').trim().toLowerCase();
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    if (nextStatus !== 'paid') {
+      return res.status(400).json({ success: false, message: 'Only marking payroll as paid is supported.' });
+    }
+
+    const [[run]] = await promisePool.query(
+      `SELECT id, status, run_period, pay_month, pay_year, academic_year_label, net_total_rwf, disbursement_total_rwf
+       FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+
+    const current = String(run.status || '').toLowerCase();
+    if (current === 'paid') {
+      return res.status(409).json({ success: false, message: 'This payroll is already marked as paid.' });
+    }
+    if (!isPayrollRunDisbursable(current)) {
+      return res.status(409).json({
+        success: false,
+        message: current === 'draft'
+          ? 'Cannot process draft payroll. Only approved payrolls can be marked as paid.'
+          : current === 'rejected'
+            ? 'Cannot process rejected payroll.'
+            : 'Only approved payroll runs can be marked as paid.',
+      });
+    }
+
+    const paymentDate = String(req.body?.paymentDate || req.body?.payment_date || '').trim();
+    const paymentReference = String(req.body?.paymentReference || req.body?.payment_reference || '').trim();
+    const transactionNumber = String(req.body?.transactionNumber || req.body?.transaction_number || '').trim();
+    const paymentMethod = String(req.body?.paymentMethod || req.body?.payment_method || 'Bank Transfer').trim();
+
+    const [lineRows] = await promisePool.query(
+      `SELECT id, net_rwf, register_json FROM accountant_payroll_run_lines WHERE school_id = ? AND run_id = ?`,
+      [schoolId, id]
+    );
+    let disbursementTotal = 0;
+    for (const line of lineRows) {
+      let snap = {};
+      try {
+        snap = line.register_json
+          ? (typeof line.register_json === 'string' ? JSON.parse(line.register_json) : line.register_json)
+          : {};
+      } catch {
+        snap = {};
+      }
+      const net = Number(line.net_rwf || 0);
+      const extra = Number(snap.extraDeduction || 0);
+      const finalPayable = Number(snap.finalPayable ?? (net - extra));
+      disbursementTotal += finalPayable;
+    }
+    if (!disbursementTotal) {
+      disbursementTotal = Number(run.disbursement_total_rwf || run.net_total_rwf || 0);
+    }
+
+    const conn = await promisePool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query(
+        `UPDATE accountant_payroll_runs
+         SET status = 'paid',
+             payment_date = ?,
+             payment_reference = ?,
+             transaction_number = ?,
+             payment_method = ?,
+             paid_at = NOW(),
+             paid_by_user_id = ?,
+             disbursement_total_rwf = ?
+         WHERE school_id = ? AND id = ?`,
+        [
+          /^\d{4}-\d{2}-\d{2}$/.test(paymentDate) ? paymentDate : null,
+          paymentReference || null,
+          transactionNumber || null,
+          paymentMethod || null,
+          userId,
+          disbursementTotal,
+          schoolId,
+          id,
+        ]
+      );
+      await applyPayrollAdvanceRepayments(conn, schoolId, id);
+      await conn.commit();
+    } catch (payErr) {
+      await conn.rollback();
+      throw payErr;
+    } finally {
+      conn.release();
+    }
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/runs/:id/status',
+      entityType: 'payroll_run',
+      entityId: id,
+      action: 'update',
+      afterState: {
+        status: 'paid',
+        run_period: run.run_period,
+        payment_date: paymentDate || null,
+        payment_reference: paymentReference || null,
+        transaction_number: transactionNumber || null,
+        payment_method: paymentMethod || null,
+        disbursement_total_rwf: disbursementTotal,
+        payslips_generated: lineRows.length,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Payroll marked as paid',
+      data: {
+        id,
+        status: 'paid',
+        payslipsGenerated: lineRows.length,
+        disbursementTotal,
+      },
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/runs/:id/status PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to update payroll status' });
+  }
+});
+
+function mapDisbursementDeductionRuleRow(r) {
+  let staffUserIds = [];
+  try {
+    staffUserIds = r.staff_user_ids_json
+      ? (typeof r.staff_user_ids_json === 'string' ? JSON.parse(r.staff_user_ids_json) : r.staff_user_ids_json)
+      : [];
+  } catch {
+    staffUserIds = [];
+  }
+  const monthScope = String(r.month_scope || 'single').toLowerCase();
+  const frequency = String(r.frequency || 'always').toLowerCase();
+  return {
+    id: Number(r.id),
+    academicYear: r.academic_year_label || '',
+    deductionType: r.deduction_type || 'Other',
+    applyTo: r.apply_to || 'all',
+    staffUserIds: Array.isArray(staffUserIds) ? staffUserIds : [],
+    amountType: r.amount_type || 'fixed',
+    amount: Number(r.amount_rwf || 0),
+    reason: r.reason || '',
+    monthScope,
+    effectiveMonth: r.effective_month != null ? Number(r.effective_month) : null,
+    monthLabel: r.effective_month ? numberToMonthLabel(Number(r.effective_month)) : 'All months',
+    frequency,
+    frequencyLabel: frequency === 'once' ? 'Once' : 'Always',
+    monthScopeLabel: monthScope === 'all' ? 'All months' : numberToMonthLabel(Number(r.effective_month || 0)),
+    status: r.status || 'active',
+    timesApplied: Number(r.times_applied || 0),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+function disbursementRuleMatchesMonth(rule, payMonth) {
+  const scope = String(rule.month_scope || rule.monthScope || 'single').toLowerCase();
+  if (scope === 'all') return true;
+  const eff = Number(rule.effective_month ?? rule.effectiveMonth ?? 0);
+  return eff >= 1 && eff <= 12 && eff === Number(payMonth);
+}
+
+async function applyDeductionPayloadToRun(conn, schoolId, runId, payload, ruleId = null) {
+  const applyTo = String(payload.applyTo || 'all').toLowerCase();
+  const amountType = String(payload.amountType || 'fixed').toLowerCase();
+  const amount = Number(payload.amount ?? payload.amount_rwf ?? 0);
+  const reason = String(payload.reason || '').trim();
+  const deductionType = String(payload.deductionType || payload.deduction_type || 'Other').trim();
+  const selectedIds = Array.isArray(payload.staffUserIds)
+    ? payload.staffUserIds.map((x) => Number(x)).filter((x) => x > 0)
+    : [];
+
+  const [lines] = await conn.query(
+    `SELECT id, user_id, net_rwf, register_json FROM accountant_payroll_run_lines WHERE school_id = ? AND run_id = ?`,
+    [schoolId, runId]
+  );
+
+  let affected = 0;
+  let totalImpact = 0;
+
+  for (const line of lines) {
+    const staffUserId = Number(line.user_id || 0);
+    if (applyTo === 'selected' && selectedIds.length && !selectedIds.includes(staffUserId)) continue;
+
+    let snap = {};
+    try {
+      snap = line.register_json
+        ? (typeof line.register_json === 'string' ? JSON.parse(line.register_json) : line.register_json)
+        : {};
+    } catch {
+      snap = {};
+    }
+
+    const netSalary = Number(line.net_rwf || 0);
+    const prevExtra = Number(snap.extraDeduction || 0);
+    let addDeduction = amount;
+    if (amountType === 'percentage') {
+      addDeduction = Math.round((netSalary * amount) / 100);
+    }
+    const extraDeduction = prevExtra + addDeduction;
+    const finalPayable = Math.max(0, netSalary - extraDeduction);
+    const entry = {
+      type: deductionType,
+      amount: addDeduction,
+      reason,
+      ruleId: ruleId || null,
+      appliedAt: new Date().toISOString(),
+    };
+    const nextSnap = {
+      ...snap,
+      extraDeduction,
+      finalPayable,
+      extraDeductions: [...(Array.isArray(snap.extraDeductions) ? snap.extraDeductions : []), entry],
+    };
+
+    await conn.query(
+      `UPDATE accountant_payroll_run_lines SET register_json = ? WHERE school_id = ? AND id = ?`,
+      [JSON.stringify(nextSnap), schoolId, line.id]
+    );
+    affected += 1;
+    totalImpact += addDeduction;
+  }
+
+  const disbursementTotal = await recalculateRunDisbursementTotal(conn, schoolId, runId);
+
+  return { affectedEmployees: affected, totalImpact, disbursementTotal };
+}
+
+function disbursementEntryMatchesRule(entry, ruleId, rule) {
+  if (!entry || typeof entry !== 'object') return false;
+  if (ruleId != null && entry.ruleId != null && Number(entry.ruleId) === Number(ruleId)) return true;
+  if (!rule || entry.ruleId != null) return false;
+  const typeMatch = String(entry.type || '').trim() === String(rule.deduction_type || '').trim();
+  const amountMatch = Number(entry.amount || 0) === Number(rule.amount_rwf || 0);
+  const reasonMatch = String(entry.reason || '').trim() === String(rule.reason || '').trim();
+  return typeMatch && amountMatch && reasonMatch;
+}
+
+async function recalculateRunDisbursementTotal(conn, schoolId, runId) {
+  const [updatedLines] = await conn.query(
+    `SELECT net_rwf, register_json FROM accountant_payroll_run_lines WHERE school_id = ? AND run_id = ?`,
+    [schoolId, runId]
+  );
+  let disbursementTotal = 0;
+  for (const line of updatedLines) {
+    let snap = {};
+    try {
+      snap = line.register_json
+        ? (typeof line.register_json === 'string' ? JSON.parse(line.register_json) : line.register_json)
+        : {};
+    } catch {
+      snap = {};
+    }
+    const net = Number(line.net_rwf || 0);
+    const extra = Number(snap.extraDeduction || 0);
+    disbursementTotal += Number(snap.finalPayable ?? (net - extra));
+  }
+  await conn.query(
+    `UPDATE accountant_payroll_runs SET disbursement_total_rwf = ? WHERE school_id = ? AND id = ?`,
+    [disbursementTotal, schoolId, runId]
+  );
+  return disbursementTotal;
+}
+
+async function revertDisbursementRuleFromPayroll(conn, schoolId, ruleId) {
+  const [[rule]] = await conn.query(
+    `SELECT * FROM accountant_payroll_disbursement_deduction_rules WHERE school_id = ? AND id = ? LIMIT 1`,
+    [schoolId, ruleId]
+  );
+  if (!rule) return { linesUpdated: 0, runsUpdated: 0 };
+
+  const runIdSet = new Set();
+  const [apps] = await conn.query(
+    `SELECT DISTINCT run_id FROM accountant_payroll_disbursement_deduction_applications WHERE school_id = ? AND rule_id = ?`,
+    [schoolId, ruleId]
+  );
+  for (const a of apps) {
+    if (a.run_id) runIdSet.add(Number(a.run_id));
+  }
+
+  const [jsonRuns] = await conn.query(
+    `SELECT DISTINCT l.run_id
+     FROM accountant_payroll_run_lines l
+     INNER JOIN accountant_payroll_runs r ON r.id = l.run_id AND r.school_id = l.school_id
+     WHERE l.school_id = ? AND LOWER(r.status) != 'paid'
+       AND (l.register_json LIKE ? OR l.register_json LIKE ?)`,
+    [schoolId, `%"ruleId":${ruleId}%`, `%"ruleId": ${ruleId}%`]
+  );
+  for (const row of jsonRuns) {
+    if (row.run_id) runIdSet.add(Number(row.run_id));
+  }
+
+  let linesUpdated = 0;
+  let runsUpdated = 0;
+
+  for (const runId of runIdSet) {
+    const [[run]] = await conn.query(
+      `SELECT id, status FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
+      [schoolId, runId]
+    );
+    if (!run) continue;
+    if (String(run.status || '').toLowerCase() === 'paid') continue;
+
+    const [lines] = await conn.query(
+      `SELECT id, user_id, net_rwf, register_json FROM accountant_payroll_run_lines WHERE school_id = ? AND run_id = ?`,
+      [schoolId, runId]
+    );
+
+    let runTouched = false;
+    for (const line of lines) {
+      let snap = {};
+      try {
+        snap = line.register_json
+          ? (typeof line.register_json === 'string' ? JSON.parse(line.register_json) : line.register_json)
+          : {};
+      } catch {
+        snap = {};
+      }
+
+      const list = Array.isArray(snap.extraDeductions) ? snap.extraDeductions : [];
+      const filtered = list.filter((entry) => !disbursementEntryMatchesRule(entry, ruleId, rule));
+      if (filtered.length === list.length) continue;
+
+      const extraDeduction = filtered.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+      const netSalary = Number(line.net_rwf || 0);
+      const finalPayable = Math.max(0, netSalary - extraDeduction);
+      const nextSnap = {
+        ...snap,
+        extraDeduction,
+        finalPayable,
+        extraDeductions: filtered,
+      };
+
+      await conn.query(
+        `UPDATE accountant_payroll_run_lines SET register_json = ? WHERE school_id = ? AND id = ?`,
+        [JSON.stringify(nextSnap), schoolId, line.id]
+      );
+      linesUpdated += 1;
+      runTouched = true;
+    }
+
+    if (runTouched) {
+      await recalculateRunDisbursementTotal(conn, schoolId, runId);
+      runsUpdated += 1;
+    }
+  }
+
+  await conn.query(
+    `DELETE FROM accountant_payroll_disbursement_deduction_applications WHERE school_id = ? AND rule_id = ?`,
+    [schoolId, ruleId]
+  );
+
+  return { linesUpdated, runsUpdated };
+}
+
+async function shouldApplyDisbursementRule(conn, schoolId, rule, runId, payMonth) {
+  if (String(rule.status || '').toLowerCase() !== 'active') return false;
+  if (!disbursementRuleMatchesMonth(rule, payMonth)) return false;
+
+  const [[onRun]] = await conn.query(
+    `SELECT id FROM accountant_payroll_disbursement_deduction_applications
+     WHERE school_id = ? AND rule_id = ? AND run_id = ? LIMIT 1`,
+    [schoolId, rule.id, runId]
+  );
+  if (onRun) return false;
+
+  const freq = String(rule.frequency || '').toLowerCase();
+  if (freq === 'once') {
+    const [[any]] = await conn.query(
+      `SELECT id FROM accountant_payroll_disbursement_deduction_applications
+       WHERE school_id = ? AND rule_id = ? LIMIT 1`,
+      [schoolId, rule.id]
+    );
+    if (any) return false;
+  }
+  return true;
+}
+
+router.get('/accountant/payroll/disbursement-deduction-rules', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const academicYear = String(req.query?.academicYear || req.query?.academic_year || '').trim();
+    const where = ['r.school_id = ?', 'r.deleted_at IS NULL'];
+    const params = [schoolId];
+    if (academicYear) {
+      where.push('(r.academic_year_label = ? OR r.academic_year_label IS NULL OR r.academic_year_label = "")');
+      params.push(academicYear);
+    }
+    const [rows] = await promisePool.query(
+      `SELECT r.*,
+              (SELECT COUNT(*) FROM accountant_payroll_disbursement_deduction_applications a
+               WHERE a.school_id = r.school_id AND a.rule_id = r.id) AS times_applied
+       FROM accountant_payroll_disbursement_deduction_rules r
+       WHERE ${where.join(' AND ')}
+       ORDER BY r.id DESC
+       LIMIT 200`,
+      params
+    );
+    return res.json({ success: true, data: rows.map(mapDisbursementDeductionRuleRow) });
+  } catch (e) {
+    console.error('[disbursement-deduction-rules GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load deduction rules' });
+  }
+});
+
+router.post('/accountant/payroll/disbursement-deduction-rules', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
   const conn = await promisePool.getConnection();
   try {
     const { schoolId, userId, roleCode } = req.ctx;
+    const b = req.body || {};
+    const amount = Number(b.amount || 0);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'A valid deduction amount is required.' });
+    }
+    const monthScope = String(b.monthScope || 'single').toLowerCase() === 'all' ? 'all' : 'single';
+    const frequency = String(b.frequency || 'always').toLowerCase() === 'once' ? 'once' : 'always';
+    const effectiveMonth = monthScope === 'single'
+      ? (monthLabelToNumber(b.effectiveMonth) || Number(b.effectiveMonth) || null)
+      : null;
+    if (monthScope === 'single' && (!effectiveMonth || effectiveMonth < 1 || effectiveMonth > 12)) {
+      return res.status(400).json({ success: false, message: 'Select an effective month or choose all months.' });
+    }
+    const staffUserIds = Array.isArray(b.staffUserIds) ? b.staffUserIds : [];
+    const academicYearLabel = String(b.academicYear || b.academic_year || '').trim();
+
     await conn.beginTransaction();
+    const [ins] = await conn.query(
+      `INSERT INTO accountant_payroll_disbursement_deduction_rules
+       (school_id, academic_year_label, deduction_type, apply_to, staff_user_ids_json,
+        amount_type, amount_rwf, reason, month_scope, effective_month, frequency, status, created_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+      [
+        schoolId,
+        academicYearLabel || null,
+        String(b.deductionType || 'Other').trim(),
+        String(b.applyTo || 'all').toLowerCase(),
+        staffUserIds.length ? JSON.stringify(staffUserIds) : null,
+        String(b.amountType || 'fixed').toLowerCase(),
+        amount,
+        String(b.reason || '').trim() || null,
+        monthScope,
+        effectiveMonth,
+        frequency,
+        userId,
+      ]
+    );
+    const ruleId = ins.insertId;
+    let applyResult = null;
+    const runId = Number(b.applyToRunId || 0);
+    if (runId > 0) {
+      const [[run]] = await conn.query(
+        `SELECT id, status, pay_month, pay_year FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
+        [schoolId, runId]
+      );
+      if (run && isPayrollRunDisbursable(run.status) && String(run.status).toLowerCase() !== 'paid') {
+        applyResult = await applyDeductionPayloadToRun(conn, schoolId, runId, {
+          deductionType: b.deductionType,
+          applyTo: b.applyTo,
+          amountType: b.amountType,
+          amount,
+          reason: b.reason,
+          staffUserIds,
+        }, ruleId);
+        await conn.query(
+          `INSERT INTO accountant_payroll_disbursement_deduction_applications
+           (school_id, rule_id, run_id, pay_month, pay_year) VALUES (?, ?, ?, ?, ?)`,
+          [schoolId, ruleId, runId, run.pay_month, run.pay_year]
+        );
+      }
+    }
+    await conn.commit();
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/disbursement-deduction-rules',
+      entityType: 'disbursement_deduction_rule',
+      entityId: ruleId,
+      action: 'create',
+      afterState: { monthScope, frequency, amount, effectiveMonth },
+    });
+
+    const [[row]] = await promisePool.query(
+      `SELECT r.*,
+              (SELECT COUNT(*) FROM accountant_payroll_disbursement_deduction_applications a
+               WHERE a.school_id = r.school_id AND a.rule_id = r.id) AS times_applied
+       FROM accountant_payroll_disbursement_deduction_rules r WHERE r.id = ? LIMIT 1`,
+      [ruleId]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: applyResult
+        ? 'Deduction rule saved and applied to current payroll.'
+        : 'Deduction rule saved. It will apply automatically on matching payrolls.',
+      data: { rule: mapDisbursementDeductionRuleRow(row), applyResult },
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[disbursement-deduction-rules POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to save deduction rule' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.patch('/accountant/payroll/disbursement-deduction-rules/:id', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid rule id' });
+
+    const [[existing]] = await promisePool.query(
+      `SELECT * FROM accountant_payroll_disbursement_deduction_rules WHERE school_id = ? AND id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Deduction rule not found' });
+
+    const b = req.body || {};
+    const monthScope = b.monthScope != null
+      ? (String(b.monthScope).toLowerCase() === 'all' ? 'all' : 'single')
+      : existing.month_scope;
+    const frequency = b.frequency != null
+      ? (String(b.frequency).toLowerCase() === 'once' ? 'once' : 'always')
+      : existing.frequency;
+    let effectiveMonth = existing.effective_month;
+    if (monthScope === 'all') {
+      effectiveMonth = null;
+    } else if (b.effectiveMonth != null) {
+      effectiveMonth = monthLabelToNumber(b.effectiveMonth) || Number(b.effectiveMonth) || existing.effective_month;
+    }
+    const amount = b.amount != null ? Number(b.amount) : Number(existing.amount_rwf);
+    const staffUserIds = Array.isArray(b.staffUserIds) ? JSON.stringify(b.staffUserIds) : existing.staff_user_ids_json;
+
+    await promisePool.query(
+      `UPDATE accountant_payroll_disbursement_deduction_rules SET
+         deduction_type = ?, apply_to = ?, staff_user_ids_json = ?, amount_type = ?, amount_rwf = ?,
+         reason = ?, month_scope = ?, effective_month = ?, frequency = ?, status = COALESCE(?, status)
+       WHERE school_id = ? AND id = ?`,
+      [
+        b.deductionType != null ? String(b.deductionType).trim() : existing.deduction_type,
+        b.applyTo != null ? String(b.applyTo).toLowerCase() : existing.apply_to,
+        staffUserIds,
+        b.amountType != null ? String(b.amountType).toLowerCase() : existing.amount_type,
+        amount,
+        b.reason != null ? String(b.reason).trim() : existing.reason,
+        monthScope,
+        effectiveMonth,
+        frequency,
+        b.status != null ? String(b.status).toLowerCase() : null,
+        schoolId,
+        id,
+      ]
+    );
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/disbursement-deduction-rules/:id',
+      entityType: 'disbursement_deduction_rule',
+      entityId: id,
+      action: 'update',
+    });
+
+    const [[row]] = await promisePool.query(
+      `SELECT r.*,
+              (SELECT COUNT(*) FROM accountant_payroll_disbursement_deduction_applications a
+               WHERE a.school_id = r.school_id AND a.rule_id = r.id) AS times_applied
+       FROM accountant_payroll_disbursement_deduction_rules r WHERE r.id = ? LIMIT 1`,
+      [id]
+    );
+    return res.json({ success: true, data: mapDisbursementDeductionRuleRow(row) });
+  } catch (e) {
+    console.error('[disbursement-deduction-rules PATCH]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to update deduction rule' });
+  }
+});
+
+router.delete('/accountant/payroll/disbursement-deduction-rules/:id', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid rule id' });
+
+    const [[existing]] = await conn.query(
+      `SELECT id, deduction_type, amount_rwf FROM accountant_payroll_disbursement_deduction_rules
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Deduction rule not found' });
+
+    await conn.beginTransaction();
+    const revert = await revertDisbursementRuleFromPayroll(conn, schoolId, id);
+    const [r] = await conn.query(
+      `UPDATE accountant_payroll_disbursement_deduction_rules SET deleted_at = NOW(), status = 'inactive'
+       WHERE school_id = ? AND id = ? AND deleted_at IS NULL`,
+      [schoolId, id]
+    );
+    if (!r.affectedRows) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Deduction rule not found' });
+    }
+    await conn.commit();
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/disbursement-deduction-rules/:id',
+      entityType: 'disbursement_deduction_rule',
+      entityId: id,
+      action: 'delete',
+      afterState: revert,
+    });
+
+    const msg = revert.linesUpdated > 0
+      ? `Deduction rule removed. Extra deductions cleared on ${revert.linesUpdated} employee line(s) for unpaid payroll(s).`
+      : 'Deduction rule removed. It will not apply to future payrolls.';
+
+    return res.json({
+      success: true,
+      message: msg,
+      data: revert,
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[disbursement-deduction-rules DELETE]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to delete deduction rule' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/accountant/payroll/runs/:id/apply-scheduled-deductions', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId } = req.ctx;
+    const raw = String(req.params.id || '');
+    const runId = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
+    if (!runId) return res.status(400).json({ success: false, message: 'Invalid run id' });
+
+    const [[run]] = await conn.query(
+      `SELECT id, status, pay_month, pay_year, academic_year_label FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
+      [schoolId, runId]
+    );
+    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+    if (String(run.status || '').toLowerCase() === 'paid') {
+      return res.status(409).json({ success: false, message: 'Paid payroll cannot be modified.' });
+    }
+    if (!isPayrollRunDisbursable(run.status)) {
+      return res.status(409).json({ success: false, message: 'Only approved payrolls accept deductions.' });
+    }
+
+    const academicYear = String(run.academic_year_label || '').trim();
+    const ruleWhere = ['school_id = ?', "status = 'active'", 'deleted_at IS NULL'];
+    const ruleParams = [schoolId];
+    if (academicYear) {
+      ruleWhere.push('(academic_year_label = ? OR academic_year_label IS NULL OR academic_year_label = "")');
+      ruleParams.push(academicYear);
+    }
+    const [rules] = await conn.query(
+      `SELECT * FROM accountant_payroll_disbursement_deduction_rules WHERE ${ruleWhere.join(' AND ')}`,
+      ruleParams
+    );
+
+    await conn.beginTransaction();
+    const appliedRules = [];
+    let lastResult = null;
+    for (const rule of rules) {
+      const ok = await shouldApplyDisbursementRule(conn, schoolId, rule, runId, run.pay_month);
+      if (!ok) continue;
+      lastResult = await applyDeductionPayloadToRun(conn, schoolId, runId, {
+        deductionType: rule.deduction_type,
+        applyTo: rule.apply_to,
+        amountType: rule.amount_type,
+        amount: rule.amount_rwf,
+        reason: rule.reason,
+        staffUserIds: rule.staff_user_ids_json
+          ? (typeof rule.staff_user_ids_json === 'string' ? JSON.parse(rule.staff_user_ids_json) : rule.staff_user_ids_json)
+          : [],
+      }, rule.id);
+      await conn.query(
+        `INSERT INTO accountant_payroll_disbursement_deduction_applications
+         (school_id, rule_id, run_id, pay_month, pay_year) VALUES (?, ?, ?, ?, ?)`,
+        [schoolId, rule.id, runId, run.pay_month, run.pay_year]
+      );
+      appliedRules.push(rule.id);
+    }
+    await conn.commit();
+
+    return res.json({
+      success: true,
+      message: appliedRules.length
+        ? `Applied ${appliedRules.length} scheduled deduction(s).`
+        : 'No new scheduled deductions to apply.',
+      data: { appliedRuleIds: appliedRules, ...lastResult },
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[apply-scheduled-deductions POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to apply scheduled deductions' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/accountant/payroll/runs/:id/disbursement-deductions', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const raw = String(req.params.id || '');
+    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+
+    const b = req.body || {};
+    const amount = Number(b.amount || 0);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'A valid deduction amount is required.' });
+    }
+
+    const [[run]] = await conn.query(
+      `SELECT id, status, pay_month, pay_year, academic_year_label FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+    if (String(run.status || '').toLowerCase() === 'paid') {
+      return res.status(409).json({ success: false, message: 'Paid payroll cannot be modified.' });
+    }
+    if (!isPayrollRunDisbursable(run.status)) {
+      return res.status(409).json({ success: false, message: 'Only approved payrolls accept disbursement deductions.' });
+    }
+
+    await conn.beginTransaction();
+    const result = await applyDeductionPayloadToRun(conn, schoolId, id, b);
+
+    const saveRule = b.saveAsRule === true || b.saveAsRule === 'true';
+    let ruleId = null;
+    if (saveRule) {
+      const monthScope = String(b.monthScope || 'single').toLowerCase() === 'all' ? 'all' : 'single';
+      const frequency = String(b.frequency || 'always').toLowerCase() === 'once' ? 'once' : 'always';
+      const effectiveMonth = monthScope === 'single'
+        ? (monthLabelToNumber(b.effectiveMonth) || Number(run.pay_month) || null)
+        : null;
+      const staffUserIds = Array.isArray(b.staffUserIds) ? b.staffUserIds : [];
+      const [ins] = await conn.query(
+        `INSERT INTO accountant_payroll_disbursement_deduction_rules
+         (school_id, academic_year_label, deduction_type, apply_to, staff_user_ids_json,
+          amount_type, amount_rwf, reason, month_scope, effective_month, frequency, status, created_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+        [
+          schoolId,
+          run.academic_year_label || null,
+          String(b.deductionType || 'Other').trim(),
+          String(b.applyTo || 'all').toLowerCase(),
+          staffUserIds.length ? JSON.stringify(staffUserIds) : null,
+          String(b.amountType || 'fixed').toLowerCase(),
+          amount,
+          String(b.reason || '').trim() || null,
+          monthScope,
+          effectiveMonth,
+          frequency,
+          userId,
+        ]
+      );
+      ruleId = ins.insertId;
+      await conn.query(
+        `INSERT INTO accountant_payroll_disbursement_deduction_applications
+         (school_id, rule_id, run_id, pay_month, pay_year) VALUES (?, ?, ?, ?, ?)`,
+        [schoolId, ruleId, id, run.pay_month, run.pay_year]
+      );
+    }
+
+    await conn.commit();
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/runs/:id/disbursement-deductions',
+      entityType: 'payroll_run',
+      entityId: id,
+      action: 'update',
+      afterState: { ...result, ruleId, saveRule },
+    });
+
+    return res.json({
+      success: true,
+      message: saveRule ? 'Deduction applied and saved for future payrolls.' : 'Disbursement deductions applied',
+      data: { ...result, ruleId },
+    });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[accountant/payroll/runs/:id/disbursement-deductions POST]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to apply disbursement deductions' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.get('/accountant/payroll/runs/:id/audit-trail', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const raw = String(req.params.id || '');
+    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+
+    const [rows] = await promisePool.query(
+      `SELECT a.id, a.user_id, a.role_code, a.endpoint, a.action_name, a.after_state_json, a.created_at,
+              TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS actor_name
+       FROM portal_operation_audit_logs a
+       LEFT JOIN users u ON u.id = a.user_id
+       WHERE a.school_id = ? AND a.entity_type = 'payroll_run' AND a.entity_id = ?
+       ORDER BY a.id ASC
+       LIMIT 200`,
+      [schoolId, id]
+    );
+
+    const actionLabels = {
+      create: 'Payroll Generated',
+      update: 'Payroll Updated',
+      delete: 'Payroll Deleted',
+    };
+
+    return res.json({
+      success: true,
+      data: (rows || []).map((r) => {
+        let after = {};
+        try {
+          after = r.after_state_json
+            ? (typeof r.after_state_json === 'string' ? JSON.parse(r.after_state_json) : r.after_state_json)
+            : {};
+        } catch {
+          after = {};
+        }
+        let action = actionLabels[String(r.action_name || '').toLowerCase()] || r.action_name || 'Action';
+        if (String(r.endpoint || '').includes('/status') && after.status === 'paid') {
+          action = 'Marked As Paid';
+        } else if (String(r.endpoint || '').includes('disbursement-deductions')) {
+          action = 'Additional Deduction Applied';
+        } else if (String(r.endpoint || '').includes('trigger')) {
+          action = 'Payroll Generated';
+        }
+        const roleLabel = String(r.role_code || '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+        return {
+          id: Number(r.id),
+          date: r.created_at,
+          user: r.actor_name || roleLabel || 'System',
+          role: roleLabel,
+          action,
+          details: after,
+        };
+      }),
+    });
+  } catch (e) {
+    console.error('[accountant/payroll/runs/:id/audit-trail GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load payroll audit trail' });
+  }
+});
+
+router.delete('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const raw = String(req.params.id || '');
+    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+
+    const [[run]] = await conn.query(
+      `SELECT id, status, run_period, pay_month, pay_year, academic_year_label
+       FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
+      [schoolId, id]
+    );
+    if (!run) return res.status(404).json({ success: false, message: 'Payroll run not found' });
+
+    const current = String(run.status || '').toLowerCase();
+    if (current === 'paid') {
+      return res.status(409).json({
+        success: false,
+        message: 'Paid payroll cannot be deleted. It is locked after payment.',
+      });
+    }
+
+    await conn.beginTransaction();
+    await conn.query(
+      `DELETE FROM accountant_payroll_disbursement_deduction_applications WHERE school_id = ? AND run_id = ?`,
+      [schoolId, id]
+    ).catch(() => {});
+    await conn.query(`DELETE FROM accountant_payroll_run_lines WHERE school_id = ? AND run_id = ?`, [schoolId, id]);
+    await conn.query(`DELETE FROM accountant_payroll_runs WHERE school_id = ? AND id = ?`, [schoolId, id]);
+    await conn.commit();
+
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/accountant/payroll/runs/:id',
+      entityType: 'payroll_run',
+      entityId: id,
+      action: 'delete',
+      beforeState: {
+        status: run.status,
+        run_period: run.run_period,
+        pay_month: run.pay_month,
+        pay_year: run.pay_year,
+        academic_year_label: run.academic_year_label,
+      },
+    });
+
+    res.json({ success: true, message: 'Payroll run deleted' });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[accountant/payroll/runs/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to delete payroll run' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    if (!tablesReady) await ensureTables();
+    const { schoolId, userId, roleCode } = req.ctx;
+    const payMonth = monthLabelToNumber(req.body?.month) || Number(req.body?.month) || new Date().getMonth() + 1;
+    const payYear = parsePayrollYear(req.body?.year ?? req.body?.academicYear) || new Date().getFullYear();
+    const payTerm = normalizePayrollTerm(req.body?.term || 'T2') || 'T2';
+    const academicYearLabel = String(req.body?.academicYear || req.body?.year || payYear);
+    await conn.beginTransaction();
+
+    const [[paidDup]] = await conn.query(
+      `SELECT id FROM accountant_payroll_runs
+       WHERE school_id = ? AND pay_month = ? AND pay_year = ? AND academic_year_label = ? AND LOWER(status) = 'paid'
+       LIMIT 1`,
+      [schoolId, payMonth, payYear, academicYearLabel]
+    );
+    if (paidDup) {
+      await conn.rollback();
+      return res.status(409).json({
+        success: false,
+        message: 'Payroll already exists and has been paid. Duplicate payroll generation is not allowed.',
+      });
+    }
 
     const [rateRows] = await conn.query(
       `SELECT role_code, base_rwf, allowance_rwf
@@ -4075,51 +6447,308 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
       });
     }
 
+    let activeTemplate = null;
+    try {
+      const [tplRows] = await conn.query(
+        `SELECT id, name, status, apply_to_all, is_active, allowances_json, deductions_json, paye_rates_json, statutory_json, rules_json
+         FROM accountant_payroll_templates
+         WHERE school_id = ? AND deleted_at IS NULL
+         ORDER BY is_active DESC, version_no DESC, id DESC
+         LIMIT 1`,
+        [schoolId]
+      );
+      activeTemplate = tplRows?.[0] || null;
+    } catch (tplErr) {
+      console.warn('[payroll/runs/trigger] template lookup skipped:', tplErr.message);
+    }
+    let tplAllowances = parseJsonSafe(activeTemplate?.allowances_json, []);
+    let tplDeductions = parseJsonSafe(activeTemplate?.deductions_json, []);
+    if (Array.isArray(req.body?.allowanceOverrides)) {
+      tplAllowances = req.body.allowanceOverrides;
+    }
+    if (Array.isArray(req.body?.deductionOverrides)) {
+      tplDeductions = req.body.deductionOverrides;
+    }
+    const tplPayeRates = parseJsonSafe(activeTemplate?.paye_rates_json, []);
+    const tplStatutory = parseJsonSafe(activeTemplate?.statutory_json, {});
+    const tplRules = parseJsonSafe(activeTemplate?.rules_json, {});
+    const allowanceRules = tplRules.allowanceAuto || tplRules;
+    const hasRunAllowanceOverride = Array.isArray(req.body?.allowanceOverrides) && req.body.allowanceOverrides.length > 0;
+    const useSchoolAuto = allowanceRules.enabled !== false && !hasRunAllowanceOverride;
+    const templateFullyActive = !!(
+      activeTemplate
+      && Number(activeTemplate.is_active) === 1
+      && Number(activeTemplate.apply_to_all) === 1
+      && String(activeTemplate.status || '').toLowerCase() === 'active'
+    );
+
     const [staffRows] = await conn.query(
       `SELECT u.id, u.first_name, u.last_name, r.role_code,
               COALESCE(o.rate_role_code, r.role_code) AS assigned_role_code,
-              COALESCE(o.is_active, 1) AS is_active
+              COALESCE(o.is_active, 1) AS is_active,
+              st.payroll_basic_salary, st.national_id, st.gender, st.hr_profile_json,
+              st.payroll_transport_allowance, st.payroll_housing_allowance, st.payroll_meal_allowance,
+              st.payroll_other_allowances
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id
        LEFT JOIN accountant_payroll_staff_overrides o
               ON o.school_id = u.school_id AND o.user_id = u.id
+       LEFT JOIN staff st
+              ON st.school_id = u.school_id AND st.user_id = u.id
        WHERE u.school_id = ? AND u.deleted_at IS NULL`,
       [schoolId]
     );
 
     const active = staffRows.filter((s) => Number(s.is_active) === 1);
+    const staffIds = active.map((s) => s.id);
+    const empDedMap = new Map();
+    if (staffIds.length) {
+      try {
+        const [empDedRows] = await conn.query(
+          `SELECT id, staff_user_id, deduction_type, custom_name, total_amount_rwf,
+                  monthly_installment_rwf, repayment_months, remaining_balance_rwf, status
+           FROM accountant_payroll_employee_deductions
+           WHERE school_id = ? AND deleted_at IS NULL AND status = 'Active'
+             AND staff_user_id IN (${staffIds.map(() => '?').join(',')})`,
+          [schoolId, ...staffIds]
+        );
+        for (const d of empDedRows || []) {
+          if (!isEmployeeDeductionActiveForPayrollRow(d)) continue;
+          const uid = Number(d.staff_user_id);
+          if (!empDedMap.has(uid)) empDedMap.set(uid, []);
+          empDedMap.get(uid).push(mapEmployeeDeductionForPayrollRow(d));
+        }
+      } catch (empErr) {
+        console.warn('[payroll/runs/trigger] employee deductions skipped:', empErr.message);
+      }
+    }
+
+    const payeBrackets = Array.isArray(tplPayeRates) && tplPayeRates.length ? tplPayeRates : DEFAULT_PAYE_BRACKETS;
+
+    const rawAdjustments = req.body?.employeeAdjustments || req.body?.adjustments || [];
+    const adjByUser = new Map();
+    const pushAdj = (uid, adj) => {
+      const id = Number(uid);
+      if (!id || !adj) return;
+      adjByUser.set(id, {
+        extraAllowances: Array.isArray(adj.extraAllowances) ? adj.extraAllowances : [],
+        extraDeductions: Array.isArray(adj.extraDeductions) ? adj.extraDeductions : [],
+        basicSalaryOverride: Number(adj.basicSalaryOverride ?? adj.basicSalary ?? 0) || 0,
+        allowanceSplit: adj.allowanceSplit && typeof adj.allowanceSplit === 'object' ? adj.allowanceSplit : null,
+      });
+    };
+    if (Array.isArray(rawAdjustments)) {
+      for (const item of rawAdjustments) {
+        pushAdj(item.staffUserId ?? item.userId ?? item.user_id, item);
+      }
+    } else if (rawAdjustments && typeof rawAdjustments === 'object') {
+      for (const [uid, adj] of Object.entries(rawAdjustments)) pushAdj(uid, adj);
+    }
+
     const lines = [];
     let grossTotal = 0;
+    let netTotal = 0;
     for (const s of active) {
+      let hrProfile = {};
+      try {
+        hrProfile = typeof s.hr_profile_json === 'string'
+          ? JSON.parse(s.hr_profile_json || '{}')
+          : (s.hr_profile_json || {});
+      } catch {
+        hrProfile = {};
+      }
+      const rssbNumber = hrProfile.rssb_number || hrProfile.rssb || '';
+      const nationalId = s.national_id || hrProfile.national_id || '';
+      const sex = s.gender || hrProfile.gender || '';
       const role = String(s.assigned_role_code || s.role_code || 'STAFF').toUpperCase();
       const rate = rateMap.get(role) || { base: 150000, allowance: 20000 };
-      const gross = Number(rate.base) + Number(rate.allowance);
+      const userAdj = adjByUser.get(Number(s.id)) || {
+        extraAllowances: [],
+        extraDeductions: [],
+        basicSalaryOverride: 0,
+        allowanceSplit: null,
+      };
+      const basicOverride = Number(userAdj.basicSalaryOverride || 0);
+      const basic = basicOverride > 0
+        ? basicOverride
+        : (toMoney(s.payroll_basic_salary) > 0 ? toMoney(s.payroll_basic_salary) : Number(rate.base));
+      const normalizeAdjAllowanceSplit = (adj) => {
+        const raw = adj?.allowanceSplit;
+        if (!raw || typeof raw !== 'object') return null;
+        const each = toMoney(raw.allowanceEach ?? raw.each);
+        let transport = toMoney(raw.transport ?? raw.transportAllowance);
+        let housing = toMoney(raw.housing ?? raw.housingAllowance);
+        let others = toMoney(raw.others ?? raw.othersAllowance);
+        if (each > 0) {
+          transport = each;
+          housing = each;
+          others = each;
+        }
+        const total = transport + housing + others;
+        return total > 0 ? { transport, housing, others } : null;
+      };
+      const runSplit = normalizeAdjAllowanceSplit(userAdj);
+      const staffProfile = parseStaffPayrollAllowanceProfileRow(s);
+      const mergedRegister = runSplit || mergeRegisterAllowanceAmounts(basic, staffProfile, allowanceRules);
+      const registerTotal = toMoney(mergedRegister.transport) + toMoney(mergedRegister.housing) + toMoney(mergedRegister.others);
+      const useStaffProfile = staffProfile.hasStored;
+      const storedAllowanceSplit = (runSplit || useStaffProfile) && registerTotal > 0
+        ? { transport: mergedRegister.transport, housing: mergedRegister.housing, others: mergedRegister.others }
+        : null;
+      const extraAllowances = (userAdj.extraAllowances || []).map((a) => ({
+        category: a.label || a.name || 'Other',
+        name: a.label || a.name || 'Other',
+        amountType: 'Fixed Amount',
+        value: Number(a.amount || a.value || 0),
+        status: 'Active',
+      })).filter((a) => a.value > 0);
+      const extraEmpDeductions = (userAdj.extraDeductions || []).map((d) => ({
+        monthlyInstallment: Number(d.amount || d.value || 0),
+      })).filter((d) => d.monthlyInstallment > 0);
+      const appliedEmployeeDeductions = [
+        ...(empDedMap.get(Number(s.id)) || []),
+        ...extraEmpDeductions,
+      ];
+
+      let allowanceItems = [...extraAllowances];
+      const useStoredAllowances = !!storedAllowanceSplit;
+      if (useStoredAllowances) {
+        allowanceItems = [
+          ...(runSplit ? [] : (staffProfile.customAllowances || []).map((a) => ({
+            category: a.name,
+            name: a.name,
+            amountType: 'Fixed Amount',
+            value: a.amount,
+            status: 'Active',
+          }))),
+          ...(runSplit || staffProfile.meal <= 0 ? [] : [{
+            category: 'Meal Allowance',
+            name: 'Meal Allowance',
+            amountType: 'Fixed Amount',
+            value: staffProfile.meal,
+            status: 'Active',
+          }]),
+          ...extraAllowances,
+        ].filter((item) => toMoney(item.value) > 0);
+      } else if (!useSchoolAuto) {
+        if (hasRunAllowanceOverride) {
+          allowanceItems = [...req.body.allowanceOverrides, ...extraAllowances];
+        } else if (tplAllowances.length) {
+          allowanceItems = [...tplAllowances, ...extraAllowances];
+        } else if (Number(rate.allowance) > 0) {
+          allowanceItems = [{
+            category: 'Role Allowance',
+            name: 'Role Allowance',
+            amountType: 'Fixed Amount',
+            value: Number(rate.allowance),
+            status: 'Active',
+          }, ...extraAllowances];
+        }
+      }
+
+      const calc = calcRwandaPayroll({
+        basicSalary: basic,
+        allowances: allowanceItems,
+        storedAllowanceSplit: useStoredAllowances ? storedAllowanceSplit : undefined,
+        templateDeductions: tplDeductions,
+        employeeDeductions: appliedEmployeeDeductions,
+        statutory: tplStatutory,
+        payeRates: payeBrackets,
+        allowanceRules,
+        runAllowances: useStoredAllowances ? undefined : (hasRunAllowanceOverride ? req.body.allowanceOverrides : undefined),
+        forceManualAllowances: useStoredAllowances,
+      });
+      const split = calc.registerAllowanceSplit || splitAllowanceBreakdown(calc.allowanceBreakdown || []);
+      const allowancesAmt = Math.max(0, calc.grossSalary - basic);
+      const gross = calc.grossSalary;
+      const paye = calc.paye;
+      const rssb = calc.rssbEmployee;
+      const rama = calc.ramaEmployee;
+      const maternity = calc.maternityEmployee;
+      const cbhi = calc.cbhi;
+      const deductions = calc.otherDeductions + cbhi;
+      const net = calc.finalNet;
+      const staffFull = `${s.first_name || ''} ${s.last_name || ''}`.trim() || `User ${s.id}`;
+      const nameParts = staffFull.split(/\s+/).filter(Boolean);
+      const hasRama = Number(calc.ramaEmployee) > 0;
+      const register = {
+        rssbNumber,
+        nationalId,
+        sex,
+        base: calc.baseSalary,
+        totalAllowances: split.totalAllowances || allowancesAmt,
+        othersAllowance: split.others,
+        housingAllowance: split.housing,
+        transportAllowance: split.transport,
+        csrEmployee6: calc.rssbEmployee,
+        maternityEmployee: calc.maternityEmployee,
+        maternityEmployer: calc.maternityEmployer,
+        maternityTotal: calc.maternityTotal,
+        csrEmployer6: calc.rssbEmployer,
+        csrOccupational2: calc.occupationalHazard,
+        csrEmployer8: calc.csrEmployer8,
+        totalCsr14: calc.totalCsr14,
+        ramaEmployee: hasRama ? calc.ramaEmployee : '-',
+        ramaEmployer: hasRama ? calc.ramaEmployer : '-',
+        ramaTotal: hasRama ? calc.ramaTotal : '-',
+        netPay: calc.netBeforeCbhi,
+        netPayFinal: calc.finalNet,
+        mutuel: calc.cbhi,
+        firstName: nameParts[0] || '',
+        familyName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : '',
+        appliedEmployeeDeductions: (empDedMap.get(Number(s.id)) || []).map((d) => ({
+          id: d.id,
+          deductionType: d.deductionType,
+          customName: d.customName,
+          monthlyInstallment: d.monthlyInstallment,
+          repaymentMonths: d.repaymentMonths,
+          remainingBalance: d.remainingBalance,
+        })),
+        allowanceSource: useStoredAllowances ? 'staff_profile' : (useSchoolAuto ? 'auto' : 'template'),
+      };
+
       grossTotal += gross;
+      netTotal += net;
       lines.push({
         user_id: s.id,
         staff_name: `${s.first_name || ''} ${s.last_name || ''}`.trim() || `User ${s.id}`,
         dept: String(s.role_code || role),
         role_code: role,
+        basic_rwf: basic,
+        allowances_rwf: allowancesAmt,
+        deductions_rwf: deductions,
+        paye_rwf: paye,
+        rssb_rwf: rssb,
+        rama_rwf: rama,
+        maternity_rwf: maternity,
+        cbhi_rwf: cbhi,
         gross_rwf: gross,
+        net_rwf: net,
+        register,
       });
     }
 
-    const now = new Date();
-    const period = `${now.toLocaleString('en-US', { month: 'short' })}-${now.getFullYear()}`;
+    const period = `${numberToMonthLabel(payMonth)}-${payYear}`;
     const [runResult] = await conn.query(
       `INSERT INTO accountant_payroll_runs
-       (school_id, triggered_by_user_id, run_period, status, gross_total_rwf, staff_count)
-       VALUES (?, ?, ?, 'processed', ?, ?)`,
-      [schoolId, userId, period, grossTotal, lines.length]
+       (school_id, triggered_by_user_id, run_period, status, gross_total_rwf, net_total_rwf, staff_count,
+        pay_month, pay_year, pay_term, academic_year_label, template_id)
+       VALUES (?, ?, ?, 'processing', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [schoolId, userId, period, grossTotal, netTotal, lines.length, payMonth, payYear, payTerm, academicYearLabel, Number(activeTemplate?.id || 0) || null]
     );
     const runId = runResult.insertId;
 
     for (const l of lines) {
       await conn.query(
         `INSERT INTO accountant_payroll_run_lines
-         (run_id, school_id, user_id, staff_name, dept, role_code, gross_rwf)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [runId, schoolId, l.user_id, l.staff_name, l.dept, l.role_code, l.gross_rwf]
+         (run_id, school_id, user_id, staff_name, dept, role_code,
+          basic_rwf, allowances_rwf, deductions_rwf, paye_rwf, rssb_rwf, rama_rwf, maternity_rwf, cbhi_rwf, gross_rwf, net_rwf, register_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          runId, schoolId, l.user_id, l.staff_name, l.dept, l.role_code,
+          l.basic_rwf, l.allowances_rwf, l.deductions_rwf, l.paye_rwf, l.rssb_rwf, l.rama_rwf, l.maternity_rwf, l.cbhi_rwf, l.gross_rwf, l.net_rwf,
+          l.register ? JSON.stringify(l.register) : null,
+        ]
       );
     }
 
@@ -4132,13 +6761,73 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
       entityType: 'payroll_run',
       entityId: runId,
       action: 'create',
-      afterState: { run_period: period, staff_count: lines.length, gross_total_rwf: grossTotal },
+      afterState: { run_period: period, staff_count: lines.length, gross_total_rwf: grossTotal, pay_month: payMonth, pay_year: payYear, pay_term: payTerm },
     });
-    res.status(201).json({ success: true, message: 'Payroll run created', id: runId });
+    res.status(201).json({
+      success: true,
+      message: 'Payroll run created',
+      id: runId,
+      data: {
+        runId,
+        period,
+        payMonth,
+        payYear,
+        payTerm,
+        templateApplied: templateFullyActive,
+        templateName: activeTemplate?.name || null,
+        netTotal,
+        lines: lines.map((l) => {
+          const reg = l.register || {};
+          return {
+            id: `RUNL-${runId}-${l.user_id}`,
+            staff: l.staff_name,
+            rssbNumber: reg.rssbNumber || '',
+            nationalId: reg.nationalId || '',
+            sex: reg.sex || '',
+            firstName: reg.firstName || '',
+            familyName: reg.familyName || '',
+            dept: l.dept || l.role_code || 'STAFF',
+            role: l.role_code || 'STAFF',
+            basic: Number(l.basic_rwf || 0),
+            allowances: Number(l.allowances_rwf || 0),
+            totalAllowances: Number(reg.totalAllowances ?? l.allowances_rwf ?? 0),
+            othersAllowance: Number(reg.othersAllowance || 0),
+            housingAllowance: Number(reg.housingAllowance || 0),
+            transportAllowance: Number(reg.transportAllowance || 0),
+            deductions: Number(l.deductions_rwf || 0),
+            paye: Number(l.paye_rwf || 0),
+            base: Number(reg.base || 0),
+            rssb: Number(l.rssb_rwf || 0),
+            csrEmployee6: Number(reg.csrEmployee6 ?? l.rssb_rwf ?? 0),
+            maternityEmployee: Number(reg.maternityEmployee ?? l.maternity_rwf ?? 0),
+            maternityEmployer: Number(reg.maternityEmployer || 0),
+            maternityTotal: Number(reg.maternityTotal || 0),
+            csrEmployer6: Number(reg.csrEmployer6 || 0),
+            csrOccupational2: Number(reg.csrOccupational2 || 0),
+            csrEmployer8: Number(reg.csrEmployer8 || 0),
+            totalCsr14: Number(reg.totalCsr14 || 0),
+            rama: Number(l.rama_rwf || 0),
+            ramaEmployee: Number(reg.ramaEmployee ?? l.rama_rwf ?? 0),
+            ramaEmployer: Number(reg.ramaEmployer || 0),
+            ramaTotal: Number(reg.ramaTotal || 0),
+            mutuel: Number(reg.mutuel ?? l.cbhi_rwf ?? 0),
+            cbhi: Number(l.cbhi_rwf || 0),
+            netPay: Number(reg.netPay || 0),
+            gross: Number(l.gross_rwf || 0),
+            net: Number(l.net_rwf || 0),
+            netPayFinal: Number(reg.netPayFinal ?? l.net_rwf ?? 0),
+          };
+        }),
+      },
+    });
   } catch (e) {
     await conn.rollback().catch(() => {});
-    console.error('[accountant/payroll/runs/trigger POST]:', e.message);
-    res.status(500).json({ success: false, message: 'Failed to trigger payroll' });
+    console.error('[accountant/payroll/runs/trigger POST]:', e.message, e.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to trigger payroll',
+      detail: process.env.NODE_ENV === 'development' ? e.message : undefined,
+    });
   } finally {
     conn.release();
   }
@@ -4448,11 +7137,40 @@ router.delete('/store/inventory/:id', requireRole(STORE_WRITE_ROLES), async (req
   }
 });
 
+function normalizeSupplierStatus(raw) {
+  const s = String(raw || 'Active').trim();
+  return s === 'Inactive' ? 'Inactive' : 'Active';
+}
+
+function parseSupplierDate(raw) {
+  if (!raw) return null;
+  const d = String(raw).trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+}
+
+function supplierPayloadFromBody(payload = {}) {
+  const name = String(payload.name || '').trim();
+  return {
+    name,
+    contact_person: String(payload.contact_person || '').trim() || null,
+    phone: String(payload.phone || '').trim() || null,
+    email: String(payload.email || '').trim() || null,
+    tin: String(payload.tin || '').trim() || null,
+    website: String(payload.website || '').trim() || null,
+    address: String(payload.address || '').trim() || null,
+    categories: String(payload.categories || '').trim() || null,
+    status: normalizeSupplierStatus(payload.status),
+    last_purchase_date: parseSupplierDate(payload.last_purchase_date),
+    note: String(payload.note || '').trim() || null,
+  };
+}
+
 router.get('/store/suppliers', requireRole(STORE_READ_ROLES), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
     const [rows] = await promisePool.query(
-      `SELECT id, name, contact_person, phone, email, address, categories, note, updated_at
+      `SELECT id, name, contact_person, phone, email, tin, website, address, categories,
+              status, last_purchase_date, note, created_at, updated_at
        FROM store_suppliers
        WHERE school_id = ? AND deleted_at IS NULL
        ORDER BY id DESC`,
@@ -4468,22 +7186,25 @@ router.get('/store/suppliers', requireRole(STORE_READ_ROLES), async (req, res) =
 router.post('/store/suppliers', requireRole(STORE_WRITE_ROLES), async (req, res) => {
   try {
     const { schoolId, userId, roleCode } = req.ctx;
-    const payload = req.body || {};
-    const name = String(payload.name || '').trim();
-    if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+    const p = supplierPayloadFromBody(req.body);
+    if (!p.name) return res.status(400).json({ success: false, message: 'name is required' });
     const [r] = await promisePool.query(
       `INSERT INTO store_suppliers
-       (school_id, name, contact_person, phone, email, address, categories, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, name, contact_person, phone, email, tin, website, address, categories, status, last_purchase_date, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         schoolId,
-        name,
-        String(payload.contact_person || '').trim() || null,
-        String(payload.phone || '').trim() || null,
-        String(payload.email || '').trim() || null,
-        String(payload.address || '').trim() || null,
-        String(payload.categories || '').trim() || null,
-        String(payload.note || '').trim() || null,
+        p.name,
+        p.contact_person,
+        p.phone,
+        p.email,
+        p.tin,
+        p.website,
+        p.address,
+        p.categories,
+        p.status,
+        p.last_purchase_date,
+        p.note,
       ]
     );
     await appendAuditLog({
@@ -4494,12 +7215,12 @@ router.post('/store/suppliers', requireRole(STORE_WRITE_ROLES), async (req, res)
       entityType: 'store_supplier',
       entityId: r.insertId,
       action: 'create',
-      afterState: { name },
+      afterState: { name: p.name },
     });
     res.status(201).json({ success: true, message: 'Supplier created', id: r.insertId });
   } catch (e) {
     console.error('[store/suppliers POST]:', e.message);
-    res.status(500).json({ success: false, message: 'Failed to create supplier' });
+    res.status(500).json({ success: false, message: e.message || 'Failed to create supplier' });
   }
 });
 
@@ -4508,23 +7229,30 @@ router.patch('/store/suppliers/:id', requireRole(STORE_WRITE_ROLES), async (req,
     const { schoolId, userId, roleCode } = req.ctx;
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ success: false, message: 'Invalid supplier id' });
-    const payload = req.body || {};
-    await promisePool.query(
+    const p = supplierPayloadFromBody(req.body);
+    if (!p.name) return res.status(400).json({ success: false, message: 'name is required' });
+    const [r] = await promisePool.query(
       `UPDATE store_suppliers
-       SET name = ?, contact_person = ?, phone = ?, email = ?, address = ?, categories = ?, note = ?
+       SET name = ?, contact_person = ?, phone = ?, email = ?, tin = ?, website = ?, address = ?,
+           categories = ?, status = ?, last_purchase_date = ?, note = ?
        WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
       [
-        String(payload.name || '').trim(),
-        String(payload.contact_person || '').trim() || null,
-        String(payload.phone || '').trim() || null,
-        String(payload.email || '').trim() || null,
-        String(payload.address || '').trim() || null,
-        String(payload.categories || '').trim() || null,
-        String(payload.note || '').trim() || null,
+        p.name,
+        p.contact_person,
+        p.phone,
+        p.email,
+        p.tin,
+        p.website,
+        p.address,
+        p.categories,
+        p.status,
+        p.last_purchase_date,
+        p.note,
         id,
         schoolId,
       ]
     );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Supplier not found' });
     await appendAuditLog({
       schoolId,
       userId,
@@ -4533,12 +7261,1521 @@ router.patch('/store/suppliers/:id', requireRole(STORE_WRITE_ROLES), async (req,
       entityType: 'store_supplier',
       entityId: id,
       action: 'update',
-      afterState: { name: String(payload.name || '').trim() },
+      afterState: { name: p.name },
     });
     res.json({ success: true, message: 'Supplier updated' });
   } catch (e) {
     console.error('[store/suppliers/:id PATCH]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to update supplier' });
+  }
+});
+
+function fabricReceiptPayloadFromBody(payload = {}) {
+  const meters = toMoney(payload.meters);
+  const unitCost = toOptionalMoney(payload.unit_cost);
+  const totalCost =
+    payload.total_cost != null && payload.total_cost !== ''
+      ? toMoney(payload.total_cost)
+      : meters * (unitCost || 0);
+  const remainingRaw = payload.remaining_meters;
+  const remaining =
+    remainingRaw === '' || remainingRaw === null || remainingRaw === undefined
+      ? meters
+      : toMoney(remainingRaw);
+  return {
+    academic_year: String(payload.academic_year || '').trim() || null,
+    term: String(payload.term || '').trim() || null,
+    supplier_id: Number(payload.supplier_id) > 0 ? Number(payload.supplier_id) : null,
+    purchase_date: parseSupplierDate(payload.purchase_date),
+    invoice_number: String(payload.invoice_number || '').trim() || null,
+    fabric_type: String(payload.fabric_type || '').trim(),
+    color: String(payload.color || '').trim() || null,
+    meters,
+    unit_cost: unitCost,
+    total_cost: totalCost,
+    remaining_meters: Math.min(remaining, meters),
+    note: String(payload.note || '').trim() || null,
+  };
+}
+
+function mapFabricReceiptRow(row, supplierName = null) {
+  const meters = Number(row.meters || 0);
+  const remaining = Number(row.remaining_meters ?? row.meters ?? 0);
+  return {
+    id: row.id,
+    academic_year: row.academic_year,
+    term: row.term,
+    supplier_id: row.supplier_id,
+    supplier_name: supplierName || row.supplier_name || null,
+    purchase_date: row.purchase_date,
+    invoice_number: row.invoice_number,
+    fabric_type: row.fabric_type,
+    color: row.color,
+    meters,
+    unit_cost: row.unit_cost != null ? Number(row.unit_cost) : null,
+    total_cost: row.total_cost != null ? Number(row.total_cost) : null,
+    remaining_meters: remaining,
+    note: row.note,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+router.get('/store/academic-calendar-settings', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const ctx = await resolveAcademicContext(schoolId);
+    const [registryRows] = await promisePool.query(
+      `SELECT academic_year, active_terms_json, term_dates_json, is_current
+       FROM school_academic_year_registry
+       WHERE school_id = ?
+       ORDER BY academic_year DESC`,
+      [schoolId]
+    ).catch(() => [[]]);
+
+    const academicYearsRegistry = (registryRows || []).map((row) => {
+      let terms = ['Term 1', 'Term 2', 'Term 3'];
+      try {
+        const parsed = Array.isArray(row.active_terms_json)
+          ? row.active_terms_json
+          : JSON.parse(row.active_terms_json || '[]');
+        if (Array.isArray(parsed) && parsed.length) {
+          terms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+        }
+      } catch (_) {}
+      let termDates = [];
+      try {
+        const parsed = Array.isArray(row.term_dates_json)
+          ? row.term_dates_json
+          : JSON.parse(row.term_dates_json || '[]');
+        if (Array.isArray(parsed)) termDates = parsed;
+      } catch (_) {}
+      return {
+        academic_year: row.academic_year,
+        active_terms: terms,
+        term_dates: termDates,
+        is_current: Number(row.is_current) === 1,
+      };
+    });
+
+    const academicYears = academicYearsRegistry.length
+      ? academicYearsRegistry.map((r) => r.academic_year)
+      : [ctx.academicYear];
+
+    res.json({
+      success: true,
+      data: {
+        current_academic_year: ctx.academicYear,
+        current_term: ctx.term,
+        active_terms: academicYearsRegistry.find((r) => r.is_current)?.active_terms
+          || academicYearsRegistry[0]?.active_terms
+          || ['Term 1', 'Term 2', 'Term 3'],
+        academic_years: academicYears,
+        academic_years_registry: academicYearsRegistry,
+      },
+    });
+  } catch (e) {
+    console.error('[store/academic-calendar-settings GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load academic settings' });
+  }
+});
+
+router.get('/store/fabric-receipts', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const [rows] = await promisePool.query(
+      `SELECT r.*, s.name AS supplier_name
+       FROM store_fabric_receipts r
+       LEFT JOIN store_suppliers s ON s.id = r.supplier_id AND s.school_id = r.school_id AND s.deleted_at IS NULL
+       WHERE r.school_id = ? AND r.deleted_at IS NULL
+       ORDER BY r.purchase_date DESC, r.id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows.map((r) => mapFabricReceiptRow(r)) });
+  } catch (e) {
+    console.error('[store/fabric-receipts GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load fabric receipts' });
+  }
+});
+
+router.get('/store/fabric-receipts/:id', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [[row]] = await promisePool.query(
+      `SELECT r.*, s.name AS supplier_name
+       FROM store_fabric_receipts r
+       LEFT JOIN store_suppliers s ON s.id = r.supplier_id AND s.school_id = r.school_id AND s.deleted_at IS NULL
+       WHERE r.id = ? AND r.school_id = ? AND r.deleted_at IS NULL
+       LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Fabric receipt not found' });
+    res.json({ success: true, data: mapFabricReceiptRow(row) });
+  } catch (e) {
+    console.error('[store/fabric-receipts/:id GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load fabric receipt' });
+  }
+});
+
+router.post('/store/fabric-receipts', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const p = fabricReceiptPayloadFromBody(req.body);
+    if (!p.fabric_type) return res.status(400).json({ success: false, message: 'fabric_type is required' });
+    if (p.meters <= 0) return res.status(400).json({ success: false, message: 'meters must be greater than 0' });
+
+    if (p.supplier_id) {
+      const [[sup]] = await promisePool.query(
+        `SELECT id FROM store_suppliers WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [p.supplier_id, schoolId]
+      );
+      if (!sup) return res.status(400).json({ success: false, message: 'Supplier not found' });
+    }
+
+    const [r] = await promisePool.query(
+      `INSERT INTO store_fabric_receipts
+       (school_id, academic_year, term, supplier_id, purchase_date, invoice_number,
+        fabric_type, color, meters, unit_cost, total_cost, remaining_meters, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        p.academic_year,
+        p.term,
+        p.supplier_id,
+        p.purchase_date,
+        p.invoice_number,
+        p.fabric_type,
+        p.color,
+        p.meters,
+        p.unit_cost,
+        p.total_cost,
+        p.remaining_meters,
+        p.note,
+      ]
+    );
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/fabric-receipts',
+      entityType: 'store_fabric_receipt',
+      entityId: r.insertId,
+      action: 'create',
+      afterState: { fabric_type: p.fabric_type, meters: p.meters },
+    });
+    res.status(201).json({ success: true, message: 'Fabric received', id: r.insertId });
+  } catch (e) {
+    console.error('[store/fabric-receipts POST]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to save fabric receipt' });
+  }
+});
+
+router.patch('/store/fabric-receipts/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const p = fabricReceiptPayloadFromBody(req.body);
+    if (!p.fabric_type) return res.status(400).json({ success: false, message: 'fabric_type is required' });
+    if (p.meters <= 0) return res.status(400).json({ success: false, message: 'meters must be greater than 0' });
+
+    if (p.supplier_id) {
+      const [[sup]] = await promisePool.query(
+        `SELECT id FROM store_suppliers WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [p.supplier_id, schoolId]
+      );
+      if (!sup) return res.status(400).json({ success: false, message: 'Supplier not found' });
+    }
+
+    const [result] = await promisePool.query(
+      `UPDATE store_fabric_receipts
+       SET academic_year = ?, term = ?, supplier_id = ?, purchase_date = ?, invoice_number = ?,
+           fabric_type = ?, color = ?, meters = ?, unit_cost = ?, total_cost = ?,
+           remaining_meters = ?, note = ?
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [
+        p.academic_year,
+        p.term,
+        p.supplier_id,
+        p.purchase_date,
+        p.invoice_number,
+        p.fabric_type,
+        p.color,
+        p.meters,
+        p.unit_cost,
+        p.total_cost,
+        p.remaining_meters,
+        p.note,
+        id,
+        schoolId,
+      ]
+    );
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Fabric receipt not found' });
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/fabric-receipts/:id',
+      entityType: 'store_fabric_receipt',
+      entityId: id,
+      action: 'update',
+      afterState: { fabric_type: p.fabric_type },
+    });
+    res.json({ success: true, message: 'Fabric receipt updated' });
+  } catch (e) {
+    console.error('[store/fabric-receipts/:id PATCH]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update fabric receipt' });
+  }
+});
+
+router.delete('/store/fabric-receipts/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [r] = await promisePool.query(
+      `UPDATE store_fabric_receipts SET deleted_at = NOW() WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Fabric receipt not found' });
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/fabric-receipts/:id',
+      entityType: 'store_fabric_receipt',
+      entityId: id,
+      action: 'soft_delete',
+      afterState: { deleted_at: true },
+    });
+    res.json({ success: true, message: 'Fabric receipt deleted' });
+  } catch (e) {
+    console.error('[store/fabric-receipts/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to delete fabric receipt' });
+  }
+});
+
+function fabricStockoutPayloadFromBody(payload = {}) {
+  const metersOut = toMoney(payload.meters_out ?? payload.metersOut ?? payload.quantity);
+  const fabricReceiptId = Number(payload.fabric_receipt_id ?? payload.fabricReceiptId);
+  return {
+    fabric_receipt_id: fabricReceiptId > 0 ? fabricReceiptId : null,
+    academic_year: String(payload.academic_year || '').trim() || null,
+    term: String(payload.term || '').trim() || null,
+    out_date: payload.out_date || payload.outDate || null,
+    meters_out: metersOut,
+    purpose: String(payload.purpose || '').trim() || null,
+    note: String(payload.note || '').trim() || null,
+  };
+}
+
+function mapFabricStockoutRow(row) {
+  return {
+    id: row.id,
+    fabric_receipt_id: row.fabric_receipt_id,
+    fabric_type: row.fabric_type || null,
+    color: row.color || null,
+    supplier_name: row.supplier_name || null,
+    academic_year: row.academic_year,
+    term: row.term,
+    out_date: row.out_date,
+    meters_out: Number(row.meters_out || 0),
+    purpose: row.purpose,
+    note: row.note,
+    remaining_after: Number(row.remaining_after ?? 0),
+    receipt_remaining_meters: row.receipt_remaining_meters != null ? Number(row.receipt_remaining_meters) : null,
+    created_at: row.created_at,
+  };
+}
+
+router.get('/store/fabric-stockouts', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const [rows] = await promisePool.query(
+      `SELECT o.*, r.fabric_type, r.color, r.remaining_meters AS receipt_remaining_meters, s.name AS supplier_name
+       FROM store_fabric_stockouts o
+       INNER JOIN store_fabric_receipts r ON r.id = o.fabric_receipt_id AND r.school_id = o.school_id AND r.deleted_at IS NULL
+       LEFT JOIN store_suppliers s ON s.id = r.supplier_id AND s.school_id = r.school_id AND s.deleted_at IS NULL
+       WHERE o.school_id = ? AND o.deleted_at IS NULL
+       ORDER BY o.out_date DESC, o.id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows.map(mapFabricStockoutRow) });
+  } catch (e) {
+    console.error('[store/fabric-stockouts GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load fabric stock outs' });
+  }
+});
+
+router.post('/store/fabric-stockouts', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const p = fabricStockoutPayloadFromBody(req.body);
+    if (!p.fabric_receipt_id) return res.status(400).json({ success: false, message: 'fabric_receipt_id is required' });
+    if (!p.out_date) return res.status(400).json({ success: false, message: 'out_date is required' });
+    if (p.meters_out <= 0) return res.status(400).json({ success: false, message: 'meters_out must be greater than 0' });
+
+    await conn.beginTransaction();
+    const [[receipt]] = await conn.query(
+      `SELECT id, meters, remaining_meters, academic_year, term
+       FROM store_fabric_receipts
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL
+       FOR UPDATE`,
+      [p.fabric_receipt_id, schoolId]
+    );
+    if (!receipt) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Fabric receipt not found' });
+    }
+    const remaining = Number(receipt.remaining_meters ?? 0);
+    if (p.meters_out > remaining) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Only ${remaining}m available on this fabric batch`,
+      });
+    }
+    const remainingAfter = Math.max(0, remaining - p.meters_out);
+    await conn.query(
+      `UPDATE store_fabric_receipts SET remaining_meters = ? WHERE id = ? AND school_id = ?`,
+      [remainingAfter, p.fabric_receipt_id, schoolId]
+    );
+    const [ins] = await conn.query(
+      `INSERT INTO store_fabric_stockouts
+       (school_id, fabric_receipt_id, academic_year, term, out_date, meters_out, purpose, note, remaining_after)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        p.fabric_receipt_id,
+        p.academic_year || receipt.academic_year,
+        p.term || receipt.term,
+        p.out_date,
+        p.meters_out,
+        p.purpose,
+        p.note,
+        remainingAfter,
+      ]
+    );
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/fabric-stockouts',
+      entityType: 'store_fabric_stockout',
+      entityId: ins.insertId,
+      action: 'create',
+      afterState: { fabric_receipt_id: p.fabric_receipt_id, meters_out: p.meters_out },
+    });
+    res.status(201).json({ success: true, message: 'Fabric stock out recorded', id: ins.insertId, remaining_after: remainingAfter });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[store/fabric-stockouts POST]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to record fabric stock out' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.delete('/store/fabric-stockouts/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+
+    await conn.beginTransaction();
+    const [[row]] = await conn.query(
+      `SELECT o.id, o.fabric_receipt_id, o.meters_out, o.deleted_at
+       FROM store_fabric_stockouts o
+       WHERE o.id = ? AND o.school_id = ? AND o.deleted_at IS NULL
+       FOR UPDATE`,
+      [id, schoolId]
+    );
+    if (!row) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Stock out record not found' });
+    }
+    const [[receipt]] = await conn.query(
+      `SELECT id, meters, remaining_meters FROM store_fabric_receipts
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL FOR UPDATE`,
+      [row.fabric_receipt_id, schoolId]
+    );
+    if (receipt) {
+      const maxMeters = Number(receipt.meters || 0);
+      const restored = Math.min(maxMeters, Number(receipt.remaining_meters || 0) + Number(row.meters_out || 0));
+      await conn.query(
+        `UPDATE store_fabric_receipts SET remaining_meters = ? WHERE id = ? AND school_id = ?`,
+        [restored, row.fabric_receipt_id, schoolId]
+      );
+    }
+    await conn.query(
+      `UPDATE store_fabric_stockouts SET deleted_at = NOW() WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/fabric-stockouts/:id',
+      entityType: 'store_fabric_stockout',
+      entityId: id,
+      action: 'soft_delete',
+      afterState: { restored_meters: row.meters_out },
+    });
+    res.json({ success: true, message: 'Stock out reversed' });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[store/fabric-stockouts/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to delete stock out' });
+  } finally {
+    conn.release();
+  }
+});
+
+function foodStockInPayloadFromBody(payload = {}) {
+  const qty = toMoney(payload.quantity ?? payload.qty);
+  const unitCost = toOptionalMoney(payload.unit_cost);
+  const totalCost =
+    payload.total_cost != null && payload.total_cost !== ''
+      ? toMoney(payload.total_cost)
+      : qty * (unitCost || 0);
+  const remainingRaw = payload.remaining_quantity;
+  const remaining =
+    remainingRaw === '' || remainingRaw === null || remainingRaw === undefined
+      ? qty
+      : toMoney(remainingRaw);
+  return {
+    academic_year: String(payload.academic_year || '').trim() || null,
+    term: String(payload.term || '').trim() || null,
+    supplier_id: Number(payload.supplier_id) > 0 ? Number(payload.supplier_id) : null,
+    receive_date: parseSupplierDate(payload.receive_date ?? payload.purchase_date),
+    invoice_number: String(payload.invoice_number || '').trim() || null,
+    item_name: String(payload.item_name || payload.name || '').trim(),
+    quantity: qty,
+    unit_type: String(payload.unit_type || payload.unit || 'kg').trim() || 'kg',
+    unit_cost: unitCost,
+    total_cost: totalCost,
+    remaining_quantity: Math.min(remaining, qty),
+    min_level: toMoney(payload.min_level ?? payload.reorder_level ?? 0),
+    expiry_date: parseSupplierDate(payload.expiry_date),
+    store_location: String(payload.store_location || payload.location || '').trim() || null,
+    note: String(payload.note || '').trim() || null,
+  };
+}
+
+function mapFoodStockInRow(row) {
+  const qty = Number(row.quantity || 0);
+  const remaining = Number(row.remaining_quantity ?? row.quantity ?? 0);
+  return {
+    id: row.id,
+    academic_year: row.academic_year,
+    term: row.term,
+    supplier_id: row.supplier_id,
+    supplier_name: row.supplier_name || null,
+    receive_date: row.receive_date,
+    invoice_number: row.invoice_number,
+    item_name: row.item_name,
+    quantity: qty,
+    unit_type: row.unit_type || 'kg',
+    unit_cost: row.unit_cost != null ? Number(row.unit_cost) : null,
+    total_cost: row.total_cost != null ? Number(row.total_cost) : null,
+    remaining_quantity: remaining,
+    min_level: Number(row.min_level || 0),
+    expiry_date: row.expiry_date,
+    store_location: row.store_location,
+    note: row.note,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function appendFoodStockDateFilters(sql, params, query, dateColumn = 'r.receive_date') {
+  const fromDate = parseSupplierDate(query.from_date || query.date_from);
+  const toDate = parseSupplierDate(query.to_date || query.date_to);
+  if (fromDate) {
+    sql += ` AND ${dateColumn} >= ?`;
+    params.push(fromDate);
+  }
+  if (toDate) {
+    sql += ` AND ${dateColumn} <= ?`;
+    params.push(toDate);
+  }
+  return sql;
+}
+
+async function getFoodAlertSettingsRow(schoolId) {
+  const [[row]] = await promisePool.query(
+    `SELECT * FROM store_food_alert_settings WHERE school_id = ? LIMIT 1`,
+    [schoolId]
+  );
+  if (row) {
+    return {
+      low_stock_enabled: Number(row.low_stock_enabled) !== 0,
+      expiry_alerts_enabled: Number(row.expiry_alerts_enabled) !== 0,
+      expiry_alert_days: Math.max(1, Number(row.expiry_alert_days) || 14),
+    };
+  }
+  return { low_stock_enabled: true, expiry_alerts_enabled: true, expiry_alert_days: 14 };
+}
+
+async function buildFoodAlertsForSchool(schoolId) {
+  const settings = await getFoodAlertSettingsRow(schoolId);
+  const alerts = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const warnCutoff = new Date(today);
+  warnCutoff.setDate(warnCutoff.getDate() + settings.expiry_alert_days);
+
+  const [rows] = await promisePool.query(
+    `SELECT r.*, s.name AS supplier_name
+     FROM store_food_stock_ins r
+     LEFT JOIN store_suppliers s ON s.id = r.supplier_id AND s.school_id = r.school_id AND s.deleted_at IS NULL
+     WHERE r.school_id = ? AND r.deleted_at IS NULL
+     ORDER BY r.item_name, r.receive_date`,
+    [schoolId]
+  );
+
+  const agg = new Map();
+  for (const row of rows) {
+    const key = `${row.item_name}::${row.unit_type}`;
+    const rem = Number(row.remaining_quantity || 0);
+    const min = Number(row.min_level || 0);
+    const cur = agg.get(key) || {
+      item_name: row.item_name,
+      unit_type: row.unit_type,
+      remaining: 0,
+      min_level: 0,
+      batches: [],
+    };
+    cur.remaining += rem;
+    cur.min_level = Math.max(cur.min_level, min);
+    cur.batches.push(row);
+    agg.set(key, cur);
+  }
+
+  if (settings.low_stock_enabled) {
+    for (const g of agg.values()) {
+      if (g.min_level > 0 && g.remaining <= 0) {
+        alerts.push({
+          id: `food-out-${g.item_name}-${g.unit_type}`,
+          type: 'out-of-stock',
+          category: 'Food',
+          severity: 'high',
+          title: `${g.item_name} is out of stock`,
+          desc: `No ${g.unit_type} remaining — reorder required`,
+          item: g.item_name,
+          current: 0,
+          min: g.min_level,
+          unit: g.unit_type,
+          time: 'Live',
+        });
+      } else if (g.min_level > 0 && g.remaining < g.min_level) {
+        const ratio = g.remaining / g.min_level;
+        alerts.push({
+          id: `food-low-${g.item_name}-${g.unit_type}`,
+          type: 'low-stock',
+          category: 'Food',
+          severity: ratio < 0.25 ? 'high' : ratio < 0.5 ? 'medium' : 'low',
+          title: `${g.item_name} stock is low`,
+          desc: `${g.remaining} ${g.unit_type} left — minimum alert level is ${g.min_level} ${g.unit_type}`,
+          item: g.item_name,
+          current: g.remaining,
+          min: g.min_level,
+          unit: g.unit_type,
+          time: 'Live',
+        });
+      }
+    }
+  }
+
+  if (settings.expiry_alerts_enabled) {
+    for (const row of rows) {
+      const rem = Number(row.remaining_quantity || 0);
+      if (!row.expiry_date || rem <= 0) continue;
+      const exp = new Date(row.expiry_date);
+      exp.setHours(0, 0, 0, 0);
+      if (exp < today) {
+        alerts.push({
+          id: `food-expired-${row.id}`,
+          type: 'expired',
+          category: 'Food',
+          severity: 'high',
+          title: `${row.item_name} expired`,
+          desc: `Expired ${String(row.expiry_date).slice(0, 10)} — ${rem} ${row.unit_type} at ${row.store_location || 'store'}`,
+          item: row.item_name,
+          current: rem,
+          min: 0,
+          unit: row.unit_type,
+          store_location: row.store_location,
+          time: String(row.expiry_date).slice(0, 10),
+        });
+      } else if (exp <= warnCutoff) {
+        const daysLeft = Math.ceil((exp - today) / (86400000));
+        alerts.push({
+          id: `food-expiring-${row.id}`,
+          type: 'expiring',
+          category: 'Food',
+          severity: daysLeft <= 3 ? 'high' : daysLeft <= 7 ? 'medium' : 'low',
+          title: `${row.item_name} expiring soon`,
+          desc: `Expires in ${daysLeft} day(s) (${String(row.expiry_date).slice(0, 10)}) — ${rem} ${row.unit_type}`,
+          item: row.item_name,
+          current: rem,
+          min: 0,
+          unit: row.unit_type,
+          store_location: row.store_location,
+          time: String(row.expiry_date).slice(0, 10),
+        });
+      }
+    }
+  }
+
+  return { alerts, settings };
+}
+
+function foodConsumptionPayloadFromBody(payload = {}) {
+  const qty = toMoney(payload.quantity ?? payload.qty);
+  const stockInId = Number(payload.food_stock_in_id ?? payload.foodStockInId);
+  let allocatedTo = String(payload.allocated_to || payload.allocatedTo || '').trim();
+  const allocatedOther = String(payload.allocated_other || payload.allocatedOther || '').trim();
+  if (allocatedTo === 'Other' && allocatedOther) allocatedTo = allocatedOther;
+  return {
+    food_stock_in_id: stockInId > 0 ? stockInId : null,
+    academic_year: String(payload.academic_year || '').trim() || null,
+    term: String(payload.term || '').trim() || null,
+    consumption_date: parseSupplierDate(payload.consumption_date ?? payload.date),
+    quantity: qty,
+    unit_type: String(payload.unit_type || payload.unit || '').trim() || null,
+    allocated_to: allocatedTo,
+    allocated_other: allocatedOther || null,
+    note: String(payload.note || '').trim() || null,
+  };
+}
+
+function mapFoodConsumptionRow(row) {
+  return {
+    id: row.id,
+    food_stock_in_id: row.food_stock_in_id,
+    item_name: row.item_name || null,
+    supplier_name: row.supplier_name || null,
+    academic_year: row.academic_year,
+    term: row.term,
+    consumption_date: row.consumption_date,
+    quantity: Number(row.quantity || 0),
+    unit_type: row.unit_type || row.stock_unit_type || 'kg',
+    allocated_to: row.allocated_to,
+    allocated_other: row.allocated_other,
+    note: row.note,
+    remaining_after: Number(row.remaining_after ?? 0),
+    stock_remaining_quantity: row.stock_remaining_quantity != null ? Number(row.stock_remaining_quantity) : null,
+    created_at: row.created_at,
+  };
+}
+
+router.get('/store/food-stock-ins', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const academicYear = String(req.query.academic_year || '').trim();
+    const term = String(req.query.term || '').trim();
+    let sql = `SELECT r.*, s.name AS supplier_name
+       FROM store_food_stock_ins r
+       LEFT JOIN store_suppliers s ON s.id = r.supplier_id AND s.school_id = r.school_id AND s.deleted_at IS NULL
+       WHERE r.school_id = ? AND r.deleted_at IS NULL`;
+    const params = [schoolId];
+    if (academicYear) {
+      sql += ' AND r.academic_year = ?';
+      params.push(academicYear);
+    }
+    if (term) {
+      sql += ' AND r.term = ?';
+      params.push(term);
+    }
+    sql = appendFoodStockDateFilters(sql, params, req.query, 'r.receive_date');
+    sql += ' ORDER BY r.receive_date DESC, r.id DESC';
+    const [rows] = await promisePool.query(sql, params);
+    res.json({ success: true, data: rows.map((r) => mapFoodStockInRow(r)) });
+  } catch (e) {
+    console.error('[store/food-stock-ins GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load food stock in' });
+  }
+});
+
+router.post('/store/food-stock-ins', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const p = foodStockInPayloadFromBody(req.body);
+    if (!p.item_name) return res.status(400).json({ success: false, message: 'item_name is required' });
+    if (p.quantity <= 0) return res.status(400).json({ success: false, message: 'quantity must be greater than 0' });
+    if (p.supplier_id) {
+      const [[sup]] = await promisePool.query(
+        `SELECT id FROM store_suppliers WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [p.supplier_id, schoolId]
+      );
+      if (!sup) return res.status(400).json({ success: false, message: 'Supplier not found' });
+    }
+    const [ins] = await promisePool.query(
+      `INSERT INTO store_food_stock_ins
+       (school_id, academic_year, term, supplier_id, receive_date, invoice_number,
+        item_name, quantity, unit_type, unit_cost, total_cost, remaining_quantity, min_level,
+        expiry_date, store_location, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        p.academic_year,
+        p.term,
+        p.supplier_id,
+        p.receive_date,
+        p.invoice_number,
+        p.item_name,
+        p.quantity,
+        p.unit_type,
+        p.unit_cost,
+        p.total_cost,
+        p.remaining_quantity,
+        p.min_level,
+        p.expiry_date,
+        p.store_location,
+        p.note,
+      ]
+    );
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/food-stock-ins',
+      entityType: 'store_food_stock_in',
+      entityId: ins.insertId,
+      action: 'create',
+      afterState: { item_name: p.item_name, quantity: p.quantity },
+    });
+    res.status(201).json({ success: true, message: 'Food received', id: ins.insertId });
+  } catch (e) {
+    console.error('[store/food-stock-ins POST]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to save food stock in' });
+  }
+});
+
+router.patch('/store/food-stock-ins/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const p = foodStockInPayloadFromBody(req.body);
+    if (!p.item_name) return res.status(400).json({ success: false, message: 'item_name is required' });
+    const [[existing]] = await promisePool.query(
+      `SELECT id, quantity, remaining_quantity FROM store_food_stock_ins
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Food stock record not found' });
+    const consumed = Number(existing.quantity || 0) - Number(existing.remaining_quantity || 0);
+    if (p.quantity < consumed) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot set quantity below ${consumed} already consumed`,
+      });
+    }
+    const newRemaining = Math.max(0, p.quantity - consumed);
+    await promisePool.query(
+      `UPDATE store_food_stock_ins SET
+        academic_year = ?, term = ?, supplier_id = ?, receive_date = ?, invoice_number = ?,
+        item_name = ?, quantity = ?, unit_type = ?, unit_cost = ?, total_cost = ?,
+        remaining_quantity = ?, min_level = ?, expiry_date = ?, store_location = ?, note = ?
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [
+        p.academic_year,
+        p.term,
+        p.supplier_id,
+        p.receive_date,
+        p.invoice_number,
+        p.item_name,
+        p.quantity,
+        p.unit_type,
+        p.unit_cost,
+        p.total_cost,
+        newRemaining,
+        p.min_level,
+        p.expiry_date,
+        p.store_location,
+        p.note,
+        id,
+        schoolId,
+      ]
+    );
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/food-stock-ins/:id',
+      entityType: 'store_food_stock_in',
+      entityId: id,
+      action: 'update',
+      afterState: { item_name: p.item_name },
+    });
+    res.json({ success: true, message: 'Food stock updated', remaining_quantity: newRemaining });
+  } catch (e) {
+    console.error('[store/food-stock-ins/:id PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to update food stock in' });
+  }
+});
+
+router.delete('/store/food-stock-ins/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [[row]] = await promisePool.query(
+      `SELECT id, quantity, remaining_quantity FROM store_food_stock_ins
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Food stock record not found' });
+    if (Number(row.remaining_quantity) < Number(row.quantity)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete — consumption exists for this batch. Remove consumptions first.',
+      });
+    }
+    await promisePool.query(
+      `UPDATE store_food_stock_ins SET deleted_at = NOW() WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/food-stock-ins/:id',
+      entityType: 'store_food_stock_in',
+      entityId: id,
+      action: 'soft_delete',
+    });
+    res.json({ success: true, message: 'Food stock record deleted' });
+  } catch (e) {
+    console.error('[store/food-stock-ins/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to delete food stock in' });
+  }
+});
+
+router.get('/store/food-consumptions', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const academicYear = String(req.query.academic_year || '').trim();
+    const term = String(req.query.term || '').trim();
+    let sql = `SELECT c.*, r.item_name, r.unit_type AS stock_unit_type, r.remaining_quantity AS stock_remaining_quantity,
+                      s.name AS supplier_name
+       FROM store_food_consumptions c
+       INNER JOIN store_food_stock_ins r ON r.id = c.food_stock_in_id AND r.school_id = c.school_id AND r.deleted_at IS NULL
+       LEFT JOIN store_suppliers s ON s.id = r.supplier_id AND s.school_id = r.school_id AND s.deleted_at IS NULL
+       WHERE c.school_id = ? AND c.deleted_at IS NULL`;
+    const params = [schoolId];
+    if (academicYear) {
+      sql += ' AND c.academic_year = ?';
+      params.push(academicYear);
+    }
+    if (term) {
+      sql += ' AND c.term = ?';
+      params.push(term);
+    }
+    sql = appendFoodStockDateFilters(sql, params, req.query, 'c.consumption_date');
+    sql += ' ORDER BY c.consumption_date DESC, c.id DESC';
+    const [rows] = await promisePool.query(sql, params);
+    res.json({ success: true, data: rows.map((r) => mapFoodConsumptionRow(r)) });
+  } catch (e) {
+    console.error('[store/food-consumptions GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load food consumptions' });
+  }
+});
+
+router.post('/store/food-consumptions', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const p = foodConsumptionPayloadFromBody(req.body);
+    if (!p.food_stock_in_id) return res.status(400).json({ success: false, message: 'food_stock_in_id is required' });
+    if (!p.consumption_date) return res.status(400).json({ success: false, message: 'consumption_date is required' });
+    if (!p.allocated_to) return res.status(400).json({ success: false, message: 'allocated_to is required' });
+    if (p.quantity <= 0) return res.status(400).json({ success: false, message: 'quantity must be greater than 0' });
+
+    await conn.beginTransaction();
+    const [[stock]] = await conn.query(
+      `SELECT id, item_name, unit_type, remaining_quantity, academic_year, term
+       FROM store_food_stock_ins
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL
+       FOR UPDATE`,
+      [p.food_stock_in_id, schoolId]
+    );
+    if (!stock) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Food batch not found' });
+    }
+    const remaining = Number(stock.remaining_quantity || 0);
+    if (p.quantity > remaining) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Only ${remaining} ${stock.unit_type} available for ${stock.item_name}`,
+      });
+    }
+    const unitType = p.unit_type || stock.unit_type || 'kg';
+    const remainingAfter = Math.max(0, remaining - p.quantity);
+    await conn.query(
+      `UPDATE store_food_stock_ins SET remaining_quantity = ? WHERE id = ? AND school_id = ?`,
+      [remainingAfter, p.food_stock_in_id, schoolId]
+    );
+    const [ins] = await conn.query(
+      `INSERT INTO store_food_consumptions
+       (school_id, food_stock_in_id, academic_year, term, consumption_date, quantity, unit_type,
+        allocated_to, allocated_other, note, remaining_after)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        p.food_stock_in_id,
+        p.academic_year || stock.academic_year,
+        p.term || stock.term,
+        p.consumption_date,
+        p.quantity,
+        unitType,
+        p.allocated_to,
+        p.allocated_other,
+        p.note,
+        remainingAfter,
+      ]
+    );
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/food-consumptions',
+      entityType: 'store_food_consumption',
+      entityId: ins.insertId,
+      action: 'create',
+      afterState: { food_stock_in_id: p.food_stock_in_id, quantity: p.quantity },
+    });
+    res.status(201).json({ success: true, message: 'Consumption recorded', id: ins.insertId, remaining_after: remainingAfter });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[store/food-consumptions POST]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to record consumption' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.patch('/store/food-consumptions/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const p = foodConsumptionPayloadFromBody(req.body);
+    if (!p.food_stock_in_id) return res.status(400).json({ success: false, message: 'food_stock_in_id is required' });
+    if (!p.consumption_date) return res.status(400).json({ success: false, message: 'consumption_date is required' });
+    if (!p.allocated_to) return res.status(400).json({ success: false, message: 'allocated_to is required' });
+    if (p.quantity <= 0) return res.status(400).json({ success: false, message: 'quantity must be greater than 0' });
+
+    await conn.beginTransaction();
+    const [[existing]] = await conn.query(
+      `SELECT c.id, c.food_stock_in_id, c.quantity, c.unit_type
+       FROM store_food_consumptions c
+       WHERE c.id = ? AND c.school_id = ? AND c.deleted_at IS NULL
+       FOR UPDATE`,
+      [id, schoolId]
+    );
+    if (!existing) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Consumption record not found' });
+    }
+
+    const oldStockId = Number(existing.food_stock_in_id);
+    const oldQty = Number(existing.quantity || 0);
+    const newStockId = Number(p.food_stock_in_id);
+    const newQty = Number(p.quantity);
+
+    if (oldStockId !== newStockId) {
+      const [[oldStock]] = await conn.query(
+        `SELECT id, quantity, remaining_quantity, unit_type, academic_year, term
+         FROM store_food_stock_ins WHERE id = ? AND school_id = ? AND deleted_at IS NULL FOR UPDATE`,
+        [oldStockId, schoolId]
+      );
+      if (oldStock) {
+        const restored = Math.min(
+          Number(oldStock.quantity || 0),
+          Number(oldStock.remaining_quantity || 0) + oldQty
+        );
+        await conn.query(
+          `UPDATE store_food_stock_ins SET remaining_quantity = ? WHERE id = ? AND school_id = ?`,
+          [restored, oldStockId, schoolId]
+        );
+      }
+      const [[newStock]] = await conn.query(
+        `SELECT id, item_name, quantity, remaining_quantity, unit_type, academic_year, term
+         FROM store_food_stock_ins WHERE id = ? AND school_id = ? AND deleted_at IS NULL FOR UPDATE`,
+        [newStockId, schoolId]
+      );
+      if (!newStock) {
+        await conn.rollback();
+        return res.status(404).json({ success: false, message: 'Food batch not found' });
+      }
+      const remaining = Number(newStock.remaining_quantity || 0);
+      if (newQty > remaining) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Only ${remaining} ${newStock.unit_type} available for ${newStock.item_name}`,
+        });
+      }
+      const remainingAfter = Math.max(0, remaining - newQty);
+      await conn.query(
+        `UPDATE store_food_stock_ins SET remaining_quantity = ? WHERE id = ? AND school_id = ?`,
+        [remainingAfter, newStockId, schoolId]
+      );
+      const unitType = p.unit_type || newStock.unit_type || 'kg';
+      await conn.query(
+        `UPDATE store_food_consumptions SET
+         food_stock_in_id = ?, academic_year = ?, term = ?, consumption_date = ?,
+         quantity = ?, unit_type = ?, allocated_to = ?, allocated_other = ?, note = ?, remaining_after = ?
+         WHERE id = ? AND school_id = ?`,
+        [
+          newStockId,
+          p.academic_year || newStock.academic_year,
+          p.term || newStock.term,
+          p.consumption_date,
+          newQty,
+          unitType,
+          p.allocated_to,
+          p.allocated_other,
+          p.note,
+          remainingAfter,
+          id,
+          schoolId,
+        ]
+      );
+    } else {
+      const [[stock]] = await conn.query(
+        `SELECT id, item_name, quantity, remaining_quantity, unit_type, academic_year, term
+         FROM store_food_stock_ins WHERE id = ? AND school_id = ? AND deleted_at IS NULL FOR UPDATE`,
+        [newStockId, schoolId]
+      );
+      if (!stock) {
+        await conn.rollback();
+        return res.status(404).json({ success: false, message: 'Food batch not found' });
+      }
+      const remaining = Number(stock.remaining_quantity || 0);
+      const maxAllowed = remaining + oldQty;
+      if (newQty > maxAllowed) {
+        await conn.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Only ${maxAllowed} ${stock.unit_type} available for ${stock.item_name}`,
+        });
+      }
+      const remainingAfter = Math.max(0, remaining + oldQty - newQty);
+      await conn.query(
+        `UPDATE store_food_stock_ins SET remaining_quantity = ? WHERE id = ? AND school_id = ?`,
+        [remainingAfter, newStockId, schoolId]
+      );
+      const unitType = p.unit_type || stock.unit_type || existing.unit_type || 'kg';
+      await conn.query(
+        `UPDATE store_food_consumptions SET
+         academic_year = ?, term = ?, consumption_date = ?, quantity = ?, unit_type = ?,
+         allocated_to = ?, allocated_other = ?, note = ?, remaining_after = ?
+         WHERE id = ? AND school_id = ?`,
+        [
+          p.academic_year || stock.academic_year,
+          p.term || stock.term,
+          p.consumption_date,
+          newQty,
+          unitType,
+          p.allocated_to,
+          p.allocated_other,
+          p.note,
+          remainingAfter,
+          id,
+          schoolId,
+        ]
+      );
+    }
+
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/food-consumptions/:id',
+      entityType: 'store_food_consumption',
+      entityId: id,
+      action: 'update',
+      afterState: { food_stock_in_id: newStockId, quantity: newQty },
+    });
+    res.json({ success: true, message: 'Consumption updated' });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[store/food-consumptions/:id PATCH]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update consumption' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.delete('/store/food-consumptions/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+
+    await conn.beginTransaction();
+    const [[row]] = await conn.query(
+      `SELECT c.id, c.food_stock_in_id, c.quantity, c.deleted_at
+       FROM store_food_consumptions c
+       WHERE c.id = ? AND c.school_id = ? AND c.deleted_at IS NULL
+       FOR UPDATE`,
+      [id, schoolId]
+    );
+    if (!row) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Consumption record not found' });
+    }
+    const [[stock]] = await conn.query(
+      `SELECT id, quantity, remaining_quantity FROM store_food_stock_ins
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL FOR UPDATE`,
+      [row.food_stock_in_id, schoolId]
+    );
+    if (stock) {
+      const maxQty = Number(stock.quantity || 0);
+      const restored = Math.min(maxQty, Number(stock.remaining_quantity || 0) + Number(row.quantity || 0));
+      await conn.query(
+        `UPDATE store_food_stock_ins SET remaining_quantity = ? WHERE id = ? AND school_id = ?`,
+        [restored, row.food_stock_in_id, schoolId]
+      );
+    }
+    await conn.query(
+      `UPDATE store_food_consumptions SET deleted_at = NOW() WHERE id = ? AND school_id = ?`,
+      [id, schoolId]
+    );
+    await conn.commit();
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/food-consumptions/:id',
+      entityType: 'store_food_consumption',
+      entityId: id,
+      action: 'soft_delete',
+      afterState: { restored_quantity: row.quantity },
+    });
+    res.json({ success: true, message: 'Consumption reversed' });
+  } catch (e) {
+    await conn.rollback().catch(() => {});
+    console.error('[store/food-consumptions/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to delete consumption' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.get('/store/food-alert-settings', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const settings = await getFoodAlertSettingsRow(schoolId);
+    res.json({ success: true, data: settings });
+  } catch (e) {
+    console.error('[store/food-alert-settings GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load food alert settings' });
+  }
+});
+
+router.patch('/store/food-alert-settings', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const body = req.body || {};
+    const lowStock = body.low_stock_enabled !== false && body.low_stock_enabled !== 0;
+    const expiryOn = body.expiry_alerts_enabled !== false && body.expiry_alerts_enabled !== 0;
+    const days = Math.max(1, Math.min(90, Number(body.expiry_alert_days) || 14));
+    await promisePool.query(
+      `INSERT INTO store_food_alert_settings (school_id, low_stock_enabled, expiry_alerts_enabled, expiry_alert_days)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE low_stock_enabled = VALUES(low_stock_enabled),
+         expiry_alerts_enabled = VALUES(expiry_alerts_enabled),
+         expiry_alert_days = VALUES(expiry_alert_days)`,
+      [schoolId, lowStock ? 1 : 0, expiryOn ? 1 : 0, days]
+    );
+    res.json({
+      success: true,
+      data: {
+        low_stock_enabled: lowStock,
+        expiry_alerts_enabled: expiryOn,
+        expiry_alert_days: days,
+      },
+    });
+  } catch (e) {
+    console.error('[store/food-alert-settings PATCH]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to save food alert settings' });
+  }
+});
+
+router.get('/store/food-alerts', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const { alerts, settings } = await buildFoodAlertsForSchool(schoolId);
+    res.json({ success: true, data: alerts, settings });
+  } catch (e) {
+    console.error('[store/food-alerts GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load food alerts' });
+  }
+});
+
+function finishedGoodsPayloadFromBody(payload = {}) {
+  const stock = toMoney(payload.stock ?? payload.quantity);
+  const avgCost = toOptionalMoney(payload.purchase_cost ?? payload.avg_cost);
+  const sellingPrice = toOptionalMoney(payload.selling_price);
+  const fabricReceiptId = Number(payload.fabric_receipt_id);
+  return {
+    fabric_receipt_id: Number.isFinite(fabricReceiptId) && fabricReceiptId > 0 ? fabricReceiptId : null,
+    uniform_name: String(payload.uniform_name || payload.name || '').trim(),
+    size: String(payload.size || '').trim() || null,
+    stock,
+    avg_cost: avgCost,
+    selling_price: sellingPrice,
+    academic_year: String(payload.academic_year || '').trim() || null,
+    term: String(payload.term || '').trim() || null,
+    note: String(payload.note || '').trim() || null,
+  };
+}
+
+function mapFinishedGoodsRow(row, sold = null) {
+  const stock = Number(row.stock || 0);
+  const avgCost = row.avg_cost != null ? Number(row.avg_cost) : 0;
+  const sellingPrice = row.selling_price != null ? Number(row.selling_price) : 0;
+  const soldQty = Number(sold?.sold_qty ?? row.sold_qty ?? 0);
+  const totalSoldCost = Number(sold?.total_sold_cost ?? row.total_sold_cost ?? 0);
+  const openingStock = stock + soldQty;
+  return {
+    id: row.id,
+    fabric_receipt_id: row.fabric_receipt_id,
+    sheet_label: row.sheet_label || null,
+    fabric_type: row.fabric_type || null,
+    fabric_color: row.fabric_color || row.color || null,
+    uniform_name: row.uniform_name,
+    size: row.size || 'One',
+    stock,
+    opening_stock: openingStock,
+    remaining_stock: stock,
+    sold_qty: soldQty,
+    avg_cost: avgCost,
+    purchase_cost: avgCost,
+    selling_price: sellingPrice,
+    selling_cost: sellingPrice,
+    total_purchase_cost: openingStock * avgCost,
+    total_estimated_cost: stock * sellingPrice,
+    total_sold_cost: totalSoldCost,
+    value: stock * sellingPrice,
+    purchase_value: stock * avgCost,
+    academic_year: row.academic_year,
+    term: row.term,
+    note: row.note,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+async function loadFinishedGoodsSoldMap(schoolId) {
+  const [soldRows] = await promisePool.query(
+    `SELECT finished_good_id,
+            COALESCE(SUM(quantity), 0) AS sold_qty,
+            COALESCE(SUM(amount), 0) AS total_sold_cost
+     FROM store_uniform_issue_student_lines
+     WHERE school_id = ? AND finished_good_id IS NOT NULL
+     GROUP BY finished_good_id`,
+    [schoolId]
+  );
+  return new Map(
+    (soldRows || []).map((r) => [
+      r.finished_good_id,
+      { sold_qty: Number(r.sold_qty || 0), total_sold_cost: Number(r.total_sold_cost || 0) },
+    ])
+  );
+}
+
+router.get('/store/finished-goods', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const soldMap = await loadFinishedGoodsSoldMap(schoolId);
+    const [rows] = await promisePool.query(
+      `SELECT g.*,
+              CONCAT(fr.fabric_type, IF(fr.color IS NOT NULL AND fr.color != '', CONCAT(' · ', fr.color), '')) AS sheet_label,
+              fr.fabric_type, fr.color, fr.remaining_meters
+       FROM store_finished_goods g
+       LEFT JOIN store_fabric_receipts fr
+         ON fr.id = g.fabric_receipt_id AND fr.school_id = g.school_id AND fr.deleted_at IS NULL
+       WHERE g.school_id = ? AND g.deleted_at IS NULL
+       ORDER BY g.id DESC`,
+      [schoolId]
+    );
+    res.json({ success: true, data: rows.map((r) => mapFinishedGoodsRow(r, soldMap.get(r.id))) });
+  } catch (e) {
+    console.error('[store/finished-goods GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load finished goods' });
+  }
+});
+
+router.get('/store/finished-goods/:id', requireRole(STORE_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [[row]] = await promisePool.query(
+      `SELECT g.*,
+              CONCAT(fr.fabric_type, IF(fr.color IS NOT NULL AND fr.color != '', CONCAT(' · ', fr.color), '')) AS sheet_label,
+              fr.fabric_type, fr.color, fr.remaining_meters
+       FROM store_finished_goods g
+       LEFT JOIN store_fabric_receipts fr
+         ON fr.id = g.fabric_receipt_id AND fr.school_id = g.school_id AND fr.deleted_at IS NULL
+       WHERE g.id = ? AND g.school_id = ? AND g.deleted_at IS NULL
+       LIMIT 1`,
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Finished good not found' });
+    const soldMap = await loadFinishedGoodsSoldMap(schoolId);
+    res.json({ success: true, data: mapFinishedGoodsRow(row, soldMap.get(id)) });
+  } catch (e) {
+    console.error('[store/finished-goods/:id GET]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to load finished good' });
+  }
+});
+
+router.post('/store/finished-goods', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const p = finishedGoodsPayloadFromBody(req.body);
+    if (!p.uniform_name) return res.status(400).json({ success: false, message: 'uniform_name is required' });
+    if (p.stock <= 0) return res.status(400).json({ success: false, message: 'stock must be greater than 0' });
+
+    if (p.fabric_receipt_id) {
+      const [[fr]] = await promisePool.query(
+        `SELECT id FROM store_fabric_receipts WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [p.fabric_receipt_id, schoolId]
+      );
+      if (!fr) return res.status(400).json({ success: false, message: 'Selected fabric sheet not found' });
+    }
+
+    const [r] = await promisePool.query(
+      `INSERT INTO store_finished_goods
+       (school_id, fabric_receipt_id, uniform_name, size, stock, avg_cost, selling_price, academic_year, term, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        schoolId,
+        p.fabric_receipt_id,
+        p.uniform_name,
+        p.size,
+        p.stock,
+        p.avg_cost,
+        p.selling_price,
+        p.academic_year,
+        p.term,
+        p.note,
+      ]
+    );
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/finished-goods',
+      entityType: 'store_finished_goods',
+      entityId: r.insertId,
+      action: 'create',
+      afterState: { uniform_name: p.uniform_name, stock: p.stock },
+    });
+    res.status(201).json({ success: true, message: 'Finished good saved', id: r.insertId });
+  } catch (e) {
+    console.error('[store/finished-goods POST]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to save finished good' });
+  }
+});
+
+router.patch('/store/finished-goods/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const p = finishedGoodsPayloadFromBody(req.body);
+    if (!p.uniform_name) return res.status(400).json({ success: false, message: 'uniform_name is required' });
+    if (p.stock <= 0) return res.status(400).json({ success: false, message: 'stock must be greater than 0' });
+
+    if (p.fabric_receipt_id) {
+      const [[fr]] = await promisePool.query(
+        `SELECT id FROM store_fabric_receipts WHERE id = ? AND school_id = ? AND deleted_at IS NULL LIMIT 1`,
+        [p.fabric_receipt_id, schoolId]
+      );
+      if (!fr) return res.status(400).json({ success: false, message: 'Selected fabric sheet not found' });
+    }
+
+    const [result] = await promisePool.query(
+      `UPDATE store_finished_goods
+       SET fabric_receipt_id = ?, uniform_name = ?, size = ?, stock = ?, avg_cost = ?, selling_price = ?,
+           academic_year = ?, term = ?, note = ?
+       WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [
+        p.fabric_receipt_id,
+        p.uniform_name,
+        p.size,
+        p.stock,
+        p.avg_cost,
+        p.selling_price,
+        p.academic_year,
+        p.term,
+        p.note,
+        id,
+        schoolId,
+      ]
+    );
+    if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Finished good not found' });
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/finished-goods/:id',
+      entityType: 'store_finished_goods',
+      entityId: id,
+      action: 'update',
+      afterState: { uniform_name: p.uniform_name },
+    });
+    res.json({ success: true, message: 'Finished good updated' });
+  } catch (e) {
+    console.error('[store/finished-goods/:id PATCH]:', e.message);
+    res.status(500).json({ success: false, message: e.message || 'Failed to update finished good' });
+  }
+});
+
+router.delete('/store/finished-goods/:id', requireRole(STORE_WRITE_ROLES), async (req, res) => {
+  try {
+    const { schoolId, userId, roleCode } = req.ctx;
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+    const [r] = await promisePool.query(
+      `UPDATE store_finished_goods SET deleted_at = NOW() WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+      [id, schoolId]
+    );
+    if (!r.affectedRows) return res.status(404).json({ success: false, message: 'Finished good not found' });
+    await appendAuditLog({
+      schoolId,
+      userId,
+      roleCode,
+      endpoint: '/store/finished-goods/:id',
+      entityType: 'store_finished_goods',
+      entityId: id,
+      action: 'soft_delete',
+      afterState: { deleted_at: true },
+    });
+    res.json({ success: true, message: 'Finished good deleted' });
+  } catch (e) {
+    console.error('[store/finished-goods/:id DELETE]:', e.message);
+    res.status(500).json({ success: false, message: 'Failed to delete finished good' });
   }
 });
 
@@ -6345,6 +10582,49 @@ router.post('/tools/ticha-ai/assist', requireRole(ALL_SCHOOL_ROLES), async (req,
     console.error('[tools/ticha-ai/assist POST]:', e.message);
     res.status(500).json({ success: false, message: 'Ticha AI assist failed' });
   }
+});
+
+require('./storeUniformIssues')(router, {
+  promisePool,
+  toMoney,
+  appendAuditLog,
+  STORE_READ_ROLES,
+  STORE_WRITE_ROLES,
+  requireRole,
+});
+
+require('./storeStudentRequirements')(router, {
+  promisePool,
+  appendAuditLog,
+  STORE_READ_ROLES,
+  STORE_WRITE_ROLES,
+  requireRole,
+});
+
+const { mountStoreOtherInventoryRoutes } = require('./storeOtherInventoryRoutes');
+mountStoreOtherInventoryRoutes(router, {
+  promisePool,
+  appendAuditLog,
+  requireRole,
+  STORE_READ_ROLES,
+  STORE_WRITE_ROLES,
+  toMoney,
+  toOptionalMoney,
+  parseSupplierDate,
+  resolveInventoryCategory,
+  appendFoodStockDateFilters,
+});
+
+const { mountStoreStockAdjustmentsRoutes } = require('./storeStockAdjustmentsRoutes');
+mountStoreStockAdjustmentsRoutes(router, {
+  promisePool,
+  appendAuditLog,
+  requireRole,
+  STORE_READ_ROLES,
+  STORE_WRITE_ROLES,
+  toMoney,
+  parseSupplierDate,
+  appendFoodStockDateFilters,
 });
 
 router.use(require('./actionPlanRoutes'));

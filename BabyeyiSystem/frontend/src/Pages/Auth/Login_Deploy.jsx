@@ -196,7 +196,7 @@ const Login = () => {
 
         if (json?.code === 'SCHOOL_NOT_LINKED') {
           setAttempts(0);
-          notify('Your school account is not linked yet. Please contact the Super Admin.');
+          notify('No school is linked to this account. Please contact the Super Admin.');
           return;
         }
 

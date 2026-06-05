@@ -1532,10 +1532,10 @@ export default function PublicPage() {
       <GetStartedSection />
       {/* <HowItWorksSection /> */}
       <DemoSection />
-      <NewsSection />
+      {/* <NewsSection /> */}
       <PartnersSection />
       <TestimonialsSection />
-      <CTASection />
+      {/* <CTASection /> */}
       <PublicFooter />
       <FloatingSupportWidget />
     </div>

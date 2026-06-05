@@ -26,10 +26,22 @@ import SchoolBudget from './frontend/src/pages/schoolBugdet'
 import ActionPlanManagement from './frontend/src/pages/actionPlan/ActionPlanManagement'
 import AutoReminder from './frontend/src/pages/Reminder/AutoReminder'
 import SalaryPayment from './frontend/src/pages/SalaryPayment'
+import StaffSalarySetup from './frontend/src/pages/Payroll/StaffSalarySetup'
+import PayrollRun from './frontend/src/pages/Payroll/PayrollRun'
+import BulkSalaryImport from './frontend/src/pages/Payroll/BulkSalaryImport'
+import SalaryTemplate from './frontend/src/pages/Payroll/SalaryTemplate'
+import BankPayroll from './frontend/src/pages/Payroll/BankPayroll'
+import PayrollDisbursement from './frontend/src/pages/Payroll/PayrollDisbursement'
+import PaySlips from './frontend/src/pages/Payroll/PaySlips'
+import AccountantSettings from './frontend/src/pages/AccountantSettings'
 import ChatCenter from '../shared/pages/ChatCenter'
 import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
 import AccountantOchreHero from './frontend/src/components/AccountantOchreHero'
 import accountantApi from './frontend/src/services/api'
+import EmploymentDirectory from '../manager/pages/HRPages/EmploymentDirectory'
+import EmploymentRegistration from '../manager/pages/HRPages/EmploymentRegistration'
+import EmployeeProfile from '../manager/pages/HRPages/EmployeeProfile'
+import LeaveManagement from '../manager/pages/HRPages/LeaveManagement'
 
 function LoadingScreen() {
   return (
@@ -92,6 +104,18 @@ function AccountantRoutesInner() {
       <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
       <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
       <Route path="payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
+      <Route path="payroll/bank-payroll" element={<ProtectedRoute title="Bank Payroll"><BankPayroll /></ProtectedRoute>} />
+      <Route path="payroll/disbursement" element={<ProtectedRoute title="Payroll Disbursement"><PayrollDisbursement /></ProtectedRoute>} />
+      <Route path="payroll/payslips" element={<ProtectedRoute title="Pay Slips"><PaySlips /></ProtectedRoute>} />
+      <Route path="payroll/staff-salary-setup" element={<ProtectedRoute title="Staff Salary Setup"><StaffSalarySetup /></ProtectedRoute>} />
+      <Route path="payroll/run" element={<ProtectedRoute title="Payroll Run"><PayrollRun /></ProtectedRoute>} />
+      <Route path="payroll/bulk-import" element={<ProtectedRoute title="Bulk Salary Import"><BulkSalaryImport /></ProtectedRoute>} />
+      <Route path="payroll/salary-template" element={<ProtectedRoute title="Payroll Salary Template"><SalaryTemplate /></ProtectedRoute>} />
+      <Route path="payroll/employees" element={<ProtectedRoute title="Employee Directory"><EmploymentDirectory /></ProtectedRoute>} />
+      <Route path="payroll/employees/import" element={<ProtectedRoute title="Employee Import"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="payroll/employees/:employeeId" element={<ProtectedRoute title="Employee Profile"><EmployeeProfile /></ProtectedRoute>} />
+      <Route path="payroll/employees/:employeeId/edit" element={<ProtectedRoute title="Edit Employee"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="payroll/leave" element={<ProtectedRoute title="Leave Management"><LeaveManagement /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={accountantApi} HeroComponent={AccountantOchreHero} heroProps={{ eyebrow: 'School', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route
@@ -100,7 +124,7 @@ function AccountantRoutesInner() {
       />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
 
-      <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Settings" icon="⚙️" /></ProtectedRoute>} />
+      <Route path="settings" element={<ProtectedRoute title="Accountant Settings"><AccountantSettings /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/accountant" replace />} />
     </Routes>

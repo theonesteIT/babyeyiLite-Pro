@@ -75,16 +75,14 @@ export default function PublicFooter() {
                 <img src={babyeyiIcon} alt="" className="w-7 h-7 object-contain" />
               </div>
               <span className="font-black text-[17px] text-white">
-                baby<span className="text-amber-400">eyi</span>
-                <span style={{ color: 'rgba(251,191,36,0.5)' }}>.rw</span>
+                Babyeyi
+              
               </span>
             </Link>
             <p className="text-slate-600 leading-relaxed mb-5" style={{ fontSize: 'clamp(12px,1vw,13px)' }}>
               {t('public.brandTagline')}
             </p>
-            <div className="mb-4">
-              <LanguageSwitcher compact />
-            </div>
+           
             <div className="flex gap-2">
               {[
                 { Icon: Facebook, bg: '#1877F2' },
@@ -154,9 +152,7 @@ export default function PublicFooter() {
         </div>
 
         <div className="h-px mb-6" style={{ background: 'linear-gradient(90deg,transparent,rgba(251,191,36,.22),transparent)' }} />
-        <p className="text-slate-700 mb-5" style={{ fontSize: 'clamp(10px,0.85vw,12px)' }}>
-          {t('public.today', { date: localizedDate })}
-        </p>
+      
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-slate-700" style={{ fontSize: 'clamp(10px,0.85vw,12px)' }}>

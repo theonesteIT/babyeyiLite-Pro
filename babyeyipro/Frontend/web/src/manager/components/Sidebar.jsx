@@ -2,6 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { createElement, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SCHOOL_CONSOLE_NAV } from '../config/schoolConsoleNav';
+import { HR_CENTER_NAV } from '../config/hrCenterNav';
 import {
   LayoutDashboard, Users, BookOpen, ClipboardCheck,
   Wallet, MessageSquare, ClipboardList,
@@ -118,7 +119,7 @@ const ExpandableNavItem = ({ icon, name, subItems, onClose }) => {
             <NavLink
               key={sub.path}
               to={h(sub.path)}
-              end={sub.path === '/finance'}
+              end={sub.exact ?? sub.path === '/finance'}
               onClick={onClose}
               className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all
                 ${subActive ? 'text-re-gold bg-white/[0.08]' : 'text-white/60 hover:text-white hover:bg-white/[0.05]'}`}
@@ -149,12 +150,22 @@ const Sidebar = ({ onClose }) => {
 
   const schoolConsoleSubItems = useMemo(
     () =>
-      SCHOOL_CONSOLE_NAV.map((item) => {
-        if (item.external || item.standalone) {
-          return { name: item.label, path: item.path, icon: item.icon };
-        }
-        return { name: item.label, path: `/school-console${item.pathSuffix}`, icon: item.icon };
-      }),
+      SCHOOL_CONSOLE_NAV.map((item) => ({
+        name: item.label,
+        path: `/school-console${item.pathSuffix}`,
+        icon: item.icon,
+      })),
+    []
+  );
+
+  const hrCenterSubItems = useMemo(
+    () =>
+      HR_CENTER_NAV.map((item) => ({
+        name: item.label,
+        path: item.path,
+        icon: item.icon,
+        exact: item.path === '/hr',
+      })),
     []
   );
 
@@ -200,6 +211,15 @@ const Sidebar = ({ onClose }) => {
             subItems={schoolConsoleSubItems}
           />
         )}
+
+        <SectionLabel label="HR Center" />
+        <ExpandableNavItem
+          icon={UserCog}
+          name="HR Center"
+          onClose={onClose}
+          subItems={hrCenterSubItems}
+        />
+
         {/* <NavItem icon={Users} name="Students" path="/students" onClose={onClose} /> */}
         
         <SectionLabel label="Finance center" />

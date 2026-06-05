@@ -38,7 +38,16 @@ import SmartSchoolHardwarePage from './pages/SmartSchoolHardwarePage'
 import StaffSmartAccessPage from './pages/StaffSmartAccessPage'
 import ChatCenter from '../shared/pages/ChatCenter'
 import AuditCenter from './pages/AuditCenter'
-import HRCentral from './pages/HRCentral'
+import HRDashboard from './pages/HRPages/HRDashboard'
+import EmploymentDirectory from './pages/HRPages/EmploymentDirectory'
+import EmploymentRegistration from './pages/HRPages/EmploymentRegistration'
+import EmploymentContracts from './pages/HRPages/EmploymentContracts'
+import EmploymentCategory from './pages/HRPages/EmploymentCategory'
+import LeaveManagement from './pages/HRPages/LeaveManagement'
+import EmployeeProfile from './pages/HRPages/EmployeeProfile'
+import HRDepartments from './pages/HRPages/Departments'
+import StaffDocuments from './pages/HRPages/StaffDocuments'
+import Qualifications from './pages/HRPages/Qualifications'
 import StockReports from './pages/StockReports'
 import LibraryReports from './pages/LibraryReports'
 import ManagerProfile from './pages/ManagerProfile'
@@ -119,16 +128,17 @@ function ManagerRoutesInner() {
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
       <Route path="marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
       <Route path="finance" element={<ProtectedRoute title="Finance Center"><FinanceCenter /></ProtectedRoute>} />
-      <Route
-        path="hr"
-        element={
-          <ProtectedRoute title="HR Central">
-            <SchoolConsoleGate>
-              <HRCentral />
-            </SchoolConsoleGate>
-          </ProtectedRoute>
-        }
-      />
+      <Route path="hr" element={<ProtectedRoute title="HR Dashboard"><HRDashboard /></ProtectedRoute>} />
+      <Route path="hr/directory" element={<ProtectedRoute title="Employee Directory"><EmploymentDirectory /></ProtectedRoute>} />
+      <Route path="hr/directory/:employeeId" element={<ProtectedRoute title="Employee Profile"><EmployeeProfile /></ProtectedRoute>} />
+      <Route path="hr/directory/:employeeId/edit" element={<ProtectedRoute title="Edit Employee"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="hr/registration" element={<ProtectedRoute title="Employee Registration"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="hr/contracts" element={<ProtectedRoute title="Employment Contracts"><EmploymentContracts /></ProtectedRoute>} />
+      <Route path="hr/categories" element={<ProtectedRoute title="Employment Categories"><EmploymentCategory /></ProtectedRoute>} />
+      <Route path="hr/leave" element={<ProtectedRoute title="Leave Management"><LeaveManagement /></ProtectedRoute>} />
+      <Route path="hr/departments" element={<ProtectedRoute title="Departments"><HRDepartments /></ProtectedRoute>} />
+      <Route path="hr/documents" element={<ProtectedRoute title="Staff Documents"><StaffDocuments /></ProtectedRoute>} />
+      <Route path="hr/qualifications" element={<ProtectedRoute title="Qualifications"><Qualifications /></ProtectedRoute>} />
       <Route path="payroll" element={<ProtectedRoute title="Payroll"><Payroll /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="finance/payments" element={<ProtectedRoute title="Student Fee Payments"><FeePayments /></ProtectedRoute>} />

@@ -1,226 +1,443 @@
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Edit2, Loader2, Phone, Plus, RefreshCw, Save, Search, Trash2, X, Building2, PhoneCall } from 'lucide-react';
-import api from '../services/api';
-import PortalListPageLayout from '../components/PortalListPageLayout';
-import { PORTAL } from '../config/portal';
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Plus, Search, Phone, Mail, MapPin, Truck, X, Building2, User, Hash, Globe,
+  BadgeCheck, Loader2, Edit2, Trash2, RefreshCw, AlertCircle,Package ,
+} from 'lucide-react'
+import StorekeeperPageShell from '../components/StorekeeperPageShell'
+import {
+  EMPTY_SUPPLIER_FORM,
+  fetchSuppliers,
+  createSupplier,
+  updateSupplier,
+  deleteSupplier,
+} from '../services/suppliersService'
 
-const SupplierModal = ({ supplier, onClose, onSave }) => {
-  const isEdit = !!supplier?.id;
-  const [form, setForm] = useState({
-    name: supplier?.name || '',
-    contact_person: supplier?.contact_person || '',
-    phone: supplier?.phone || '',
-    email: supplier?.email || '',
-    address: supplier?.address || '',
-    categories: supplier?.categories || '',
-    note: supplier?.note || '',
-  });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const valid = form.name.trim();
-
-  return createPortal(
-    <div className="fixed inset-0 z-[220] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-      <div className="bg-white w-full sm:max-w-md rounded-t-[32px] sm:rounded-[28px] shadow-sm flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-black/5 shrink-0">
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-re-navy">{isEdit ? 'Edit supplier' : 'Add supplier'}</p>
-            <h3 className="font-semibold text-re-navy text-base mt-0.5">{isEdit ? form.name : 'New supplier'}</h3>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400"><X size={18} /></button>
+function FormField({ icon: Icon, label, placeholder, type = 'text', value, onChange, name }) {
+  return (
+    <div className="group">
+      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">{label}</label>
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-300 group-focus-within:text-amber-500 transition-colors">
+          {Icon && <Icon size={15} />}
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
-          {[
-            { label: 'Supplier name *', key: 'name', placeholder: 'e.g. ABC Stationery Ltd' },
-            { label: 'Contact person', key: 'contact_person', placeholder: 'Full name' },
-            { label: 'Phone', key: 'phone', placeholder: '+250 7XX XXX XXX' },
-            { label: 'Email', key: 'email', placeholder: 'supplier@email.com' },
-            { label: 'Address', key: 'address', placeholder: 'Kigali, Rwanda' },
-            { label: 'Categories supplied', key: 'categories', placeholder: 'e.g. Stationery, Cleaning' },
-          ].map(f => (
-            <div key={f.key}>
-              <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">{f.label}</label>
-              <input value={form[f.key]} onChange={e => set(f.key, e.target.value)} placeholder={f.placeholder}
-                className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20" />
-            </div>
-          ))}
-          <div>
-            <label className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 block mb-1">Note</label>
-            <textarea value={form.note} onChange={e => set('note', e.target.value)} rows={2} placeholder="Optional note"
-              className="w-full bg-re-bg border border-black/5 rounded-xl px-3 py-2.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-re-navy/20 resize-none" />
-          </div>
-        </div>
-        <div className="px-6 py-4 border-t border-black/5 flex justify-end gap-2 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-black/5 text-re-navy font-semibold text-[9px] uppercase tracking-widest hover:bg-re-bg">Cancel</button>
-          <button disabled={!valid} onClick={() => { if (valid) { onSave({ ...supplier, ...form }); onClose(); }}}
-            className="px-6 py-2 rounded-xl text-white font-semibold text-[9px] uppercase tracking-widest disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg,#1E3A5F,#0D2644)' }}>
-            <Save size={12} className="inline mr-1" />{isEdit ? 'Update' : 'Add supplier'}
-          </button>
-        </div>
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-[#000435] placeholder:text-gray-300 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all"
+        />
       </div>
-    </div>,
-    document.body
-  );
-};
+    </div>
+  )
+}
 
 export default function Suppliers() {
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [modal, setModal] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [suppliers, setSuppliers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [form, setForm] = useState(EMPTY_SUPPLIER_FORM)
 
-  const fetchSuppliers = async () => {
-    setLoading(true);
+  const loadSuppliers = useCallback(async () => {
+    setLoading(true)
+    setError('')
     try {
-      const res = await api.get('/store/suppliers');
-      if (res.data?.success) setSuppliers(res.data.data || []);
-    } catch (e) { console.warn(e.message); } finally { setLoading(false); }
-  };
+      const rows = await fetchSuppliers()
+      setSuppliers(rows)
+    } catch (e) {
+      setError(e.message || 'Could not load suppliers')
+      setSuppliers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  useEffect(() => { fetchSuppliers(); }, []);
-
-  const handleSave = async (s) => {
-    try {
-      if (s.id) await api.patch(`/store/suppliers/${s.id}`, s);
-      else await api.post('/store/suppliers', s);
-    } catch (e) { console.warn(e.message); }
-    fetchSuppliers();
-  };
-
-  const handleDelete = async (id) => {
-    try { await api.delete(`/store/suppliers/${id}`); } catch (e) { console.warn(e.message); }
-    setDeleteConfirm(null);
-    fetchSuppliers();
-  };
+  useEffect(() => {
+    loadSuppliers()
+  }, [loadSuppliers])
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return !q ? suppliers : suppliers.filter(s =>
-      s.name?.toLowerCase().includes(q) || s.categories?.toLowerCase().includes(q) || s.contact_person?.toLowerCase().includes(q)
-    );
-  }, [suppliers, search]);
+    const q = search.trim().toLowerCase()
+    if (!q) return suppliers
+    return suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.contact.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        s.tin.toLowerCase().includes(q)
+    )
+  }, [suppliers, search])
 
-  const withPhone = useMemo(
-    () => suppliers.filter((s) => String(s.phone || '').trim().length > 0).length,
-    [suppliers]
-  );
+  const openCreate = () => {
+    setEditing(null)
+    setForm(EMPTY_SUPPLIER_FORM)
+    setShowModal(true)
+  }
+
+  const openEdit = (s) => {
+    setEditing(s)
+    setForm({
+      name: s.name,
+      contact: s.contact,
+      phone: s.phone,
+      email: s.email,
+      tin: s.tin,
+      website: s.website,
+      address: s.address,
+      status: s.status,
+      note: s.note,
+    })
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    if (saving) return
+    setShowModal(false)
+    setEditing(null)
+    setForm(EMPTY_SUPPLIER_FORM)
+  }
+
+  const onFieldChange = (e) => {
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      setError('Supplier name is required')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      if (editing?.id) await updateSupplier(editing.id, form)
+      else await createSupplier(form)
+      setShowModal(false)
+      setEditing(null)
+      setForm(EMPTY_SUPPLIER_FORM)
+      await loadSuppliers()
+    } catch (e) {
+      setError(e.message || 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget?.id) return
+    setSaving(true)
+    setError('')
+    try {
+      await deleteSupplier(deleteTarget.id)
+      setDeleteTarget(null)
+      await loadSuppliers()
+    } catch (e) {
+      setError(e.message || 'Delete failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
-    <>
-      <PortalListPageLayout
-        eyebrow={PORTAL.brandLine}
-        title="School Suppliers"
-        titleHighlight="Suppliers"
-        subtitle="Vendors and contacts for procurement"
-        heroIcon={Building2}
-        stats={[
-          { label: 'On file', value: suppliers.length, icon: Building2 },
-          { label: 'With phone', value: withPhone, icon: PhoneCall },
-        ]}
-        rightColumn={(
-          <>
-            <button
-              type="button"
-              onClick={fetchSuppliers}
-              disabled={loading}
-              className="w-full h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-semibold text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin text-[#1E3A5F]' : 'text-[#1E3A5F]'} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={() => setModal({})}
-              className="w-full h-11 flex items-center justify-center gap-2 text-white rounded-xl text-[9px] font-semibold uppercase tracking-widest border border-black/10 shadow-sm active:scale-95 transition-all"
-              style={{ background: 'linear-gradient(135deg, #1E3A5F 0%, #0D2644 100%)' }}
-            >
-              <Plus size={14} />
-              Add supplier
-            </button>
-          </>
+    <StorekeeperPageShell
+      titleLine="Suppliers"
+      subtitle="Manage your suppliers and vendors"
+      icon={Truck}
+      rightSlot={
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={loadSuppliers}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-white/15 transition-all disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-400/35 bg-amber-400/15 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-white hover:bg-amber-400/25 transition-all active:scale-95"
+          >
+            <Plus size={14} /> Add Supplier
+          </button>
+        </div>
+      }
+    >
+      <div className="store-panel-sheet p-4 sm:p-6 space-y-6">
+        {error && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium">
+            <AlertCircle size={16} className="shrink-0" />
+            {error}
+          </div>
         )}
-        toolbar={(
-          <div className="relative flex-1 min-w-[200px] max-w-xl group">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-re-text-muted/50 group-focus-within:text-[#1E3A5F] transition-colors z-[1] pointer-events-none" />
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2.5 w-full max-w-sm shadow-sm focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20 transition-all">
+            <Search size={15} className="text-gray-300" />
             <input
+              type="text"
+              placeholder="Search suppliers..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, category, contact…"
-              className="w-full h-9 md:h-8 bg-white/80 rounded-lg outline-none border border-black/5 focus:border-[#1E3A5F]/20 focus:bg-white transition-all text-[#1E3A5F] text-[9px] font-semibold uppercase tracking-tight shadow-[inset_0_2px_8px_rgba(15,23,42,0.06)] placeholder:text-[#1E3A5F]/30 !pl-8"
+              className="bg-transparent border-none outline-none text-sm w-full text-[#000435] placeholder:text-gray-300 font-medium"
             />
           </div>
-        )}
-      >
+        </div>
+
         {loading ? (
-          <div className="flex items-center justify-center py-20 gap-3">
-            <Loader2 size={22} className="animate-spin text-[#1E3A5F]/30" />
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Loading suppliers…</p>
+          <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
+            <Loader2 size={22} className="animate-spin" />
+            <span className="text-sm font-medium">Loading suppliers…</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 px-6">
-            <Building2 size={36} className="text-slate-200" />
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">No suppliers match your search</p>
-            <button type="button" onClick={() => setModal({})} className="text-[10px] font-semibold text-[#1E3A5F] hover:underline">
-              + Add first supplier
+          <div className="text-center py-16">
+            <Building2 size={36} className="mx-auto text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">No suppliers found</p>
+            <button type="button" onClick={openCreate} className="mt-3 text-xs font-bold text-amber-600 hover:underline">
+              + Add your first supplier
             </button>
           </div>
         ) : (
-          <div className="p-4 sm:p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((s) => (
-              <div key={s.id} className="bg-re-bg/40 border border-black/5 rounded-[20px] p-5 hover:shadow-sm transition-all group">
-                <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filtered.map((s, i) => (
+              <motion.div
+                key={s.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg hover:border-amber-200/50 transition-all duration-300 group"
+              >
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-black/5 flex items-center justify-center font-semibold text-[#1E3A5F] shrink-0 shadow-sm">
-                      {s.name?.charAt(0) || 'S'}
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 group-hover:bg-amber-100 transition-colors">
+                      <Building2 size={18} className="text-amber-500" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-[#1E3A5F] text-[12px] leading-tight truncate">{s.name}</p>
-                      {s.categories ? <p className="text-[9px] text-re-navy font-bold uppercase tracking-wider mt-0.5 truncate">{s.categories}</p> : null}
+                      <h3 className="font-bold text-[#000435] text-sm truncate">{s.name}</h3>
+                      <p className="text-xs text-gray-400 font-medium flex items-center gap-1 mt-0.5">
+                        <User size={11} /> {s.contact || '—'}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
-                    <button type="button" onClick={() => setModal(s)} className="p-1.5 rounded-lg hover:bg-white text-slate-300 hover:text-re-navy transition-colors" aria-label="Edit">
-                      <Edit2 size={12} />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                        s.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      {s.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openEdit(s)}
+                      className="p-2 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition"
+                      aria-label="Edit supplier"
+                    >
+                      <Edit2 size={14} />
                     </button>
-                    <button type="button" onClick={() => setDeleteConfirm(s)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" aria-label="Delete">
-                      <Trash2 size={12} />
+                    <button
+                      type="button"
+                      onClick={() => setDeleteTarget(s)}
+                      className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition"
+                      aria-label="Delete supplier"
+                    >
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  {s.contact_person ? <p className="text-[10px] font-bold text-slate-600">{s.contact_person}</p> : null}
-                  {s.phone ? (
-                    <p className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
-                      <Phone size={10} />
-                      {s.phone}
-                    </p>
-                  ) : null}
-                  {s.address ? <p className="text-[10px] font-bold text-slate-500">{s.address}</p> : null}
-                  {s.note ? <p className="text-[9px] font-bold text-slate-400 mt-2 italic line-clamp-2">{s.note}</p> : null}
+                <div className="mt-4 grid grid-cols-2 gap-y-2.5 gap-x-4 text-sm">
+                  <div className="flex items-center gap-2 text-gray-400 min-w-0">
+                    <Phone size={13} className="shrink-0" />
+                    <span className="text-[#000435] font-medium text-xs truncate">{s.phone || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400 min-w-0">
+                    <Mail size={13} className="shrink-0" />
+                    <span className="text-[#000435] font-medium text-xs truncate">{s.email || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400 min-w-0">
+                    <MapPin size={13} className="shrink-0" />
+                    <span className="text-[#000435] font-medium text-xs truncate">{s.address || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-400 min-w-0">
+                    <Hash size={13} className="shrink-0" />
+                    <span className="text-[#000435] font-medium text-xs truncate">TIN: {s.tin || '—'}</span>
+                  </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
-      </PortalListPageLayout>
+      </div>
 
-      {modal !== null && <SupplierModal supplier={modal} onClose={() => setModal(null)} onSave={handleSave} />}
-      {deleteConfirm && createPortal(
-        <div className="fixed inset-0 z-[230] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[24px] shadow-sm p-8 max-w-sm w-full text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><Trash2 size={20} className="text-red-500" /></div>
-            <h3 className="font-semibold text-slate-800 mb-2">Remove "{deleteConfirm.name}"?</h3>
-            <p className="text-[11px] font-bold text-slate-400 mb-6">This supplier will be removed from your records.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 rounded-xl border border-black/5 font-semibold text-[10px] uppercase text-slate-500 hover:bg-slate-50">Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-semibold text-[10px] uppercase hover:bg-red-600">Remove</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </>
-  );
+      <AnimatePresence>
+        {showModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-[#000435]/60 backdrop-blur-sm z-50"
+              onClick={closeModal}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', duration: 0.4, bounce: 0.3 }}
+              className="fixed inset-0 z-50 flex items-start justify-center pt-10 pb-10 overflow-y-auto pointer-events-none"
+            >
+              <div
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-4 pointer-events-auto overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50/50 to-white">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-400/20 flex items-center justify-center">
+                      <Truck size={18} className="text-amber-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-[#000435]">
+                        {editing ? 'Edit Supplier' : 'Add Supplier'}
+                      </h2>
+                      <p className="text-[11px] font-medium text-gray-400">Saved to your school database</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    disabled={saving}
+                    className="w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-all active:scale-90 disabled:opacity-50"
+                  >
+                    <X size={16} className="text-gray-400" />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField icon={Building2} label="Supplier Name *" name="name" placeholder="e.g. Fabric World Ltd" value={form.name} onChange={onFieldChange} />
+                    <FormField icon={User} label="Contact Person" name="contact" placeholder="e.g. John Kamau" value={form.contact} onChange={onFieldChange} />
+                    <FormField icon={Phone} label="Phone Number" name="phone" placeholder="+255 XXX XXX XXX" value={form.phone} onChange={onFieldChange} />
+                    <FormField icon={Mail} label="Email Address" type="email" name="email" placeholder="email@example.com" value={form.email} onChange={onFieldChange} />
+                    <FormField icon={Hash} label="TIN Number" name="tin" placeholder="123-456-789" value={form.tin} onChange={onFieldChange} />
+                    <FormField icon={Globe} label="Website (optional)" name="website" placeholder="https://" value={form.website} onChange={onFieldChange} />
+                  </div>
+
+                  <div className="group">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Address</label>
+                    <div className="relative">
+                      <div className="absolute top-3 left-3 pointer-events-none text-gray-300 group-focus-within:text-amber-500 transition-colors">
+                        <MapPin size={15} />
+                      </div>
+                      <input
+                        name="address"
+                        value={form.address}
+                        onChange={onFieldChange}
+                        placeholder="Street, City, Region"
+                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-[#000435] placeholder:text-gray-300 focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Status</label>
+                    <select
+                      name="status"
+                      value={form.status}
+                      onChange={onFieldChange}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-[#000435] focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 px-4 py-3 bg-amber-50/50 rounded-2xl border border-amber-200/50">
+                    <BadgeCheck size={16} className="text-amber-500 shrink-0" />
+                    <p className="text-[11px] font-medium text-amber-700">
+                      Records are stored per school and can be edited or removed anytime.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    disabled={saving}
+                    className="px-5 py-2.5 text-[11px] font-bold text-gray-500 hover:bg-white rounded-xl transition-all uppercase tracking-wider disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving || !form.name.trim()}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-bold text-white bg-[#000435] hover:bg-[#0a116b] rounded-xl transition-all uppercase tracking-wider disabled:opacity-50 shadow-lg shadow-[#000435]/20"
+                  >
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} className="opacity-70" />}
+                    {editing ? 'Update Supplier' : 'Save Supplier'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-[#000435]/60 backdrop-blur-sm z-[60]"
+              onClick={() => !saving && setDeleteTarget(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none"
+            >
+              <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 pointer-events-auto text-center" onClick={(e) => e.stopPropagation()}>
+                <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Trash2 size={20} className="text-red-500" />
+                </div>
+                <h3 className="font-bold text-[#000435] mb-2">Remove &quot;{deleteTarget.name}&quot;?</h3>
+                <p className="text-sm text-gray-500 mb-6">This supplier will be removed from your school records.</p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={saving}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                  >
+                    {saving && <Loader2 size={14} className="animate-spin" />}
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </StorekeeperPageShell>
+  )
 }

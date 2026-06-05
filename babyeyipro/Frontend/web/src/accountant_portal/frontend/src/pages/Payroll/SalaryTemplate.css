@@ -1,0 +1,33 @@
+.salary-template-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.salary-template-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+.salary-template-scroll::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.6);
+}
+
+.salary-template-sticky-actions {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+
+.salary-template-preview-panel {
+  max-height: calc(100vh - 6rem);
+  overflow-y: auto;
+}
+
+.field-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  font-size: 0.875rem;
+}
+

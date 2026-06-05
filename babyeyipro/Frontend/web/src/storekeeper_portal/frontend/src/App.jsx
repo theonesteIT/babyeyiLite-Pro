@@ -1,52 +1,48 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Inventory from './pages/Inventory';
-import StockMovements from './pages/StockMovements';
-import Requisitions from './pages/Requisitions';
-import Suppliers from './pages/Suppliers';
-import ShuleAvance from './pages/ShuleAvance';
-import TichaAI from './pages/TichaAI';
-import './index.css';
-import { PORTAL } from './config/portal';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom'
+import Layout from './components/Layout'
 
-const LoadingScreen = () => (
-  <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
-    <div className="w-12 h-12 rounded-2xl animate-pulse" style={{ background: 'linear-gradient(135deg,#1E3A5F,#3D5A80)' }} />
-    <p className="text-re-text-muted text-sm font-bold uppercase tracking-widest animate-pulse">{PORTAL.loadingMessage}</p>
-  </div>
-);
+import StockDashboard from './pages/StockDashboard'
+import UniformInventory from './pages/UniformInventory'
+import FoodInventory from './pages/FoodInventory'
+import FoodReportPage from './pages/FoodReport'
+import OtherInventory from './pages/OtherInventory'
+import Suppliers from './pages/Suppliers'
+import PurchaseOrders from './pages/PurchaseOrders'
+import StockAdjustments from './pages/StockAdjustments'
+import Reports from './pages/Reports'
+import Settings from './pages/Settings'
+import Analytics from './pages/Analytics'
+import Alerts from './pages/Alerts'
 
-const ProtectedRoute = ({ children, title }) => {
-  const { staff, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
-  if (!staff) return <Navigate to="/login" />;
-  return <Layout title={title}>{children}</Layout>;
-};
-
-function AppContent() {
+function LayoutRoute() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/"             element={<ProtectedRoute title="Store Overview">    <Dashboard />      </ProtectedRoute>} />
-      <Route path="/inventory"    element={<ProtectedRoute title="Inventory">         <Inventory />      </ProtectedRoute>} />
-      <Route path="/movements"    element={<ProtectedRoute title="Stock Movements">   <StockMovements /> </ProtectedRoute>} />
-      <Route path="/requisitions" element={<ProtectedRoute title="Requisitions">      <Requisitions />   </ProtectedRoute>} />
-      <Route path="/suppliers"    element={<ProtectedRoute title="Suppliers">         <Suppliers />      </ProtectedRoute>} />
-      <Route path="/shule-avance" element={<ProtectedRoute title="Shule Avance">      <ShuleAvance />    </ProtectedRoute>} />
-      <Route path="/ticha-ai"     element={<ProtectedRoute title="TichaAI">           <TichaAI />        </ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
-  );
+    <Layout>
+      <Outlet />
+    </Layout>
+  )
 }
 
-function App() {
-  return (
-    <AuthProvider><Router><AppContent /></Router></AuthProvider>
-  );
-}
+const router = createBrowserRouter([
+  {
+    path: '/',
+    element: <LayoutRoute />,
+    children: [
+      { index: true, element: <StockDashboard /> },
+      { path: 'analytics', element: <Analytics /> },
+      { path: 'alerts', element: <Alerts /> },
+      { path: 'suppliers', element: <Suppliers /> },
+      { path: 'purchase-orders', element: <PurchaseOrders /> },
+      { path: 'uniform-inventory', element: <UniformInventory /> },
+      { path: 'food-inventory', element: <FoodInventory /> },
+      { path: 'food-reports', element: <FoodReportPage /> },
+      { path: 'other-inventory', element: <OtherInventory /> },
+      { path: 'stock-adjustments', element: <StockAdjustments /> },
+      { path: 'reports', element: <Reports /> },
+      { path: 'settings', element: <Settings /> },
+    ],
+  },
+])
 
-export default App;
+export default function App() {
+  return <RouterProvider router={router} />
+}

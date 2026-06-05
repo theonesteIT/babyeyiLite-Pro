@@ -1,4 +1,3 @@
-import { PORTAL } from '../config/portal';
-import { createHref } from '../../../../lib/hrefFactory';
+import { createHref } from '../../../../lib/hrefFactory'
 
-export const h = createHref(PORTAL.basePath || '');
+export const createPortalHref = (basePath) => createHref(basePath || '')
