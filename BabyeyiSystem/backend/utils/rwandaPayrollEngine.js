@@ -366,9 +366,16 @@ function calcRwandaPayroll(input = {}) {
       const topped = calcGrossSalary(gross, extras);
       const extraTotal = topped.breakdown.reduce((sum, item) => sum + toMoney(item.amount), 0);
       gross = topped.gross;
-      allowanceBreakdown = [...allowanceBreakdown, ...topped.breakdown];
+      const othersWithExtras = Math.round(registerAllowanceSplit.others + extraTotal);
+      allowanceBreakdown = [
+        { name: 'Others', amount: othersWithExtras },
+        { name: 'Housing Allowance', amount: registerAllowanceSplit.housing },
+        { name: 'Transport Allowance', amount: registerAllowanceSplit.transport },
+        ...topped.breakdown,
+      ];
       registerAllowanceSplit = {
         ...registerAllowanceSplit,
+        others: othersWithExtras,
         totalAllowances: Math.round(registerAllowanceSplit.totalAllowances + extraTotal),
       };
     }
@@ -381,11 +388,20 @@ function calcRwandaPayroll(input = {}) {
     const extras = (allowances || []).filter(isActiveItem);
     if (extras.length) {
       const topped = calcGrossSalary(school.gross, extras);
+      const extraTotal = topped.breakdown.reduce((sum, item) => sum + toMoney(item.amount), 0);
       gross = topped.gross;
-      allowanceBreakdown = [...school.allowanceBreakdown, ...topped.breakdown];
-      const split = splitAllowanceBreakdownForRegister(allowanceBreakdown, gross, basic, allowanceRules);
-      registerAllowanceSplit = split.registerAllowanceSplit;
-      transportAmount = split.transportAmount;
+      const othersWithExtras = Math.round(registerAllowanceSplit.others + extraTotal);
+      allowanceBreakdown = [
+        { name: 'Others', amount: othersWithExtras },
+        { name: 'Housing Allowance', amount: registerAllowanceSplit.housing },
+        { name: 'Transport Allowance', amount: registerAllowanceSplit.transport },
+        ...topped.breakdown,
+      ];
+      registerAllowanceSplit = {
+        ...registerAllowanceSplit,
+        others: othersWithExtras,
+        totalAllowances: Math.round(registerAllowanceSplit.totalAllowances + extraTotal),
+      };
     }
   } else {
     const manual = calcGrossSalary(basic, allowances);
