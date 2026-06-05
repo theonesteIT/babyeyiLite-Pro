@@ -29,13 +29,10 @@ export default defineConfig(({ mode }) => {
     },
     // Vite's default assetsDir is "assets", which collides with the /pro/assets portal route on nginx.
     optimizeDeps: {
-      include: ['react-qr-code'],
+      include: ['qrcode'],
     },
     build: {
       assetsDir: 'bundles',
-      commonjsOptions: {
-        include: [/react-qr-code/, /node_modules/],
-      },
     },
     server: { port, strictPort: true },
   }
