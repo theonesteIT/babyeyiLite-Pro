@@ -65,12 +65,30 @@ function schoolDateOnly(date = new Date()) {
 
 let tablesReady = false;
 let permissionColumnsReady = false;
+async function ensureStudentColumn(columnName, ddlWithIfNotExists, ddlPlain) {
+  const [[row]] = await promisePool.query(
+    `SELECT 1 AS ok FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND table_name = 'students'
+       AND column_name = ?
+     LIMIT 1`,
+    [columnName]
+  );
+  if (row) return;
+  try {
+    await promisePool.query(ddlWithIfNotExists);
+  } catch (_) {
+    await promisePool.query(ddlPlain);
+  }
+}
+
 async function ensureDisciplineTables() {
   if (tablesReady) return;
-  await promisePool.query(`
-    ALTER TABLE students
-      ADD COLUMN IF NOT EXISTS discipline_marks DECIMAL(8,2) NULL
-  `);
+  await ensureStudentColumn(
+    'discipline_marks',
+    `ALTER TABLE students ADD COLUMN IF NOT EXISTS discipline_marks DECIMAL(8,2) NULL`,
+    `ALTER TABLE students ADD COLUMN discipline_marks DECIMAL(8,2) NULL`
+  );
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS school_discipline_settings (
       school_id INT UNSIGNED NOT NULL PRIMARY KEY,
@@ -83,6 +101,7 @@ async function ensureDisciplineTables() {
     CREATE TABLE IF NOT EXISTS school_discipline_default_marks (
       school_id INT UNSIGNED NOT NULL PRIMARY KEY,
       default_marks DECIMAL(8,2) NOT NULL DEFAULT 40.00,
+      minimum_marks DECIMAL(8,2) NOT NULL DEFAULT 0.00,
       last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       updated_by INT UNSIGNED NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

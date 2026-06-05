@@ -23,6 +23,10 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, 'src'),
       },
     },
+    // Vite's default assetsDir is "assets", which collides with the /pro/assets portal route on nginx.
+    build: {
+      assetsDir: 'bundles',
+    },
     server: { port, strictPort: true },
   }
 })

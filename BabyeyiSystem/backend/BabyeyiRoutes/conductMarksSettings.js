@@ -9,6 +9,23 @@ const { promisePool } = require('../config/database');
 
 let columnsReady = false;
 
+async function columnExists(tableName, columnName) {
+  const [[row]] = await promisePool.query(
+    `SELECT 1 AS ok FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND table_name = ?
+       AND column_name = ?
+     LIMIT 1`,
+    [tableName, columnName]
+  );
+  return !!row;
+}
+
+async function ensureColumn(tableName, columnName, ddl) {
+  if (await columnExists(tableName, columnName)) return;
+  await promisePool.query(ddl);
+}
+
 async function ensureConductMarksColumns() {
   if (columnsReady) return;
   await promisePool.query(`
@@ -20,12 +37,12 @@ async function ensureConductMarksColumns() {
       updated_by INT UNSIGNED NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
-  await promisePool
-    .query(
-      `ALTER TABLE school_discipline_default_marks
-       ADD COLUMN minimum_marks DECIMAL(8,2) NOT NULL DEFAULT 0.00`
-    )
-    .catch(() => {});
+  await ensureColumn(
+    'school_discipline_default_marks',
+    'minimum_marks',
+    `ALTER TABLE school_discipline_default_marks
+     ADD COLUMN minimum_marks DECIMAL(8,2) NOT NULL DEFAULT 0.00`
+  );
   columnsReady = true;
 }
 
@@ -47,17 +64,23 @@ async function getConductBoundsForSchool(schoolId) {
     return { default_marks: 40, max_marks: 40, minimum_marks: 0, min_marks: 0 };
   }
 
+  const hasMinimumMarks = await columnExists('school_discipline_default_marks', 'minimum_marks');
   const [[row]] = await promisePool.query(
-    `SELECT default_marks, minimum_marks, last_updated, updated_by
-     FROM school_discipline_default_marks
-     WHERE school_id = ?
-     LIMIT 1`,
+    hasMinimumMarks
+      ? `SELECT default_marks, minimum_marks, last_updated, updated_by
+         FROM school_discipline_default_marks
+         WHERE school_id = ?
+         LIMIT 1`
+      : `SELECT default_marks, last_updated, updated_by
+         FROM school_discipline_default_marks
+         WHERE school_id = ?
+         LIMIT 1`,
     [sid]
   );
 
   if (row && row.default_marks != null) {
     const max = Number(row.default_marks);
-    const min = Number(row.minimum_marks ?? 0);
+    const min = hasMinimumMarks ? Number(row.minimum_marks ?? 0) : 0;
     return {
       default_marks: max,
       max_marks: max,
