@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Calendar, CheckCircle, Clock, Download, Eye, Loader2, RefreshCw, Shield, X } from 'lucide-react';
+import { AlertTriangle, Calendar, CheckCircle, Clock, Download, Eye, Loader2, RefreshCw, Shield, ThumbsDown, ThumbsUp, X } from 'lucide-react';
 import api from '../services/api';
 import ManagerOchreHeroShell from '../components/ManagerOchreHeroShell';
 
@@ -34,6 +34,9 @@ export default function TeacherPermissionReports() {
   const [toDate, setToDate] = useState('');
   const [toast, setToast] = useState(null);
   const [viewPerm, setViewPerm] = useState(null);
+  const [actionModal, setActionModal] = useState(null);
+  const [actionNote, setActionNote] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -58,6 +61,28 @@ export default function TeacherPermissionReports() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const performAction = async () => {
+    if (!actionModal) return;
+    setActionSaving(true);
+    try {
+      await api.patch(`/reports/teacher-permissions/${actionModal.id}/action`, {
+        action: actionModal.action,
+        note: actionNote.trim(),
+      });
+      setToast({
+        type: 'success',
+        message: `Permission ${actionModal.action === 'approve' ? 'approved' : 'rejected'} successfully.`,
+      });
+      setActionModal(null);
+      setActionNote('');
+      load();
+    } catch (e) {
+      setToast({ type: 'error', message: e?.response?.data?.message || 'Action failed.' });
+    } finally {
+      setActionSaving(false);
+    }
+  };
 
   const summary = useMemo(() => ({
     total: rows.length,
@@ -89,9 +114,9 @@ export default function TeacherPermissionReports() {
   return (
     <>
     <ManagerOchreHeroShell
-      eyebrow="Staff Reports"
-      title="Teacher Permission Reports"
-      subtitle="View all teacher leave and permission requests, their status, and decision notes."
+      eyebrow="Staff Management"
+      title="Teacher Permission Approvals"
+      subtitle="Review teacher leave and permission requests — approve or reject pending submissions."
       HeroIcon={Shield}
       headerRight={
         <div className="flex gap-2 items-center">
@@ -129,7 +154,7 @@ export default function TeacherPermissionReports() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50 border-b border-black/5">
-                    {['#', 'Teacher', 'Type', 'Period', 'Days', 'Reason', 'Status', 'Decision Note', ''].map(h => (
+                    {['#', 'Teacher', 'Type', 'Period', 'Days', 'Reason', 'Status', 'Decision Note', 'Actions'].map(h => (
                       <th key={h} className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -137,6 +162,7 @@ export default function TeacherPermissionReports() {
                 <tbody className="divide-y divide-black/5">
                   {rows.map(r => {
                     const days = Math.max(1, Math.ceil((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1);
+                    const isPending = r.status === 'pending';
                     return (
                       <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-3 py-3 text-[10px] text-slate-400">{r.id}</td>
@@ -162,10 +188,32 @@ export default function TeacherPermissionReports() {
                           <p className="truncate italic">{r.decision_note || '—'}</p>
                         </td>
                         <td className="px-3 py-3">
-                          <button type="button" title="View" onClick={() => setViewPerm(r)}
-                            className="h-7 w-7 rounded-lg border border-blue-200 flex items-center justify-center text-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all">
-                            <Eye size={12} />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button type="button" title="View" onClick={() => setViewPerm(r)}
+                              className="h-7 w-7 rounded-lg border border-blue-200 flex items-center justify-center text-blue-400 hover:bg-blue-50 hover:text-blue-600 transition-all">
+                              <Eye size={12} />
+                            </button>
+                            {isPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  title="Approve"
+                                  onClick={() => { setActionModal({ id: r.id, action: 'approve', teacher: r.teacher_name }); setActionNote(''); }}
+                                  className="h-7 w-7 rounded-lg border border-emerald-200 flex items-center justify-center text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 transition-all"
+                                >
+                                  <ThumbsUp size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="Reject"
+                                  onClick={() => { setActionModal({ id: r.id, action: 'reject', teacher: r.teacher_name }); setActionNote(''); }}
+                                  className="h-7 w-7 rounded-lg border border-red-200 flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                                >
+                                  <ThumbsDown size={12} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -185,6 +233,64 @@ export default function TeacherPermissionReports() {
         </>
       }
     />
+
+    {actionModal && (
+      <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setActionModal(null)}>
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300" onClick={e => e.stopPropagation()}>
+          <div className={`p-5 ${actionModal.action === 'approve' ? 'bg-gradient-to-br from-emerald-600 to-emerald-800' : 'bg-gradient-to-br from-red-600 to-red-800'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
+                  {actionModal.action === 'approve' ? <ThumbsUp size={16} className="text-white" /> : <ThumbsDown size={16} className="text-white" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white capitalize">{actionModal.action} Permission</h3>
+                  <p className="text-[10px] font-bold text-white/50 mt-0.5">{actionModal.teacher}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setActionModal(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white/70 hover:text-white transition-all">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Add a note (optional)</label>
+              <textarea
+                value={actionNote}
+                onChange={e => setActionNote(e.target.value)}
+                placeholder={actionModal.action === 'reject' ? 'Reason for rejection...' : 'Any remarks...'}
+                rows={3}
+                className="w-full rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-bold border border-transparent focus:border-slate-300 focus:ring-2 focus:ring-slate-200 outline-none resize-none"
+              />
+            </div>
+          </div>
+          <div className="p-4 bg-slate-50 border-t border-black/5 flex items-center justify-end gap-2">
+            <button type="button" onClick={() => setActionModal(null)} className="h-10 px-5 rounded-xl bg-white border border-black/5 text-slate-600 font-black text-[10px] uppercase tracking-widest hover:bg-slate-100 transition-all">Cancel</button>
+            <button
+              type="button"
+              disabled={actionSaving}
+              onClick={performAction}
+              className={`h-10 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-1.5 transition-all disabled:opacity-60 shadow-lg ${
+                actionModal.action === 'approve' ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-200' : 'bg-red-600 text-white hover:bg-red-700 shadow-red-200'
+              }`}
+            >
+              {actionSaving ? <Loader2 size={13} className="animate-spin" /> : null}
+              {actionModal.action === 'approve' ? 'Approve' : 'Reject'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {toast && (
+      <div className="fixed right-4 top-4 z-[260]">
+        <div className={`max-w-[360px] px-3 py-2 rounded-xl border shadow-lg flex items-start gap-2 ${toast.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+          {toast.type === 'success' ? <CheckCircle size={14} className="mt-[1px]" /> : <AlertTriangle size={14} className="mt-[1px]" />}
+          <p className="text-[11px] font-black">{toast.message}</p>
+        </div>
+      </div>
+    )}
 
     {viewPerm && (
       <div className="fixed inset-0 z-[320] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setViewPerm(null)}>

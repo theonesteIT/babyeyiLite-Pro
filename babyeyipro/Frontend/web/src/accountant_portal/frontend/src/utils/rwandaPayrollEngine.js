@@ -492,3 +492,89 @@ export function calcRwandaPayroll(input = {}) {
 export function fmtRwf(n) {
   return `${Math.round(Number(n) || 0).toLocaleString()} RWF`;
 }
+
+/** Split gross into basic 70% + Others/Housing/Transport 10% each (Kigali school register). */
+export function splitGrossSchoolRegister(grossSalary) {
+  const g = Math.max(0, Math.round(toMoney(grossSalary)));
+  const basic = Math.round(g * 0.7);
+  const col = Math.round(g * 0.1);
+  return {
+    grossSalary: basic + col * 3,
+    basicSalary: basic,
+    others: col,
+    housing: col,
+    transport: col,
+  };
+}
+
+/**
+ * Method 2: Net-to-Gross — given desired take-home (finalNet after CBHI),
+ * iteratively find gross with 70/10/10/10 split and Rwanda statutory deductions.
+ */
+export function calcNetToGrossFromDesiredNet(input = {}) {
+  const desiredNet = Math.max(0, toMoney(input.desiredNet));
+  if (!desiredNet) return null;
+
+  const employeeDeductions = input.employeeDeductions || [];
+  const statutory = normalizeStatutoryRates({ ...DEFAULT_STATUTORY, ...(input.statutory || {}) });
+  const payeRates = input.payeRates?.length ? input.payeRates : DEFAULT_PAYE_BRACKETS;
+  const tolerance = input.tolerance ?? 1;
+
+  function payrollForGross(grossTarget) {
+    const split = splitGrossSchoolRegister(grossTarget);
+    return calcRwandaPayroll({
+      basicSalary: split.basicSalary,
+      storedAllowanceSplit: {
+        others: split.others,
+        housing: split.housing,
+        transport: split.transport,
+      },
+      employeeDeductions,
+      statutory,
+      payeRates,
+      forceManualAllowances: true,
+    });
+  }
+
+  let low = desiredNet;
+  let high = Math.max(Math.round(desiredNet * 1.5), 500_000);
+  let probe = payrollForGross(high);
+  while (probe.finalNet < desiredNet && high < desiredNet * 20) {
+    high = Math.round(high * 1.5);
+    probe = payrollForGross(high);
+  }
+  if (probe.finalNet < desiredNet) {
+    return null;
+  }
+
+  let best = null;
+  for (let i = 0; i < 64; i++) {
+    if (low > high) break;
+    const mid = Math.round((low + high) / 2);
+    const result = payrollForGross(mid);
+    const diff = result.finalNet - desiredNet;
+
+    if (!best || Math.abs(diff) < Math.abs(best.difference)) {
+      best = {
+        ...result,
+        desiredNet,
+        verifiedNet: result.finalNet,
+        difference: diff,
+      };
+    }
+
+    if (Math.abs(diff) <= tolerance) {
+      return {
+        ...result,
+        desiredNet,
+        verifiedNet: result.finalNet,
+        difference: diff,
+      };
+    }
+
+    if (diff < 0) low = mid + 1;
+    else high = mid - 1;
+  }
+
+  return best;
+}

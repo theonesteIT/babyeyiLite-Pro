@@ -130,7 +130,12 @@ export default function Categories() {
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-bold truncate" style={{ color: NAVY }}>{cat.name}</h3>
-                      <p className="text-sm text-re-text-muted">{cat.asset_count ?? cat.count ?? 0} assets</p>
+                      <p className="text-sm text-re-text-muted">
+                        {cat.asset_count ?? cat.count ?? 0} assets
+                        {cat.depreciation_rate != null && (
+                          <span className="ml-2 text-[#000435]/70 font-semibold">· {cat.depreciation_rate}% dep.</span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">

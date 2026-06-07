@@ -38,7 +38,7 @@ export function filtersToQueryParams(filters) {
   }
   if (filters.assetType) p.asset_type = filters.assetType;
   if (filters.location) p.location = filters.location;
-  if (filters.status) p.status = filters.status;
+  if (filters.status) p.assets_status = filters.status;
   if (filters.condition) p.condition = filters.condition;
   if (filters.purchaseYear) p.purchase_year = filters.purchaseYear;
   if (filters.registerYear) p.register_year = filters.registerYear;
@@ -76,7 +76,7 @@ export function applyClientFilters(assets, filters) {
     list = list.filter((a) => formatLocationValue(a.location) === filters.location);
   }
   if (filters.status) {
-    list = list.filter((a) => a.status === filters.status);
+    list = list.filter((a) => (a.assets_status || a.status) === filters.status);
   }
   if (filters.condition) {
     list = list.filter((a) => (a.condition_code || a.condition) === filters.condition);

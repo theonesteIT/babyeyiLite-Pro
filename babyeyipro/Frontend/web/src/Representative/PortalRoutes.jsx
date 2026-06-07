@@ -24,6 +24,7 @@ import RepresentativeDocuments from './pages/Documents';
 import RepresentativeSettings from './pages/Settings';
 import RepresentativeInsights from './pages/Insights';
 import { PORTAL } from './config/portal';
+import { RepresentativeRequestOrder } from '../shared/procurement/portalWrappers';
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
@@ -65,6 +66,7 @@ function RepresentativeRoutesInner() {
       <Route path="inspections" element={<ProtectedRoute title="Inspections"><RepresentativeInspections /></ProtectedRoute>} />
       <Route path="documents" element={<ProtectedRoute title="Documents"><RepresentativeDocuments /></ProtectedRoute>} />
       <Route path="settings" element={<ProtectedRoute title="Settings"><RepresentativeSettings /></ProtectedRoute>} />
+      <Route path="purchase-requests" element={<ProtectedRoute title="Purchase Requests"><RepresentativeRequestOrder /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>
   );

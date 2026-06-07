@@ -4,12 +4,15 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from '../Assets System/src/components/Layout'
 import Dashboard from '../Assets System/src/pages/Dashboard'
 import AssetInventory from '../Assets System/src/pages/AssetInventory'
+import AssetAddTest from '../Assets System/src/pages/AssetAddTest'
+import YearSetUp from '../Assets System/src/pages/YearSetUp'
 import AddAsset from '../Assets System/src/pages/AddAsset'
 import AssetDetails from '../Assets System/src/pages/AssetDetails'
 import Categories from '../Assets System/src/pages/Categories'
 import Assignments from '../Assets System/src/pages/Assignments'
 import Returns from '../Assets System/src/pages/Returns'
 import Transfers from '../Assets System/src/pages/Transfers'
+import Replacements from '../Assets System/src/pages/Replacements'
 import Maintenance from '../Assets System/src/pages/Maintenance'
 import PreventiveMaintenance from '../Assets System/src/pages/PreventiveMaintenance'
 import Warranty from '../Assets System/src/pages/Warranty'
@@ -18,11 +21,14 @@ import Audit from '../Assets System/src/pages/Audit'
 import LostDamaged from '../Assets System/src/pages/LostDamaged'
 import Disposal from '../Assets System/src/pages/Disposal'
 import QRBarcode from '../Assets System/src/pages/QRBarcode'
-import Reports from '../Assets System/src/pages/Reports'
+import AssetDetailQRScan from '../Assets System/src/pages/AssetDetailQRScan'
+import ReportsOverview from '../Assets System/src/pages/Reports/ReportsOverview'
+import ReportDetailPage from '../Assets System/src/pages/Reports/ReportDetailPage'
 import AssetAnalytics from '../Assets System/src/pages/AssetAnalytics'
 import NotificationsPage from '../Assets System/src/pages/Notifications'
 import UsersPage from '../Assets System/src/pages/Users'
 import SettingsPage from '../Assets System/src/pages/Settings'
+import { AssetsRequestOrder } from '../shared/procurement/portalWrappers'
 import { PORTAL } from './config/portal'
 
 function LoadingScreen() {
@@ -55,6 +61,8 @@ function AssetsRoutesInner() {
       >
         <Route index element={<Dashboard />} />
         <Route path="inventory" element={<AssetInventory />} />
+        <Route path="asset-add-test" element={<AssetAddTest />} />
+        <Route path="year-setup" element={<YearSetUp />} />
         <Route path="add-asset" element={<AddAsset />} />
         <Route path="asset-details/:id" element={<AssetDetails />} />
         <Route path="categories" element={<Categories />} />
@@ -62,6 +70,7 @@ function AssetsRoutesInner() {
         <Route path="assignments" element={<Assignments />} />
         <Route path="returns" element={<Returns />} />
         <Route path="transfers" element={<Transfers />} />
+        <Route path="replacements" element={<Replacements />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="preventive" element={<PreventiveMaintenance />} />
         <Route path="warranty" element={<Warranty />} />
@@ -70,11 +79,15 @@ function AssetsRoutesInner() {
         <Route path="lost-damaged" element={<LostDamaged />} />
         <Route path="disposal" element={<Disposal />} />
         <Route path="qr-barcode" element={<QRBarcode />} />
-        <Route path="reports" element={<Reports />} />
+        <Route path="reports" element={<ReportsOverview />} />
+        <Route path="reports/:reportType" element={<ReportDetailPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="purchase-requests" element={<AssetsRequestOrder />} />
       </Route>
+      <Route path="scan" element={<AssetDetailQRScan />} />
+      <Route path="view" element={<AssetDetailQRScan />} />
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>
   )

@@ -27,6 +27,7 @@ import {
   WifiOff,
   ChevronDown,
   Headphones,
+  ShoppingCart,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
@@ -183,6 +184,7 @@ function buildNavGroups(chatUnread) {
         { name: 'Payroll', path: '/my-payroll', icon: Wallet },
         { name: 'Advances', path: '/shule-avance', icon: HandCoins },
         { name: 'Requisitions', path: '/requisitions', icon: FileSpreadsheet },
+        { name: 'Purchase Requests', path: '/purchase-requests', icon: ShoppingCart },
       ],
     },
     {

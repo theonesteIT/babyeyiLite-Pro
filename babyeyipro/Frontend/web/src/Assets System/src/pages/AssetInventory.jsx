@@ -7,6 +7,7 @@ import AssetPreviewPanel from '../components/AssetPreviewPanel'
 import AssetAdvancedFilterDrawer from '../components/AssetAdvancedFilterDrawer'
 import AssetSearchToolbar from '../components/AssetSearchToolbar'
 import assetsApi from '../../../assets_portal/services/assetsApi'
+import AddAsset from '../components/AddAsset'
 import AddAssetWizard from '../components/AddAssetWizard'
 import {
   exportAssetsToExcel,
@@ -33,6 +34,7 @@ export default function AssetInventory() {
   const [wizardMode, setWizardMode] = useState('create')
   const [editAssetId, setEditAssetId] = useState(null)
   const [previewId, setPreviewId] = useState(null)
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null)
 
   const [importOpen, setImportOpen] = useState(false)
   const [importConfirming, setImportConfirming] = useState(false)
@@ -117,6 +119,19 @@ export default function AssetInventory() {
     setImportMsg(`Exported ${assets.length} assets to Excel.`)
   }
 
+  const handleStatusChange = async (row, assetsStatus) => {
+    setStatusUpdatingId(row.id)
+    setError('')
+    try {
+      const updated = await assetsApi.updateAssetStatus(row.id, assetsStatus)
+      setAssets((prev) => prev.map((a) => (a.id === row.id ? { ...a, ...updated } : a)))
+    } catch (err) {
+      setError(err?.message || 'Failed to update status')
+    } finally {
+      setStatusUpdatingId(null)
+    }
+  }
+
   const handleConfirmImport = async ({ rows, skipDuplicates, registerYear }) => {
     if (!rows.length) return
     setImportConfirming(true)
@@ -166,16 +181,27 @@ export default function AssetInventory() {
         )}
       </AssetSlideDrawer>
 
-      <AddAssetWizard
-        open={wizardOpen}
-        onClose={handleWizardClose}
-        onSuccess={() => {
-          handleWizardClose()
-          loadAssets()
-        }}
-        mode={wizardMode}
-        assetId={editAssetId}
-      />
+      {wizardMode === 'edit' ? (
+        <AddAssetWizard
+          open={wizardOpen}
+          onClose={handleWizardClose}
+          onSuccess={() => {
+            handleWizardClose()
+            loadAssets()
+          }}
+          mode="edit"
+          assetId={editAssetId}
+        />
+      ) : (
+        <AddAsset
+          open={wizardOpen}
+          onClose={handleWizardClose}
+          onSuccess={() => {
+            handleWizardClose()
+            loadAssets()
+          }}
+        />
+      )}
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -230,6 +256,8 @@ export default function AssetInventory() {
           assets={assets}
           selectedId={previewId}
           onSelectAsset={(row) => setPreviewId(row.id)}
+          onStatusChange={handleStatusChange}
+          statusUpdatingId={statusUpdatingId}
         />
       )}
     </div>

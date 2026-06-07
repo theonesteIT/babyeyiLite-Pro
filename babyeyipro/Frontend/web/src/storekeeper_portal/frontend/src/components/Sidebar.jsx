@@ -3,8 +3,12 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Shirt, Apple, Package, Truck, ShoppingCart, AlertTriangle,
   FileBarChart, Settings, ChevronLeft, ChevronRight, BarChart3, Bell, X, ClipboardList,
+  LogOut, User,
 } from 'lucide-react'
 import { createPortalHref } from '../utils/href'
+import { useAuth } from '../context/AuthContext'
+import { PORTAL } from '../config/portal'
+import { resolveUserPhotoUrl } from '../../../../shared/utils/userPhotoUrl'
 import babyeyiIcon from '../assets/babyeyi-icon.png'
 
 function NavItem({ to, label, icon: Icon, collapsed, onNavigate, end }) {
@@ -36,6 +40,11 @@ export default function Sidebar({
 }) {
   const h = useMemo(() => createPortalHref(basePath), [basePath])
   const closeNav = () => onClose?.()
+  const { staff, logout } = useAuth()
+  const avatarPhoto = staff?.photo ? resolveUserPhotoUrl(staff.photo) : null
+  const initials = staff
+    ? `${(staff.first_name || '')[0] || ''}${(staff.last_name || '')[0] || ''}`.toUpperCase()
+    : ''
 
   const navTop = [
     { to: h('/'), label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -45,7 +54,7 @@ export default function Sidebar({
 
   const navInventory = [
     { to: h('/suppliers'), label: 'Suppliers', icon: Truck },
-    { to: h('/purchase-orders'), label: 'Purchase Orders', icon: ShoppingCart },
+    { to: h('/purchase-requests'), label: 'Purchase Requests', icon: ShoppingCart },
     { to: h('/uniform-inventory'), label: 'Uniform Inventory', icon: Shirt },
     { to: h('/student-requirements'), label: 'Student Requirements', icon: ClipboardList },
     { to: h('/food-inventory'), label: 'Food Inventory', icon: Apple },
@@ -133,11 +142,48 @@ export default function Sidebar({
         ))}
       </nav>
 
-      {!collapsed && (
-        <div className="p-4 border-t border-white/[0.06] shrink-0">
-          <p className="text-[10px] font-medium text-white/40 uppercase tracking-wider">School stock v1.0</p>
-        </div>
-      )}
+      <div className={`p-3 border-t border-white/[0.06] shrink-0 ${collapsed ? 'flex justify-center' : ''}`}>
+        {collapsed ? (
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="p-2 rounded-xl text-white/45 hover:text-red-300 hover:bg-white/5 transition-colors"
+            aria-label="Log out"
+            title="Sign out"
+          >
+            <LogOut size={18} strokeWidth={1.75} />
+          </button>
+        ) : (
+          <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 p-3 flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10 text-[11px] font-semibold text-white">
+              {avatarPhoto ? (
+                <img src={avatarPhoto} alt="" className="w-full h-full object-cover" />
+              ) : initials ? (
+                initials
+              ) : (
+                <User size={16} className="text-white/70" aria-hidden />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-semibold text-white truncate capitalize">
+                {staff?.first_name || PORTAL.profileFallback}
+              </p>
+              <p className="text-[10px] text-white/45 truncate font-medium">
+                {staff?.role_name || PORTAL.roleLabel}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="p-2 rounded-xl text-white/45 hover:text-red-300 hover:bg-white/5 transition-colors"
+              aria-label="Log out"
+              title="Sign out"
+            >
+              <LogOut size={18} strokeWidth={1.75} />
+            </button>
+          </div>
+        )}
+      </div>
     </aside>
   )
 }

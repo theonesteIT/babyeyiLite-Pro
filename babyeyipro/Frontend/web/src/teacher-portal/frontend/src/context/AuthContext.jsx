@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../services/api';
+import { performProLogout } from '../../../../utils/postLogoutLoginPath';
 
 const AuthContext = createContext();
 
@@ -82,14 +83,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    try {
-      await api.post('/session/logout');
-    } catch (e) {
-      console.warn('[AuthContext] Logout error:', e.message);
-    }
     localStorage.removeItem('teacher_logged_in');
     setTeacher(null);
-    window.location.href = '/login';
+    await performProLogout();
   };
 
   return (

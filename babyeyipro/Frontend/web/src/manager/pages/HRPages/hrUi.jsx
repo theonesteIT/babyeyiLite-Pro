@@ -460,6 +460,7 @@ export function statusToBadge(status) {
     Expiring: 'danger',
     Rejected: 'danger',
     Suspended: 'danger',
+    Terminated: 'muted',
     Expired: 'muted',
     'On Leave': 'info',
     Archived: 'muted',

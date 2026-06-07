@@ -102,18 +102,9 @@ function shouldUseProApp(user) {
 
 
 
-export function resolvePostLogoutLoginPath(user) {
-
-  if (!user || user === false) return null;
-
-  const roleCode = String(user.role?.code || user.role_code || '').toUpperCase();
-
-  if (OTHER_PORTAL_ROLES.has(roleCode)) return LOGIN_PATH_OTHER;
-
-  if (shouldUseProApp(user)) return LOGIN_PATH_PRO;
-
-  return LOGIN_PATH_LITE;
-
+/** All Pro portal sign-outs land on LoginPro (/login/pro). */
+export function resolvePostLogoutLoginPath(_user) {
+  return LOGIN_PATH_PRO;
 }
 
 
@@ -134,22 +125,14 @@ export function setPostLogoutLoginPath(path) {
 
 
 
-export function syncPostLogoutLoginPath(user) {
-
-  const path = resolvePostLogoutLoginPath(user);
-
-  if (path) setPostLogoutLoginPath(path);
-
+export function syncPostLogoutLoginPath(_user) {
+  setPostLogoutLoginPath(LOGIN_PATH_PRO);
 }
 
 
 
 export function getPostLogoutLoginPath() {
-
-  const v = localStorage.getItem(KEY);
-
-  return v && ALLOWED.has(v) ? v : LOGIN_PATH_PRO;
-
+  return LOGIN_PATH_PRO;
 }
 
 

@@ -11,6 +11,7 @@ import { getStaffAllowanceSplit, normalizeAllowanceSplit } from "../../utils/pay
 import { filterPayrollEmployeeDeductions } from "../../utils/payrollEmployeeDeductions";
 import { getEmployeePayrollDeductions } from "../../services/payrollTemplateService";
 import { getPayrollRuns, isPayrollRunPaid, triggerPayrollRun } from "../../services/payrollRunService";
+import { listTerminationsForPayrollMonth } from "../../services/terminationBenefitsService";
 import PayrollRegisterTable from "../../components/PayrollRegisterTable";
 import {
   mapApiLineToRegisterRow,
@@ -626,8 +627,10 @@ export default function PayrollRun() {
   const [loadingStaff, setLoadingStaff] = useState(true);
   const [existingPaidRun, setExistingPaidRun] = useState(null);
   const [checkingPaidRun, setCheckingPaidRun] = useState(false);
+  const [terminationPayrolls, setTerminationPayrolls] = useState([]);
 
   const payrollYear = useMemo(() => toPayrollYear(academicYear), [academicYear]);
+  const payrollMonthNum = useMemo(() => MONTHS.indexOf(month) + 1, [month]);
   const periodIsPaid = !!existingPaidRun;
 
   const termOptions = useMemo(() => {
@@ -733,6 +736,22 @@ export default function PayrollRun() {
     return () => { cancelled = true; };
   }, [academicLoaded, academicYear, month, payrollYear]);
 
+  useEffect(() => {
+    if (!payrollMonthNum || !payrollYear) {
+      setTerminationPayrolls([]);
+      return undefined;
+    }
+    let cancelled = false;
+    listTerminationsForPayrollMonth(payrollMonthNum, payrollYear)
+      .then((data) => {
+        if (!cancelled) setTerminationPayrolls(data.filter((t) => t.payrollSnapshot?.registerRow));
+      })
+      .catch(() => {
+        if (!cancelled) setTerminationPayrolls([]);
+      });
+    return () => { cancelled = true; };
+  }, [payrollMonthNum, payrollYear, month, academicYear]);
+
   const templateSyncKey = templateConfig
     ? `${templateConfig.id || ""}-v${templateConfig.version || 0}`
     : "";
@@ -768,8 +787,8 @@ export default function PayrollRun() {
   };
 
   const previewResult = useMemo(
-    () => buildPayrollPreviewRows(staffRaw, templateConfig, empDeductions, employeeAdjustments, runOverrides),
-    [staffRaw, templateConfig, empDeductions, employeeAdjustments, runOverrides]
+    () => buildPayrollPreviewRows(staffRaw, templateConfig, empDeductions, employeeAdjustments, runOverrides, terminationPayrolls),
+    [staffRaw, templateConfig, empDeductions, employeeAdjustments, runOverrides, terminationPayrolls]
   );
 
   const previewRegisterRows = previewResult.rows;
@@ -1241,6 +1260,15 @@ export default function PayrollRun() {
               </div>
             </div>
             <div className="p-4">
+              {terminationPayrolls.length > 0 && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <p className="font-semibold">Termination month payroll included</p>
+                  <p className="text-xs mt-1 text-amber-800/90">
+                    {terminationPayrolls.length} terminated employee{terminationPayrolls.length !== 1 ? 's' : ''} with configured payroll
+                    for {month} {payrollYear} — using final-month rules (base = gross, no RAMA/maternity, CBHI deducted for total payable).
+                  </p>
+                </div>
+              )}
               {loadingStaff ? (
                 <div className="py-16 text-center text-slate-400 text-sm">
                   <Loader2 size={22} className="animate-spin mx-auto mb-2 text-[#F59E0B]" />

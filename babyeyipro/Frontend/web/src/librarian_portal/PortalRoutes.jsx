@@ -20,6 +20,7 @@ import FeaturePlaceholders from './frontend/src/pages/FeaturePlaceholders'
 import ChatCenter from '../shared/pages/ChatCenter'
 import SchoolCalendarPage from '../shared/pages/SchoolCalendarPage'
 import librarianApi from './frontend/src/services/api'
+import { LibrarianRequestOrder } from '../shared/procurement/portalWrappers'
 
 function LoadingScreen() {
   return (
@@ -57,6 +58,7 @@ function LibrarianRoutesInner() {
       <Route path="ticha-deals" element={<ProtectedRoute title="Ticha Deals"><TichaDeals /></ProtectedRoute>} />
       <Route path="ticha-ai" element={<ProtectedRoute title="TichaAI"><TichaAI /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={librarianApi} /></ProtectedRoute>} />
+      <Route path="purchase-requests" element={<ProtectedRoute title="Purchase Requests"><LibrarianRequestOrder /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="settings" element={<ProtectedRoute title="Settings"><FeaturePlaceholders feature="Library Settings" icon="⚙️" /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/librarian" replace />} />

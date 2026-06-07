@@ -22,6 +22,7 @@ import TeacherAttendanceView from './pages/TeacherAttendanceView';
 import RecordMarks from './pages/RecordMarks';
 import ViewMarks from './pages/ViewMarks';
 import Requisitions from './pages/Requisitions';
+import PurchaseRequests from './pages/PurchaseRequests';
 import RequisitionsRes from './pages/RequisitionsRes';
 import ChatCenter from './pages/ChatCenter';
 import StaffPayroll from './pages/StaffPayroll';
@@ -83,6 +84,7 @@ function AppContent() {
       <Route path="/round-roll-call" element={<ProtectedRoute title="Round Roll Call"> <RoundRollCall /> </ProtectedRoute>} />
       <Route path="/teacher-attendance" element={<ProtectedRoute title="Teacher Attendance"> <TeacherAttendanceView /> </ProtectedRoute>} />
       <Route path="/requisitions" element={<ProtectedRoute title="Requisitions">    <Requisitions />                                                 </ProtectedRoute>} />
+      <Route path="/purchase-requests" element={<ProtectedRoute title="Purchase Requests"><PurchaseRequests /></ProtectedRoute>} />
       <Route path="/requisitionsRes" element={<ProtectedRoute title="Requisitions"> <RequisitionsRes />                                              </ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute title="Chat center">            <ChatCenter />                                                   </ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute title="My Payroll">          <StaffPayroll />                                                 </ProtectedRoute>} />

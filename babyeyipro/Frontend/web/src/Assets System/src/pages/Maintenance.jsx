@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Wrench, Plus, Search, Loader2, AlertCircle } from 'lucide-react'
+import { Wrench, Plus, Search, Loader2, AlertCircle, CalendarClock } from 'lucide-react'
 import MaintenanceRequestModal from '../components/MaintenanceRequestModal'
+import ExtendMaintenanceModal from '../components/ExtendMaintenanceModal'
 import MaintenanceScheduleCalendar from '../components/MaintenanceScheduleCalendar'
 import ExportExcelButton from '../components/ExportExcelButton'
 import assetsApi from '../../../assets_portal/services/assetsApi'
 import { exportMaintenanceToExcel } from '../../../assets_portal/utils/assetModuleExcelExport'
-import { localTodayIso, normalizeDateOnly, formatDateDisplay } from '../../../assets_portal/utils/assetsDateUtils'
+import { localTodayIso, normalizeDateOnly, formatDateDisplay, isMaintenanceExtendable } from '../../../assets_portal/utils/assetsDateUtils'
 
 const NAVY = '#000435'
 const FONT = "'Montserrat', sans-serif"
@@ -16,6 +17,8 @@ function todayKey() {
 
 export default function Maintenance() {
   const [modalOpen, setModalOpen] = useState(false)
+  const [extendOpen, setExtendOpen] = useState(false)
+  const [extendRecord, setExtendRecord] = useState(null)
   const [selectedAssignment, setSelectedAssignment] = useState(null)
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
@@ -71,6 +74,12 @@ export default function Maintenance() {
         open={modalOpen}
         onClose={() => { setModalOpen(false); setSelectedAssignment(null) }}
         assignment={selectedAssignment}
+        onSuccess={load}
+      />
+      <ExtendMaintenanceModal
+        open={extendOpen}
+        onClose={() => { setExtendOpen(false); setExtendRecord(null) }}
+        record={extendRecord}
         onSuccess={load}
       />
 
@@ -159,7 +168,9 @@ export default function Maintenance() {
                       <th className="table-header">Technician</th>
                       <th className="table-header">Cost (RWF)</th>
                       <th className="table-header">Start</th>
+                      <th className="table-header">End</th>
                       <th className="table-header">Status</th>
+                      <th className="table-header w-28">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -172,6 +183,7 @@ export default function Maintenance() {
                           {r.cost != null ? Number(r.cost).toLocaleString() : '—'}
                         </td>
                         <td className="table-cell text-sm">{formatDateDisplay(r.date || r.start_date) || '—'}</td>
+                        <td className="table-cell text-sm">{formatDateDisplay(r.end_date) || '—'}</td>
                         <td className="table-cell">
                           <span
                             className={`badge text-[10px] font-semibold ${
@@ -186,6 +198,20 @@ export default function Maintenance() {
                           >
                             {r.status}
                           </span>
+                        </td>
+                        <td className="table-cell">
+                          {isMaintenanceExtendable(r) ? (
+                            <button
+                              type="button"
+                              onClick={() => { setExtendRecord(r); setExtendOpen(true) }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+                              title="End date reached — extend with reason"
+                            >
+                              <CalendarClock size={12} /> Extend
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-gray-300">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

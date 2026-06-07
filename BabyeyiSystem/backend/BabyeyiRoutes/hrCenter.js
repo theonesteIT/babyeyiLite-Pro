@@ -423,6 +423,8 @@ router.get('/school/hr/directory', requireRole(READ_ROLES), async (req, res) => 
     const status = trimStr(req.query.status);
     const contract = trimStr(req.query.contract);
     const position = trimStr(req.query.position);
+    const year = trimStr(req.query.year);
+    const month = trimStr(req.query.month);
 
     const [rows] = await promisePool.query(
       `SELECT
@@ -448,6 +450,8 @@ router.get('/school/hr/directory', requireRole(READ_ROLES), async (req, res) => 
          st.department,
          st.job_title,
          st.address,
+         st.termination_date,
+         st.account_enabled,
          st.payroll_basic_salary,
          st.payroll_payment_method,
          st.payroll_bank_name,
@@ -496,6 +500,8 @@ router.get('/school/hr/directory', requireRole(READ_ROLES), async (req, res) => 
         payroll_account_holder: s.payroll_account_holder,
         payroll_mobile_money_phone: s.payroll_mobile_money_phone,
         hire_date: s.date_of_employment || s.contract_start_date || s.created_at,
+        termination_date: s.termination_date || null,
+        account_enabled: s.account_enabled !== 0 && s.account_enabled !== false,
         gender: s.gender,
         is_active: !!s.is_active,
         hr_profile: hr,
@@ -528,12 +534,26 @@ router.get('/school/hr/directory', requireRole(READ_ROLES), async (req, res) => 
           e.position.toLowerCase().includes(position.toLowerCase())
       );
     }
+    if ((year && year !== 'All') || (month && month !== 'All')) {
+      const statusForDate = status && status !== 'All' ? status : 'All';
+      list = list.filter((e) => {
+        const useTermination = statusForDate === 'Terminated';
+        const raw = useTermination ? (e.termination_date || e.hire_date) : e.hire_date;
+        if (!raw) return false;
+        const d = new Date(raw);
+        if (Number.isNaN(d.getTime())) return false;
+        if (year && year !== 'All' && d.getFullYear() !== Number(year)) return false;
+        if (month && month !== 'All' && d.getMonth() + 1 !== Number(month)) return false;
+        return true;
+      });
+    }
 
     const total = list.length;
     const active = list.filter((e) => e.status === 'Active').length;
     const teachers = list.filter((e) => isTeacherRole(e.role_code)).length;
     const support = list.filter((e) => isSupportRole(e.role_code)).length;
     const onLeave = list.filter((e) => e.status === 'On Leave').length;
+    const terminated = list.filter((e) => e.status === 'Terminated').length;
 
     return res.json({
       success: true,
@@ -544,6 +564,7 @@ router.get('/school/hr/directory', requireRole(READ_ROLES), async (req, res) => 
         teachers,
         support,
         on_leave: onLeave,
+        terminated,
         active_pct: total > 0 ? Math.round((active / total) * 1000) / 10 : 0,
         teachers_pct: total > 0 ? Math.round((teachers / total) * 1000) / 10 : 0,
         support_pct: total > 0 ? Math.round((support / total) * 1000) / 10 : 0,

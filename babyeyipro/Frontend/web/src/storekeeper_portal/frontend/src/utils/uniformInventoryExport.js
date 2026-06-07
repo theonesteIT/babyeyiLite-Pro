@@ -1,4 +1,15 @@
 import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import {
+  buildAllFabricSheetReports,
+  buildFabricSheetReport,
+  computeFinishedGoodProfit,
+  sanitizeSheetName,
+} from './fabricSheetReport'
+
+const NAVY = [0, 4, 53]
+const AMBER = [254, 191, 16]
 
 function formatDate(d) {
   if (!d) return '—'
@@ -20,6 +31,123 @@ function metaRows(title, extra = []) {
 
 function downloadWorkbook(wb, filename) {
   XLSX.writeFile(wb, filename)
+}
+
+function fmtRwf(n) {
+  return `${(Number(n) || 0).toLocaleString()} RWF`
+}
+
+function pdfHeader(doc, title, subtitle = '', landscape = false) {
+  const w = landscape ? 297 : 210
+  doc.setFillColor(...NAVY)
+  doc.rect(0, 0, w, 30, 'F')
+  doc.setTextColor(...AMBER)
+  doc.setFontSize(landscape ? 15 : 16)
+  doc.text(title, 14, 13)
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text(subtitle || `Exported ${new Date().toLocaleString()}`, 14, 21)
+  return 36
+}
+
+function sheetReportExcelRows(report) {
+  if (!report) return []
+  const r = report.receipt
+  return [
+    ...metaRows(report.label, [
+      `Supplier: ${r.supplier_name || '—'}`,
+      `Invoice: ${r.invoice_number || '—'}`,
+    ]),
+    ['Fabric stock summary'],
+    ['Meters in', 'Meters out', 'Remaining', 'Unit cost / m', 'Total bought'],
+    [report.metersIn, report.metersOut, report.remaining, report.unitCost, report.totalBought],
+    [],
+    ['Finished goods on this sheet'],
+    ['Uniform', 'Size', 'Unit price sold', 'Qty sold', 'Total sold', 'Purchase / unit', 'Profit / loss'],
+    ...report.finishedItems.map((it) => [
+      it.uniform_name,
+      it.size,
+      it.unit_price,
+      it.quantity,
+      it.total_sold,
+      it.purchase_cost,
+      it.profit_loss,
+    ]),
+    [],
+    ['Profit / loss summary'],
+    ['Total bought (fabric)', 'Total sold revenue', 'Net result', 'Status'],
+    [report.totalBought, report.totalSoldRevenue, report.profitLoss, report.resultLabel],
+  ]
+}
+
+function addSheetReportToPdf(doc, report, startY = 36) {
+  if (!report) return startY
+  const r = report.receipt
+  let y = startY
+  doc.setTextColor(...NAVY)
+  doc.setFontSize(11)
+  doc.setFont(undefined, 'bold')
+  doc.text(report.label, 14, y)
+  y += 6
+  doc.setFontSize(9)
+  doc.setFont(undefined, 'normal')
+  doc.text(`${r.supplier_name || '—'} · ${formatDate(r.purchase_date)} · ${r.academic_year || ''} ${r.term || ''}`, 14, y)
+  y += 8
+
+  autoTable(doc, {
+    startY: y,
+    head: [['Meters in', 'Meters out', 'Remaining', 'Unit cost/m', 'Total bought']],
+    body: [[
+      `${report.metersIn} m`,
+      `${report.metersOut} m`,
+      `${report.remaining} m`,
+      fmtRwf(report.unitCost),
+      fmtRwf(report.totalBought),
+    ]],
+    styles: { fontSize: 9, textColor: NAVY },
+    headStyles: { fillColor: NAVY, textColor: AMBER },
+    theme: 'grid',
+    margin: { left: 14, right: 14 },
+  })
+
+  y = doc.lastAutoTable.finalY + 6
+
+  if (report.finishedItems.length) {
+    autoTable(doc, {
+      startY: y,
+      head: [['Finished good', 'Size', 'Unit price', 'Qty', 'Total sold']],
+      body: report.finishedItems.map((it) => [
+        it.uniform_name,
+        it.size,
+        fmtRwf(it.unit_price),
+        String(it.quantity),
+        fmtRwf(it.total_sold),
+      ]),
+      styles: { fontSize: 8, textColor: NAVY },
+      headStyles: { fillColor: AMBER, textColor: NAVY },
+      alternateRowStyles: { fillColor: [255, 251, 235] },
+      margin: { left: 14, right: 14 },
+    })
+    y = doc.lastAutoTable.finalY + 6
+  }
+
+  const resultColor = report.profitLoss > 0 ? [16, 185, 129] : report.profitLoss < 0 ? [239, 68, 68] : NAVY
+  autoTable(doc, {
+    startY: y,
+    head: [['Total bought', 'Total sold', 'Profit / loss', 'Result']],
+    body: [[
+      fmtRwf(report.totalBought),
+      fmtRwf(report.totalSoldRevenue),
+      fmtRwf(report.profitLoss),
+      report.resultLabel,
+    ]],
+    styles: { fontSize: 9, textColor: NAVY },
+    headStyles: { fillColor: NAVY, textColor: AMBER },
+    bodyStyles: { fontStyle: 'bold' },
+    columnStyles: { 3: { textColor: resultColor } },
+    margin: { left: 14, right: 14 },
+  })
+  return doc.lastAutoTable.finalY + 12
 }
 
 export function exportFabricStockInExcel(rows, filters = {}) {
@@ -67,6 +195,78 @@ export function exportFabricStockInExcel(rows, filters = {}) {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Fabric Stock In')
   downloadWorkbook(wb, `fabric-stock-in-${stamp()}.xlsx`)
+}
+
+export function exportFabricStockInExcelBySheet(receipts, stockouts = [], finishedGoods = [], filters = {}) {
+  const reports = buildAllFabricSheetReports(receipts, stockouts, finishedGoods)
+  const filterParts = []
+  if (filters.search) filterParts.push(`Search: ${filters.search}`)
+  if (filters.fabric_type) filterParts.push(`Fabric: ${filters.fabric_type}`)
+
+  const wb = XLSX.utils.book_new()
+  const summaryData = [
+    ...metaRows('Fabric Stock In — By Sheet', filterParts),
+    ['Fabric sheet', 'Supplier', 'Meters in', 'Meters out', 'Remaining', 'Unit cost/m', 'Total bought', 'Total sold', 'Profit / loss', 'Result'],
+    ...reports.map((rep) => [
+      rep.label,
+      rep.receipt.supplier_name || '',
+      rep.metersIn,
+      rep.metersOut,
+      rep.remaining,
+      rep.unitCost,
+      rep.totalBought,
+      rep.totalSoldRevenue,
+      rep.profitLoss,
+      rep.resultLabel,
+    ]),
+  ]
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryData)
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
+
+  reports.forEach((rep, i) => {
+    const ws = XLSX.utils.aoa_to_sheet(sheetReportExcelRows(rep))
+    XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName(rep.label, i))
+  })
+
+  downloadWorkbook(wb, `fabric-stock-in-by-sheet-${stamp()}.xlsx`)
+}
+
+export function exportFabricStockInPdf(receipts, stockouts = [], finishedGoods = [], filters = {}) {
+  const reports = buildAllFabricSheetReports(receipts, stockouts, finishedGoods)
+  const filterText = [
+    filters.search && `Search: ${filters.search}`,
+    filters.fabric_type && `Fabric: ${filters.fabric_type}`,
+  ].filter(Boolean).join(' · ')
+  const doc = new jsPDF()
+  pdfHeader(doc, 'Fabric Stock In — Sheet Reports', filterText)
+
+  let y = 36
+  reports.forEach((rep, idx) => {
+    if (idx > 0 && y > 220) {
+      doc.addPage()
+      y = 20
+    }
+    y = addSheetReportToPdf(doc, rep, y)
+  })
+  doc.save(`fabric-stock-in-${stamp()}.pdf`)
+}
+
+export function exportFabricSheetDetailExcel(receipt, stockouts = [], finishedGoods = []) {
+  const report = buildFabricSheetReport(receipt, stockouts, finishedGoods)
+  if (!report) return
+  const ws = XLSX.utils.aoa_to_sheet(sheetReportExcelRows(report))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName(report.label))
+  downloadWorkbook(wb, `fabric-sheet-${sanitizeSheetName(report.label).toLowerCase()}-${stamp()}.xlsx`)
+}
+
+export function exportFabricSheetDetailPdf(receipt, stockouts = [], finishedGoods = []) {
+  const report = buildFabricSheetReport(receipt, stockouts, finishedGoods)
+  if (!report) return
+  const doc = new jsPDF()
+  pdfHeader(doc, report.label, `${report.receipt.supplier_name || ''} · ${formatDate(report.receipt.purchase_date)}`)
+  addSheetReportToPdf(doc, report, 36)
+  doc.save(`fabric-sheet-${sanitizeSheetName(report.label).toLowerCase()}-${stamp()}.pdf`)
 }
 
 export function exportFabricStockOutExcel(stockouts, receipts = [], filters = {}) {
@@ -119,8 +319,77 @@ export function exportFabricStockOutExcel(stockouts, receipts = [], filters = {}
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 18 },
   ]
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Fabric Stock Out')
+  XLSX.utils.book_append_sheet(wb, ws, 'All Stock Outs')
   downloadWorkbook(wb, `fabric-stock-out-${stamp()}.xlsx`)
+}
+
+export function exportFabricStockOutExcelBySheet(receipts, stockouts = [], finishedGoods = [], filters = {}) {
+  const reports = buildAllFabricSheetReports(receipts, stockouts, finishedGoods)
+  const filterParts = []
+  if (filters.search) filterParts.push(`Search: ${filters.search}`)
+
+  const wb = XLSX.utils.book_new()
+
+  const summaryData = [
+    ...metaRows('Fabric Stock Out — By Sheet', filterParts),
+    ['Fabric sheet', 'Meters in', 'Meters out', 'Remaining', 'Unit cost', 'Total bought', 'Total sold', 'Profit / loss', 'Result'],
+    ...reports.map((rep) => [
+      rep.label,
+      rep.metersIn,
+      rep.metersOut,
+      rep.remaining,
+      rep.unitCost,
+      rep.totalBought,
+      rep.totalSoldRevenue,
+      rep.profitLoss,
+      rep.resultLabel,
+    ]),
+  ]
+  const summaryWs = XLSX.utils.aoa_to_sheet(summaryData)
+  summaryWs['!cols'] = [
+    { wch: 22 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 },
+  ]
+  XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
+
+  reports.forEach((rep, i) => {
+    const ws = XLSX.utils.aoa_to_sheet(sheetReportExcelRows(rep))
+    ws['!cols'] = [
+      { wch: 18 }, { wch: 8 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
+      { wch: 14 }, { wch: 14 },
+    ]
+    XLSX.utils.book_append_sheet(wb, ws, sanitizeSheetName(rep.label, i))
+  })
+
+  downloadWorkbook(wb, `fabric-stock-out-by-sheet-${stamp()}.xlsx`)
+}
+
+export function exportFabricStockOutPdf(receipts, stockouts = [], finishedGoods = [], filters = {}) {
+  const reports = buildAllFabricSheetReports(
+    receipts.filter((r) => stockouts.some((s) => String(s.fabric_receipt_id) === String(r.id)) || finishedGoods.some((g) => String(g.fabric_receipt_id) === String(r.id))),
+    stockouts,
+    finishedGoods
+  )
+  const filterText = filters.search ? `Search: ${filters.search}` : ''
+  const doc = new jsPDF()
+  pdfHeader(doc, 'Fabric Stock Out — Sheet Analysis', filterText)
+
+  let y = 36
+  reports.forEach((rep, idx) => {
+    if (idx > 0 && y > 220) {
+      doc.addPage()
+      y = 20
+    }
+    y = addSheetReportToPdf(doc, rep, y)
+  })
+
+  if (!reports.length) {
+    doc.setTextColor(...NAVY)
+    doc.setFontSize(10)
+    doc.text('No fabric sheet data for export.', 14, 50)
+  }
+
+  doc.save(`fabric-stock-out-${stamp()}.pdf`)
 }
 
 export function exportFabricStockExcel(rows) {
@@ -177,49 +446,111 @@ export function exportFabricStockExcel(rows) {
   downloadWorkbook(wb, `fabric-stock-${stamp()}.xlsx`)
 }
 
+function finishedGoodsProfitSummary(rows) {
+  return (rows || []).reduce(
+    (acc, g) => {
+      const p = computeFinishedGoodProfit(g)
+      return {
+        totalSold: acc.totalSold + p.totalSoldCost,
+        totalPurchase: acc.totalPurchase + p.totalPurchaseCost,
+        profitLoss: acc.profitLoss + p.profitLoss,
+        soldQty: acc.soldQty + p.soldQty,
+        stock: acc.stock + (Number(g.stock) || 0),
+        stockValue: acc.stockValue + (Number(g.value) || (Number(g.stock) || 0) * (Number(g.selling_price) || 0)),
+      }
+    },
+    { totalSold: 0, totalPurchase: 0, profitLoss: 0, soldQty: 0, stock: 0, stockValue: 0 }
+  )
+}
+
 export function exportFinishedGoodsExcel(rows, filters = {}) {
   const filterParts = []
   if (filters.search) filterParts.push(`Search: ${filters.search}`)
   if (filters.uniform) filterParts.push(`Uniform: ${filters.uniform}`)
+  const summary = finishedGoodsProfitSummary(rows)
 
   const data = [
-    ...metaRows('Finished Goods Stock', filterParts),
-    ['Uniform', 'Size', 'Fabric', 'Color', 'Stock', 'Purchase Cost', 'Selling Price', 'Stock Value', 'Academic Year', 'Term'],
-    ...(rows || []).map((g) => [
-      g.uniform_name || '',
-      g.size || '',
-      g.fabric_type || g.sheet_label || '',
-      g.fabric_color || '',
-      Number(g.stock) || 0,
-      Number(g.purchase_cost) || 0,
-      Number(g.selling_price) || 0,
-      Number(g.value) || (Number(g.stock) || 0) * (Number(g.selling_price) || 0),
-      g.academic_year || '',
-      g.term || '',
-    ]),
+    ...metaRows('Finished Goods — Stock & Profit / Loss', filterParts),
+    ['Uniform', 'Size', 'Fabric sheet', 'Opening', 'Sold qty', 'Remaining', 'Purchase / unit', 'Selling / unit', 'Total sold', 'Total purchase (sold)', 'Profit / loss', 'Status'],
+    ...(rows || []).map((g) => {
+      const p = computeFinishedGoodProfit(g)
+      const status = !p.soldQty ? 'No sales' : p.profitLoss > 0 ? 'Income' : p.profitLoss < 0 ? 'Loss' : 'Break-even'
+      return [
+        g.uniform_name || '',
+        g.size || '',
+        g.sheet_label || g.fabric_type || '',
+        Number(g.opening_stock) || 0,
+        p.soldQty,
+        Number(g.remaining_stock ?? g.stock) || 0,
+        p.purchaseCost,
+        p.unitSold,
+        p.totalSoldCost,
+        p.totalPurchaseCost,
+        p.profitLoss,
+        status,
+      ]
+    }),
     [],
-    [
-      'Summary',
-      '',
-      '',
-      '',
-      rows.reduce((s, g) => s + (Number(g.stock) || 0), 0),
-      '',
-      '',
-      rows.reduce((s, g) => s + (Number(g.value) || (Number(g.stock) || 0) * (Number(g.selling_price) || 0)), 0),
-      '',
-      `${rows.length} item(s)`,
-    ],
+    ['Summary', '', '', '', summary.soldQty, summary.stock, '', '', summary.totalSold, summary.totalPurchase, summary.profitLoss, summary.profitLoss >= 0 ? 'Income' : 'Loss'],
   ]
 
   const ws = XLSX.utils.aoa_to_sheet(data)
   ws['!cols'] = [
-    { wch: 18 }, { wch: 8 }, { wch: 16 }, { wch: 10 }, { wch: 10 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 },
+    { wch: 18 }, { wch: 8 }, { wch: 18 }, { wch: 10 }, { wch: 10 },
+    { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 12 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Finished Goods')
   downloadWorkbook(wb, `finished-goods-${stamp()}.xlsx`)
+}
+
+export function exportFinishedGoodsPdf(rows, filters = {}) {
+  const summary = finishedGoodsProfitSummary(rows)
+  const doc = new jsPDF({ orientation: 'landscape' })
+  const filterText = [filters.search && `Search: ${filters.search}`, filters.uniform && `Uniform: ${filters.uniform}`].filter(Boolean).join(' · ')
+  pdfHeader(doc, 'Finished Goods — Profit / Loss Report', filterText, true)
+
+  autoTable(doc, {
+    startY: 38,
+    head: [['Uniform', 'Size', 'Fabric', 'Sold', 'Rem.', 'Sell/unit', 'Total sold', 'Purchase (sold)', 'P/L', 'Status']],
+    body: (rows || []).map((g) => {
+      const p = computeFinishedGoodProfit(g)
+      const status = !p.soldQty ? 'No sales' : p.profitLoss > 0 ? 'Income' : p.profitLoss < 0 ? 'Loss' : 'Break-even'
+      return [
+        g.uniform_name,
+        g.size,
+        (g.sheet_label || g.fabric_type || '—').slice(0, 18),
+        String(p.soldQty),
+        String(g.remaining_stock ?? g.stock ?? 0),
+        fmtRwf(p.unitSold),
+        fmtRwf(p.totalSoldCost),
+        fmtRwf(p.totalPurchaseCost),
+        fmtRwf(p.profitLoss),
+        status,
+      ]
+    }),
+    styles: { fontSize: 7.5, textColor: NAVY },
+    headStyles: { fillColor: NAVY, textColor: AMBER },
+    alternateRowStyles: { fillColor: [255, 251, 235] },
+    margin: { left: 14, right: 14 },
+  })
+
+  const y = doc.lastAutoTable.finalY + 8
+  autoTable(doc, {
+    startY: y,
+    head: [['Total sold revenue', 'Total purchase (sold)', 'Net profit / loss', 'Result']],
+    body: [[
+      fmtRwf(summary.totalSold),
+      fmtRwf(summary.totalPurchase),
+      fmtRwf(summary.profitLoss),
+      summary.profitLoss > 0 ? 'Income' : summary.profitLoss < 0 ? 'Loss' : 'Break-even',
+    ]],
+    styles: { fontSize: 10, textColor: NAVY, fontStyle: 'bold' },
+    headStyles: { fillColor: AMBER, textColor: NAVY },
+    margin: { left: 14, right: 14 },
+  })
+
+  doc.save(`finished-goods-${stamp()}.pdf`)
 }
 
 export function exportProfitCalculationExcel(rows, summary = {}, filters = {}) {

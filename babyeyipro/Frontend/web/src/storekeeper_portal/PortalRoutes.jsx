@@ -8,7 +8,7 @@ import FoodInventory from './frontend/src/pages/FoodInventory'
 import FoodReportPage from './frontend/src/pages/FoodReport'
 import OtherInventory from './frontend/src/pages/OtherInventory'
 import Suppliers from './frontend/src/pages/Suppliers'
-import PurchaseOrders from './frontend/src/pages/PurchaseOrders'
+import { StorekeeperRequestOrder } from '../shared/procurement/portalWrappers'
 import StockAdjustments from './frontend/src/pages/StockAdjustments'
 import Reports from './frontend/src/pages/Reports'
 import Settings from './frontend/src/pages/Settings'
@@ -45,7 +45,8 @@ function StorekeeperRoutesInner() {
       <Route path="analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
-      <Route path="purchase-orders" element={<ProtectedRoute><PurchaseOrders /></ProtectedRoute>} />
+      <Route path="purchase-requests" element={<ProtectedRoute><StorekeeperRequestOrder /></ProtectedRoute>} />
+      <Route path="purchase-orders" element={<Navigate to="purchase-requests" replace />} />
       <Route path="uniform-inventory" element={<ProtectedRoute><UniformInventory /></ProtectedRoute>} />
       <Route path="student-requirements" element={<ProtectedRoute><StudentRequirements /></ProtectedRoute>} />
       <Route path="food-inventory" element={<ProtectedRoute><FoodInventory /></ProtectedRoute>} />

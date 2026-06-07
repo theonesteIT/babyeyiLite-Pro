@@ -4,18 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import useChatUnread from '../hooks/useChatUnread';
 import {
   LayoutDashboard, Users, BookOpen, Calendar, CalendarDays, ClipboardCheck,
-  Wallet, MessageSquare, ClipboardList, Eye, PenLine, FileSpreadsheet,
+  Wallet, MessageSquare, ClipboardList, Eye, PenLine,
   Building2, LogOut, WifiOff, GraduationCap, ChevronDown, DollarSign, Shield,
-  ListChecks, UserCircle,
+  ListChecks, UserCircle, ShoppingCart,
 } from 'lucide-react';
 import babyeyiIcon from '../assets/babyeyi-icon.png';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5100';
-const toPhotoUrl = (photo) => {
-  if (!photo) return null;
-  if (photo.startsWith('http://') || photo.startsWith('https://')) return photo;
-  return `${API_BASE}${photo}`;
-};
+import {
+  resolveTeacherPhotoUrl,
+  teacherDisplayName,
+  teacherInitials,
+} from '../utils/teacherDisplay';
 
 // ── Single nav link ───────────────────────────────────────────
 const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => (
@@ -42,10 +40,17 @@ const NavItem = ({ icon: Icon, name, path, exact, onClose, badgeCount = 0 }) => 
   </NavLink>
 );
 
+function pathIsActive(location, path) {
+  if (!path) return false;
+  if (location.pathname === path) return true;
+  if (path !== '/' && location.pathname.startsWith(`${path}/`)) return true;
+  return false;
+}
+
 // ── Expandable item ───────────────────────────────────────────
 const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
   const location = useLocation();
-  const isAnyActive = subItems.some(s => location.pathname === s.path);
+  const isAnyActive = subItems.some((s) => pathIsActive(location, s.path));
   const [open, setOpen] = useState(isAnyActive);
 
   useEffect(() => {
@@ -55,7 +60,8 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
   return (
     <div className="space-y-1">
       <button
-        onClick={() => setOpen(o => !o)}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-[13px] font-black group
           ${isAnyActive ? 'text-[#000435] bg-[#000435]/5' : 'text-slate-500 hover:bg-[#000435]/5 hover:text-[#000435]'}`}
       >
@@ -66,7 +72,7 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
 
       {open && (
         <div className="ml-5 mt-1 space-y-1 border-l-2 border-[#000435]/10 pl-3 py-1">
-          {subItems.map(sub => (
+          {subItems.map((sub) => (
             <NavLink
               key={sub.path}
               to={sub.path}
@@ -79,7 +85,12 @@ const ExpandableNavItem = ({ icon: Icon, name, subItems, onClose }) => {
               {({ isActive }) => (
                 <>
                   <sub.icon size={14} className={isActive ? 'text-[#f59e0b]' : 'text-slate-400'} />
-                  {sub.name}
+                  <span className="flex-1 truncate">{sub.name}</span>
+                  {sub.badgeCount > 0 && (
+                    <span className="text-[9px] font-black leading-none px-1.5 py-0.5 rounded-full bg-red-500 text-white">
+                      {sub.badgeCount > 99 ? '99+' : sub.badgeCount}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
@@ -102,7 +113,11 @@ const Sidebar = ({ onClose }) => {
   const { teacher, logout } = useAuth();
   const unreadCount = useChatUnread();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [logoError, setLogoError] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
+
+  const teacherPhoto = resolveTeacherPhotoUrl(teacher?.photo);
+  const teacherName = teacherDisplayName(teacher);
+  const teacherInitial = teacherInitials(teacher);
 
   useEffect(() => {
     const goOnline  = () => setIsOnline(true);
@@ -115,11 +130,10 @@ const Sidebar = ({ onClose }) => {
     };
   }, []);
 
-  // School logo + initials fallback
-  const schoolLogo   = teacher?.school?.logo ? toPhotoUrl(teacher.school.logo) : null;
-  const schoolName   = teacher?.school?.name || '';
-  const schoolInitial = schoolName.trim().charAt(0).toUpperCase() || 'S';
-   
+  useEffect(() => {
+    setPhotoError(false);
+  }, [teacher?.photo]);
+
   return (
     <div className="flex flex-col h-full bg-white border-r border-black/5 shadow-sm">
 
@@ -147,11 +161,18 @@ const Sidebar = ({ onClose }) => {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <nav className="px-3 pb-6 space-y-1">
           <NavItem icon={LayoutDashboard} name="Dashboard" path="/" exact onClose={onClose} />
-          
+
           <SectionLabel label="Academic" />
-          <NavItem icon={Users} name="Students" path="/students" onClose={onClose} />
-          <NavItem icon={BookOpen} name="English Club" path="/english-club" onClose={onClose} />
-          <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
+          <ExpandableNavItem
+            icon={GraduationCap}
+            name="Teaching"
+            onClose={onClose}
+            subItems={[
+              { name: 'Students', path: '/students', icon: Users },
+              { name: 'English Club', path: '/english-club', icon: BookOpen },
+              { name: 'Timetable', path: '/timetable', icon: Calendar },
+            ]}
+          />
           <ExpandableNavItem
             icon={ClipboardCheck}
             name="Attendance"
@@ -164,26 +185,49 @@ const Sidebar = ({ onClose }) => {
           />
           <ExpandableNavItem
             icon={ClipboardList}
-            name="Marks Sheet"
+            name="Marks & Exams"
             onClose={onClose}
             subItems={[
-              { name: 'View Student Marks', path: '/marks/view', icon: Eye },
-              { name: 'Record Marks', path: '/marks/record', icon: PenLine },
+              { name: 'View student marks', path: '/marks/view', icon: Eye },
+              { name: 'Record marks', path: '/marks/record', icon: PenLine },
               { name: 'Examination list', path: '/exam-eligibility', icon: ListChecks },
             ]}
           />
 
-          <SectionLabel label="Management" />
-          <NavItem icon={DollarSign} name="My Payroll" path="/payroll" onClose={onClose} />
-          <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />
-          <NavItem icon={Building2} name="TichaDeals" path="/ticha-deals" onClose={onClose} />
-          <NavItem icon={FileSpreadsheet} name="Requisitions" path="/requisitions" onClose={onClose} />
-          <NavItem icon={Shield} name="Permissions" path="/permissions" onClose={onClose} />
-          <NavItem icon={CalendarDays} name="School Calendar" path="/school-calendar" onClose={onClose} />
+          <SectionLabel label="Work & Finance" />
+          <ExpandableNavItem
+            icon={Wallet}
+            name="Finance & Procurement"
+            onClose={onClose}
+            subItems={[
+              { name: 'My payroll', path: '/payroll', icon: DollarSign },
+              { name: 'Purchase requests', path: '/purchase-requests', icon: ShoppingCart },
+            ]}
+          />
+
+          <SectionLabel label="School Services & Tools" />
+          <ExpandableNavItem
+            icon={Building2}
+            name="School Services & Tools"
+            onClose={onClose}
+            subItems={[
+              { name: 'Shule Avance', path: '/shule-avance', icon: Wallet },
+              { name: 'TichaDeals', path: '/ticha-deals', icon: Building2 },
+              { name: 'Permissions', path: '/permissions', icon: Shield },
+              { name: 'School calendar', path: '/school-calendar', icon: CalendarDays },
+            ]}
+          />
 
           <SectionLabel label="Communication" />
-          <NavItem icon={MessageSquare} name="TichaAI" path="/ticha-ai" onClose={onClose} />
-          <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
+          <ExpandableNavItem
+            icon={MessageSquare}
+            name="Communication"
+            onClose={onClose}
+            subItems={[
+              { name: 'TichaAI', path: '/ticha-ai', icon: MessageSquare },
+              { name: 'Chat center', path: '/chat', icon: MessageSquare, badgeCount: unreadCount },
+            ]}
+          />
 
           <SectionLabel label="Account" />
           <NavItem icon={UserCircle} name="My Profile" path="/profile" onClose={onClose} />
@@ -203,25 +247,29 @@ const Sidebar = ({ onClose }) => {
             </div>
           )}
 
-          {/* School card */}
+          {/* Teacher account */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white border border-black/5 shadow-sm">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 flex items-center justify-center shrink-0 border border-black/5">
-              {schoolLogo && !logoError
-                ? <img
-                    src={schoolLogo}
-                    alt={schoolName}
-                    className="w-full h-full object-contain p-1"
-                    onError={() => setLogoError(true)}
-                  />
-                : <span className="text-sm font-black text-[#000435]">{schoolInitial}</span>
-              }
+            <div
+              className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0 border border-black/5"
+              style={teacherPhoto && !photoError ? undefined : { background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
+            >
+              {teacherPhoto && !photoError ? (
+                <img
+                  src={teacherPhoto}
+                  alt={teacherName}
+                  className="w-full h-full object-cover"
+                  onError={() => setPhotoError(true)}
+                />
+              ) : (
+                <span className="text-sm font-black text-white">{teacherInitial}</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-black truncate text-[#000435]">
-                {teacher?.first_name || 'Teacher'}
+                {teacherName}
               </p>
               <p className="text-[10px] font-bold text-slate-500 truncate mt-0.5">
-                {schoolName || 'Academic Staff'}
+                {teacher?.email || 'Teacher account'}
               </p>
             </div>
             <button

@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   FileText,
   Headphones,
+  ShoppingCart,
   ShoppingBag,
   ArrowUpCircle,
 } from 'lucide-react';
@@ -247,11 +248,15 @@ const Sidebar = ({ onClose }) => {
           onClose={onClose}
           subItems={[
             { name: 'Teacher requisitions', path: '/teacher-requisitions', icon: ClipboardList },
+            { name: 'Purchase Requests', path: '/purchase-requests', icon: ShoppingCart },
             { name: 'Student permissions', path: '/teacher-permissions', icon: ShieldCheck },
             { name: 'Staff permissions', path: '/staff-permissions', icon: ShieldCheck },
             { name: 'Lesson plan reports', path: '/lesson-plan-reports', icon: FileText },
           ]}
         />
+
+        <SectionLabel label="Procurement" />
+        <NavItem icon={ShoppingCart} name="Purchase Requests" path="/purchase-requests" onClose={onClose} />
 
         <NavItem icon={CalendarDays} name="School Calendar" path="/school-calendar" onClose={onClose} />
 

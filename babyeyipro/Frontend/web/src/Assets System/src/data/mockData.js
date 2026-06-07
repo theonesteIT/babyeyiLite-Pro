@@ -247,6 +247,52 @@ export const maintenanceFrequencyData = [
   { category: 'Lab Equipment', frequency: 22, cost: 48000 },
 ]
 
+export const categoryRates = {
+  'ICT Equipment': 25,
+  'Furniture': 10,
+  'Vehicles': 20,
+  'Electronics': 15,
+  'Buildings': 5,
+  'Lab Equipment': 15,
+}
+
+export const categoryLedger = {
+  'ICT Equipment': { opening: 0, totalAssets: 0, depreciation: 0, closing: 0, count: 0 },
+  'Furniture': { opening: 0, totalAssets: 0, depreciation: 0, closing: 0, count: 0 },
+  'Vehicles': { opening: 0, totalAssets: 0, depreciation: 0, closing: 0, count: 0 },
+  'Electronics': { opening: 0, totalAssets: 0, depreciation: 0, closing: 0, count: 0 },
+  'Buildings': { opening: 0, totalAssets: 0, depreciation: 0, closing: 0, count: 0 },
+  'Lab Equipment': { opening: 0, totalAssets: 0, depreciation: 0, closing: 0, count: 0 },
+}
+
+export const financialYears = [
+  { id: 1, year: '2024', start: '2024-01-01', end: '2024-12-31', status: 'Closed', totalAssets: 21000000, openingBalance: 18000000, closingBalance: 21000000, description: 'Baseline financial year' },
+  { id: 2, year: '2025', start: '2025-01-01', end: '2025-12-31', status: 'Closed', totalAssets: 24800000, openingBalance: 21000000, closingBalance: 24800000, description: 'Standard operating year' },
+  { id: 3, year: '2026', start: '2026-01-01', end: '2026-12-31', status: 'Active', totalAssets: 28400000, openingBalance: 24800000, closingBalance: 28400000, description: 'Current financial year' },
+  { id: 4, year: '2027', start: '2027-01-01', end: '2027-12-31', status: 'Draft', totalAssets: 0, openingBalance: 28400000, closingBalance: 0, description: 'Upcoming financial year' },
+]
+
+export const openingBalances = [
+  { year: '2024', category: 'Buildings', opening: 6000000, lastYearClosing: 5000000 },
+  { year: '2024', category: 'ICT Equipment', opening: 5000000, lastYearClosing: 4000000 },
+  { year: '2024', category: 'Furniture', opening: 3000000, lastYearClosing: 2500000 },
+  { year: '2024', category: 'Vehicles', opening: 4000000, lastYearClosing: 3500000 },
+  { year: '2024', category: 'Electronics', opening: 2000000, lastYearClosing: 1500000 },
+  { year: '2024', category: 'Lab Equipment', opening: 1000000, lastYearClosing: 800000 },
+  { year: '2025', category: 'Buildings', opening: 7000000, lastYearClosing: 6000000 },
+  { year: '2025', category: 'ICT Equipment', opening: 6000000, lastYearClosing: 5000000 },
+  { year: '2025', category: 'Furniture', opening: 3500000, lastYearClosing: 3000000 },
+  { year: '2025', category: 'Vehicles', opening: 4500000, lastYearClosing: 4000000 },
+  { year: '2025', category: 'Electronics', opening: 2300000, lastYearClosing: 2000000 },
+  { year: '2025', category: 'Lab Equipment', opening: 1500000, lastYearClosing: 1000000 },
+  { year: '2026', category: 'Buildings', opening: 8500000, lastYearClosing: 7000000 },
+  { year: '2026', category: 'ICT Equipment', opening: 7500000, lastYearClosing: 6000000 },
+  { year: '2026', category: 'Furniture', opening: 4000000, lastYearClosing: 3500000 },
+  { year: '2026', category: 'Vehicles', opening: 5000000, lastYearClosing: 4500000 },
+  { year: '2026', category: 'Electronics', opening: 2600000, lastYearClosing: 2300000 },
+  { year: '2026', category: 'Lab Equipment', opening: 1800000, lastYearClosing: 1500000 },
+]
+
 export const users = [
   { id: 1, name: 'Admin User', email: 'admin@assetmgmt.com', role: 'Super Admin', status: 'Active' },
   { id: 2, name: 'John Manager', email: 'john@assetmgmt.com', role: 'Asset Manager', status: 'Active' },

@@ -25,6 +25,7 @@ import DosAcademicProgressPage from './pages/DosAcademicProgressPage'
 import DosSettingsPage from './pages/DosSettingsPage'
 import DosReportsPage from './pages/DosReportsPage'
 import TeacherRequisitionReports from './pages/TeacherRequisitionReports'
+import { DosRequestOrder } from '../shared/procurement/portalWrappers'
 import PermissionsManager from '../manager/pages/PermissionsManager'
 import DosStudentPermissions from './pages/DosStudentPermissions'
 import DosTeacherStaffPermissions from './pages/DosTeacherStaffPermissions'
@@ -193,6 +194,14 @@ function DosRoutesInner() {
         element={
           <ProtectedRoute title="Teacher requisitions report">
             <TeacherRequisitionReports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="purchase-requests"
+        element={
+          <ProtectedRoute title="Purchase Requests">
+            <DosRequestOrder />
           </ProtectedRoute>
         }
       />

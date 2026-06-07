@@ -1059,6 +1059,15 @@ const startServer = async () => {
     } catch (schemaErr) {
       console.error('❌  Portal operations schema init failed:', schemaErr.message);
     }
+    try {
+      const terminationRoutes = require('./BabyeyiRoutes/terminationBenefitsRoutes');
+      if (typeof terminationRoutes.ensureTerminationBenefitsSchema === 'function') {
+        await terminationRoutes.ensureTerminationBenefitsSchema();
+        console.log('  ✅  Termination benefits schema ready');
+      }
+    } catch (schemaErr) {
+      console.error('❌  Termination benefits schema init failed:', schemaErr.message);
+    }
     // Migrations now own schema evolution. Keep this call disabled in runtime.
 
     httpServer.listen(PORT, () => {

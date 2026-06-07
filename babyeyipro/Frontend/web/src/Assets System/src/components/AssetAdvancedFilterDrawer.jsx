@@ -61,7 +61,7 @@ export default function AssetAdvancedFilterDrawer({
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-[#000435]/70">Status</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-[#000435]/70">Asset status</label>
             <select className="assets-wizard-input" value={filters.status} onChange={(e) => set('status', e.target.value)}>
               {ASSET_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>

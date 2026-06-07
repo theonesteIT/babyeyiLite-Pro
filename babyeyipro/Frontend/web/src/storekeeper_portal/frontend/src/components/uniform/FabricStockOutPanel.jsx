@@ -2,10 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, X, Package, Ruler, Calendar, Loader2, Trash2, RefreshCw,
-  AlertCircle, ArrowUpFromLine, Layers, FileSpreadsheet,
+  AlertCircle, ArrowUpFromLine, Layers, FileSpreadsheet, FileText,
 } from 'lucide-react'
-import { exportFabricStockOutExcel } from '../../utils/uniformInventoryExport'
+import {
+  exportFabricStockOutExcel,
+  exportFabricStockOutExcelBySheet,
+  exportFabricStockOutPdf,
+} from '../../utils/uniformInventoryExport'
 import { fetchFabricReceipts } from '../../services/fabricReceiptsService'
+import { fetchFinishedGoods } from '../../services/finishedGoodsService'
 import {
   EMPTY_STOCKOUT_FORM,
   STOCKOUT_PURPOSES,
@@ -23,6 +28,7 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
   const [stockouts, setStockouts] = useState([])
   const [receipts, setReceipts] = useState([])
   const [allReceipts, setAllReceipts] = useState([])
+  const [finishedGoods, setFinishedGoods] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -35,9 +41,14 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
     setLoading(true)
     setError('')
     try {
-      const [outRows, rcptRows] = await Promise.all([fetchFabricStockouts(), fetchFabricReceipts()])
+      const [outRows, rcptRows, goods] = await Promise.all([
+        fetchFabricStockouts(),
+        fetchFabricReceipts(),
+        fetchFinishedGoods(),
+      ])
       setStockouts(outRows)
       setAllReceipts(rcptRows)
+      setFinishedGoods(goods)
       setReceipts(rcptRows.filter((r) => Number(r.remaining_meters) > 0))
       onFabricsChange?.(rcptRows)
     } catch (e) {
@@ -189,14 +200,30 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
             <RefreshCw size={16} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => exportFabricStockOutExcelBySheet(allReceipts, stockouts, finishedGoods, { search })}
+            disabled={!allReceipts.length}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
+          >
+            <FileSpreadsheet size={14} /> Excel (by sheet)
+          </button>
+          <button
+            type="button"
+            onClick={() => exportFabricStockOutPdf(allReceipts, stockouts, finishedGoods, { search })}
+            disabled={!allReceipts.length}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
+          >
+            <FileText size={14} /> PDF
+          </button>
           <button
             type="button"
             onClick={() => exportFabricStockOutExcel(filtered, allReceipts, { search })}
             disabled={!filtered.length}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-[#000435] text-[10px] font-bold uppercase hover:bg-gray-50 disabled:opacity-40 transition"
           >
-            <FileSpreadsheet size={14} /> Export Excel
+            <FileSpreadsheet size={14} /> List Excel
           </button>
           <button
             type="button"

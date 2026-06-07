@@ -5,16 +5,11 @@ import {
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import TeacherOrangeHero from '../components/TeacherOrangeHero';
-
-const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '');
-
-function resolvePhotoUrl(photo) {
-  if (!photo) return null;
-  const s = String(photo).trim();
-  if (!s) return null;
-  if (s.startsWith('http://') || s.startsWith('https://')) return s;
-  return `${API_ORIGIN}${s.startsWith('/') ? s : `/${s}`}`;
-}
+import {
+  resolveTeacherPhotoUrl,
+  teacherDisplayName,
+  teacherInitials,
+} from '../utils/teacherDisplay';
 
 export default function TeacherProfile() {
   const { teacher, refreshTeacher, updateTeacher } = useAuth();
@@ -35,11 +30,10 @@ export default function TeacherProfile() {
   const [pwMsg, setPwMsg] = useState(null);
 
   const forceChange = !!teacher?.force_password_change;
-  const photoUrl = resolvePhotoUrl(teacher?.photo);
+  const photoUrl = resolveTeacherPhotoUrl(teacher?.photo);
   const displaySrc = photoPreview || photoUrl;
-  const initials = teacher
-    ? `${(teacher.first_name || '')[0] || ''}${(teacher.last_name || '')[0] || ''}`.toUpperCase() || '?'
-    : '?';
+  const initials = teacherInitials(teacher);
+  const displayName = teacherDisplayName(teacher);
 
   useEffect(() => () => {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
@@ -151,7 +145,7 @@ export default function TeacherProfile() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-base font-bold text-re-text truncate">
-                {teacher?.first_name} {teacher?.last_name}
+                {displayName}
               </p>
               <p className="text-xs text-re-text-muted flex items-center gap-1.5 mt-1 truncate">
                 <Mail size={12} className="shrink-0 opacity-50" />

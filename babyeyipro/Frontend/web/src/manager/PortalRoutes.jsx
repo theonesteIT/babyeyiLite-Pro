@@ -48,11 +48,14 @@ import EmployeeProfile from './pages/HRPages/EmployeeProfile'
 import HRDepartments from './pages/HRPages/Departments'
 import StaffDocuments from './pages/HRPages/StaffDocuments'
 import Qualifications from './pages/HRPages/Qualifications'
+import TerminationReview from './pages/TerminationReview'
 import StockReports from './pages/StockReports'
 import LibraryReports from './pages/LibraryReports'
 import ManagerProfile from './pages/ManagerProfile'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
+import { ManagerRequestOrder } from '../shared/procurement/portalWrappers'
+import ProcurementManagerApprovals from './pages/ProcurementManagerApprovals'
 
 const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
@@ -144,6 +147,7 @@ function ManagerRoutesInner() {
       <Route path="finance/payments" element={<ProtectedRoute title="Student Fee Payments"><FeePayments /></ProtectedRoute>} />
       <Route path="finance/budgets" element={<ProtectedRoute title="School Budget Management"><SchoolBudgetManagement /></ProtectedRoute>} />
       <Route path="finance/action-plans" element={<ProtectedRoute title="Action Plan Approvals"><ManagerActionPlanApprovals /></ProtectedRoute>} />
+      <Route path="finance/termination-benefits" element={<ProtectedRoute title="Termination Approvals"><TerminationReview /></ProtectedRoute>} />
       <Route path="finance/wizard" element={<ProtectedRoute title="Babyeyi Wizard"><BabyeyiWizard /></ProtectedRoute>} />
 
       <Route path="reports/academic" element={<ProtectedRoute title="Academic Reports"><AcademicReports /></ProtectedRoute>} />
@@ -159,11 +163,13 @@ function ManagerRoutesInner() {
       <Route path="profile" element={<ProtectedRoute title="My profile"><ManagerProfile /></ProtectedRoute>} />
       <Route path="settings/gradebook" element={<Navigate to={h('/operations?tab=gradebook')} replace />} />
       <Route path="permissions" element={<ProtectedRoute title="Student Permissions"><PermissionsManager /></ProtectedRoute>} />
-      <Route path="teacher-permission-reports" element={<ProtectedRoute title="Teacher Permission Reports"><TeacherPermissionReports /></ProtectedRoute>} />
+      <Route path="teacher-permission-reports" element={<ProtectedRoute title="Teacher Permission Approvals"><TeacherPermissionReports /></ProtectedRoute>} />
       <Route path="chat" element={<ProtectedRoute title="Chat center"><ChatCenter /></ProtectedRoute>} />
       <Route path="audit" element={<ProtectedRoute title="Audit Center"><AuditCenter /></ProtectedRoute>} />
       <Route path="reports/stock"   element={<ProtectedRoute title="Stock Reports"><StockReports /></ProtectedRoute>} />
       <Route path="reports/library" element={<ProtectedRoute title="Library Reports"><LibraryReports /></ProtectedRoute>} />
+      <Route path="purchase-requests" element={<ProtectedRoute title="Purchase Requests"><ManagerRequestOrder /></ProtectedRoute>} />
+      <Route path="procurement-approvals" element={<ProtectedRoute title="Procurement Approvals"><ProcurementManagerApprovals /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to={PORTAL.basePath} replace />} />
     </Routes>

@@ -1,7 +1,8 @@
 import { Fragment } from 'react'
 import QRCode from '../../../assets_portal/components/AssetQrCode'
 import { formatRwf, formatLocationValue, groupAssetsByType } from '../../../assets_portal/utils/assetsCalculations'
-import { buildAssetQrValue } from '../../../assets_portal/utils/assetsQr'
+import { buildAssetScanUrl } from '../../../assets_portal/utils/assetsQr'
+import AssetStatusMenu, { AssetStatusBadge } from './AssetStatusMenu'
 
 const NAVY = '#000435'
 const GOLD = '#FEBF10'
@@ -59,7 +60,9 @@ const HEADERS = [
   { key: 'dep_mode', label: 'depreciation_mode', w: 'min-w-[100px]' },
   { key: 'dep_rate', label: 'depreciation_rate', w: 'min-w-[90px]' },
   { key: 'condition', label: 'description', w: 'min-w-[90px]' },
+  { key: 'assets_status', label: 'status', w: 'min-w-[100px]' },
   { key: 'qr', label: 'QR', w: 'min-w-[56px]' },
+  { key: 'actions', label: '', w: 'min-w-[40px]' },
 ]
 
 function parsePurchaseParts(dateStr) {
@@ -100,12 +103,19 @@ function cell(row, key) {
     case 'dep_mode': return row.dep_mode || '—'
     case 'dep_rate': return row.dep_rate != null ? row.dep_rate : '—'
     case 'condition': return row.condition_code || row.condition || '—'
-    case 'qr': return row.qr_value || buildAssetQrValue(row)
+    case 'assets_status': return row.assets_status || 'Active'
+    case 'qr': return row.qr_value || buildAssetScanUrl(row)
     default: return '—'
   }
 }
 
-export default function AssetRegisterTable({ assets = [], selectedId, onSelectAsset }) {
+export default function AssetRegisterTable({
+  assets = [],
+  selectedId,
+  onSelectAsset,
+  onStatusChange,
+  statusUpdatingId = null,
+}) {
   const groups = groupAssetsByType(assets)
 
   if (!assets.length) {
@@ -185,6 +195,24 @@ export default function AssetRegisterTable({ assets = [], selectedId, onSelectAs
                     >
                       {HEADERS.map((h) => {
                         const raw = cell(row, h.key)
+                        if (h.key === 'actions') {
+                          return (
+                            <td key={h.key} style={{ ...tdStyle, textAlign: 'center' }}>
+                              <AssetStatusMenu
+                                asset={row}
+                                onStatusChange={onStatusChange}
+                                updating={statusUpdatingId === row.id}
+                              />
+                            </td>
+                          )
+                        }
+                        if (h.key === 'assets_status') {
+                          return (
+                            <td key={h.key} style={tdStyle}>
+                              <AssetStatusBadge value={raw} />
+                            </td>
+                          )
+                        }
                         if (h.key === 'qr') {
                           const qrVal = typeof raw === 'string' ? raw : buildAssetQrValue(row)
                           return (

@@ -66,6 +66,8 @@ const NAV_GROUPS = [
       { name: 'Payroll Salary Template', path: '/payroll/salary-template' },
       { name: 'Staff Salary Setup', path: '/payroll/staff-salary-setup' },
       { name: 'Payroll Run', path: '/payroll/run' },
+      { name: 'Payroll Reports', path: '/payroll/reports' },
+      { name: 'Termination Benefits', path: '/payroll/termination-benefits' },
       // { name: 'Bulk Salary Import', path: '/payroll/bulk-import' },
       // { name: 'Configure Payroll', path: '/payroll/config' },
       { name: 'Salary Payment', path: '/payroll/salary-payment' },
@@ -90,6 +92,9 @@ const NAV_GROUPS = [
     label: 'Requests & Approvals',
     icon: ClipboardList,
     items: [
+      { name: 'Purchase Requests', path: '/purchase-requests' },
+      { name: 'Requisition Orders', path: '/requisition-orders' },
+      { name: 'Purchase Orders', path: '/purchase-orders' },
       { name: 'Requisitions', path: '/requisitions' },
       { name: 'Advance Approval Queue', path: '/shule-avance' },
       { name: 'Action Plan', path: '/action-plan' },

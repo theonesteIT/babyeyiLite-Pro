@@ -8,6 +8,9 @@ import Invoices from './frontend/src/pages/Invoices'
 import InvoiceSettings from './frontend/src/pages/InvoiceSettings'
 import Expenses from './frontend/src/pages/Expenses'
 import Requisitions from './frontend/src/pages/Requisitions'
+import RequisitionOrders from './frontend/src/pages/RequisitionOrders'
+import PurchaseOrders from './frontend/src/pages/PurchaseOrders'
+import { AccountantRequestOrder } from '../shared/procurement/portalWrappers'
 import PayrollHistory from './frontend/src/pages/PayrollHistory'
 import PayrollConfig from './frontend/src/pages/PayrollConfig'
 import StaffPayroll from './frontend/src/pages/StaffPayroll'
@@ -31,6 +34,8 @@ import PayrollRun from './frontend/src/pages/Payroll/PayrollRun'
 import BulkSalaryImport from './frontend/src/pages/Payroll/BulkSalaryImport'
 import SalaryTemplate from './frontend/src/pages/Payroll/SalaryTemplate'
 import BankPayroll from './frontend/src/pages/Payroll/BankPayroll'
+import PayrollReports from './frontend/src/pages/Payroll/PayrollReports'
+import TerminationBenefits from './frontend/src/pages/Payroll/TerminationBenefits'
 import PayrollDisbursement from './frontend/src/pages/Payroll/PayrollDisbursement'
 import PaySlips from './frontend/src/pages/Payroll/PaySlips'
 import AccountantSettings from './frontend/src/pages/AccountantSettings'
@@ -61,7 +66,7 @@ function ProtectedRoute({ children, title }) {
   return <Layout title={title}>{children}</Layout>
 }
 
-function AccountantRoutesInner() {
+export function AccountantAppRoutes() {
   return (
     <Routes>
       <Route path="" element={<ProtectedRoute title="Dashboard"><Dashboard /></ProtectedRoute>} />
@@ -92,6 +97,9 @@ function AccountantRoutesInner() {
       <Route path="invoices/settings" element={<ProtectedRoute title="Configure Invoices"><InvoiceSettings /></ProtectedRoute>} />
       <Route path="expenses" element={<ProtectedRoute title="School Expenses"><Expenses /></ProtectedRoute>} />
       <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
+      <Route path="purchase-requests" element={<ProtectedRoute title="Purchase Requests"><AccountantRequestOrder /></ProtectedRoute>} />
+      <Route path="requisition-orders" element={<ProtectedRoute title="Requisition Orders"><RequisitionOrders /></ProtectedRoute>} />
+      <Route path="purchase-orders" element={<ProtectedRoute title="Purchase Orders"><PurchaseOrders /></ProtectedRoute>} />
       <Route
         path="school-budget"
         element={<ProtectedRoute title="School Budget"><SchoolBudget /></ProtectedRoute>}
@@ -100,22 +108,24 @@ function AccountantRoutesInner() {
         path="action-plan"
         element={<ProtectedRoute title="School Action Plan"><ActionPlanManagement /></ProtectedRoute>}
       />
-      <Route path="payroll" element={<Navigate to="payroll/history" replace />} />
-      <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
-      <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
-      <Route path="payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
+      <Route path="payroll/reports" element={<ProtectedRoute title="Payroll Reports"><PayrollReports /></ProtectedRoute>} />
+      <Route path="payroll/termination-benefits" element={<ProtectedRoute title="Termination Benefits"><TerminationBenefits /></ProtectedRoute>} />
+      <Route path="payroll/run" element={<ProtectedRoute title="Payroll Run"><PayrollRun /></ProtectedRoute>} />
+      <Route path="payroll/staff-salary-setup" element={<ProtectedRoute title="Staff Salary Setup"><StaffSalarySetup /></ProtectedRoute>} />
+      <Route path="payroll/salary-template" element={<ProtectedRoute title="Payroll Salary Template"><SalaryTemplate /></ProtectedRoute>} />
+      <Route path="payroll/bulk-import" element={<ProtectedRoute title="Bulk Salary Import"><BulkSalaryImport /></ProtectedRoute>} />
+      <Route path="payroll/employees/import" element={<ProtectedRoute title="Employee Import"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="payroll/employees/:employeeId/edit" element={<ProtectedRoute title="Edit Employee"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="payroll/employees/:employeeId" element={<ProtectedRoute title="Employee Profile"><EmployeeProfile /></ProtectedRoute>} />
+      <Route path="payroll/employees" element={<ProtectedRoute title="Employee Directory"><EmploymentDirectory /></ProtectedRoute>} />
       <Route path="payroll/bank-payroll" element={<ProtectedRoute title="Bank Payroll"><BankPayroll /></ProtectedRoute>} />
       <Route path="payroll/disbursement" element={<ProtectedRoute title="Payroll Disbursement"><PayrollDisbursement /></ProtectedRoute>} />
       <Route path="payroll/payslips" element={<ProtectedRoute title="Pay Slips"><PaySlips /></ProtectedRoute>} />
-      <Route path="payroll/staff-salary-setup" element={<ProtectedRoute title="Staff Salary Setup"><StaffSalarySetup /></ProtectedRoute>} />
-      <Route path="payroll/run" element={<ProtectedRoute title="Payroll Run"><PayrollRun /></ProtectedRoute>} />
-      <Route path="payroll/bulk-import" element={<ProtectedRoute title="Bulk Salary Import"><BulkSalaryImport /></ProtectedRoute>} />
-      <Route path="payroll/salary-template" element={<ProtectedRoute title="Payroll Salary Template"><SalaryTemplate /></ProtectedRoute>} />
-      <Route path="payroll/employees" element={<ProtectedRoute title="Employee Directory"><EmploymentDirectory /></ProtectedRoute>} />
-      <Route path="payroll/employees/import" element={<ProtectedRoute title="Employee Import"><EmploymentRegistration /></ProtectedRoute>} />
-      <Route path="payroll/employees/:employeeId" element={<ProtectedRoute title="Employee Profile"><EmployeeProfile /></ProtectedRoute>} />
-      <Route path="payroll/employees/:employeeId/edit" element={<ProtectedRoute title="Edit Employee"><EmploymentRegistration /></ProtectedRoute>} />
+      <Route path="payroll/salary-payment" element={<ProtectedRoute title="Salary Payment"><SalaryPayment /></ProtectedRoute>} />
+      <Route path="payroll/history" element={<ProtectedRoute title="Payroll History"><PayrollHistory /></ProtectedRoute>} />
+      <Route path="payroll/config" element={<ProtectedRoute title="Configure Payroll"><PayrollConfig /></ProtectedRoute>} />
       <Route path="payroll/leave" element={<ProtectedRoute title="Leave Management"><LeaveManagement /></ProtectedRoute>} />
+      <Route path="payroll" element={<Navigate to="payroll/run" replace />} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="school-calendar" element={<ProtectedRoute title="School Calendar"><SchoolCalendarPage api={accountantApi} HeroComponent={AccountantOchreHero} heroProps={{ eyebrow: 'School', titleLine: 'School', titleAccent: 'Calendar', subtitle: 'View school events, holidays, exams, and important dates.' }} /></ProtectedRoute>} />
       <Route
@@ -126,7 +136,7 @@ function AccountantRoutesInner() {
 
       <Route path="settings" element={<ProtectedRoute title="Accountant Settings"><AccountantSettings /></ProtectedRoute>} />
 
-      <Route path="*" element={<Navigate to="/accountant" replace />} />
+      <Route path="*" element={<Navigate to="" replace />} />
     </Routes>
   )
 }
@@ -134,7 +144,7 @@ function AccountantRoutesInner() {
 export default function AccountantPortalRoutes() {
   return (
     <AuthProvider>
-      <AccountantRoutesInner />
+      <AccountantAppRoutes />
     </AuthProvider>
   )
 }

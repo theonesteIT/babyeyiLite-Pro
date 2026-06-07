@@ -2,6 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User, ChevronLeft, History } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import {
+  resolveTeacherPhotoUrl,
+  teacherDisplayName,
+  teacherInitials,
+} from '../utils/teacherDisplay';
 
 const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
     const navigate = useNavigate();
@@ -10,6 +15,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
     const [userOpen, setUserOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [search, setSearch] = useState('');
+    const [photoError, setPhotoError] = useState(false);
     const userRef = useRef(null);
 
     const isHome = location.pathname === '/';
@@ -39,10 +45,14 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
         return () => mainContent.removeEventListener('scroll', handleScroll);
     }, [isHome]);
 
-    // Initials from teacher name
-    const initials = teacher
-        ? `${(teacher.first_name || '')[0] || ''}${(teacher.last_name || '')[0] || ''}`.toUpperCase()
-        : '?';
+    useEffect(() => {
+        setPhotoError(false);
+    }, [teacher?.photo]);
+
+    const displayName = teacherDisplayName(teacher);
+    const initials = teacherInitials(teacher);
+    const photoUrl = resolveTeacherPhotoUrl(teacher?.photo);
+    const showPhoto = photoUrl && !photoError;
 
     const headerBaseCls = "flex items-center justify-between px-4 md:px-6 z-40 gap-3 font-sans transition-all duration-300 ease-in-out will-change-[height,background-color,padding]";
     
@@ -165,19 +175,25 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform"
-                                style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
+                                className="w-8 h-8 rounded-full overflow-hidden text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform"
+                                style={showPhoto ? undefined : { background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
                             >
-                                {initials}
+                                {showPhoto ? (
+                                    <img
+                                        src={photoUrl}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                        onError={() => setPhotoError(true)}
+                                    />
+                                ) : (
+                                    initials
+                                )}
                             </div>
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
                         </div>
-                        <div className="hidden sm:block text-left">
-                            <p className={`text-xs font-bold leading-tight group-hover:text-re-orange transition-colors ${isHome && !scrolled ? 'text-white md:text-re-text' : 'text-re-text'}`}>
-                                {teacher?.first_name || 'Teacher'}
-                            </p>
-                            <p className={`text-[10px] font-medium leading-tight ${isHome && !scrolled ? 'text-white/70 md:text-re-text-muted/60' : 'text-re-text-muted/60'}`}>
-                                {teacher?.school?.name || 'Academic Staff'}
+                        <div className="hidden sm:block text-left max-w-[9rem]">
+                            <p className={`text-xs font-bold leading-tight truncate group-hover:text-re-orange transition-colors ${isHome && !scrolled ? 'text-white md:text-re-text' : 'text-re-text'}`}>
+                                {displayName}
                             </p>
                         </div>
                         <ChevronDown
@@ -192,14 +208,23 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-full text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0"
-                                        style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
+                                        className="w-9 h-9 rounded-full overflow-hidden text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0"
+                                        style={showPhoto ? undefined : { background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
                                     >
-                                        {initials}
+                                        {showPhoto ? (
+                                            <img
+                                                src={photoUrl}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                                onError={() => setPhotoError(true)}
+                                            />
+                                        ) : (
+                                            initials
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-re-text">
-                                            {teacher?.first_name} {teacher?.last_name}
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold text-re-text truncate">
+                                            {displayName}
                                         </p>
                                         <p className="text-[10px] text-re-text-muted/60 truncate max-w-[120px]">
                                             {teacher?.email}

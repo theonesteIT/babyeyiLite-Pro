@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, BookOpen, BookMarked, RotateCcw,
   Wallet, User, LogOut, Wifi, WifiOff, RefreshCw, ChevronDown, MessageSquare,
-  BarChart2, Settings, DollarSign, AlertTriangle, Layers, Sparkles, Home, CalendarDays, ShoppingBag,
+  BarChart2, Settings, DollarSign, AlertTriangle, Layers, Sparkles, Home, CalendarDays, ShoppingBag, ShoppingCart,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import useChatUnread from '../../../../shared/hooks/useChatUnread';
@@ -165,6 +165,9 @@ const Sidebar = ({ onClose }) => {
         />
 
         <NavItem icon={CalendarDays} name="School Calendar" path="/librarian/school-calendar" onClose={onClose} />
+
+        <SectionLabel label="Procurement" />
+        <NavItem icon={ShoppingCart} name="Purchase Requests" path="/librarian/purchase-requests" onClose={onClose} />
 
         <SectionLabel label="Services" />
         <NavItem icon={DollarSign} name="My Payroll" path="/librarian/my-payroll" onClose={onClose} />

@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, X, Shirt, Calendar, Package, DollarSign,
-  BadgeCheck, Loader2, Edit2, Trash2, Eye, RefreshCw, AlertCircle, Box, Layers, FileSpreadsheet,
+  BadgeCheck, Loader2, Edit2, Trash2, Eye, RefreshCw, AlertCircle, Box, Layers, FileSpreadsheet, FileText,
   Calculator, TrendingUp, TrendingDown, Minus,
 } from 'lucide-react'
-import { exportFinishedGoodsExcel } from '../../utils/uniformInventoryExport'
+import { exportFinishedGoodsExcel, exportFinishedGoodsPdf } from '../../utils/uniformInventoryExport'
 import { fetchStoreAcademicSettings } from '../../services/academicSettingsService'
 import { fetchFabricReceipts } from '../../services/fabricReceiptsService'
 import {
@@ -358,9 +358,17 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
             type="button"
             onClick={() => exportFinishedGoodsExcel(filtered, { search, uniform: filterUniform })}
             disabled={!filtered.length}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
           >
-            <FileSpreadsheet size={14} /> Export Excel
+            <FileSpreadsheet size={14} /> Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => exportFinishedGoodsPdf(filtered, { search, uniform: filterUniform })}
+            disabled={!filtered.length}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
+          >
+            <FileText size={14} /> PDF
           </button>
           <button
             type="button"
@@ -785,7 +793,25 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
                   })()
                 )}
 
-                <div className="px-5 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+                <div className="px-5 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-wrap justify-end gap-2">
+                  {profitModal === 'all' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => exportFinishedGoodsExcel(filtered, { search, uniform: filterUniform })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100"
+                      >
+                        <FileSpreadsheet size={14} /> Excel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => exportFinishedGoodsPdf(filtered, { search, uniform: filterUniform })}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100"
+                      >
+                        <FileText size={14} /> PDF
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     onClick={() => setProfitModal(null)}

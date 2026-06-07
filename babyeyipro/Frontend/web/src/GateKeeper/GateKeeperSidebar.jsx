@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Camera, LayoutDashboard, LogOut, ClipboardList, Shield } from 'lucide-react'
+import { Camera, LayoutDashboard, LogOut, ClipboardList, Shield, ShoppingCart } from 'lucide-react'
 import { useMasterAuth } from '../context/MasterAuthContext'
 
 const NavItem = ({ icon: Icon, name, path, exact, badge, onClose }) => (
@@ -107,6 +107,15 @@ export default function GateKeeperSidebar({ onClose }) {
             icon={ClipboardList}
             name="Date Logs"
             path="/gatekeeper/logs"
+            onClose={onClose}
+          />
+
+          <SectionLabel label="Procurement" />
+
+          <NavItem
+            icon={ShoppingCart}
+            name="Purchase Requests"
+            path="/gatekeeper/purchase-requests"
             onClose={onClose}
           />
         </nav>

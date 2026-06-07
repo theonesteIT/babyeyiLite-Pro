@@ -30,6 +30,7 @@ import {
   LayoutGrid,
   FileBarChart,
   PieChart,
+  ShoppingCart,
 } from 'lucide-react';
 import { h } from '../utils/href';
 import babyeyiIcon from '../../manager/assets/babyeyi-icon.png';
@@ -223,6 +224,7 @@ export default function RepresentativeSidebar({ onClose }) {
         <NavItem icon={GraduationCap} name="Academic reports" path="/academic" onClose={onClose} />
         <NavItem icon={ShieldAlert} name="Discipline" path="/discipline" onClose={onClose} />
         <NavItem icon={Warehouse} name="Store & Inventory" path="/store" onClose={onClose} />
+        <NavItem icon={ShoppingCart} name="Purchase Requests" path="/purchase-requests" onClose={onClose} />
         <ExpandableNavItem
           icon={ClipboardCheck}
           name="Attendance"

@@ -3,7 +3,7 @@ import { X, Check, ChevronLeft, ChevronRight, Save, Plus, AlertCircle, Loader2, 
 import QRCode from '../../../assets_portal/components/AssetQrCode'
 import assetsApi, { formToAssetPayload } from '../../../assets_portal/services/assetsApi'
 import { FUNDING_SOURCES, DEPRECIATION_MODES } from '../../../assets_portal/utils/assetsConstants'
-import { computeTotalBalance, computeDepreciation, formatRwf } from '../../../assets_portal/utils/assetsCalculations'
+import { computeTotalBalance, computeDepreciation, computePurchaseTax, formatRwf } from '../../../assets_portal/utils/assetsCalculations'
 import { buildAssetQrValue } from '../../../assets_portal/utils/assetsQr'
 import {
   assetToForm,
@@ -56,6 +56,7 @@ const EMPTY_FORM = {
   location: '', assetName: '', labelTag: '', categoryType: '', categoryTypeOther: '', description: '',
   supplier: '', upi: '', sku: '', serialNumber: '', brand: '', material: '', materialOther: '', size: '',
   purchaseYear: '', purchaseMonth: '', purchaseDay: '', unitPrice: '', openingAmount: '', invoice: '',
+  sdNumber: '', receiptNumber: '', referenceNo: '',
   fundingSource: '', fundingOther: '',
   depMode: 'Diminishing', depRate: '', accumulatedDep: '', decimalDep: 0, annualDep: 0, totalDep: 0, netBookValue: 0, depYears: '',
   quantity: 1, unit: '', condition: 'GOOD', notes: '',
@@ -82,6 +83,7 @@ export default function AddAssetWizard({
   const [saveError, setSaveError] = useState('')
   const [savedCode, setSavedCode] = useState('')
   const [meta, setMeta] = useState(null)
+  const [categoryRecords, setCategoryRecords] = useState([])
 
   const previewCode = savedCode || `AST-${Date.now().toString(36).toUpperCase().slice(-8)}`
   const previewQrValue = buildAssetQrValue({
@@ -90,11 +92,18 @@ export default function AddAssetWizard({
     serial_number: form.serialNumber,
   })
 
-  const categories = meta?.categories?.length ? meta.categories : FALLBACK_CATEGORIES
+  const categories = categoryRecords.length
+    ? categoryRecords.map((c) => c.name).filter(Boolean)
+    : (meta?.categories?.length ? meta.categories : FALLBACK_CATEGORIES)
 
   const totalBalance = useMemo(
     () => computeTotalBalance({ unitPrice: form.unitPrice, openingAmount: form.openingAmount }),
     [form.unitPrice, form.openingAmount, form.quantity]
+  )
+
+  const purchaseTax = useMemo(
+    () => computePurchaseTax(form.unitPrice),
+    [form.unitPrice]
   )
 
   const depCalc = useMemo(
@@ -118,7 +127,9 @@ export default function AddAssetWizard({
       assetsApi.getMeta().catch(() => null),
       assetsApi.listCategories().catch(() => []),
     ]).then(([metaData, catList]) => {
-      const names = (Array.isArray(catList) ? catList : []).map((c) => c.name).filter(Boolean)
+      const records = Array.isArray(catList) ? catList : []
+      const names = records.map((c) => c.name).filter(Boolean)
+      setCategoryRecords(records)
       setMeta(metaData ? { ...metaData, categories: names.length ? names : metaData.categories } : null)
     })
 
@@ -161,6 +172,24 @@ export default function AddAssetWizard({
   const updateField = (field, value) => {
     setForm(f => ({ ...f, [field]: value }))
     if (errors[field]) setErrors(e => ({ ...e, [field]: undefined }))
+  }
+
+  const resolveCategoryDepRate = (categoryName) => {
+    if (!categoryName || categoryName === 'OTHER') return null
+    const cat = categoryRecords.find((c) => c.name === categoryName)
+    const rate = cat?.depreciation_rate ?? cat?.depreciationRate
+    return rate != null && rate !== '' ? String(rate) : null
+  }
+
+  const handleCategoryChange = (categoryName) => {
+    const depRate = resolveCategoryDepRate(categoryName)
+    setForm((f) => ({
+      ...f,
+      categoryType: categoryName,
+      ...(depRate != null ? { depRate } : {}),
+    }))
+    if (errors.categoryType) setErrors((e) => ({ ...e, categoryType: undefined }))
+    if (depRate != null && errors.depRate) setErrors((e) => ({ ...e, depRate: undefined }))
   }
 
   const validateStep = (s) => {
@@ -458,14 +487,25 @@ export default function AddAssetWizard({
                     <select
                       className={fieldCls('categoryType')}
                       value={form.categoryType}
-                      onChange={(e) => updateField('categoryType', e.target.value)}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
                     >
                       <option value="">Select category type</option>
-                      {categories.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
+                      {categories.map((c) => {
+                        const name = typeof c === 'string' ? c : c.name
+                        const rate = typeof c === 'object' ? (c.depreciation_rate ?? c.depreciationRate) : resolveCategoryDepRate(name)
+                        return (
+                          <option key={name} value={name}>
+                            {rate != null ? `${name} (${rate}% dep.)` : name}
+                          </option>
+                        )
+                      })}
                       <option value="OTHER">Other (specify)</option>
                     </select>
+                    {form.categoryType && form.categoryType !== 'OTHER' && form.depRate && (
+                      <p className="text-xs text-emerald-700 mt-1 font-medium">
+                        Depreciation rate {form.depRate}% applied from category
+                      </p>
+                    )}
                     {errors.categoryType && <p className="text-xs text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={12} /> Required</p>}
                   </div>
                   {form.categoryType === 'OTHER' && (
@@ -638,12 +678,30 @@ export default function AddAssetWizard({
                       onChange={(e) => updateField('openingAmount', e.target.value)}
                     />
                   </div>
+                  <div>
+                    <ReadonlyRwfLabel label="VAT 18%" value={purchaseTax.taxAmount} />
+                  </div>
+                  <div>
+                    <ReadonlyRwfLabel label="Price incl. tax (RWF)" value={purchaseTax.priceInclTax} />
+                  </div>
                   <div className="sm:col-span-2">
                     <ReadonlyRwfLabel label="TOTAL BALANCE" value={totalBalance} accent />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
                     <input type="text" className={WIZARD_INPUT} placeholder="INV-001" value={form.invoice} onChange={e => updateField('invoice', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">SD Number <span className="text-gray-400 font-normal">(optional)</span></label>
+                    <input type="text" className={WIZARD_INPUT} placeholder="SD-001" value={form.sdNumber} onChange={e => updateField('sdNumber', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Receipt Number <span className="text-gray-400 font-normal">(optional)</span></label>
+                    <input type="text" className={WIZARD_INPUT} placeholder="RCP-001" value={form.receiptNumber} onChange={e => updateField('receiptNumber', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reference No <span className="text-gray-400 font-normal">(optional)</span></label>
+                    <input type="text" className={WIZARD_INPUT} placeholder="REF-001" value={form.referenceNo} onChange={e => updateField('referenceNo', e.target.value)} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Funding Source</label>
@@ -673,7 +731,9 @@ export default function AddAssetWizard({
                 <div className="rounded-2xl bg-[#000435] text-white p-5 ring-1 ring-white/10">
                   <p className="text-[10px] text-[#FEBF10] font-bold uppercase tracking-widest mb-3">Purchase summary</p>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span className="text-white/60">Unit price</span><span className="font-semibold">RWF {formatRwf(form.unitPrice)}</span></div>
+                    <div className="flex justify-between"><span className="text-white/60">Unit price (excl. tax)</span><span className="font-semibold">RWF {formatRwf(form.unitPrice)}</span></div>
+                    <div className="flex justify-between"><span className="text-white/60">VAT 18%</span><span className="font-semibold">RWF {formatRwf(purchaseTax.taxAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-white/60">Price incl. tax</span><span className="font-semibold">RWF {formatRwf(purchaseTax.priceInclTax)}</span></div>
                     <div className="flex justify-between"><span className="text-white/60">Opening amount</span><span className="font-semibold">RWF {formatRwf(form.openingAmount)}</span></div>
                     <div className="flex justify-between border-t border-white/10 pt-2"><span className="text-[#FEBF10]">Total balance</span><span className="font-bold text-[#FEBF10]">RWF {formatRwf(totalBalance)}</span></div>
                   </div>
@@ -712,12 +772,17 @@ export default function AddAssetWizard({
                       <input
                         type="number"
                         className={`${fieldCls('depRate')} pr-8`}
-                        placeholder="e.g. 5 for buildings, 25 for furniture"
+                        placeholder="Auto-filled from category"
                         value={form.depRate}
                         onChange={(e) => updateField('depRate', e.target.value)}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-re-text-muted">%</span>
                     </div>
+                    {form.categoryType && form.categoryType !== 'OTHER' && (
+                      <p className="text-xs text-re-text-muted mt-1">
+                        From category &quot;{categoryTypeLabel(form)}&quot; — adjust here if needed
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-re-text-muted mb-1">Depreciation mode</label>
@@ -865,6 +930,8 @@ export default function AddAssetWizard({
                   {[
                     { label: 'Opening Amount', value: form.openingAmount },
                     { label: 'Purchase Unit Price', value: form.unitPrice },
+                    { label: 'VAT 18%', value: purchaseTax.taxAmount },
+                    { label: 'Price incl. Tax', value: purchaseTax.priceInclTax },
                     { label: 'Total Balance', value: totalBalance, highlight: true },
                     { label: 'Total Depreciation', value: Math.round(form.totalDep) },
                   ].map((card) => (
@@ -988,8 +1055,16 @@ export default function AddAssetWizard({
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-gray-500">Purchase Date</span><span>{form.purchaseDay}/{form.purchaseMonth}/{form.purchaseYear || '—'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">Unit Price</span><span className="font-medium">RWF {formatCurrency(form.unitPrice || 0)}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">Dep. Mode</span><span>{form.depMode}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Unit Price (excl. tax)</span><span className="font-medium">RWF {formatCurrency(form.unitPrice || 0)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">VAT 18%</span><span className="font-medium">RWF {formatCurrency(purchaseTax.taxAmount)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Price incl. tax</span><span className="font-medium">RWF {formatCurrency(purchaseTax.priceInclTax)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Remain (excl. tax)</span><span>RWF {formatCurrency(purchaseTax.base)}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Invoice</span><span>{form.invoice || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">SD Number</span><span>{form.sdNumber || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Receipt Number</span><span>{form.receiptNumber || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Reference No</span><span>{form.referenceNo || '—'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Funding</span><span>{form.fundingSource === 'Other' ? form.fundingOther || 'Other' : form.fundingSource || '—'}</span></div>
+                    <div className="flex justify-between border-t border-gray-100 pt-2"><span className="text-gray-500">Dep. Mode</span><span>{form.depMode}</span></div>
                     <div className="flex justify-between"><span className="text-gray-500">Annual Dep.</span><span className="text-amber-600 font-medium">RWF {formatCurrency(Math.round(form.annualDep))}</span></div>
                     <div className="flex justify-between"><span className="text-gray-500">Net Book Value</span><span className={`font-bold ${nbvPercent > 50 ? 'text-emerald-600' : 'text-amber-600'}`}>RWF {formatCurrency(Math.round(form.netBookValue))}</span></div>
                   </div>

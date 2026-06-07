@@ -2,8 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Search, Save, Send, Plus, Trash2, X, Wallet, Pencil,
   TrendingUp, TrendingDown, CalendarClock,
-  CheckCircle, AlertCircle, History, Loader2, User,
+  CheckCircle, AlertCircle, History, Loader2, User, Calculator,
 } from "lucide-react";
+import {
+  calcNetToGrossFromDesiredNet,
+  DEFAULT_PAYE_BRACKETS,
+  normalizeStatutoryRates,
+} from "../../utils/rwandaPayrollEngine";
 import {
   searchPayrollStaff,
   saveStaffPayrollProfile,
@@ -20,7 +25,13 @@ const EMPTY_SALARY = {
   customAllowances: [],
   customDeductions: [],
   advances: [],
+  desiredNet: 0,
   lastIncrement: "—", prevBasic: 0,
+};
+
+const PAYROLL_MODES = {
+  normal: { id: "normal", label: "Normal Payroll" },
+  netToGross: { id: "netToGross", label: "NetToGross Salary Payroll" },
 };
 
 const STATUS_COLORS = {
@@ -245,6 +256,32 @@ function calcActiveAdvanceMonthly(advances = []) {
   }, 0);
 }
 
+function buildEmployeeDeductionsForCalc(sal) {
+  const items = [];
+  for (const d of (sal.customDeductions || []).filter((x) => x.status !== "Inactive")) {
+    items.push({ monthlyInstallment: Number(d.amount || 0) });
+  }
+  const advanceMonthly = calcActiveAdvanceMonthly(sal.advances);
+  if (advanceMonthly > 0) items.push({ monthlyInstallment: advanceMonthly });
+  return items;
+}
+
+function salaryFromNetToGrossResult(prevSal, result) {
+  const split = result.registerAllowanceSplit || {};
+  return {
+    ...prevSal,
+    basic: result.basicSalary,
+    others: split.others || 0,
+    housing: split.housing || 0,
+    transport: split.transport || 0,
+    communication: 0,
+    responsibility: 0,
+    meal: 0,
+    customAllowances: [],
+    desiredNet: result.desiredNet,
+  };
+}
+
 function calcPAYE(taxable) {
   if (taxable <= 60000)  return 0;
   if (taxable <= 100000) return (taxable - 60000) * 0.10;
@@ -357,12 +394,15 @@ export default function StaffSalarySetup() {
   const [selected, setSelected]         = useState(null);
   const [salaries, setSalaries]         = useState({});
   const [tab, setTab]                   = useState("earnings");
+  const [payrollMode, setPayrollMode]   = useState("normal");
   const [saved, setSaved]               = useState(false);
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
   const [loadError, setLoadError]       = useState("");
   const [dedLoading, setDedLoading]     = useState(false);
   const [allowanceRules, setAllowanceRules] = useState({});
+  const [templateStatutory, setTemplateStatutory] = useState({});
+  const [templatePayeRates, setTemplatePayeRates] = useState(DEFAULT_PAYE_BRACKETS);
 
   const [showAllowanceModal, setShowAllowanceModal] = useState(false);
   const [showDeductionModal, setShowDeductionModal] = useState(false);
@@ -461,6 +501,12 @@ export default function StaffSalarySetup() {
         getActivePayrollTemplate().catch(() => null),
       ]);
       setAllowanceRules(tpl?.rules?.allowanceAuto || tpl?.allowanceAuto || {});
+      if (Array.isArray(tpl?.payeRates) && tpl.payeRates.length) {
+        setTemplatePayeRates(tpl.payeRates);
+      } else {
+        setTemplatePayeRates(DEFAULT_PAYE_BRACKETS);
+      }
+      setTemplateStatutory(tpl?.statutory ? normalizeStatutoryRates(tpl.statutory) : {});
       const mapped = rows.map((s) => ({
         id:         Number(s.staffUserId),
         name:       s.fullName || `Staff ${s.staffUserId}`,
@@ -511,6 +557,52 @@ export default function StaffSalarySetup() {
     setSalaries((s) => ({ ...s, [selected.id]: { ...(s[selected.id] || EMPTY_SALARY), [k]: v } }));
   };
 
+  const employeeDeductionsForCalc = useMemo(
+    () => buildEmployeeDeductionsForCalc(sal),
+    [sal.customDeductions, sal.advances]
+  );
+
+  const netToGrossResult = useMemo(() => {
+    if (payrollMode !== "netToGross" || Number(sal.desiredNet) <= 0) return null;
+    return calcNetToGrossFromDesiredNet({
+      desiredNet: sal.desiredNet,
+      employeeDeductions: employeeDeductionsForCalc,
+      statutory: templateStatutory,
+      payeRates: templatePayeRates,
+    });
+  }, [payrollMode, sal.desiredNet, employeeDeductionsForCalc, templateStatutory, templatePayeRates]);
+
+  useEffect(() => {
+    if (payrollMode !== "netToGross" || !selected?.id || !netToGrossResult) return;
+    setSalaries((prev) => {
+      const current = prev[selected.id] || EMPTY_SALARY;
+      const next = salaryFromNetToGrossResult(current, netToGrossResult);
+      if (
+        current.basic === next.basic
+        && current.others === next.others
+        && current.housing === next.housing
+        && current.transport === next.transport
+      ) {
+        return prev;
+      }
+      return { ...prev, [selected.id]: next };
+    });
+  }, [payrollMode, selected?.id, netToGrossResult]);
+
+  const switchPayrollMode = (mode) => {
+    setPayrollMode(mode);
+    setTab(mode === "netToGross" ? "netToGross" : "earnings");
+  };
+
+  const handleDesiredNetChange = (value) => {
+    if (!selected) return;
+    const desiredNet = Math.max(0, Number(value) || 0);
+    setSalaries((prev) => ({
+      ...prev,
+      [selected.id]: { ...(prev[selected.id] || EMPTY_SALARY), desiredNet },
+    }));
+  };
+
   const registerAmounts = useMemo(() => getRegisterAllowanceAmounts(sal, allowanceRules), [sal, allowanceRules]);
   const allowanceRows = useMemo(() => buildAllowanceRows(sal, allowanceRules), [sal, allowanceRules]);
   const customAllowanceTotal = sumCustomAllowances(sal.customAllowances);
@@ -530,6 +622,30 @@ export default function StaffSalarySetup() {
   const net            = gross - totalDeductions;
   const employerCost   = gross + (sal.basic * 0.06) + (sal.basic * 0.075)
     + (sal.basic * 0.002) + (sal.basic * 0.003);
+
+  const displayGross = payrollMode === "netToGross" && netToGrossResult
+    ? netToGrossResult.grossSalary
+    : gross;
+  const displayNet = payrollMode === "netToGross" && netToGrossResult
+    ? netToGrossResult.finalNet
+    : Math.round(net);
+  const displayDeductions = payrollMode === "netToGross" && netToGrossResult
+    ? netToGrossResult.grossSalary - netToGrossResult.finalNet
+    : Math.round(totalDeductions);
+  const displayEmployerCost = payrollMode === "netToGross" && netToGrossResult
+    ? netToGrossResult.totalCostToSchool
+    : Math.round(employerCost);
+
+  const modeTabs = payrollMode === "netToGross"
+    ? ["netToGross", "deductions", "advance", "summary"]
+    : ["earnings", "deductions", "advance", "summary"];
+  const tabLabels = {
+    earnings: "Earnings",
+    netToGross: "Net-to-Gross",
+    deductions: "Deductions",
+    advance: "Advance",
+    summary: "Summary",
+  };
 
   const persistStaffAllowances = async (salaryState) => {
     if (!selected) return;
@@ -744,43 +860,70 @@ export default function StaffSalarySetup() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
 
-      <div className="bg-white border-b border-slate-100 px-4 lg:px-8 py-4 flex items-center gap-4">
-        <div>
-          <h1 className="text-[#000435] font-black text-xl tracking-tight">Staff Salary Setup</h1>
-          <p className="text-slate-400 text-xs mt-0.5">Configure individual employee salary packages</p>
+      <div className="bg-white border-b border-slate-100 px-4 lg:px-8 py-4 flex flex-col gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <h1 className="text-[#000435] font-black text-xl tracking-tight">Staff Salary Setup</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Configure individual employee salary packages</p>
+          </div>
+
+          <div className="flex gap-1.5 bg-slate-100 rounded-xl p-1">
+            {Object.values(PAYROLL_MODES).map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                onClick={() => switchPayrollMode(mode.id)}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap
+                  ${payrollMode === mode.id
+                    ? "bg-[#000435] text-white shadow-sm"
+                    : "text-slate-500 hover:text-[#000435] hover:bg-white/70"
+                  }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="ml-auto flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={loadStaff}
+              className="flex items-center gap-2 border border-slate-200 text-slate-500 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
+            >
+              <History size={14} /> Reload
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || (payrollMode === "netToGross" && !netToGrossResult)}
+              className={`flex items-center gap-2 font-bold text-sm px-4 py-2.5 rounded-xl transition-all disabled:opacity-60
+                ${saved
+                  ? "bg-green-500 text-white"
+                  : "bg-amber-400 hover:bg-amber-500 text-[#000435]"
+                }`}
+            >
+              {saved
+                ? <><CheckCircle size={14} /> Saved!</>
+                : saving
+                  ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
+                  : <><Save size={14} /> Save salary package</>
+              }
+            </button>
+
+            <button className="flex items-center gap-2 bg-[#000435] hover:bg-blue-950 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-colors">
+              <Send size={14} /> Submit
+            </button>
+          </div>
         </div>
 
-        <div className="ml-auto flex gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={loadStaff}
-            className="flex items-center gap-2 border border-slate-200 text-slate-500 font-semibold text-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
-          >
-            <History size={14} /> Reload
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className={`flex items-center gap-2 font-bold text-sm px-4 py-2.5 rounded-xl transition-all disabled:opacity-60
-              ${saved
-                ? "bg-green-500 text-white"
-                : "bg-amber-400 hover:bg-amber-500 text-[#000435]"
-              }`}
-          >
-            {saved
-              ? <><CheckCircle size={14} /> Saved!</>
-              : saving
-                ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
-                : <><Save size={14} /> Save salary package</>
-            }
-          </button>
-
-          <button className="flex items-center gap-2 bg-[#000435] hover:bg-blue-950 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-colors">
-            <Send size={14} /> Submit
-          </button>
-        </div>
+        {payrollMode === "netToGross" && (
+          <p className="text-xs text-slate-500 max-w-3xl">
+            Enter the desired net salary per employee. The system finds gross salary and splits it into
+            Basic (70%), Housing (10%), Transport (10%), and Others (10%), then calculates statutory deductions.
+            Saved packages work in Payroll Run like normal payroll.
+          </p>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -800,7 +943,10 @@ export default function StaffSalarySetup() {
 
           <div className="flex-1 overflow-y-auto">
             {filtered.map(s => {
-              const hasMissing = !(salaries[s.id]?.basic > 0);
+              const staffSal = salaries[s.id] || EMPTY_SALARY;
+              const hasMissing = payrollMode === "netToGross"
+                ? !(staffSal.desiredNet > 0)
+                : !(staffSal.basic > 0);
               const isActive   = selected.id === s.id;
               return (
                 <button
@@ -859,10 +1005,10 @@ export default function StaffSalarySetup() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full sm:w-auto">
               {[
-                { label: "Gross Salary",      value: fmtRwf(gross),                  cls: "text-amber-400" },
-                { label: "Net Salary",         value: fmtRwf(Math.round(net)),        cls: "text-green-400" },
-                { label: "Total Deductions",   value: fmtRwf(Math.round(totalDeductions)), cls: "text-red-400" },
-                { label: "Employer Cost",      value: fmtRwf(Math.round(employerCost)), cls: "text-blue-300" },
+                { label: "Gross Salary",      value: fmtRwf(displayGross),           cls: "text-amber-400" },
+                { label: "Net Salary",         value: fmtRwf(displayNet),             cls: "text-green-400" },
+                { label: "Total Deductions",   value: fmtRwf(displayDeductions),      cls: "text-red-400" },
+                { label: "Employer Cost",      value: fmtRwf(displayEmployerCost),    cls: "text-blue-300" },
               ].map(({ label, value, cls }) => (
                 <div key={label} className="bg-white/[0.07] border border-white/[0.06] rounded-xl px-4 py-3">
                   <p className={`font-black text-sm leading-tight ${cls}`}>{value}</p>
@@ -884,22 +1030,127 @@ export default function StaffSalarySetup() {
           )}
 
           <div className="flex gap-1 bg-white rounded-xl border border-slate-100 p-1 w-fit shadow-sm flex-wrap">
-            {["earnings", "deductions", "advance", "summary"].map(t => (
+            {modeTabs.map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition-all
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all
                   ${tab === t
                     ? "bg-[#000435] text-white shadow-sm"
                     : "text-slate-400 hover:text-[#000435]"
                   }`}
               >
-                {t === "advance" ? "Advance" : t}
+                {tabLabels[t] || t}
               </button>
             ))}
           </div>
 
-          {tab === "earnings" && (
+          {tab === "netToGross" && payrollMode === "netToGross" && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+                <SectionLabel icon={Calculator} label="Net-to-Gross Calculator — Method 2" color="text-[#000435]" />
+                <p className="text-sm text-slate-500 mb-4">
+                  Enter the desired take-home net salary. The system iteratively finds gross salary and applies
+                  Basic 70% · Housing 10% · Transport 10% · Others 10%.
+                </p>
+                <div className="max-w-sm">
+                  <InputField
+                    label="Desired Net Salary *"
+                    value={sal.desiredNet || ""}
+                    onChange={handleDesiredNetChange}
+                    prefix="RWF"
+                    placeholder="e.g. 621400"
+                  />
+                </div>
+              </div>
+
+              {netToGrossResult ? (
+                <>
+                  <div className={`rounded-xl px-4 py-3 border flex items-center gap-3
+                    ${Math.abs(netToGrossResult.difference || 0) <= 1
+                      ? "bg-green-50 border-green-200"
+                      : "bg-amber-50 border-amber-200"
+                    }`}
+                  >
+                    <CheckCircle size={16} className={Math.abs(netToGrossResult.difference || 0) <= 1 ? "text-green-600" : "text-amber-600"} />
+                    <div className="text-sm">
+                      <p className="font-bold text-[#000435]">
+                        {Math.abs(netToGrossResult.difference || 0) <= 1
+                          ? "Net salary verified — gross salary found."
+                          : "Approximate match — review amounts before saving."}
+                      </p>
+                      <p className="text-slate-500 text-xs mt-0.5">
+                        Desired {fmtRwf(netToGrossResult.desiredNet)} · Calculated {fmtRwf(netToGrossResult.verifiedNet)}
+                        · Difference {fmtRwf(netToGrossResult.difference)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+                    <div className="bg-[#000435] px-5 py-3">
+                      <p className="text-white font-black text-sm">Net-to-Gross Result</p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm min-w-[420px]">
+                        <thead>
+                          <tr className="bg-slate-50 text-left">
+                            <th className="py-3 px-5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Item</th>
+                            <th className="py-3 px-5 text-[10px] font-bold uppercase tracking-widest text-slate-500 text-right">Amount (RWF)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {[
+                            { label: "Desired Net Salary", value: netToGrossResult.desiredNet, cls: "text-green-700 font-bold" },
+                            { label: "Gross Salary", value: netToGrossResult.grossSalary, cls: "text-amber-700 font-bold" },
+                            { label: "Basic Salary (70%)", value: netToGrossResult.basicSalary },
+                            { label: "Housing Allowance (10%)", value: netToGrossResult.registerAllowanceSplit?.housing },
+                            { label: "Transport Allowance (10%)", value: netToGrossResult.registerAllowanceSplit?.transport },
+                            { label: "Other Allowance (10%)", value: netToGrossResult.registerAllowanceSplit?.others },
+                            { label: "PAYE", value: netToGrossResult.paye, cls: "text-red-600" },
+                            { label: "Employee Pension (CSR 6%)", value: netToGrossResult.rssbEmployee, cls: "text-red-600" },
+                            { label: "Employee RAMA (7.5%)", value: netToGrossResult.ramaEmployee, cls: "text-red-600" },
+                            { label: "Employee Maternity (0.3%)", value: netToGrossResult.maternityEmployee, cls: "text-red-600" },
+                            ...(netToGrossResult.cbhi ? [{ label: "Mutuelle / CBHI (0.5%)", value: netToGrossResult.cbhi, cls: "text-red-600" }] : []),
+                            ...(netToGrossResult.otherDeductions ? [{ label: "Other Deductions", value: netToGrossResult.otherDeductions, cls: "text-red-600" }] : []),
+                            { label: "Verified Net Salary", value: netToGrossResult.verifiedNet, cls: "text-green-700 font-black" },
+                          ].map((row) => (
+                            <tr key={row.label} className="hover:bg-amber-50/30">
+                              <td className="py-3 px-5 text-slate-600">{row.label}</td>
+                              <td className={`py-3 px-5 text-right tabular-nums ${row.cls || "font-semibold text-[#000435]"}`}>
+                                {Math.round(Number(row.value) || 0).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center gap-2 bg-amber-400 hover:bg-amber-500 text-[#000435] font-bold text-sm px-5 py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                    >
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      Save calculated package to profile
+                    </button>
+                  </div>
+                </>
+              ) : sal.desiredNet > 0 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+                  Could not find a gross salary for this net amount. Try a different value or check deductions.
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-100 rounded-xl px-4 py-8 text-center text-sm text-slate-400">
+                  Enter a desired net salary above to calculate gross and allowance split.
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "earnings" && payrollMode === "normal" && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 lg:col-span-3">
@@ -1181,6 +1432,11 @@ export default function StaffSalarySetup() {
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-1 h-5 rounded-full bg-amber-400" />
                   <p className="font-black text-[#000435] text-sm">Payslip Preview</p>
+                  {payrollMode === "netToGross" && sal.desiredNet > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase">
+                      Net-to-Gross
+                    </span>
+                  )}
                 </div>
 
                 {[
@@ -1195,14 +1451,15 @@ export default function StaffSalarySetup() {
 
                 <div className="border-t border-slate-100 pt-3 flex justify-between text-sm font-bold">
                   <span className="text-[#000435]">Gross Salary</span>
-                  <span className="text-[#000435]">{fmtRwf(gross)}</span>
+                  <span className="text-[#000435]">{fmtRwf(displayGross)}</span>
                 </div>
 
                 {[
-                  { label: "PAYE",       value: Math.round(paye) },
-                  { label: "RSSB (6%)",  value: Math.round(rssb) },
-                  { label: "RAMA (7.5%)", value: Math.round(rama) },
-                  { label: "CBHI (0.5%)", value: Math.round(cbhi) },
+                  { label: "PAYE", value: netToGrossResult?.paye ?? Math.round(paye) },
+                  { label: "CSR (6%)", value: netToGrossResult?.rssbEmployee ?? Math.round(rssb) },
+                  { label: "RAMA (7.5%)", value: netToGrossResult?.ramaEmployee ?? Math.round(rama) },
+                  { label: "Maternity (0.3%)", value: netToGrossResult?.maternityEmployee ?? Math.round(sal.basic * 0.003) },
+                  { label: "CBHI (0.5%)", value: netToGrossResult?.cbhi ?? Math.round(cbhi) },
                   ...(sal.customDeductions || []).map((d) => ({ label: d.name, value: d.amount })),
                   ...(advanceMonthly > 0 ? [{ label: "Salary Advance", value: advanceMonthly }] : []),
                 ].filter(r => r.value > 0).map(row => (
@@ -1214,7 +1471,7 @@ export default function StaffSalarySetup() {
 
                 <div className="border-t-2 border-amber-400 pt-3 flex justify-between">
                   <span className="font-black text-[#000435]">Net Salary</span>
-                  <span className="font-black text-xl text-[#000435]">{fmtRwf(Math.round(net))}</span>
+                  <span className="font-black text-xl text-[#000435]">{fmtRwf(displayNet)}</span>
                 </div>
               </div>
 
@@ -1230,6 +1487,9 @@ export default function StaffSalarySetup() {
                       { label: "Current Basic",       value: fmtRwf(sal.basic),                            cls: "text-green-600" },
                       { label: "Increment",           value: `+ ${fmtRwf(sal.basic - sal.prevBasic)}`,         cls: "text-amber-600" },
                       { label: "Last Increment Date", value: sal.lastIncrement,                                               cls: "text-[#000435]" },
+                      ...(payrollMode === "netToGross" && sal.desiredNet > 0
+                        ? [{ label: "Target Net Salary", value: fmtRwf(sal.desiredNet), cls: "text-green-700" }]
+                        : []),
                     ].map(r => (
                       <div key={r.label} className="flex justify-between text-sm">
                         <span className="text-slate-500">{r.label}</span>
@@ -1246,11 +1506,11 @@ export default function StaffSalarySetup() {
                   </div>
                   <div className="space-y-2.5">
                     {[
-                      { label: "Gross Salary",          value: gross },
-                      { label: "Employer RSSB (6%)",    value: Math.round(sal.basic * 0.06) },
-                      { label: "Employer RAMA (7.5%)",  value: Math.round(sal.basic * 0.075) },
-                      { label: "Maternity (0.3%)",      value: Math.round(sal.basic * 0.003) },
-                      { label: "Occ. Hazard (2%)",      value: Math.round(sal.basic * 0.02) },
+                      { label: "Gross Salary",          value: displayGross },
+                      { label: "Employer CSR (6%)",     value: netToGrossResult?.rssbEmployer ?? Math.round(sal.basic * 0.06) },
+                      { label: "Employer RAMA (7.5%)",  value: netToGrossResult?.ramaEmployer ?? Math.round(sal.basic * 0.075) },
+                      { label: "Maternity (0.3%)",      value: netToGrossResult?.maternityEmployer ?? Math.round(sal.basic * 0.003) },
+                      { label: "Occ. Hazard (2%)",      value: netToGrossResult?.occupationalHazard ?? Math.round(sal.basic * 0.02) },
                     ].map(r => (
                       <div key={r.label} className="flex justify-between text-sm">
                         <span className="text-slate-500">{r.label}</span>
@@ -1259,7 +1519,7 @@ export default function StaffSalarySetup() {
                     ))}
                     <div className="border-t border-slate-100 pt-2.5 flex justify-between font-bold text-sm">
                       <span className="text-[#000435]">Total Employer Cost</span>
-                      <span className="text-amber-600">{fmtRwf(Math.round(employerCost))}</span>
+                      <span className="text-amber-600">{fmtRwf(displayEmployerCost)}</span>
                     </div>
                   </div>
                 </div>

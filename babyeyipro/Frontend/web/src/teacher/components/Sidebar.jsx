@@ -148,6 +148,7 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={Calendar} name="Timetable" path="/timetable" onClose={onClose} />
         <NavItem icon={ClipboardCheck} name="Attendance" path="/attendance" onClose={onClose} />
         <NavItem icon={Package} name="Request Equipment" path="/equipment-requests" onClose={onClose} />
+        <NavItem icon={ShoppingBag} name="Purchase Requests" path="/purchase-requests" onClose={onClose} />
 
         <SectionLabel label="Services" />
         <NavItem icon={Wallet} name="Shule Avance" path="/shule-avance" onClose={onClose} />

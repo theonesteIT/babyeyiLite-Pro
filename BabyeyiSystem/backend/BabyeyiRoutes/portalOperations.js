@@ -41,7 +41,7 @@ const STORE_WRITE_ROLES = ['STORE_MANAGER', 'STOREKEEPER'];
 const ADMIN_AUDIT_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER'];
 
 let tablesReady = false;
-const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities|fee-reminders)|manager\/(?:payroll-requests|requisitions)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements|fabric-receipts|fabric-stockouts|food-stock-ins|food-consumptions|food-alerts|food-alert-settings|other-stock-ins|other-stock-outs|stock-adjustments|finished-goods|uniform-issues|student-requirements|academic-calendar-settings)|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
+const PORTAL_OPS_PREFIX_RE = /^\/(teacher-portal\/(?:requisitions|inventory-equipment|permissions)|reports\/(?:requisitions\/teacher|teacher-permissions)|accountant\/(?:requisitions|expenses|payroll(?:-requests)?|termination-benefits|school-budgets|budget-lines|budget-line-usage|action-plans|action-plan-activities|fee-reminders)|manager\/(?:payroll-requests|requisitions|termination-benefits)|staff\/payroll\/my|payroll\/audit-log|store\/(?:requisitions|inventory|suppliers|movements|fabric-receipts|fabric-stockouts|fabric-planner|food-stock-ins|food-consumptions|food-alerts|food-alert-settings|other-stock-ins|other-stock-outs|stock-adjustments|finished-goods|uniform-issues|student-requirements|academic-calendar-settings)|procurement(?:\/[\w-]+)*|admin\/(?:portal-audit-logs|staff-logins)|portal\/push|tools\/ticha-ai)(\/|$)/i;
 
 const BUDGET_LARGE_EXPENSE_RWF = Number(process.env.BUDGET_LARGE_EXPENSE_RWF || 5_000_000);
 
@@ -152,6 +152,45 @@ function numberToMonthLabel(n) {
   const idx = Number(n) - 1;
   const labels = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   return labels[idx] || String(n || '');
+}
+
+function buildPayrollLineFromTerminationSnapshot(tbRow) {
+  const snap = parseJsonSafe(tbRow.payroll_snapshot_json, null);
+  if (!snap?.registerRow || !snap?.calc) return null;
+  const reg = snap.registerRow;
+  const calc = snap.calc;
+  const gross = toMoney(reg.gross ?? calc.grossSalary);
+  const paye = toMoney(reg.paye ?? calc.paye);
+  const rssb = toMoney(reg.csrEmployee6 ?? calc.rssbEmployee);
+  const cbhi = toMoney(reg.mutuel ?? calc.cbhi);
+  const net = toMoney(reg.netPayFinal ?? calc.totalPayable ?? calc.finalNet);
+  const staffName = tbRow.staff_name || `Staff ${tbRow.staff_user_id}`;
+  const nameParts = String(staffName).split(/\s+/).filter(Boolean);
+  const register = {
+    ...reg,
+    firstName: reg.firstName || nameParts[0] || '',
+    familyName: reg.familyName || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''),
+    allowanceSource: 'terminated_month',
+    isTerminationPayroll: true,
+    terminationId: Number(tbRow.id),
+  };
+  return {
+    user_id: Number(tbRow.staff_user_id),
+    staff_name: staffName,
+    dept: tbRow.department || 'Staff',
+    role_code: 'STAFF',
+    basic_rwf: toMoney(reg.basicSalary ?? gross),
+    allowances_rwf: 0,
+    deductions_rwf: paye + rssb + cbhi,
+    paye_rwf: paye,
+    rssb_rwf: rssb,
+    rama_rwf: 0,
+    maternity_rwf: 0,
+    cbhi_rwf: cbhi,
+    gross_rwf: gross,
+    net_rwf: net,
+    register,
+  };
 }
 
 function formatPayrollRunNumber(run) {
@@ -965,6 +1004,112 @@ async function ensureTables() {
       KEY idx_fabric_out_receipt (fabric_receipt_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planners (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      academic_year VARCHAR(64) NOT NULL,
+      fabric_type VARCHAR(120) NULL,
+      available_fabric DECIMAL(14,2) NULL,
+      fabric_receipt_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_fabric_planner_school_year (school_id, academic_year),
+      KEY idx_fabric_planner_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planner_classes (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      planner_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      class_name VARCHAR(120) NOT NULL,
+      student_count INT UNSIGNED NOT NULL DEFAULT 0,
+      KEY idx_fabric_planner_cls (planner_id),
+      KEY idx_fabric_planner_cls_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planner_uniform_types (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      planner_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      uniform_name VARCHAR(120) NOT NULL,
+      meters_per_child DECIMAL(10,2) NOT NULL DEFAULT 0,
+      per_class_mode TINYINT(1) NOT NULL DEFAULT 0,
+      sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+      KEY idx_fabric_planner_uniform (planner_id),
+      KEY idx_fabric_planner_uniform_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planner_class_meters (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uniform_type_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      class_name VARCHAR(120) NOT NULL,
+      meters DECIMAL(10,2) NOT NULL DEFAULT 0,
+      KEY idx_fabric_planner_cm_uniform (uniform_type_id),
+      KEY idx_fabric_planner_cm_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planner_production_plans (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      planner_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      reserved_fabric DECIMAL(14,2) NOT NULL DEFAULT 0,
+      student_total INT UNSIGNED NOT NULL DEFAULT 0,
+      fabric_stockout_id INT UNSIGNED NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_fabric_planner_plan (planner_id),
+      KEY idx_fabric_planner_plan_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planner_plan_items (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      plan_id INT UNSIGNED NOT NULL,
+      uniform_name VARCHAR(120) NOT NULL,
+      quantity INT UNSIGNED NOT NULL DEFAULT 0,
+      meters_per_child DECIMAL(10,2) NOT NULL DEFAULT 0,
+      KEY idx_fabric_planner_plan_item (plan_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS store_fabric_planner_consumption (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      planner_id INT UNSIGNED NOT NULL,
+      school_id INT UNSIGNED NOT NULL,
+      uniform_name VARCHAR(120) NOT NULL,
+      produced INT UNSIGNED NOT NULL DEFAULT 0,
+      recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      deleted_at DATETIME NULL,
+      KEY idx_fabric_planner_cons (planner_id),
+      KEY idx_fabric_planner_cons_school (school_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await promisePool.query(`ALTER TABLE store_fabric_planners ADD COLUMN fabric_roll_name VARCHAR(200) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planners ADD COLUMN supplier_name VARCHAR(200) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planners ADD COLUMN cost_per_meter DECIMAL(14,2) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planners ADD COLUMN waste_allowance DECIMAL(5,2) NOT NULL DEFAULT 0`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planners ADD COLUMN color_allocations JSON NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planners ADD COLUMN term VARCHAR(32) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_production_plans ADD COLUMN plan_no VARCHAR(40) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_production_plans ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'draft'`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_production_plans ADD COLUMN fabric_type VARCHAR(120) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_production_plans ADD COLUMN classes_json JSON NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_production_plans ADD COLUMN required_fabric DECIMAL(14,2) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_production_plans ADD COLUMN remaining_fabric DECIMAL(14,2) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE store_fabric_planner_consumption ADD COLUMN distributed INT UNSIGNED NOT NULL DEFAULT 0`).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS store_food_stock_ins (
@@ -3467,6 +3612,8 @@ router.get('/accountant/payroll/staff/search', requireRole(ACCOUNTANT_READ_ROLES
        LEFT JOIN accountant_payroll_rates pr
               ON pr.school_id = u.school_id AND pr.role_code = COALESCE(o.rate_role_code, r.role_code)
        WHERE u.school_id = ? AND u.deleted_at IS NULL
+         AND (st.employment_status IS NULL OR st.employment_status NOT LIKE '%terminat%')
+         AND (st.termination_date IS NULL OR st.termination_date > LAST_DAY(CURDATE()))
          AND (
            ? = ''
            OR CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) LIKE ?
@@ -6726,6 +6873,34 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
         net_rwf: net,
         register,
       });
+    }
+
+    try {
+      const [termRows] = await conn.query(
+        `SELECT tb.*
+         FROM hr_termination_benefits tb
+         WHERE tb.school_id = ? AND tb.deleted_at IS NULL
+           AND tb.payroll_snapshot_json IS NOT NULL
+           AND MONTH(tb.termination_date) = ? AND YEAR(tb.termination_date) = ?
+           AND tb.status NOT IN ('rejected')`,
+        [schoolId, payMonth, payYear]
+      );
+      for (const tb of termRows || []) {
+        const termLine = buildPayrollLineFromTerminationSnapshot(tb);
+        if (!termLine) continue;
+        const uid = Number(termLine.user_id);
+        const existingIdx = lines.findIndex((l) => Number(l.user_id) === uid);
+        if (existingIdx >= 0) {
+          grossTotal -= toMoney(lines[existingIdx].gross_rwf);
+          netTotal -= toMoney(lines[existingIdx].net_rwf);
+          lines.splice(existingIdx, 1);
+        }
+        grossTotal += termLine.gross_rwf;
+        netTotal += termLine.net_rwf;
+        lines.push(termLine);
+      }
+    } catch (termPayErr) {
+      console.warn('[payroll/runs/trigger] termination payroll lines skipped:', termPayErr.message);
     }
 
     const period = `${numberToMonthLabel(payMonth)}-${payYear}`;
@@ -10593,6 +10768,14 @@ require('./storeUniformIssues')(router, {
   requireRole,
 });
 
+require('./storeFabricPlanner')(router, {
+  promisePool,
+  appendAuditLog,
+  STORE_READ_ROLES,
+  STORE_WRITE_ROLES,
+  requireRole,
+});
+
 require('./storeStudentRequirements')(router, {
   promisePool,
   appendAuditLog,
@@ -10627,7 +10810,19 @@ mountStoreStockAdjustmentsRoutes(router, {
   appendFoodStockDateFilters,
 });
 
+const { mountProcurementRoutes } = require('./procurementRoutes');
+mountProcurementRoutes(router, {
+  promisePool,
+  appendAuditLog,
+  requireRole,
+  toMoney,
+  resolveUserId,
+  resolveSchoolId,
+  notifyBudgetSchoolRoles,
+});
+
 router.use(require('./actionPlanRoutes'));
+router.use(require('./terminationBenefitsRoutes'));
 router.use(require('./accountantReminders'));
 
 async function ensurePortalOperationsSchema() {

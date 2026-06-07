@@ -23,6 +23,7 @@ import DisciplineSettings from './pages/DisciplineSettings'
 import SetDisciplineMarks from './pages/SetDisciplineMarks'
 import Permission from './pages/Permission'
 import Requisitions from './pages/Requisitions'
+import { DisciplineRequestOrder } from '../shared/procurement/portalWrappers'
 import ChatCenter from '../shared/pages/ChatCenter'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
@@ -63,6 +64,7 @@ function DisciplineRoutesInner() {
       <Route path="attendance" element={<ProtectedRoute title="Attendance"><Attendance /></ProtectedRoute>} />
       <Route path="permission" element={<ProtectedRoute title="Permission"><Permission /></ProtectedRoute>} />
       <Route path="requisitions" element={<ProtectedRoute title="Requisitions"><Requisitions /></ProtectedRoute>} />
+      <Route path="purchase-requests" element={<ProtectedRoute title="Purchase Requests"><DisciplineRequestOrder /></ProtectedRoute>} />
       <Route path="my-payroll" element={<ProtectedRoute title="My Payroll"><StaffPayroll /></ProtectedRoute>} />
       <Route path="payroll" element={<Navigate to={h('/my-payroll')} replace />} />
       <Route path="marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />

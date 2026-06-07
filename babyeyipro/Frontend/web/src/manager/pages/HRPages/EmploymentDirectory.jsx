@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import {
   Users, UserPlus, Search, Download, Upload, ChevronDown, MoreVertical,
-  UserCheck, GraduationCap, Wrench, CalendarOff, Loader2, RotateCcw, Filter,
+  UserCheck, GraduationCap, Wrench, CalendarOff, Loader2, RotateCcw,
   Mail, Phone, MapPin, Calendar, Eye, Pencil, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { h } from '../../utils/href';
@@ -17,7 +17,8 @@ import {
 } from './hrConstants';
 import { EMPLOYEE_IMPORT_TEMPLATE_HEADERS } from '../../utils/hrEmployeeImportTemplate';
 import hrService from '../../services/hrService';
-import staffService from '../../services/staffService';
+import TablePagination from '../../../shared/components/TablePagination';
+import { DIRECTORY_MONTHS, buildDirectoryYearOptions } from '../../../shared/utils/directoryFilters';
 
 const avatarColors = ['bg-amber-500', 'bg-teal-500', 'bg-sky-500', 'bg-violet-500', 'bg-pink-500', 'bg-emerald-500'];
 const initials = (name) => (name || '?').split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase();
@@ -96,6 +97,12 @@ function DirectoryEmployeeCard({
               {emp.department}
               {emp.role_name ? ` · ${emp.role_name}` : ''}
             </p>
+            {emp.status === 'Terminated' && emp.termination_date && (
+              <p className="text-[11px] text-red-600/80 mt-1 font-medium">
+                Terminated {formatDate(emp.termination_date)}
+                {!emp.account_enabled && !emp.is_active ? ' · Login disabled' : ''}
+              </p>
+            )}
           </div>
         </div>
 
@@ -207,6 +214,8 @@ export default function EmploymentDirectory() {
   const [position, setPosition] = useState('All');
   const [status, setStatus] = useState('All');
   const [contract, setContract] = useState('All');
+  const [yearFilter, setYearFilter] = useState('All');
+  const [monthFilter, setMonthFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [menuOpen, setMenuOpen] = useState(null);
@@ -224,6 +233,8 @@ export default function EmploymentDirectory() {
         status: status !== 'All' ? status : undefined,
         contract: contract !== 'All' ? contract : undefined,
         position: position !== 'All' ? position : undefined,
+        year: yearFilter !== 'All' ? yearFilter : undefined,
+        month: monthFilter !== 'All' ? monthFilter : undefined,
       });
       if (res?.success) {
         setEmployees(res.data || []);
@@ -234,7 +245,7 @@ export default function EmploymentDirectory() {
     } finally {
       setLoading(false);
     }
-  }, [search, dept, position, status, contract]);
+  }, [search, dept, position, status, contract, yearFilter, monthFilter]);
 
   useEffect(() => {
     const t = setTimeout(loadDirectory, 300);
@@ -243,7 +254,9 @@ export default function EmploymentDirectory() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, dept, position, status, contract, rowsPerPage]);
+  }, [search, dept, position, status, contract, yearFilter, monthFilter, rowsPerPage]);
+
+  const yearOptions = useMemo(() => buildDirectoryYearOptions(12), []);
 
   const totalPages = Math.max(1, Math.ceil(employees.length / rowsPerPage));
   const paginated = useMemo(() => {
@@ -257,6 +270,8 @@ export default function EmploymentDirectory() {
     setPosition('All');
     setStatus('All');
     setContract('All');
+    setYearFilter('All');
+    setMonthFilter('All');
   };
 
   const toggleSelect = (id) => {
@@ -453,13 +468,16 @@ export default function EmploymentDirectory() {
               <option key={o} value={o}>{o === 'All' ? 'All Types' : o}</option>
             ))}
           </HrSelect>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs border border-slate-200 text-slate-500 hover:bg-slate-50"
-            style={{ fontWeight: 500 }}
-          >
-            <Filter size={14} /> More filters
-          </button>
+          <HrSelect value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="!w-auto min-w-[120px]">
+            {yearOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </HrSelect>
+          <HrSelect value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="!w-auto min-w-[130px]">
+            {DIRECTORY_MONTHS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </HrSelect>
           <button
             type="button"
             onClick={clearFilters}
@@ -574,25 +592,18 @@ export default function EmploymentDirectory() {
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1 pt-2">
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              let p = i + 1;
-              if (totalPages > 7 && page > 4) p = page - 3 + i;
-              if (p > totalPages) return null;
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPage(p)}
-                  className={`w-8 h-8 rounded-lg text-xs ${page === p ? 'bg-[#c87800] text-white' : 'text-slate-500 hover:bg-slate-100'}`}
-                  style={{ fontWeight: 500 }}
-                >
-                  {p}
-                </button>
-              );
-            })}
-          </div>
+        {totalPages >= 1 && (
+          <TablePagination
+            page={page}
+            totalPages={totalPages}
+            total={employees.length}
+            pageSize={rowsPerPage}
+            itemCount={paginated.length}
+            pageStartIndex={(page - 1) * rowsPerPage}
+            onPageChange={setPage}
+            onPageSizeChange={(n) => { setRowsPerPage(n); setPage(1); }}
+            pageSizeOptions={[10, 25, 50]}
+          />
         )}
       </div>
 

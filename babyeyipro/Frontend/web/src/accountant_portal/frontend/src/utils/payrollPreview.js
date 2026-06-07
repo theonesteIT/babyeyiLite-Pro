@@ -77,7 +77,8 @@ export function buildPayrollPreviewRows(
   template = null,
   employeeDeductions = [],
   employeeAdjustments = {},
-  runOverrides = null
+  runOverrides = null,
+  terminationPayrolls = [],
 ) {
   const allowanceRules = template?.rules?.allowanceAuto || template?.allowanceAuto || {};
   const runAllowances = runOverrides?.allowances;
@@ -171,6 +172,26 @@ export function buildPayrollPreviewRows(
       calcSnapshot: calc,
       appliedEmployeeDeductions: employeeSpecific.filter((d) => d.id),
       appliedAllowanceSource: useStoredAllowances ? 'staff_profile' : (useSchoolAuto ? 'auto' : 'template'),
+    });
+  }
+
+  for (const term of terminationPayrolls || []) {
+    const snap = term?.payrollSnapshot;
+    if (!snap?.registerRow || !snap?.calc) continue;
+    const staffUserId = Number(term.staffUserId);
+    const existingIdx = rows.findIndex((r) => Number(r.staffUserId) === staffUserId);
+    if (existingIdx >= 0) rows.splice(existingIdx, 1);
+
+    rows.push({
+      ...snap.registerRow,
+      staffUserId,
+      fullName: term.staffName || snap.registerRow.firstName || '',
+      basicSalaryRaw: toMoney(snap.registerRow.basicSalary ?? snap.calc.grossSalary),
+      calcSnapshot: snap.calc,
+      appliedEmployeeDeductions: [],
+      appliedAllowanceSource: 'terminated_month',
+      isTerminationPayroll: true,
+      terminationId: term.id,
     });
   }
 

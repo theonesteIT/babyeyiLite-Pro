@@ -1,4 +1,4 @@
-import { formatRwf, formatLocationValue, parseNum } from './assetsCalculations';
+import { formatRwf, formatLocationValue, parseNum, computePurchaseTax } from './assetsCalculations';
 
 function seedFromId(id, salt = 0) {
   const n = Number(id) || 1;
@@ -96,6 +96,14 @@ export function buildImageGallery(asset) {
 }
 
 export function formatAssetDetailRows(asset) {
+  const tax = asset.tax_amount != null
+    ? {
+        base: parseNum(asset.unit_price),
+        taxAmount: parseNum(asset.tax_amount),
+        priceInclTax: parseNum(asset.price_incl_tax),
+      }
+    : computePurchaseTax(asset.unit_price);
+
   return [
     { label: 'Asset code', value: asset.asset_code || asset.code },
     { label: 'Asset tag', value: asset.label_tag },
@@ -103,12 +111,21 @@ export function formatAssetDetailRows(asset) {
     { label: 'Type', value: asset.asset_type || asset.type },
     { label: 'Location', value: formatLocationValue(asset.location || asset.asset_location) },
     { label: 'Category', value: asset.category },
-    { label: 'Status', value: asset.status },
+    { label: 'Health status', value: asset.asset_health_status || 'Used' },
+    { label: 'Status', value: asset.assets_status || asset.status },
     { label: 'Condition', value: asset.condition_code || asset.condition },
     { label: 'Supplier', value: asset.supplier_name || asset.supplier },
+    { label: 'SD Number', value: asset.sd_number },
+    { label: 'Receipt Number', value: asset.receipt_number },
+    { label: 'Reference No', value: asset.reference_no },
+    { label: 'Invoice', value: asset.invoice_number },
     { label: 'Register year', value: asset.register_year != null ? String(asset.register_year) : '—' },
     { label: 'Recorded on', value: asset.created_at ? String(asset.created_at).replace('T', ' ').slice(0, 19) : '—' },
     { label: 'Purchase date', value: asset.purchase_date ? String(asset.purchase_date).slice(0, 10) : '—' },
+    { label: 'Unit price (excl. tax)', value: tax.base > 0 ? `RWF ${formatRwf(tax.base)}` : '—' },
+    { label: 'VAT 18%', value: tax.taxAmount > 0 ? `RWF ${formatRwf(tax.taxAmount)}` : '—' },
+    { label: 'Price incl. tax', value: tax.priceInclTax > 0 ? `RWF ${formatRwf(tax.priceInclTax)}` : '—' },
+    { label: 'Remain (excl. tax)', value: tax.base > 0 ? `RWF ${formatRwf(tax.base)}` : '—' },
     { label: 'Total balance', value: asset.total_balance != null ? `RWF ${formatRwf(asset.total_balance)}` : '—' },
     { label: 'Net book value', value: asset.net_book_value != null ? `RWF ${formatRwf(asset.net_book_value)}` : '—' },
     { label: 'Depreciation', value: asset.dep_rate != null ? `${asset.dep_rate}% ${asset.dep_mode || ''}` : '—' },

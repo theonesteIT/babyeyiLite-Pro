@@ -15,6 +15,7 @@ import {
   Package,
   Headphones,
   Home,
+  ShoppingCart,
 } from 'lucide-react';
 import { h } from '../utils/href';
 import useChatUnread from '../../shared/hooks/useChatUnread';
@@ -173,7 +174,7 @@ const Sidebar = ({ onClose }) => {
     <div
       className="flex flex-col min-h-0 h-full w-full min-w-0 shadow-[2px_0_16px_rgba(11,21,48,0.14)] border-r border-white/[0.06]"
       style={{
-        background: 'linear-gradient(180deg,#0f2247 0%,#0b1530 40%,#060d1f 100%)',
+        background: '#000435',
         colorScheme: 'dark',
       }}
     >
@@ -231,10 +232,13 @@ const Sidebar = ({ onClose }) => {
             { name: 'Financial Overview',   path: '/finance',          icon: PieChart },
             { name: 'School Budget Management', path: '/finance/budgets', icon: ClipboardList },
             { name: 'Action Plan Approvals', path: '/finance/action-plans', icon: ClipboardCheck },
+            { name: 'Termination Approvals', path: '/finance/termination-benefits', icon: UserCheck },
             { name: 'Student Fee Payment',  path: '/finance/payments', icon: Users },
             { name: 'Payroll',              path: '/payroll',          icon: ClipboardCheck },
             { name: 'Stock Reports',        path: '/reports/stock',    icon: Package },
             { name: 'Library Reports',      path: '/reports/library',  icon: BookOpen },
+            { name: 'Purchase Requests',    path: '/purchase-requests', icon: ShoppingCart },
+            { name: 'Procurement Approvals', path: '/procurement-approvals', icon: ClipboardCheck },
           ]}
         />
        
@@ -262,7 +266,7 @@ const Sidebar = ({ onClose }) => {
             { name: 'Student Discipline', path: '/reports/discipline', icon: Activity },
           ]}
         />
-        <NavItem icon={Shield} name="Teacher Permissions" path="/teacher-permission-reports" onClose={onClose} />
+        <NavItem icon={Shield} name="Permission Approvals" path="/teacher-permission-reports" onClose={onClose} />
 
         <SectionLabel label="Institutional reports" />
         <NavItem icon={GraduationCap} name="Academic Reports" path="/reports/academic" onClose={onClose} />
@@ -295,7 +299,7 @@ const Sidebar = ({ onClose }) => {
 
       {/* Help & support — reference layout */}
       <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
-        <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
+        <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 p-4 space-y-3">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-gold/15 ring-1 ring-re-gold/25">
               <Headphones className="text-re-gold" size={20} strokeWidth={1.75} aria-hidden />

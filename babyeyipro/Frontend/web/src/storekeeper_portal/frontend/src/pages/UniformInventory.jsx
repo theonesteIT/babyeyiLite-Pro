@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shirt, TrendingUp, AlertTriangle, Box, Layers, Scale, DollarSign,
-  Package, ArrowUpFromLine, BarChart3, FileSpreadsheet,
+  Package, ArrowUpFromLine, BarChart3, FileSpreadsheet, Scissors,
 } from 'lucide-react'
 import { exportFabricStockExcel } from '../utils/uniformInventoryExport'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
@@ -11,6 +11,7 @@ import FabricStockOutPanel from '../components/uniform/FabricStockOutPanel'
 import FinishedGoodsStockPanel from '../components/uniform/FinishedGoodsStockPanel'
 import UniformIssuePanel from '../components/uniform/UniformIssuePanel'
 import UniformSalesAnalytics from '../components/uniform/UniformSalesAnalytics'
+import UniformFabricPlannerPanel from '../components/uniform/UniformFabricPlannerPanel'
 import { fetchFabricReceipts } from '../services/fabricReceiptsService'
 import { fetchFinishedGoods } from '../services/finishedGoodsService'
 
@@ -32,6 +33,7 @@ const tabs = [
   { id: 'fabric-in', label: 'Fabric Stock In', icon: Package },
   { id: 'fabric-out', label: 'Fabric Stock Out', icon: ArrowUpFromLine },
   { id: 'fabric-stock', label: 'Fabric Stock', icon: Layers },
+  { id: 'fabric-planner', label: 'Fabric Planner', icon: Scissors },
   { id: 'finished-goods', label: 'Finished Goods', icon: Box },
   { id: 'issue', label: 'Issue Uniform', icon: Shirt },
   { id: 'sales', label: 'Sales Analytics', icon: BarChart3 },
@@ -317,6 +319,14 @@ export default function UniformInventory() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {activeTab === 'fabric-planner' && (
+                <UniformFabricPlannerPanel
+                  fabrics={fabrics}
+                  onFabricsChange={syncFabricsFromApi}
+                  onNavigateTab={setActiveTab}
+                />
               )}
 
               {activeTab === 'finished-goods' && (

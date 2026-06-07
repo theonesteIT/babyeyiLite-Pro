@@ -2,9 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, Search, X, Building2, Calendar, Hash, Package, Ruler, DollarSign,
-  BadgeCheck, Loader2, Edit2, Trash2, Eye, RefreshCw, AlertCircle, ShoppingCart, FileSpreadsheet,
+  BadgeCheck, Loader2, Edit2, Trash2, Eye, RefreshCw, AlertCircle, ShoppingCart,
+  FileSpreadsheet, FileText,
 } from 'lucide-react'
-import { exportFabricStockInExcel } from '../../utils/uniformInventoryExport'
+import {
+  exportFabricStockInExcel,
+  exportFabricStockInExcelBySheet,
+  exportFabricStockInPdf,
+} from '../../utils/uniformInventoryExport'
+import { fetchFabricStockouts } from '../../services/fabricStockoutsService'
+import { fetchFinishedGoods } from '../../services/finishedGoodsService'
+import FabricStockInDetailDrawer from './FabricStockInDetailDrawer'
 import { formatMoney } from '../../utils/formatMoney'
 import { fetchSuppliers } from '../../services/suppliersService'
 import { fetchStoreAcademicSettings } from '../../services/academicSettingsService'
@@ -75,6 +83,8 @@ function formatDate(d) {
 
 export default function FabricStockInPanel({ onFabricsChange }) {
   const [fabrics, setFabrics] = useState([])
+  const [stockouts, setStockouts] = useState([])
+  const [finishedGoods, setFinishedGoods] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [academic, setAcademic] = useState({ academicYears: [], activeTerms: [], academicYear: '', currentTerm: '' })
   const [loading, setLoading] = useState(true)
@@ -83,21 +93,25 @@ export default function FabricStockInPanel({ onFabricsChange }) {
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('')
   const [modal, setModal] = useState(null)
-  const [viewRow, setViewRow] = useState(null)
+  const [detailReceipt, setDetailReceipt] = useState(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [form, setForm] = useState(EMPTY_FABRIC_FORM)
-  const readOnly = modal === 'view'
 
   const loadAll = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [rows, sups, acad] = await Promise.all([
+      const [rows, outRows, goods, sups, acad] = await Promise.all([
         fetchFabricReceipts(),
+        fetchFabricStockouts(),
+        fetchFinishedGoods(),
         fetchSuppliers(),
         fetchStoreAcademicSettings(),
       ])
       setFabrics(rows)
+      setStockouts(outRows)
+      setFinishedGoods(goods)
       setSuppliers(sups)
       setAcademic(acad)
       onFabricsChange?.(rows)
@@ -136,8 +150,14 @@ export default function FabricStockInPanel({ onFabricsChange }) {
     })
   }, [fabrics, search, filterType])
 
+  const openDetail = (row) => {
+    setDetailReceipt(row)
+    setDrawerOpen(true)
+  }
+
   const openCreate = () => {
-    setViewRow(null)
+    setDetailReceipt(null)
+    setDrawerOpen(false)
     setForm(defaultForm)
     setModal('form')
   }
@@ -156,14 +176,15 @@ export default function FabricStockInPanel({ onFabricsChange }) {
       meters: String(row.meters),
       unit_cost: row.unit_cost === '' ? '' : String(row.unit_cost),
     })
+    setDrawerOpen(false)
     setModal('form')
-    setViewRow(row)
+    setDetailReceipt(row)
   }
 
   const closeForm = () => {
     if (saving) return
     setModal(null)
-    setViewRow(null)
+    setDetailReceipt(null)
     setForm(EMPTY_FABRIC_FORM)
   }
 
@@ -191,7 +212,7 @@ export default function FabricStockInPanel({ onFabricsChange }) {
     setSaving(true)
     setError('')
     try {
-      if (viewRow?.id) await updateFabricReceipt(viewRow.id, form)
+      if (detailReceipt?.id) await updateFabricReceipt(detailReceipt.id, form)
       else await createFabricReceipt(form)
       closeForm()
       await loadAll()
@@ -261,14 +282,30 @@ export default function FabricStockInPanel({ onFabricsChange }) {
             <RefreshCw size={16} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
           </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => exportFabricStockInExcelBySheet(filtered, stockouts, finishedGoods, { search, fabric_type: filterType })}
+            disabled={!filtered.length}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
+          >
+            <FileSpreadsheet size={14} /> Excel (by sheet)
+          </button>
+          <button
+            type="button"
+            onClick={() => exportFabricStockInPdf(filtered, stockouts, finishedGoods, { search, fabric_type: filterType })}
+            disabled={!filtered.length}
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
+          >
+            <FileText size={14} /> PDF
+          </button>
           <button
             type="button"
             onClick={() => exportFabricStockInExcel(filtered, { search, fabric_type: filterType })}
             disabled={!filtered.length}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-gray-200 text-[#000435] text-[10px] font-bold uppercase hover:bg-gray-50 disabled:opacity-40 transition"
           >
-            <FileSpreadsheet size={14} /> Export Excel
+            <FileSpreadsheet size={14} /> List Excel
           </button>
           <button
             type="button"
@@ -312,7 +349,8 @@ export default function FabricStockInPanel({ onFabricsChange }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.02 }}
-                  className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors"
+                  className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors cursor-pointer"
+                  onClick={() => openDetail(f)}
                 >
                   <td className="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">{formatDate(f.purchase_date)}</td>
                   <td className="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">
@@ -328,9 +366,9 @@ export default function FabricStockInPanel({ onFabricsChange }) {
                   <td className="py-3.5 px-4 text-xs">
                     <span className="text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-lg">{f.remaining_meters}m</span>
                   </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setViewRow(f)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-[#000435]" aria-label="View">
+                      <button type="button" onClick={() => openDetail(f)} className="p-2 rounded-lg hover:bg-amber-100 text-amber-600" aria-label="View">
                         <Eye size={14} />
                       </button>
                       <button type="button" onClick={() => openEdit(f)} className="p-2 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600" aria-label="Edit">
@@ -366,7 +404,7 @@ export default function FabricStockInPanel({ onFabricsChange }) {
                       <ShoppingCart size={18} className="text-amber-600" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-[#000435]">{viewRow?.id ? 'Edit fabric receipt' : 'Receive Fabric'}</h2>
+                      <h2 className="text-lg font-bold text-[#000435]">{detailReceipt?.id ? 'Edit fabric receipt' : 'Receive Fabric'}</h2>
                       <p className="text-[11px] font-medium text-gray-400">New purchase — stock in</p>
                     </div>
                   </div>
@@ -448,7 +486,7 @@ export default function FabricStockInPanel({ onFabricsChange }) {
                     className="inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-bold text-white bg-[#000435] rounded-xl uppercase tracking-wider disabled:opacity-50"
                   >
                     {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    {viewRow?.id ? 'Update' : 'Save fabric'}
+                    {detailReceipt?.id ? 'Update' : 'Save fabric'}
                   </button>
                 </div>
               </div>
@@ -457,49 +495,14 @@ export default function FabricStockInPanel({ onFabricsChange }) {
         )}
       </AnimatePresence>
 
-      {/* View modal */}
-      <AnimatePresence>
-        {viewRow && modal !== 'form' && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-[#000435]/60 backdrop-blur-sm z-[60]" onClick={() => setViewRow(null)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none">
-              <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-bold text-[#000435]">{viewRow.fabric_type}</h3>
-                  <button type="button" onClick={() => setViewRow(null)} className="p-2 rounded-lg hover:bg-gray-100"><X size={16} /></button>
-                </div>
-                <dl className="space-y-2 text-sm">
-                  {[
-                    ['Academic year', viewRow.academic_year],
-                    ['Term', viewRow.term],
-                    ['Supplier', viewRow.supplier_name],
-                    ['Purchase date', formatDate(viewRow.purchase_date)],
-                    ['Invoice', viewRow.invoice_number],
-                    ['Color', viewRow.color],
-                    ['Meters', viewRow.meters],
-                    ['Unit cost', formatMoney(viewRow.unit_cost)],
-                    ['Total', formatMoney(viewRow.total_cost)],
-                    ['Remaining', `${viewRow.remaining_meters} m`],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between gap-4 border-b border-gray-50 py-2">
-                      <dt className="text-gray-400 font-medium">{k}</dt>
-                      <dd className="font-bold text-[#000435] text-right">{v || '—'}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <div className="mt-4 flex gap-2">
-                  <button type="button" onClick={() => { setViewRow(null); openEdit(viewRow) }} className="flex-1 py-2.5 rounded-xl bg-[#000435] text-white text-xs font-bold uppercase tracking-wider">
-                    Edit
-                  </button>
-                  <button type="button" onClick={() => setViewRow(null)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold uppercase tracking-wider text-gray-600">
-                    Close
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <FabricStockInDetailDrawer
+        receipt={detailReceipt}
+        stockouts={stockouts}
+        finishedGoods={finishedGoods}
+        open={drawerOpen && modal !== 'form'}
+        onClose={() => { setDrawerOpen(false); setDetailReceipt(null) }}
+        onEdit={(row) => openEdit(row)}
+      />
 
       {/* Delete confirm */}
       <AnimatePresence>

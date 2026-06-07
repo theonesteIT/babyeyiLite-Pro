@@ -2,12 +2,15 @@ import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import AssetInventory from './pages/AssetInventory'
+import AssetAddTest from './pages/AssetAddTest'
+import YearSetUp from './pages/YearSetUp'
 import AddAsset from './pages/AddAsset'
 import AssetDetails from './pages/AssetDetails'
 import Categories from './pages/Categories'
 import Assignments from './pages/Assignments'
 import Returns from './pages/Returns'
 import Transfers from './pages/Transfers'
+import Replacements from './pages/Replacements'
 import Maintenance from './pages/Maintenance'
 import PreventiveMaintenance from './pages/PreventiveMaintenance'
 import Warranty from './pages/Warranty'
@@ -16,6 +19,7 @@ import Audit from './pages/Audit'
 import LostDamaged from './pages/LostDamaged'
 import Disposal from './pages/Disposal'
 import QRBarcode from './pages/QRBarcode'
+import AssetDetailQRScan from './pages/AssetDetailQRScan'
 import Reports from './pages/Reports'
 import AssetAnalytics from './pages/AssetAnalytics'
 import NotificationsPage from './pages/Notifications'
@@ -28,6 +32,8 @@ export default function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="inventory" element={<AssetInventory />} />
+        <Route path="asset-add-test" element={<AssetAddTest />} />
+        <Route path="year-setup" element={<YearSetUp />} />
         <Route path="add-asset" element={<AddAsset />} />
         <Route path="asset-details/:id" element={<AssetDetails />} />
         <Route path="categories" element={<Categories />} />
@@ -35,6 +41,7 @@ export default function App() {
         <Route path="assignments" element={<Assignments />} />
         <Route path="returns" element={<Returns />} />
         <Route path="transfers" element={<Transfers />} />
+        <Route path="replacements" element={<Replacements />} />
         <Route path="maintenance" element={<Maintenance />} />
         <Route path="preventive" element={<PreventiveMaintenance />} />
         <Route path="warranty" element={<Warranty />} />
@@ -48,6 +55,7 @@ export default function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
+      <Route path="scan" element={<AssetDetailQRScan />} />
     </Routes>
   )
 }

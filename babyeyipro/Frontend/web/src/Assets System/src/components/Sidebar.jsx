@@ -27,15 +27,21 @@ import {
   BarChart3,
   Bell,
   Users,
+  Calendar,
+  FlaskConical,
+  RefreshCw,
 } from 'lucide-react'
 
 const PATH_ICONS = {
   inventory: Boxes,
   'add-asset': PlusCircle,
+  'asset-add-test': FlaskConical,
+  'year-setup': Calendar,
   categories: FolderTree,
   assignments: UserCheck,
   returns: Undo2,
   transfers: ArrowLeftRight,
+  replacements: RefreshCw,
   maintenance: Wrench,
   preventive: ShieldCheck,
   warranty: Award,
@@ -50,6 +56,7 @@ const PATH_ICONS = {
   users: Users,
   settings: Settings,
 }
+import { REPORT_NAV } from '../pages/Reports/reportConfig'
 import { useAuth } from '../../../assets_portal/context/AuthContext'
 import { assetsHref } from '../../../assets_portal/config/portal'
 import babyeyiIcon from '../../../storekeeper_portal/frontend/src/assets/babyeyi-icon.png'
@@ -60,10 +67,21 @@ const NAV_GROUPS = [
     label: 'Asset Management',
     icon: Boxes,
     items: [
-      { name: 'Asset Inventory', path: 'inventory' },
+      // { name: 'Asset Inventory', path: 'inventory' },
+      { name: 'Asset Register', path: 'asset-add-test' },
+      { name: 'Year Setup', path: 'year-setup' },
       { name: 'Analytics', path: 'analytics' },
       { name: 'Categories', path: 'categories' },
     ],
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    icon: BarChart3,
+    items: REPORT_NAV.map((r) => ({
+      name: r.name,
+      path: r.slug ? `reports/${r.slug}` : 'reports',
+    })),
   },
   {
     id: 'operations',
@@ -73,8 +91,9 @@ const NAV_GROUPS = [
       { name: 'Assignments', path: 'assignments' },
       { name: 'Returns', path: 'returns' },
       { name: 'Transfers', path: 'transfers' },
+      { name: 'Replacements', path: 'replacements' },
       { name: 'Maintenance', path: 'maintenance' },
-      
+      { name: 'Purchase Requests', path: 'purchase-requests' },
     ],
   },
   // {
@@ -113,6 +132,10 @@ const NAV_GROUPS = [
 function assetsPathMatches(pathname, segment) {
   if (!segment) {
     return /\/assets\/?$/.test(pathname) || pathname.endsWith('/assets')
+  }
+  if (segment.startsWith('reports')) {
+    const escaped = segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`/assets/${escaped}(/|$)`).test(pathname)
   }
   const escaped = segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`/assets/${escaped}(/|$)`).test(pathname)
@@ -328,7 +351,8 @@ export default function Sidebar({ collapsed = false, setCollapsed, onClose }) {
         {collapsed && (
           <div className="space-y-1 pt-1">
             {NAV_GROUPS.flatMap((g) => g.items).map((item) => {
-              const Icon = PATH_ICONS[item.path] || Boxes
+              const seg = item.path.split('/')[0]
+              const Icon = PATH_ICONS[item.path] || PATH_ICONS[seg] || Boxes
               return (
                 <NavLink
                   key={item.path}

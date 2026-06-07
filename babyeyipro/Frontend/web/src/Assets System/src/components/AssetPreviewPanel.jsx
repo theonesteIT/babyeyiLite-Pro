@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { X, Wrench, Users, TrendingDown, Loader2, MapPin, Pencil } from 'lucide-react'
+import { X, Wrench, Users, Loader2, MapPin, Pencil } from 'lucide-react'
 import QRCode from '../../../assets_portal/components/AssetQrCode'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import AssetDepreciationChart from './AssetDepreciationChart'
 import assetsApi from '../../../assets_portal/services/assetsApi'
-import { buildAssetQrValue } from '../../../assets_portal/utils/assetsQr'
+import { buildAssetScanUrl } from '../../../assets_portal/utils/assetsQr'
 import {
   buildDepreciationSeries,
   buildMaintenanceHistory,
   buildAssignedStaff,
   formatAssetDetailRows,
 } from '../../../assets_portal/utils/assetPanelData'
-import { formatRwf, formatLocationValue } from '../../../assets_portal/utils/assetsCalculations'
+import { formatRwf, formatLocationValue, computePurchaseTax } from '../../../assets_portal/utils/assetsCalculations'
+import { AssetStatusBadge } from './AssetStatusMenu'
+import { AssetHealthStatusBadge } from './AssetHealthStatusMenu'
 
 export default function AssetPreviewPanel({ assetId, onClose, onEdit }) {
   const [loading, setLoading] = useState(true)
@@ -46,8 +48,26 @@ export default function AssetPreviewPanel({ assetId, onClose, onEdit }) {
   const maintenance = panel?.maintenance?.length ? panel.maintenance : (asset ? buildMaintenanceHistory(asset) : [])
   const assignments = panel?.assignments ?? (asset ? buildAssignedStaff(asset) : [])
   const depSeries = useMemo(() => (asset ? buildDepreciationSeries(asset) : []), [asset])
-  const details = useMemo(() => (asset ? formatAssetDetailRows(asset) : []), [asset])
-  const qrValue = asset ? (asset.qr_value || buildAssetQrValue(asset)) : ''
+  const details = useMemo(() => {
+    if (!asset) return []
+    const skip = new Set([
+      'SD Number', 'Receipt Number', 'Reference No', 'Invoice',
+      'Unit price (excl. tax)', 'VAT 18%', 'Price incl. tax', 'Remain (excl. tax)', 'Status',
+    ])
+    return formatAssetDetailRows(asset).filter((r) => !skip.has(r.label))
+  }, [asset])
+  const purchaseTax = useMemo(() => {
+    if (!asset) return null
+    if (asset.tax_amount != null) {
+      return {
+        base: Number(asset.unit_price) || 0,
+        taxAmount: Number(asset.tax_amount) || 0,
+        priceInclTax: Number(asset.price_incl_tax) || 0,
+      }
+    }
+    return computePurchaseTax(asset.unit_price)
+  }, [asset])
+  const qrValue = asset ? (asset.qr_value || buildAssetScanUrl(asset)) : ''
 
   return (
     <>
@@ -55,8 +75,13 @@ export default function AssetPreviewPanel({ assetId, onClose, onEdit }) {
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest text-[#FEBF10]">Asset preview</p>
           <h2 className="text-lg font-bold truncate">{asset?.asset_name || asset?.name || 'Loading…'}</h2>
-          <p className="text-xs text-white/60 font-mono mt-0.5">{asset?.asset_code || asset?.code || '—'}</p>
-        </div>
+            <p className="text-xs text-white/60 font-mono mt-0.5">{asset?.asset_code || asset?.code || '—'}</p>
+            {asset?.asset_health_status && (
+              <div className="mt-2">
+                <AssetHealthStatusBadge value={asset.asset_health_status} />
+              </div>
+            )}
+          </div>
         <div className="flex items-center gap-1 shrink-0">
           {onEdit && (
             <button
@@ -108,6 +133,48 @@ export default function AssetPreviewPanel({ assetId, onClose, onEdit }) {
               </div>
             </section>
 
+            {/* Purchase & tax */}
+            <section className="rounded-2xl border border-black/10 bg-white overflow-hidden">
+              <div className="px-4 py-2.5 bg-[#000435] text-white flex items-center justify-between gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider">Purchase & tax</h3>
+                <AssetStatusBadge value={asset.assets_status || asset.status} />
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-[#FEBF10]/25 border border-[#FEBF10]/40 p-3">
+                    <p className="text-[10px] font-bold uppercase text-[#000435]/60">Unit price (excl. tax)</p>
+                    <p className="text-sm font-bold text-[#000435] tabular-nums mt-1">RWF {formatRwf(purchaseTax?.base)}</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                    <p className="text-[10px] font-bold uppercase text-emerald-700/70">VAT 18%</p>
+                    <p className="text-sm font-bold text-emerald-800 tabular-nums mt-1">RWF {formatRwf(purchaseTax?.taxAmount)}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#000435]/5 border border-[#000435]/15 p-3">
+                    <p className="text-[10px] font-bold uppercase text-[#000435]/60">Price incl. tax</p>
+                    <p className="text-sm font-bold text-[#000435] tabular-nums mt-1">RWF {formatRwf(purchaseTax?.priceInclTax)}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                    <p className="text-[10px] font-bold uppercase text-slate-500">Remain (excl. tax)</p>
+                    <p className="text-sm font-bold text-[#000435] tabular-nums mt-1">RWF {formatRwf(purchaseTax?.base)}</p>
+                  </div>
+                </div>
+                <dl className="grid grid-cols-1 gap-2 text-sm border-t border-gray-100 pt-3">
+                  {[
+                    { label: 'Invoice', value: asset.invoice_number },
+                    { label: 'SD Number', value: asset.sd_number },
+                    { label: 'Receipt Number', value: asset.receipt_number },
+                    { label: 'Reference No', value: asset.reference_no },
+                    { label: 'Funding source', value: asset.funding_source },
+                  ].filter((r) => r.value).map((row) => (
+                    <div key={row.label} className="flex justify-between gap-3">
+                      <dt className="text-re-text-muted">{row.label}</dt>
+                      <dd className="font-medium text-[#000435] text-right break-all">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </section>
+
             {/* Details */}
             <section className="rounded-2xl border border-black/10 bg-white overflow-hidden">
               <div className="px-4 py-2.5 bg-[#FEBF10]/40 border-b border-[#e5a800]/50">
@@ -126,33 +193,7 @@ export default function AssetPreviewPanel({ assetId, onClose, onEdit }) {
             </section>
 
             {/* Depreciation chart */}
-            <section className="rounded-2xl border border-black/10 bg-white p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingDown size={16} className="text-[#000435]" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#000435]">Depreciation trend</h3>
-              </div>
-              {depSeries.length > 0 ? (
-                <div className="w-full min-h-[176px]" style={{ height: 176 }}>
-                  <ResponsiveContainer width="100%" height={176} minWidth={0}>
-                    <AreaChart data={depSeries} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id={`nbvGrad-${assetId}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#FEBF10" stopOpacity={0.5} />
-                          <stop offset="100%" stopColor="#FEBF10" stopOpacity={0.05} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="year" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `${(v / 1e6).toFixed(1)}M`} />
-                      <Tooltip formatter={(v) => [`RWF ${formatRwf(v)}`, 'NBV']} />
-                      <Area type="monotone" dataKey="nbv" stroke="#000435" fill={`url(#nbvGrad-${assetId})`} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-sm text-re-text-muted text-center py-8">No depreciation data for chart.</p>
-              )}
-            </section>
+            <AssetDepreciationChart data={depSeries} assetId={assetId} height={200} />
 
             {/* Maintenance */}
             <section className="rounded-2xl border border-black/10 bg-white overflow-hidden">

@@ -2,6 +2,7 @@
  * PublicHeader.jsx — Shared site header (announcement bar + navbar)
  */
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -200,12 +201,47 @@ function TopAnnouncementBar({ onClose, banners = [] }) {
   );
 }
 
+function LoginMenuItem({ to, href, external, icon: Icon, iconClass, title, subtitle, onClick }) {
+  const inner = (
+    <>
+      <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconClass}`}>
+        <Icon size={18} strokeWidth={2} />
+      </span>
+      <span className="flex-1 min-w-0 text-left">
+        <span className="block text-[14px] font-bold text-white leading-tight">{title}</span>
+        {subtitle ? (
+          <span className="block text-[11px] text-white/55 font-medium mt-0.5 leading-snug">{subtitle}</span>
+        ) : null}
+      </span>
+      {external ? <ExternalLink size={14} className="text-white/35 shrink-0" /> : null}
+    </>
+  );
+
+  const className =
+    'flex items-center gap-3 px-4 py-4 text-white hover:bg-white/[0.07] active:bg-white/[0.1] transition-colors group w-full';
+
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={onClick} className={className}>
+        {inner}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={to} role="menuitem" onClick={onClick} className={className}>
+      {inner}
+    </Link>
+  );
+}
+
 function LoginMenu({ compact = false, onNavigate }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
+    if (!open || compact) return undefined;
     const close = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
@@ -216,7 +252,19 @@ function LoginMenu({ compact = false, onNavigate }) {
       document.removeEventListener('mousedown', close);
       document.removeEventListener('keydown', onKey);
     };
-  }, []);
+  }, [open, compact]);
+
+  useEffect(() => {
+    if (!open || !compact) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, compact]);
 
   const closeMenu = () => {
     setOpen(false);
@@ -234,9 +282,34 @@ function LoginMenu({ compact = false, onNavigate }) {
         border: '1px solid rgba(255,255,255,0.18)',
       };
 
-  const menuClass = compact
-    ? 'absolute right-0 top-full mt-2 w-[min(17rem,calc(100vw-1.5rem))] rounded-xl overflow-hidden shadow-2xl z-[70] animate-in fade-in slide-in-from-top-1'
-    : 'absolute right-0 top-full mt-2.5 w-64 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.45)] z-[70]';
+  const menuPanel = (
+    <>
+      <div className="px-4 py-3 border-b border-white/10 bg-white/[0.03]">
+        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-400 text-center">
+          {t('public.loginMenuTitle')}
+        </p>
+      </div>
+      <div className="p-2 space-y-1">
+        <LoginMenuItem
+          href={TEACHER_PORTAL_URL}
+          external
+          icon={GraduationCap}
+          iconClass="bg-sky-500/15 border border-sky-400/30 text-sky-300 group-hover:border-sky-300/50"
+          title={t('public.loginAsTeacher')}
+          subtitle="ticha.babyeyi.rw"
+          onClick={closeMenu}
+        />
+        <LoginMenuItem
+          to={OTHER_PORTAL_LOGIN_PATH}
+          icon={LayoutGrid}
+          iconClass="bg-amber-500/12 border border-amber-400/30 text-amber-300 group-hover:border-amber-300/50"
+          title={t('public.otherPortal')}
+          subtitle={t('public.otherPortalHint')}
+          onClick={closeMenu}
+        />
+      </div>
+    </>
+  );
 
   return (
     <div ref={ref} className="relative shrink-0">
@@ -256,49 +329,47 @@ function LoginMenu({ compact = false, onNavigate }) {
         />
       </button>
 
-      {open && (
+      {open && !compact && (
         <div
           role="menu"
-          className={menuClass}
-          style={{ background: '#000435', border: '1px solid rgba(251,191,36,0.22)' }}
+          className="absolute right-0 top-full mt-2.5 w-72 rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.45)] z-[70]"
+          style={{
+            background: 'linear-gradient(180deg, #000435 0%, #000120 100%)',
+            border: '1px solid rgba(251,191,36,0.24)',
+          }}
         >
-          <div className="px-3 py-2 border-b border-white/8">
-            <p className="text-[10px] font-black uppercase tracking-widest text-amber-400/90">
-              {t('public.loginMenuTitle')}
-            </p>
-          </div>
-          <a
-            href={TEACHER_PORTAL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            role="menuitem"
-            onClick={closeMenu}
-            className="flex items-center gap-3 px-4 py-3.5 text-[13px] font-semibold text-white hover:bg-white/6 transition-colors group"
-          >
-            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-sky-500/15 border border-sky-400/30 group-hover:border-sky-300/50">
-              <GraduationCap size={17} className="text-sky-300" />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block font-bold">{t('public.loginAsTeacher')}</span>
-              <span className="block text-[11px] text-white/50 font-medium truncate">ticha.babyeyi.rw</span>
-            </span>
-            <ExternalLink size={13} className="text-white/40 shrink-0" />
-          </a>
-          <Link
-            to={OTHER_PORTAL_LOGIN_PATH}
-            role="menuitem"
-            onClick={closeMenu}
-            className="flex items-center gap-3 px-4 py-3.5 text-[13px] font-semibold text-white hover:bg-white/6 transition-colors group border-t border-white/8"
-          >
-            <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/12 border border-amber-400/30 group-hover:border-amber-300/50">
-              <LayoutGrid size={16} className="text-amber-300" />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block font-bold">{t('public.otherPortal')}</span>
-              <span className="block text-[11px] text-white/50 font-medium">{t('public.otherPortalHint')}</span>
-            </span>
-          </Link>
+          {menuPanel}
         </div>
+      )}
+
+      {open && compact && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-[#000435]/70 backdrop-blur-[6px]"
+            aria-label={t('public.close')}
+            onClick={closeMenu}
+          />
+          <div
+            role="menu"
+            className="relative w-full max-w-[20rem] rounded-2xl overflow-hidden shadow-[0_28px_90px_rgba(0,0,0,0.55)] animate-in fade-in zoom-in-95 duration-200"
+            style={{
+              background: 'linear-gradient(180deg, #000435 0%, #000120 100%)',
+              border: '1px solid rgba(251,191,36,0.28)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={closeMenu}
+              className="absolute right-3 top-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label={t('public.close')}
+            >
+              <X size={16} />
+            </button>
+            {menuPanel}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -5,6 +5,16 @@ export function parseNum(v) {
   return Number.isFinite(n) ? n : 0
 }
 
+export const PURCHASE_TAX_RATE = 0.18
+
+/** VAT breakdown on purchase unit price (18%) */
+export function computePurchaseTax(unitPrice) {
+  const base = parseNum(unitPrice)
+  const taxAmount = Math.round(base * PURCHASE_TAX_RATE)
+  const priceInclTax = base + taxAmount
+  return { base, taxAmount, priceInclTax, taxRatePercent: PURCHASE_TAX_RATE * 100 }
+}
+
 /** TOTAL BALANCE = purchase unit price + opening amount (Excel register) */
 export function computeTotalBalance({ unitPrice, openingAmount }) {
   return parseNum(unitPrice) + parseNum(openingAmount)

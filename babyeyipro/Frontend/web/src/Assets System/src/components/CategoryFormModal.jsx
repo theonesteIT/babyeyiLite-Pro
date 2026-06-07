@@ -19,6 +19,7 @@ export default function CategoryFormModal({
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('Monitor')
   const [description, setDescription] = useState('')
+  const [depreciationRate, setDepreciationRate] = useState('5')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -26,6 +27,8 @@ export default function CategoryFormModal({
     setName(initial?.name || '')
     setIcon(initial?.icon || 'Monitor')
     setDescription(initial?.description || '')
+    const rate = initial?.depreciation_rate ?? initial?.depreciationRate
+    setDepreciationRate(rate != null && rate !== '' ? String(rate) : '5')
     setError('')
   }, [open, initial])
 
@@ -35,7 +38,17 @@ export default function CategoryFormModal({
       setError('Category name is required')
       return
     }
-    onSave?.({ name: name.trim(), icon, description: description.trim() })
+    const rate = Number(depreciationRate)
+    if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+      setError('Depreciation rate must be between 0 and 100')
+      return
+    }
+    onSave?.({
+      name: name.trim(),
+      icon,
+      description: description.trim(),
+      depreciation_rate: rate,
+    })
   }
 
   if (!open) return null
@@ -83,6 +96,26 @@ export default function CategoryFormModal({
                 <option key={i} value={i}>{i}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-[#000435]/70 mb-1.5">
+              Depreciation rate (%) *
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                className="assets-wizard-input w-full pr-8"
+                value={depreciationRate}
+                onChange={(e) => setDepreciationRate(e.target.value)}
+                placeholder="e.g. 5"
+                disabled={saving}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-re-text-muted">%</span>
+            </div>
+            <p className="text-[11px] text-re-text-muted mt-1">Applied automatically when this category is selected in the asset wizard.</p>
           </div>
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-[#000435]/70 mb-1.5">Description</label>
