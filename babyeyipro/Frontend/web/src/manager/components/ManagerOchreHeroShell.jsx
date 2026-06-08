@@ -11,6 +11,7 @@ export default function ManagerOchreHeroShell({
   subtitle,
   HeroIcon = null,
   headerRight = null,
+  heroFooter = null,
   kpiTiles = [],
   kpiGridClassName = '',
   cardBody = null,
@@ -28,7 +29,7 @@ export default function ManagerOchreHeroShell({
 
   return (
     <div className={outerClassName}>
-      <div className="relative w-full min-h-[200px] sm:min-h-[220px] overflow-hidden bg-[#c87800]">
+      <div className={`relative w-full overflow-hidden bg-[#c87800] ${heroFooter ? 'min-h-[280px] sm:min-h-[320px]' : 'min-h-[200px] sm:min-h-[220px]'}`}>
         <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
         <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
         <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FEBF10]/30 to-transparent pointer-events-none" aria-hidden />
@@ -65,6 +66,12 @@ export default function ManagerOchreHeroShell({
 
           {headerRight ? <div className="flex flex-wrap gap-2 items-center sm:ml-auto">{headerRight}</div> : null}
         </div>
+
+        {heroFooter ? (
+          <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-12 -mt-10 sm:-mt-12 pb-16 sm:pb-20">
+            {heroFooter}
+          </div>
+        ) : null}
       </div>
 
       <div className={overlapClassName}>

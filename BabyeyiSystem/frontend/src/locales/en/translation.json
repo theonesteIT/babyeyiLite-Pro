@@ -18,6 +18,7 @@
     "loginMenuTitle": "Choose portal",
     "loginAsTeacher": "Login as Teacher",
     "otherPortal": "Other Portal",
+    "otherLoginPortal": "Other Login Portal",
     "otherPortalHint": "Agent, DEO, NESA & Admin",
     "shuleManager": "ShuleManager",
     "parentLogin": "Parent Login",

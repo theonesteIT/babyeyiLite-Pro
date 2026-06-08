@@ -418,12 +418,77 @@ function findNurseryNamesListHeaderIndex(objectRows) {
   return -1;
 }
 
+/** True when a cell is a 9–15 digit registration id (not a person's name). */
+function cellLooksLikeRegistrationId(val) {
+  const s = normalizeStudentId(val);
+  if (!isValidStudentId(s)) return false;
+  if (digitStringLooksLikeRwandaPhone(s)) return false;
+  return true;
+}
+
+/** Remove leading SDMS / student-id tokens accidentally pasted into a name cell. */
+function stripLeadingRegistrationIdsFromNameText(full) {
+  const s = trimStr(full).replace(/\s+/g, ' ');
+  if (!s) return '';
+  const parts = s.split(' ').filter(Boolean);
+  while (parts.length && cellLooksLikeRegistrationId(parts[0])) {
+    parts.shift();
+  }
+  return parts.join(' ');
+}
+
+/**
+ * When a row has both official Student ID and SDMS ID before names, skip the extra id column.
+ * e.g. # | 230010001 | 130713220035 | AGANWA | Angela
+ */
+function resolveImportNameColumnOffset(row, base) {
+  const afterId = trimStr(row?.[base + 1]);
+  const afterThat = trimStr(row?.[base + 2]);
+  if (!cellLooksLikeRegistrationId(afterId)) return 1;
+  if (afterThat && !cellLooksLikeRegistrationId(afterThat) && /[A-Za-z]/.test(afterThat)) return 2;
+  if (afterThat && cellLooksLikeRegistrationId(afterThat)) return 2;
+  return 1;
+}
+
+function cleanImportedStudentNames(first_name, last_name, fullName) {
+  let fn = trimStr(first_name);
+  let ln = trimStr(last_name);
+  const full = stripLeadingRegistrationIdsFromNameText(fullName);
+
+  if (cellLooksLikeRegistrationId(fn)) fn = '';
+  if (cellLooksLikeRegistrationId(ln)) ln = '';
+
+  if (full) {
+    const sp = splitFullNameForStudentImport(full);
+    if (!fn) fn = sp.first_name;
+    if (!ln) ln = sp.last_name;
+  }
+
+  if (fn && !ln) {
+    const sp = splitFullNameForStudentImport(fn);
+    fn = sp.first_name;
+    ln = sp.last_name;
+  }
+
+  if (
+    fn && ln
+    && trimStr(fn) === trimStr(ln)
+    && /\s/.test(trimStr(fn))
+  ) {
+    const sp = splitFullNameForStudentImport(fn);
+    fn = sp.first_name;
+    ln = sp.last_name;
+  }
+
+  return { first_name: fn, last_name: ln };
+}
+
 /**
  * Single cell with full display name → first + last without duplicating in "First Last" UI.
  * Given names = all tokens except the last; last token = family name (common in Rwanda lists).
  */
 function splitFullNameForStudentImport(full) {
-  const s = trimStr(full).replace(/\s+/g, ' ');
+  const s = stripLeadingRegistrationIdsFromNameText(full);
   if (!s) return { first_name: '', last_name: '' };
   const parts = s.split(' ').filter(Boolean);
   if (parts.length === 1) {
@@ -1591,7 +1656,7 @@ router.post(
             skippedRows += 1;
             continue;
           }
-          const full = trimStr(r['']);
+          const full = stripLeadingRegistrationIdsFromNameText(trimStr(r['']));
           if (!full || /^names?$/i.test(full)) {
             skippedRows += 1;
             continue;
@@ -1807,10 +1872,30 @@ router.post(
             if (seenImportUids.has(strictUid)) { skippedRows += 1; continue; }
             seenImportUids.add(strictUid);
 
-            const strictFirst  = trimStr(row?.[base + 1]);
-            const strictLast   = trimStr(row?.[base + 2]);
-            const strictGender = normalizeGender(row?.[base + 3]);
-            const strictBirth  = normalizeBirthYearValue(row?.[base + 4]);
+            const nameOffset = resolveImportNameColumnOffset(row, base);
+            const extraIdCol = nameOffset > 1 ? normalizeStudentId(row?.[base + 1]) : '';
+            let sdmCode = extraIdCol
+              ? externalRegistrationIdForSdm(extraIdCol)
+              : externalRegistrationIdForSdm(strictUid);
+
+            let strictFirst = trimStr(row?.[base + nameOffset]);
+            let strictLast  = trimStr(row?.[base + nameOffset + 1]);
+            const cleanedNames = cleanImportedStudentNames(strictFirst, strictLast, '');
+            strictFirst = cleanedNames.first_name;
+            strictLast  = cleanedNames.last_name;
+
+            if (!strictFirst || !strictLast) {
+              const fullInOne = stripLeadingRegistrationIdsFromNameText(trimStr(row?.[base + nameOffset]));
+              if (fullInOne) {
+                const sp = splitFullNameForStudentImport(fullInOne);
+                strictFirst = sp.first_name;
+                strictLast  = sp.last_name;
+              }
+            }
+
+            const fieldShift = nameOffset - 1;
+            const strictGender = normalizeGender(row?.[base + 3 + fieldShift]);
+            const strictBirth  = normalizeBirthYearValue(row?.[base + 4 + fieldShift]);
 
             if (!strictFirst || !strictLast) {
               errors.push(`Row ${rowNum}: missing first or last name`);
@@ -1819,18 +1904,18 @@ router.post(
             }
 
             const hasManyDigits  = (v) => String(v || '').replace(/\D/g, '').length >= 6;
-            const fatherPhoneRaw = trimStr(row?.[base + 6]);
-            const motherPhoneRaw = trimStr(row?.[base + 9]);
+            const fatherPhoneRaw = trimStr(row?.[base + 6 + fieldShift]);
+            const motherPhoneRaw = trimStr(row?.[base + 9 + fieldShift]);
             let fatherPhone = normalizePhone(fatherPhoneRaw);
             let motherPhone = normalizePhone(motherPhoneRaw);
             if (fatherPhoneRaw && !fatherPhone && hasManyDigits(fatherPhoneRaw)) { phoneWarnings += 1; fatherPhone = null; }
             if (motherPhoneRaw && !motherPhone && hasManyDigits(motherPhoneRaw)) { phoneWarnings += 1; motherPhone = null; }
 
-            const province = normalizeProvinceLabel(cleanLocationToken(trimStr(row?.[base + 12])));
-            const district = cleanLocationToken(trimStr(row?.[base + 13]));
-            const sector   = cleanLocationToken(trimStr(row?.[base + 14]));
-            const cell     = cleanLocationToken(trimStr(row?.[base + 15]));
-            const village  = cleanLocationToken(trimStr(row?.[base + 16]));
+            const province = normalizeProvinceLabel(cleanLocationToken(trimStr(row?.[base + 12 + fieldShift])));
+            const district = cleanLocationToken(trimStr(row?.[base + 13 + fieldShift]));
+            const sector   = cleanLocationToken(trimStr(row?.[base + 14 + fieldShift]));
+            const cell     = cleanLocationToken(trimStr(row?.[base + 15 + fieldShift]));
+            const village  = cleanLocationToken(trimStr(row?.[base + 16 + fieldShift]));
 
             const locationMissing = [];
             if (!province) locationMissing.push('Province');
@@ -1841,19 +1926,19 @@ router.post(
 
             toInsert.push({
               uid:              strictUid,
-              sdm_code:         externalRegistrationIdForSdm(strictUid),
+              sdm_code:         sdmCode,
               first_name:       strictFirst,
               last_name:        strictLast,
               gender:           strictGender || null,
               birth_year:       strictBirth  || null,
-              nationality:      normalizeNationalityLabel(trimStr(row?.[base + 11])) || 'Rwandan',
+              nationality:      normalizeNationalityLabel(trimStr(row?.[base + 11 + fieldShift])) || 'Rwandan',
               province, district, sector, cell, village,
-              father_full_name: trimStr(row?.[base + 5])  || null,
+              father_full_name: trimStr(row?.[base + 5 + fieldShift])  || null,
               father_phone:     fatherPhone,
-              father_email:     trimStr(row?.[base + 7])  || null,
-              mother_full_name: trimStr(row?.[base + 8])  || null,
+              father_email:     trimStr(row?.[base + 7 + fieldShift])  || null,
+              mother_full_name: trimStr(row?.[base + 8 + fieldShift])  || null,
               mother_phone:     motherPhone,
-              mother_email:     trimStr(row?.[base + 10]) || null,
+              mother_email:     trimStr(row?.[base + 10 + fieldShift]) || null,
               import_missing_fields: JSON.stringify(locationMissing),
               source_row_json:  JSON.stringify(row),
             });
@@ -1918,15 +2003,9 @@ router.post(
             if (!last_name && parts.length === 1) last_name = '-';
           }
 
-          if (
-            first_name && last_name
-            && trimStr(first_name) === trimStr(last_name)
-            && /\s/.test(trimStr(first_name))
-          ) {
-            const sp = splitFullNameForStudentImport(first_name);
-            first_name = sp.first_name;
-            last_name = sp.last_name;
-          }
+          const cleanedGenericNames = cleanImportedStudentNames(first_name, last_name, fullName);
+          first_name = cleanedGenericNames.first_name;
+          last_name = cleanedGenericNames.last_name;
 
           province = normalizeProvinceLabel(cleanLocationToken(province));
           district = cleanLocationToken(district);
@@ -1975,8 +2054,25 @@ router.post(
           if (seenImportUids.has(uid)) { skippedRows += 1; continue; }
           seenImportUids.add(uid);
 
+          let sdm_code = readFromRowByAliases(row, headerCells, [
+            'SDMS ID', 'SDMS', 'SDM Code', 'SDMCode', 'SDM', 'SDMSID',
+          ]);
+          if (!sdm_code) {
+            const ordinal = Number(trimStr(row?.[0]));
+            const idBase = Number.isInteger(ordinal) && ordinal > 0 && ordinal < 100000 ? 1 : 0;
+            const maybeSdm = normalizeStudentId(row?.[idBase + 1]);
+            const maybeUid = normalizeStudentId(row?.[idBase]);
+            if (
+              maybeSdm && maybeSdm !== maybeUid && maybeSdm !== uid
+              && cellLooksLikeRegistrationId(maybeSdm)
+            ) {
+              sdm_code = maybeSdm;
+            }
+          }
+          sdm_code = externalRegistrationIdForSdm(sdm_code) || null;
+
           toInsert.push({
-            uid, first_name, last_name,
+            uid, sdm_code, first_name, last_name,
             gender: gender || null, birth_year: year || null,
             nationality: normalizeNationalityLabel(nationality || inferLocationFromRowTail(row).nationality || 'Rwandan') || 'Rwandan',
             province, district, sector, cell, village,

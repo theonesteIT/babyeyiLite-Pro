@@ -79,35 +79,35 @@ function PayslipPreview({ payslip, runMeta, schoolBranding, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-slate-100 w-full max-w-4xl h-full overflow-y-auto shadow-2xl flex flex-col">
-        <div className="sticky top-0 z-10 bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between">
+      <div className="absolute inset-0 bg-[#000435]/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#F8FAFC] w-full max-w-4xl h-full overflow-y-auto shadow-2xl flex flex-col">
+        <div className="sticky top-0 z-10 bg-[#000435] px-5 py-4 flex items-center justify-between">
           <div>
-            <p className="font-black text-[#000435]">Payslip Preview</p>
-            <p className="text-xs text-slate-400">{payslip?.name} · {data.meta.monthLabel}</p>
+            <p className="font-black text-white text-sm uppercase tracking-wide">Payslip Preview</p>
+            <p className="text-xs text-white/60 mt-0.5">{payslip?.name} · {data.meta.monthLabel}</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"><X size={18} /></button>
+          <button type="button" onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white"><X size={18} /></button>
         </div>
 
         <div className="flex-1 p-4 sm:p-6">
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
             <ModernPayslipDocument ref={docRef} data={data} />
           </div>
         </div>
 
         {exportError && (
-          <div className="mx-5 mb-0 rounded-xl px-4 py-2.5 text-xs font-medium bg-red-50 text-red-800 border border-red-100 flex items-start gap-2">
-            <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <div className="mx-5 mb-0 rounded-xl px-4 py-2.5 text-xs font-medium bg-white text-[#000435] border border-amber-200 flex items-start gap-2">
+            <AlertCircle size={14} className="shrink-0 mt-0.5 text-[#F59E0B]" />
             <span>{exportError}</span>
           </div>
         )}
         <div className="sticky bottom-0 bg-white border-t border-slate-200 px-5 py-4 flex gap-2 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50">Close</button>
-          <button type="button" onClick={handleDownload} disabled={exporting} className="flex-1 flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-500 disabled:opacity-60 text-[#000435] font-bold text-sm rounded-xl py-2.5">
+          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-[#000435] hover:bg-slate-50">Close</button>
+          <button type="button" onClick={handleDownload} disabled={exporting} className="flex-1 flex items-center justify-center gap-2 bg-[#F59E0B] hover:bg-amber-500 disabled:opacity-60 text-[#000435] font-bold text-sm rounded-xl py-2.5">
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Download PDF
           </button>
-          <button type="button" onClick={handlePrint} className="flex-1 flex items-center justify-center gap-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 py-2.5">
+          <button type="button" onClick={handlePrint} className="flex-1 flex items-center justify-center gap-2 bg-[#000435] hover:bg-[#000435]/90 text-white rounded-xl text-sm font-bold py-2.5">
             <Printer size={14} /> Print
           </button>
         </div>

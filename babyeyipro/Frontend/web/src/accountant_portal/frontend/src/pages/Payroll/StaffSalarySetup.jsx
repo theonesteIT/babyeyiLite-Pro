@@ -19,6 +19,7 @@ import {
   getStaffAdvanceCheck,
 } from "../../services/payrollTemplateService";
 import { mergeRegisterAllowanceAmounts } from "../../utils/payrollStaffAllowances";
+import PortalToast from "../../components/PortalToast";
 
 const EMPTY_SALARY = {
   basic: 0, others: 0, transport: 0, housing: 0, communication: 0, responsibility: 0, meal: 0,
@@ -325,7 +326,7 @@ function InputField({ label, value, onChange, prefix, disabled, placeholder }) {
   );
 }
 
-function SectionLabel({ icon: Icon, label, color = "text-green-700" }) {
+function SectionLabel({ icon: Icon, label, color = "text-[#000435]" }) {
   return (
     <div className="flex items-center gap-2 mb-4">
       <div className={`w-6 h-6 rounded-lg bg-current/10 flex items-center justify-center ${color}`}>
@@ -362,12 +363,10 @@ function Modal({ title, subtitle, onClose, children }) {
   );
 }
 
-function ItemChip({ name, amount, onRemove, variant = "green" }) {
-  const colors = variant === "green"
-    ? "bg-green-50 border-green-100 text-green-800"
-    : variant === "amber"
-      ? "bg-amber-50 border-amber-100 text-amber-800"
-      : "bg-red-50 border-red-100 text-red-800";
+function ItemChip({ name, amount, onRemove, variant = "amber" }) {
+  const colors = variant === "navy"
+    ? "bg-[#000435]/5 border-[#000435]/15 text-[#000435]"
+    : "bg-amber-50 border-amber-100 text-[#000435]";
   return (
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${colors}`}>
       <div className="flex-1 min-w-0">
@@ -413,6 +412,7 @@ export default function StaffSalarySetup() {
   const [advanceForm, setAdvanceForm]     = useState({ amount: "", repaymentMonths: 3 });
   const [modalSaving, setModalSaving]     = useState(false);
   const [allowanceRemovingId, setAllowanceRemovingId] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const loadStaffDeductions = useCallback(async (staffId, staffName) => {
     if (!staffId) return;
@@ -652,6 +652,12 @@ export default function StaffSalarySetup() {
     await saveStaffPayrollProfile(selected.id, buildStaffAllowancePayload(salaryState, allowanceRules));
   };
 
+  const showToast = (type, message, detail = "") => {
+    setToast({ type, message, detail });
+    window.clearTimeout(window.__salarySetupToast);
+    window.__salarySetupToast = window.setTimeout(() => setToast(null), 4500);
+  };
+
   const handleSave = async () => {
     if (!selected) return;
     setSaving(true);
@@ -660,8 +666,14 @@ export default function StaffSalarySetup() {
       await persistStaffAllowances(sal);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      showToast(
+        "success",
+        "Salary package saved",
+        `${selected.name} · Gross ${fmtRwf(displayGross)} · Net ${fmtRwf(displayNet)}`,
+      );
     } catch {
       setLoadError("Failed to save salary package.");
+      showToast("error", "Could not save salary package", "Check connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -899,7 +911,7 @@ export default function StaffSalarySetup() {
               disabled={saving || (payrollMode === "netToGross" && !netToGrossResult)}
               className={`flex items-center gap-2 font-bold text-sm px-4 py-2.5 rounded-xl transition-all disabled:opacity-60
                 ${saved
-                  ? "bg-green-500 text-white"
+                  ? "bg-[#000435] text-white"
                   : "bg-amber-400 hover:bg-amber-500 text-[#000435]"
                 }`}
             >
@@ -911,7 +923,7 @@ export default function StaffSalarySetup() {
               }
             </button>
 
-            <button className="flex items-center gap-2 bg-[#000435] hover:bg-blue-950 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-colors">
+            <button className="flex items-center gap-2 bg-[#000435] hover:bg-[#000435]/90 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-colors">
               <Send size={14} /> Submit
             </button>
           </div>
@@ -970,51 +982,60 @@ export default function StaffSalarySetup() {
           </div>
 
           {loadError && (
-            <p className="p-3 text-xs text-red-500 border-t border-slate-50">{loadError}</p>
+            <p className="p-3 text-xs text-[#000435] border-t border-slate-50">{loadError}</p>
           )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
 
-          <div className="bg-[#000435] rounded-2xl p-5 flex flex-wrap items-center gap-5">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-amber-400 flex items-center justify-center flex-shrink-0">
-                <User size={22} className="text-[#000435]" strokeWidth={2.5} />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-white font-black text-lg tracking-tight truncate">
-                  {selected.name}
-                </h2>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                    ${DEPT_COLORS[selected.dept] || DEPT_COLORS.Staff}`}>
-                    {selected.dept}
-                  </span>
-                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                    ${STATUS_COLORS[selected.contract] || STATUS_COLORS.Permanent}`}>
-                    {selected.contract}
-                  </span>
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+            <div className="flex flex-wrap items-center gap-5">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="w-14 h-14 rounded-2xl bg-[#F59E0B] flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <User size={24} className="text-[#000435]" strokeWidth={2.5} />
                 </div>
-                <p className="text-white/40 text-xs mt-1">
-                  {selected.position} · {selected.employeeNo}
-                </p>
-              </div>
-            </div>
-
-            <div className="hidden sm:block w-px h-16 bg-white/10 flex-shrink-0" />
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full sm:w-auto">
-              {[
-                { label: "Gross Salary",      value: fmtRwf(displayGross),           cls: "text-amber-400" },
-                { label: "Net Salary",         value: fmtRwf(displayNet),             cls: "text-green-400" },
-                { label: "Total Deductions",   value: fmtRwf(displayDeductions),      cls: "text-red-400" },
-                { label: "Employer Cost",      value: fmtRwf(displayEmployerCost),    cls: "text-blue-300" },
-              ].map(({ label, value, cls }) => (
-                <div key={label} className="bg-white/[0.07] border border-white/[0.06] rounded-xl px-4 py-3">
-                  <p className={`font-black text-sm leading-tight ${cls}`}>{value}</p>
-                  <p className="text-white/35 text-[10px] mt-1 font-medium uppercase tracking-wider">{label}</p>
+                <div className="min-w-0">
+                  <h2 className="text-[#000435] font-black text-lg tracking-tight truncate">
+                    {selected.name}
+                  </h2>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-[#000435]/5 text-[#000435] border border-[#000435]/10">
+                      {selected.dept}
+                    </span>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                      {selected.contract}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-1.5">
+                    {selected.position} · {selected.employeeNo}
+                  </p>
                 </div>
-              ))}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto lg:min-w-[520px]">
+                {[
+                  { label: "Gross Salary", value: fmtRwf(displayGross), highlight: true },
+                  { label: "Net Salary", value: fmtRwf(displayNet), highlight: true },
+                  { label: "Total Deductions", value: fmtRwf(displayDeductions), highlight: false },
+                  { label: "Employer Cost", value: fmtRwf(displayEmployerCost), highlight: false },
+                ].map(({ label, value, highlight }) => (
+                  <div
+                    key={label}
+                    className={`rounded-xl px-4 py-3.5 border transition-shadow hover:shadow-sm ${
+                      highlight
+                        ? "bg-[#000435] border-[#000435] shadow-md"
+                        : "bg-slate-50 border-slate-200"
+                    }`}
+                  >
+                    <p className={`font-black text-sm leading-tight tabular-nums ${highlight ? "text-[#F59E0B]" : "text-[#000435]"}`}>
+                      {value}
+                    </p>
+                    <p className={`text-[10px] mt-1.5 font-semibold uppercase tracking-wider ${highlight ? "text-white/50" : "text-slate-400"}`}>
+                      {label}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1068,11 +1089,11 @@ export default function StaffSalarySetup() {
                 <>
                   <div className={`rounded-xl px-4 py-3 border flex items-center gap-3
                     ${Math.abs(netToGrossResult.difference || 0) <= 1
-                      ? "bg-green-50 border-green-200"
-                      : "bg-amber-50 border-amber-200"
+                      ? "bg-amber-50 border-amber-200"
+                      : "bg-slate-50 border-slate-200"
                     }`}
                   >
-                    <CheckCircle size={16} className={Math.abs(netToGrossResult.difference || 0) <= 1 ? "text-green-600" : "text-amber-600"} />
+                    <CheckCircle size={16} className={Math.abs(netToGrossResult.difference || 0) <= 1 ? "text-[#F59E0B]" : "text-[#000435]"} />
                     <div className="text-sm">
                       <p className="font-bold text-[#000435]">
                         {Math.abs(netToGrossResult.difference || 0) <= 1
@@ -1100,19 +1121,19 @@ export default function StaffSalarySetup() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           {[
-                            { label: "Desired Net Salary", value: netToGrossResult.desiredNet, cls: "text-green-700 font-bold" },
-                            { label: "Gross Salary", value: netToGrossResult.grossSalary, cls: "text-amber-700 font-bold" },
+                            { label: "Desired Net Salary", value: netToGrossResult.desiredNet, cls: "text-[#000435] font-bold" },
+                            { label: "Gross Salary", value: netToGrossResult.grossSalary, cls: "text-[#F59E0B] font-bold" },
                             { label: "Basic Salary (70%)", value: netToGrossResult.basicSalary },
                             { label: "Housing Allowance (10%)", value: netToGrossResult.registerAllowanceSplit?.housing },
                             { label: "Transport Allowance (10%)", value: netToGrossResult.registerAllowanceSplit?.transport },
                             { label: "Other Allowance (10%)", value: netToGrossResult.registerAllowanceSplit?.others },
-                            { label: "PAYE", value: netToGrossResult.paye, cls: "text-red-600" },
-                            { label: "Employee Pension (CSR 6%)", value: netToGrossResult.rssbEmployee, cls: "text-red-600" },
-                            { label: "Employee RAMA (7.5%)", value: netToGrossResult.ramaEmployee, cls: "text-red-600" },
-                            { label: "Employee Maternity (0.3%)", value: netToGrossResult.maternityEmployee, cls: "text-red-600" },
-                            ...(netToGrossResult.cbhi ? [{ label: "Mutuelle / CBHI (0.5%)", value: netToGrossResult.cbhi, cls: "text-red-600" }] : []),
-                            ...(netToGrossResult.otherDeductions ? [{ label: "Other Deductions", value: netToGrossResult.otherDeductions, cls: "text-red-600" }] : []),
-                            { label: "Verified Net Salary", value: netToGrossResult.verifiedNet, cls: "text-green-700 font-black" },
+                            { label: "PAYE", value: netToGrossResult.paye, cls: "text-[#000435]" },
+                            { label: "Employee Pension (CSR 6%)", value: netToGrossResult.rssbEmployee, cls: "text-[#000435]" },
+                            { label: "Employee RAMA (7.5%)", value: netToGrossResult.ramaEmployee, cls: "text-[#000435]" },
+                            { label: "Employee Maternity (0.3%)", value: netToGrossResult.maternityEmployee, cls: "text-[#000435]" },
+                            ...(netToGrossResult.cbhi ? [{ label: "Mutuelle / CBHI (0.5%)", value: netToGrossResult.cbhi, cls: "text-[#000435]" }] : []),
+                            ...(netToGrossResult.otherDeductions ? [{ label: "Other Deductions", value: netToGrossResult.otherDeductions, cls: "text-[#000435]" }] : []),
+                            { label: "Verified Net Salary", value: netToGrossResult.verifiedNet, cls: "text-[#F59E0B] font-black" },
                           ].map((row) => (
                             <tr key={row.label} className="hover:bg-amber-50/30">
                               <td className="py-3 px-5 text-slate-600">{row.label}</td>
@@ -1154,7 +1175,7 @@ export default function StaffSalarySetup() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <SectionLabel icon={TrendingUp} label="Earnings Components" color="text-green-700" />
+                  <SectionLabel icon={TrendingUp} label="Earnings Components" color="text-[#000435]" />
                 </div>
                 <InputField label="Basic Salary *" value={sal.basic} onChange={v => set("basic", v)} prefix="RWF" />
               </div>
@@ -1195,7 +1216,7 @@ export default function StaffSalarySetup() {
                                 {allowanceKindLabel(row.kind)}
                               </p>
                             </td>
-                            <td className="py-3.5 px-4 font-semibold text-green-700">{fmtRwf(row.amount)}</td>
+                            <td className="py-3.5 px-4 font-semibold text-[#F59E0B]">{fmtRwf(row.amount)}</td>
                             <td className="py-3.5 px-4">
                               <div className="flex items-center justify-end gap-1">
                                 <button
@@ -1210,7 +1231,7 @@ export default function StaffSalarySetup() {
                                   type="button"
                                   onClick={() => removeAllowanceRow(row)}
                                   disabled={allowanceRemovingId === row.id}
-                                  className="p-2 rounded-lg hover:bg-red-50 text-red-500 transition-colors disabled:opacity-50"
+                                  className="p-2 rounded-lg hover:bg-amber-50 text-[#000435]/60 transition-colors disabled:opacity-50"
                                   title="Remove allowance"
                                 >
                                   {allowanceRemovingId === row.id
@@ -1224,9 +1245,9 @@ export default function StaffSalarySetup() {
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-green-50 border-t border-green-100">
-                          <td className="py-3 px-4 font-bold text-green-800">Allowances subtotal</td>
-                          <td className="py-3 px-4 font-black text-green-700">
+                        <tr className="bg-amber-50/60 border-t border-amber-100">
+                          <td className="py-3 px-4 font-bold text-[#000435]">Allowances subtotal</td>
+                          <td className="py-3 px-4 font-black text-[#F59E0B]">
                             {fmtRwf(allowanceRows.reduce((s, r) => s + r.amount, 0))}
                           </td>
                           <td />
@@ -1237,9 +1258,9 @@ export default function StaffSalarySetup() {
                 )}
               </div>
 
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between">
-                <p className="text-sm font-bold text-green-800">Total Gross Salary</p>
-                <p className="text-xl font-black text-green-700">{fmtRwf(gross)}</p>
+              <div className="bg-[#000435] border border-[#000435] rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                <p className="text-sm font-bold text-white/70">Total Gross Salary</p>
+                <p className="text-xl font-black text-[#F59E0B]">{fmtRwf(gross)}</p>
               </div>
             </div>
           )}
@@ -1248,7 +1269,7 @@ export default function StaffSalarySetup() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="sm:col-span-2 lg:col-span-3">
-                  <SectionLabel icon={TrendingDown} label="Statutory Deductions (Auto-calculated)" color="text-red-600" />
+                  <SectionLabel icon={TrendingDown} label="Statutory Deductions (Auto-calculated)" color="text-[#000435]" />
                 </div>
                 <InputField label="PAYE"              value={Math.round(paye)}  prefix="RWF" disabled />
                 <InputField label="RSSB Pension (6%)" value={Math.round(rssb)}  prefix="RWF" disabled />
@@ -1258,11 +1279,11 @@ export default function StaffSalarySetup() {
 
               <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-3 mb-4">
-                  <SectionLabel icon={Plus} label="Additional Deductions" color="text-red-500" />
+                  <SectionLabel icon={Plus} label="Additional Deductions" color="text-[#000435]" />
                   <button
                     type="button"
                     onClick={() => { setDeductionForm({ name: "", amount: "" }); setShowDeductionModal(true); }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#000435] hover:bg-blue-950 text-white text-xs font-bold transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#000435] hover:bg-[#000435]/90 text-white text-xs font-bold transition-colors"
                   >
                     <Plus size={14} /> Add Deduction
                   </button>
@@ -1283,7 +1304,7 @@ export default function StaffSalarySetup() {
                         key={d.id}
                         name={d.name}
                         amount={d.amount}
-                        variant="red"
+                        variant="navy"
                         onRemove={() => removeDeduction(d)}
                       />
                     ))}
@@ -1301,9 +1322,9 @@ export default function StaffSalarySetup() {
                 </div>
               )}
 
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
-                <p className="text-sm font-bold text-red-700">Total Deductions</p>
-                <p className="text-xl font-black text-red-600">{fmtRwf(Math.round(totalDeductions))}</p>
+              <div className="bg-white border-2 border-[#000435] rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                <p className="text-sm font-bold text-[#000435]">Total Deductions</p>
+                <p className="text-xl font-black text-[#F59E0B]">{fmtRwf(Math.round(totalDeductions))}</p>
               </div>
             </div>
           )}
@@ -1323,7 +1344,7 @@ export default function StaffSalarySetup() {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Outstanding Balance</p>
-                  <p className="text-xl font-black text-red-600 mt-1">
+                  <p className="text-xl font-black text-[#F59E0B] mt-1">
                     {fmtRwf((sal.advances || []).reduce((s, a) => s + Number(a.remainingBalance || 0), 0))}
                   </p>
                 </div>
@@ -1370,11 +1391,11 @@ export default function StaffSalarySetup() {
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-black text-[#000435]">{fmtRwf(adv.totalAmount)}</p>
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase
-                                  ${isActive ? "bg-amber-400/20 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                                  ${isActive ? "bg-amber-400/20 text-amber-700" : "bg-[#000435]/5 text-[#000435]"}`}>
                                   {isActive ? "Active" : "Completed"}
                                 </span>
                                 {adv.source === "shule_avance" && (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                                     Shule Avance
                                   </span>
                                 )}
@@ -1388,7 +1409,7 @@ export default function StaffSalarySetup() {
                               <button
                                 type="button"
                                 onClick={() => removeAdvance(adv)}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-amber-50 text-[#000435]/60 transition-colors"
                                 title="Remove advance"
                               >
                                 <Trash2 size={14} />
@@ -1398,7 +1419,7 @@ export default function StaffSalarySetup() {
                           <div className="mt-3">
                             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full transition-all ${isActive ? "bg-amber-400" : "bg-green-500"}`}
+                                className={`h-full rounded-full transition-all ${isActive ? "bg-amber-400" : "bg-[#000435]/30"}`}
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
@@ -1445,7 +1466,7 @@ export default function StaffSalarySetup() {
                 ].filter(r => r.value > 0).map(row => (
                   <div key={row.label} className="flex justify-between text-sm">
                     <span className="text-slate-500">{row.label}</span>
-                    <span className="font-semibold text-green-600">+ {fmtRwf(row.value)}</span>
+                    <span className="font-semibold text-[#F59E0B]">+ {fmtRwf(row.value)}</span>
                   </div>
                 ))}
 
@@ -1465,7 +1486,7 @@ export default function StaffSalarySetup() {
                 ].filter(r => r.value > 0).map(row => (
                   <div key={row.label} className="flex justify-between text-sm">
                     <span className="text-slate-500">{row.label}</span>
-                    <span className="font-semibold text-red-500">− {fmtRwf(row.value)}</span>
+                    <span className="font-semibold text-[#000435]">− {fmtRwf(row.value)}</span>
                   </div>
                 ))}
 
@@ -1484,11 +1505,11 @@ export default function StaffSalarySetup() {
                   <div className="space-y-2.5">
                     {[
                       { label: "Previous Basic",      value: fmtRwf(sal.prevBasic),                        cls: "text-[#000435]" },
-                      { label: "Current Basic",       value: fmtRwf(sal.basic),                            cls: "text-green-600" },
+                      { label: "Current Basic",       value: fmtRwf(sal.basic),                            cls: "text-[#F59E0B]" },
                       { label: "Increment",           value: `+ ${fmtRwf(sal.basic - sal.prevBasic)}`,         cls: "text-amber-600" },
                       { label: "Last Increment Date", value: sal.lastIncrement,                                               cls: "text-[#000435]" },
                       ...(payrollMode === "netToGross" && sal.desiredNet > 0
-                        ? [{ label: "Target Net Salary", value: fmtRwf(sal.desiredNet), cls: "text-green-700" }]
+                        ? [{ label: "Target Net Salary", value: fmtRwf(sal.desiredNet), cls: "text-[#F59E0B]" }]
                         : []),
                     ].map(r => (
                       <div key={r.label} className="flex justify-between text-sm">
@@ -1658,6 +1679,7 @@ export default function StaffSalarySetup() {
         </Modal>
       )}
 
+      <PortalToast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

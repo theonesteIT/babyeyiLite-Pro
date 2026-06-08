@@ -8,6 +8,7 @@ import {
   Building2,
   FolderOpen,
   GraduationCap,
+  Network,
 } from 'lucide-react'
 
 /** HR Center sidebar submenu — maps to routes under /hr */
@@ -19,6 +20,7 @@ export const HR_CENTER_NAV = [
   { id: 'categories', label: 'Employment Categories', icon: Tags, path: '/hr/categories' },
   { id: 'leave', label: 'Leave Management', icon: Calendar, path: '/hr/leave' },
   { id: 'departments', label: 'Departments', icon: Building2, path: '/hr/departments' },
+  { id: 'hierarchy', label: 'Organization Structure', icon: Network, path: '/hr/organization' },
   { id: 'documents', label: 'Staff Documents', icon: FolderOpen, path: '/hr/documents' },
   { id: 'qualifications', label: 'Qualifications', icon: GraduationCap, path: '/hr/qualifications' },
 ]

@@ -46,6 +46,7 @@ import EmploymentCategory from './pages/HRPages/EmploymentCategory'
 import LeaveManagement from './pages/HRPages/LeaveManagement'
 import EmployeeProfile from './pages/HRPages/EmployeeProfile'
 import HRDepartments from './pages/HRPages/Departments'
+import EmployeeHierarchy from './pages/HRPages/EmployeeHierarchy'
 import StaffDocuments from './pages/HRPages/StaffDocuments'
 import Qualifications from './pages/HRPages/Qualifications'
 import TerminationReview from './pages/TerminationReview'
@@ -140,6 +141,7 @@ function ManagerRoutesInner() {
       <Route path="hr/categories" element={<ProtectedRoute title="Employment Categories"><EmploymentCategory /></ProtectedRoute>} />
       <Route path="hr/leave" element={<ProtectedRoute title="Leave Management"><LeaveManagement /></ProtectedRoute>} />
       <Route path="hr/departments" element={<ProtectedRoute title="Departments"><HRDepartments /></ProtectedRoute>} />
+      <Route path="hr/organization" element={<ProtectedRoute title="Organization Structure"><EmployeeHierarchy /></ProtectedRoute>} />
       <Route path="hr/documents" element={<ProtectedRoute title="Staff Documents"><StaffDocuments /></ProtectedRoute>} />
       <Route path="hr/qualifications" element={<ProtectedRoute title="Qualifications"><Qualifications /></ProtectedRoute>} />
       <Route path="payroll" element={<ProtectedRoute title="Payroll"><Payroll /></ProtectedRoute>} />

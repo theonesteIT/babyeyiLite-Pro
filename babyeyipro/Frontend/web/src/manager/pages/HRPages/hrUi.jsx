@@ -14,6 +14,7 @@ export function HrPageLayout({
   subtitle,
   HeroIcon,
   headerRight,
+  heroFooter,
   kpiTiles = [],
   cardBody = null,
   kpiGridClassName = '',
@@ -40,6 +41,7 @@ export function HrPageLayout({
         subtitle={resolvedSubtitle}
         HeroIcon={HeroIcon}
         headerRight={headerRight}
+        heroFooter={heroFooter}
         kpiTiles={kpiTiles}
         kpiGridClassName={kpiGridClassName}
         cardBody={cardBody}

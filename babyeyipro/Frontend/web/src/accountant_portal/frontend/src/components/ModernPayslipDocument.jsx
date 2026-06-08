@@ -6,26 +6,6 @@ const GOLD = '#F59E0B';
 const GOLD_LIGHT = '#FEF3C7';
 const BORDER = '#E2E8F0';
 
-function shortDeductionLabel(desc = '') {
-  const d = String(desc).toLowerCase();
-  if (d.includes('rssb')) return 'RSSB';
-  if (d.includes('rama')) return 'RAMA';
-  if (d.includes('paye')) return 'PAYE';
-  if (d.includes('maternity')) return 'Maternity Leave';
-  if (d.includes('mutuelle') || d.includes('cbhi')) return 'Mutuelle (CBHI)';
-  if (d.includes('other') || d.includes('additional')) return 'Others';
-  return desc.split('—')[0].split('(')[0].trim() || desc;
-}
-
-function shortEmployerLabel(desc = '') {
-  const d = String(desc).toLowerCase();
-  if (d.includes('rssb')) return 'RSSB Pension';
-  if (d.includes('rama')) return 'RAMA';
-  if (d.includes('maternity')) return 'Maternity Leave';
-  if (d.includes('occupational') || d.includes('hazard')) return 'Occupational Hazard';
-  return desc.split('(')[0].trim() || desc;
-}
-
 function InfoCell({ label, value }) {
   return (
     <div>
@@ -35,13 +15,13 @@ function InfoCell({ label, value }) {
   );
 }
 
-function AmountTable({ title, rows, totalLabel, totalValue }) {
+function EarningsTable({ rows, totalLabel, totalValue }) {
   return (
-    <div className="flex-1 min-w-0">
+    <div>
       <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-            <th className="text-left py-2 font-bold uppercase tracking-wide" style={{ color: GOLD }}>{title}</th>
+            <th className="text-left py-2 font-bold uppercase tracking-wide" style={{ color: GOLD }}>Earnings</th>
             <th className="text-right py-2 font-bold uppercase tracking-wide" style={{ color: GOLD }}>Amount (RWF)</th>
           </tr>
         </thead>
@@ -53,11 +33,7 @@ function AmountTable({ title, rows, totalLabel, totalValue }) {
             </tr>
           ))}
           <tr>
-            <td
-              colSpan={2}
-              className="pt-3 pb-1"
-              style={{ borderTop: `1px dashed ${BORDER}` }}
-            />
+            <td colSpan={2} className="pt-3 pb-1" style={{ borderTop: `1px dashed ${BORDER}` }} />
           </tr>
           <tr>
             <td className="py-2 font-black uppercase text-[10px] tracking-wide" style={{ color: NAVY }}>{totalLabel}</td>
@@ -65,6 +41,21 @@ function AmountTable({ title, rows, totalLabel, totalValue }) {
           </tr>
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value, highlight = false }) {
+  return (
+    <div
+      className="flex items-center justify-between py-3 px-4 rounded-xl"
+      style={{
+        background: highlight ? GOLD_LIGHT : '#FAFAFA',
+        border: `1px solid ${highlight ? GOLD : BORDER}`,
+      }}
+    >
+      <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: NAVY }}>{label}</span>
+      <span className={`font-black ${highlight ? 'text-xl' : 'text-sm'}`} style={{ color: GOLD }}>{value}</span>
     </div>
   );
 }
@@ -93,7 +84,7 @@ function TimelineStep({ icon: Icon, label, date, isLast }) {
 const ModernPayslipDocument = forwardRef(function ModernPayslipDocument({ data }, ref) {
   if (!data) return null;
 
-  const { school, meta, employee, summary, earnings, deductions, employer, fmtPlain } = data;
+  const { school, meta, employee, summary, earnings, fmtPlain } = data;
   const fmt = fmtPlain || data.fmt;
 
   const earningRows = earnings.map((e) => ({
@@ -101,18 +92,7 @@ const ModernPayslipDocument = forwardRef(function ModernPayslipDocument({ data }
     amount: fmt(e.amount),
   }));
 
-  const deductionRows = [
-    ...deductions.map((d) => ({
-      label: shortDeductionLabel(d.desc),
-      amount: fmt(d.amount),
-    })),
-    ...(summary.cbhi > 0 ? [{ label: 'Mutuelle (CBHI)', amount: fmt(summary.cbhi) }] : []),
-  ];
-
-  const employerBoxes = employer.map((e) => ({
-    label: shortEmployerLabel(e.desc),
-    amount: fmt(e.amount),
-  }));
+  const totalDeductions = summary.totalDeductions + (summary.cbhi || 0);
 
   const contactLines = [
     school.address && `Address: ${school.address}`,
@@ -136,7 +116,7 @@ const ModernPayslipDocument = forwardRef(function ModernPayslipDocument({ data }
         lineHeight: 1.4,
       }}
     >
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-6 pb-5" style={{ borderBottom: `2px solid ${NAVY}` }}>
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <div
@@ -186,13 +166,13 @@ const ModernPayslipDocument = forwardRef(function ModernPayslipDocument({ data }
         </div>
       </div>
 
-      {/* ── Net Salary Highlight ── */}
+      {/* Net Salary highlight */}
       <div
-        className="flex items-center justify-between py-5 my-5"
-        style={{ borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}
+        className="flex items-center justify-between py-5 my-5 px-5 rounded-2xl"
+        style={{ background: GOLD_LIGHT, border: `1px solid ${GOLD}` }}
       >
         <div className="flex items-baseline gap-3">
-          <span className="text-xs font-black uppercase tracking-widest" style={{ color: NAVY }}>Net Salary</span>
+          <span className="text-xs font-black uppercase tracking-widest" style={{ color: NAVY }}>Net Salary Payable</span>
           <span className="font-black text-3xl" style={{ color: GOLD }}>{fmt(summary.net)}</span>
           <span className="text-sm font-bold" style={{ color: NAVY }}>RWF</span>
         </div>
@@ -202,7 +182,7 @@ const ModernPayslipDocument = forwardRef(function ModernPayslipDocument({ data }
         </div>
       </div>
 
-      {/* ── Employee Information ── */}
+      {/* Employee info */}
       <div className="mb-6">
         <h3 className="text-[11px] font-black uppercase tracking-widest mb-3" style={{ color: NAVY }}>
           Employee Information
@@ -219,74 +199,28 @@ const ModernPayslipDocument = forwardRef(function ModernPayslipDocument({ data }
         </div>
       </div>
 
-      {/* ── Earnings & Deductions ── */}
-      <div
-        className="flex gap-8 mb-6 pb-6"
-        style={{ borderBottom: `1px solid ${BORDER}` }}
-      >
-        <AmountTable
-          title="Earnings"
+      {/* Earnings */}
+      <div className="mb-6 pb-6" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        <EarningsTable
           rows={earningRows}
           totalLabel="Total Earnings"
           totalValue={fmt(summary.gross)}
         />
-        <AmountTable
-          title="Deductions"
-          rows={deductionRows}
-          totalLabel="Total Deductions"
-          totalValue={fmt(summary.totalDeductions + (summary.cbhi || 0))}
-        />
       </div>
 
-      {/* ── Employer Contributions ── */}
-      <div className="mb-6">
-        <h3 className="text-[11px] font-black uppercase tracking-widest mb-3" style={{ color: NAVY }}>
-          Employer Contributions
+      {/* Payroll summary — no itemized deductions */}
+      <div className="mb-8">
+        <h3 className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: NAVY }}>
+          Payroll Summary
         </h3>
-        <div className="grid grid-cols-5 gap-3">
-          {employerBoxes.slice(0, 4).map((box) => (
-            <div
-              key={box.label}
-              className="rounded-lg px-3 py-3 text-center"
-              style={{ border: `1px solid ${BORDER}`, background: '#FAFAFA' }}
-            >
-              <p className="text-[9px] font-semibold mb-1.5 leading-tight" style={{ color: '#64748B' }}>{box.label}</p>
-              <p className="text-[11px] font-bold" style={{ color: NAVY }}>{box.amount}</p>
-            </div>
-          ))}
-          <div
-            className="rounded-lg px-3 py-3 text-center flex flex-col justify-center"
-            style={{ border: `1px solid ${GOLD}`, background: '#FFFBEB' }}
-          >
-            <p className="text-[9px] font-bold uppercase tracking-wide mb-1" style={{ color: NAVY }}>Total Contributions</p>
-            <p className="text-base font-black" style={{ color: GOLD }}>{fmt(summary.employerTotal)}</p>
-          </div>
+        <div className="space-y-3">
+          <SummaryRow label="Gross Salary Total" value={fmt(summary.gross)} />
+          <SummaryRow label="Total Deductions" value={fmt(totalDeductions)} />
+          <SummaryRow label="Net Salary Payable" value={fmt(summary.net)} highlight />
         </div>
       </div>
 
-      {/* ── Summary Totals ── */}
-      <div className="grid grid-cols-4 gap-3 mb-8">
-        {[
-          { label: 'Gross Pay', value: fmt(summary.gross), highlight: false },
-          { label: 'Total Deductions', value: fmt(summary.totalDeductions + (summary.cbhi || 0)), highlight: false },
-          { label: 'Employer Contributions', value: fmt(summary.employerTotal), highlight: false },
-          { label: 'Net Salary', value: fmt(summary.net), highlight: true },
-        ].map(({ label, value, highlight }) => (
-          <div
-            key={label}
-            className="rounded-lg px-3 py-3 text-center"
-            style={{
-              border: `1px solid ${highlight ? GOLD : BORDER}`,
-              background: highlight ? GOLD_LIGHT : '#FAFAFA',
-            }}
-          >
-            <p className="text-[9px] font-bold uppercase tracking-wide mb-1.5" style={{ color: NAVY }}>{label}</p>
-            <p className={`font-black ${highlight ? 'text-xl' : 'text-sm'}`} style={{ color: GOLD }}>{value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Payroll Process Timeline ── */}
+      {/* Timeline */}
       <div>
         <h3 className="text-[11px] font-black uppercase tracking-widest mb-4" style={{ color: NAVY }}>
           Payroll Process

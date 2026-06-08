@@ -518,7 +518,7 @@ function Navbar() {
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-bold text-white bg-white/5 border border-white/10"
             >
               <LayoutGrid size={16} className="text-amber-300 shrink-0" />
-              {t('public.otherPorta')}
+              <span className="flex-1">{t('public.otherLoginPortal')}</span>
             </Link>
             <Link
               to="/login-portal-select"
