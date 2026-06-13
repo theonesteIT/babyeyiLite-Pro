@@ -425,7 +425,28 @@ function formatImportErrorMessage(err) {
   if (/route not found/i.test(String(msg))) {
     return 'Server API is out of date — deploy the latest backend (staff update routes), then retry import.';
   }
+  if (/staff member not found/i.test(String(msg))) {
+    return 'Employee login exists but is not linked to your school staff list. Deploy the latest backend and retry import.';
+  }
   return msg;
+}
+
+function patchStaffSnapshotAfterImport(staffSnapshot, row, userId, hrPayload) {
+  const mergedHr = mergeHrProfileFromImport({ hr_profile_json: hrPayload }, row);
+  const patched = {
+    id: userId,
+    user_id: userId,
+    national_id: row.id_document_number,
+    email: row.email,
+    phone: row.phone,
+    rssb_number: row.rssb_number,
+    hr_profile_json: mergedHr,
+    hr_profile: mergedHr,
+  };
+  const idx = staffSnapshot.findIndex((s) => staffRecordId(s) === userId);
+  if (idx >= 0) staffSnapshot[idx] = { ...staffSnapshot[idx], ...patched };
+  else staffSnapshot.push(patched);
+  return staffSnapshot;
 }
 
 async function fetchStaffForImportLookup(row) {
@@ -444,6 +465,18 @@ async function fetchStaffForImportLookup(row) {
 }
 
 async function resolveImportConflictAndUpdate(row, err, staffSnapshot) {
+  try {
+    const importPayload = buildEmployeeImportPayload(row, staffSnapshot);
+    const res = await hrService.registerEmployee(importPayload, null, null);
+    if (res?.success) {
+      const userId = Number(res.data?.id || res.data?.user_id || extractConflictUserId(err) || 0) || null;
+      if (userId) patchStaffSnapshotAfterImport(staffSnapshot, row, userId, importPayload.hr_profile_json);
+      return { updated: true, staffSnapshot };
+    }
+  } catch {
+    /* fall through to direct PATCH */
+  }
+
   const conflictUserId = extractConflictUserId(err);
   let staff = null;
 
@@ -477,7 +510,7 @@ async function resolveImportConflictAndUpdate(row, err, staffSnapshot) {
 }
 
 function staffRecordId(s) {
-  return Number(s?.id ?? s?.user_id ?? s?.staffUserId ?? 0) || null;
+  return Number(s?.user_id ?? s?.id ?? s?.staffUserId ?? 0) || null;
 }
 
 function parseHrProfile(staff) {
@@ -617,24 +650,35 @@ async function applyStaffRowUpdate(row, staff, staffSnapshot) {
   const userId = staffRecordId(staff);
   if (!userId) throw new Error('Matched employee has no user id');
   const payload = buildEmployeeUpdatePayload(row, staff, { onlyPresentFields: !!row.presentFields?.size });
-  const res = await hrService.updateEmployee(userId, payload, null, null);
-  if (!res?.success) throw new Error(res?.message || 'Update failed');
-  const mergedHr = mergeHrProfileFromImport(staff, row);
-  const patched = {
-    ...staff,
-    id: userId,
-    first_name: payload.first_name || staff.first_name,
-    last_name: payload.last_name || staff.last_name,
-    full_name: payload.full_name || staff.full_name,
-    national_id: payload.national_id || staff.national_id,
-    payroll_basic_salary: payload.payroll_basic_salary ?? staff.payroll_basic_salary,
-    hr_profile_json: mergedHr,
-    hr_profile: mergedHr,
-  };
-  const idx = staffSnapshot.findIndex((s) => staffRecordId(s) === userId);
-  if (idx >= 0) staffSnapshot[idx] = patched;
-  else staffSnapshot.push(patched);
-  return staffSnapshot;
+  try {
+    const res = await hrService.updateEmployee(userId, payload, null, null);
+    if (!res?.success) throw new Error(res?.message || 'Update failed');
+    const mergedHr = mergeHrProfileFromImport(staff, row);
+    const patched = {
+      ...staff,
+      id: userId,
+      user_id: userId,
+      first_name: payload.first_name || staff.first_name,
+      last_name: payload.last_name || staff.last_name,
+      full_name: payload.full_name || staff.full_name,
+      national_id: payload.national_id || staff.national_id,
+      payroll_basic_salary: payload.payroll_basic_salary ?? staff.payroll_basic_salary,
+      hr_profile_json: mergedHr,
+      hr_profile: mergedHr,
+    };
+    const idx = staffSnapshot.findIndex((s) => staffRecordId(s) === userId);
+    if (idx >= 0) staffSnapshot[idx] = patched;
+    else staffSnapshot.push(patched);
+    return staffSnapshot;
+  } catch (err) {
+    const msg = err?.response?.data?.message || err?.message || '';
+    if (!/staff member not found/i.test(msg)) throw err;
+    const importPayload = buildEmployeeImportPayload(row, staffSnapshot);
+    const res = await hrService.registerEmployee(importPayload, null, null);
+    if (!res?.success) throw new Error(res?.message || msg);
+    const resolvedId = Number(res.data?.id || res.data?.user_id || userId) || userId;
+    return patchStaffSnapshotAfterImport(staffSnapshot, row, resolvedId, importPayload.hr_profile_json);
+  }
 }
 
 function buildEmployeeUpdatePayload(row, staff, { onlyPresentFields = false } = {}) {

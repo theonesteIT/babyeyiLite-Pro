@@ -221,13 +221,24 @@ app.use((req, _res, next) => {
   next();
 });
 // ============================================================
-// RATE LIMITING
-// ============================================================
+// RATE LIMITING (login / verify only — no global /api cap)
+// Bulk flows (employee import, gate polling) were hitting 429
+// "Too many requests — please slow down" with the old global limiter.
+// Set DISABLE_API_RATE_LIMIT=false or ENABLE_API_RATE_LIMIT=true to turn the global cap back on.
+const disableGlobalRateLimit = !['0', 'false', 'no'].includes(
+  String(process.env.DISABLE_API_RATE_LIMIT ?? 'true').trim().toLowerCase()
+);
+const forceEnableGlobalRateLimit = ['1', 'true', 'yes'].includes(
+  String(process.env.ENABLE_API_RATE_LIMIT ?? '').trim().toLowerCase()
+);
+const GLOBAL_API_RATE_LIMIT_ENABLED = forceEnableGlobalRateLimit || !disableGlobalRateLimit;
+
 const API_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const API_LIMIT_ANON = 300;
 const API_LIMIT_AUTH = 1000;
 
 const apiLimiterSkipPaths = (req) => {
+  if (req.session?.userId) return true;
   const p = (req.originalUrl || req.url || '').split('?')[0];
   const method = (req.method || 'GET').toUpperCase();
 
@@ -243,7 +254,9 @@ const apiLimiterSkipPaths = (req) => {
     p.endsWith('/dos/operations-center/live') ||
     p.endsWith('/dos/operations-center/filters') ||
     p.startsWith('/api/superadmin/audit') ||
-    p.startsWith('/api/superadmin/school-monitor')
+    p.startsWith('/api/superadmin/school-monitor') ||
+    p.includes('/school/staff') ||
+    p.includes('/school/hr/')
   ) {
     return true;
   }
@@ -269,15 +282,17 @@ const apiLimiterSkipPaths = (req) => {
   return false;
 };
 
-const apiLimiter = rateLimit({
-  windowMs: API_LIMIT_WINDOW_MS,
-  max: (req) => (req.session?.userId ? API_LIMIT_AUTH : API_LIMIT_ANON),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many requests — please slow down' },
-  skip: apiLimiterSkipPaths,
-});
-app.use('/api/', apiLimiter);
+if (GLOBAL_API_RATE_LIMIT_ENABLED) {
+  const apiLimiter = rateLimit({
+    windowMs: API_LIMIT_WINDOW_MS,
+    max: (req) => (req.session?.userId ? API_LIMIT_AUTH : API_LIMIT_ANON),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests — please slow down' },
+    skip: apiLimiterSkipPaths,
+  });
+  app.use('/api/', apiLimiter);
+}
 
 app.use('/api/auth/login', rateLimit({
   windowMs: 15 * 60 * 1000, max: 10,

@@ -169,17 +169,33 @@ app.use((req, _res, next) => {
 });
 
 // ============================================================
-// RATE LIMITING
+// RATE LIMITING (login / verify only — global /api cap disabled by default)
 // ============================================================
-app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000, max: 300,
-  standardHeaders: true, legacyHeaders: false,
-  message: { success: false, message: 'Too many requests — please slow down' },
-  skip: req => {
-    const p = (req.originalUrl || req.url || '').split('?')[0];
-    return p.endsWith('/session/me') || p.endsWith('/district/babyeyi/me');
-  },
-}));
+const disableGlobalRateLimit = !['0', 'false', 'no'].includes(
+  String(process.env.DISABLE_API_RATE_LIMIT ?? 'true').trim().toLowerCase()
+);
+const forceEnableGlobalRateLimit = ['1', 'true', 'yes'].includes(
+  String(process.env.ENABLE_API_RATE_LIMIT ?? '').trim().toLowerCase()
+);
+if (forceEnableGlobalRateLimit || !disableGlobalRateLimit) {
+  app.use('/api/', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: (req) => (req.session?.userId ? 1000 : 300),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many requests — please slow down' },
+    skip: (req) => {
+      if (req.session?.userId) return true;
+      const p = (req.originalUrl || req.url || '').split('?')[0];
+      return (
+        p.endsWith('/session/me')
+        || p.endsWith('/district/babyeyi/me')
+        || p.includes('/school/staff')
+        || p.includes('/school/hr/')
+      );
+    },
+  }));
+}
 
 app.use('/api/auth/login', rateLimit({
   windowMs: 15 * 60 * 1000, max: 10,

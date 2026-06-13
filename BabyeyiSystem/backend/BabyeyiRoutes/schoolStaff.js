@@ -260,9 +260,9 @@ async function loadStaffRowForImport(poolOrConn, schoolId, userId) {
             st.full_name, st.gender, st.national_id, st.payroll_basic_salary, st.hr_profile_json
      FROM users u
      INNER JOIN staff st ON st.user_id = u.id AND st.school_id = ?
-     WHERE u.id = ? AND u.school_id = ? AND u.deleted_at IS NULL
+     WHERE u.id = ? AND u.deleted_at IS NULL
      LIMIT 1`,
-    [schoolId, userId, schoolId]
+    [schoolId, userId]
   );
   return row || null;
 }
@@ -273,11 +273,81 @@ function wantsImportUpsert(body) {
     || String(body?.import_upsert || '') === '1';
 }
 
+/** Link an existing user account to a staff row at this school (spreadsheet import repair). */
+async function linkOrphanUserToStaff(conn, schoolId, userId, importCtx) {
+  const { body, resolvedUsername, staffIdPreferred } = importCtx || {};
+  if (!body) return false;
+
+  const [[user]] = await conn.query(
+    'SELECT id, school_id, first_name, last_name FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+    [userId]
+  );
+  if (!user) return false;
+
+  const userSchoolId = user.school_id == null ? null : Number(user.school_id);
+  if (userSchoolId && userSchoolId !== Number(schoolId)) return false;
+  if (await getStaffRowForSchool(schoolId, userId)) return true;
+
+  if (!user.school_id) {
+    await conn.query('UPDATE users SET school_id = ?, updated_at = NOW() WHERE id = ?', [schoolId, userId]);
+  }
+
+  const firstName = trimStr(body.first_name) || trimStr(user.first_name);
+  const lastName = trimStr(body.last_name) || trimStr(user.last_name);
+  const fullName = trimStr(body.full_name) || `${firstName} ${lastName}`.trim();
+  const staffIdLabel = await allocateUniqueStaffSchoolCode(conn, schoolId, staffIdPreferred);
+  const gender = trimStr(body.gender) || null;
+  const dateOfBirth = trimStr(body.date_of_birth) || null;
+  const nationalId = trimStr(body.national_id) || null;
+  const department = trimStr(body.department) || null;
+  const employmentType = trimStr(body.employment_type) || null;
+  const jobTitle = trimStr(body.job_title) || null;
+  const hrProfileJson = body.hr_profile_json != null
+    ? (typeof body.hr_profile_json === 'string' ? body.hr_profile_json : JSON.stringify(body.hr_profile_json))
+    : null;
+
+  await conn.query(
+    `INSERT INTO staff (
+       user_id, school_id, staff_id, username, created_at,
+       full_name, gender, date_of_birth, national_id,
+       employment_type, job_title, department, employment_status,
+       payroll_basic_salary, payroll_payment_method, payroll_bank_name,
+       payroll_account_number, payroll_account_holder, payroll_mobile_money_phone,
+       account_enabled, hr_profile_json
+     ) VALUES (?,?,?,?,NOW(),?,?,?,?,?,?,'Active',?,?,?,?,?,0,?)`,
+    [
+      userId,
+      schoolId,
+      staffIdLabel,
+      resolvedUsername || trimStr(body.username) || `staff${userId}`,
+      fullName,
+      gender,
+      dateOfBirth,
+      nationalId,
+      employmentType,
+      jobTitle,
+      department,
+      body.payroll_basic_salary ?? null,
+      trimStr(body.payroll_payment_method) || null,
+      trimStr(body.payroll_bank_name) || null,
+      trimStr(body.payroll_account_number) || null,
+      trimStr(body.payroll_account_holder) || null,
+      trimStr(body.payroll_mobile_money_phone) || null,
+      hrProfileJson,
+    ]
+  );
+  return true;
+}
+
 /** Spreadsheet import: update existing staff instead of 409 when import_upsert is set. */
-async function redirectImportUpsertToUpdate(req, res, conn, schoolId, existingUserId, releaseState) {
+async function redirectImportUpsertToUpdate(req, res, conn, schoolId, existingUserId, releaseState, importCtx = null) {
   const userId = Number(existingUserId);
   if (!Number.isFinite(userId)) return false;
-  const row = await getStaffRowForSchool(schoolId, userId);
+  let row = await getStaffRowForSchool(schoolId, userId);
+  if (!row && importCtx) {
+    const linked = await linkOrphanUserToStaff(conn, schoolId, userId, importCtx);
+    if (linked) row = await getStaffRowForSchool(schoolId, userId);
+  }
   if (!row) return false;
   if (releaseState) releaseState.connReleased = true;
   conn.release();
@@ -782,7 +852,7 @@ router.get('/school/staff', requireRole(SMART_ACCESS_STAFF_ROLES), async (req, r
       [schoolId]
     );
 
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows.map((r) => ({ ...r, user_id: r.id })) });
   } catch (err) {
     console.error('GET /api/school/staff:', err);
     return res.status(500).json({ success: false, message: 'Failed to list staff' });
@@ -1132,18 +1202,26 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
       return res.status(400).json({ success: false, message: roleResolution.message });
     }
     const roleRow = roleResolution.roleRow;
+    const importCtx = wantsImportUpsert(body)
+      ? { body, roleRow, resolvedUsername, staffIdPreferred }
+      : null;
 
     const [[dupEmail]] = await conn.query(
       'SELECT id, deleted_at FROM users WHERE LOWER(email) = ? LIMIT 1',
       [email]
     );
     if (dupEmail && !dupEmail.deleted_at) {
+      const emailUserId = Number(dupEmail.id) || null;
+      if (emailUserId && importCtx) {
+        const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, emailUserId, connReleaseState, importCtx);
+        if (redirected) return;
+      }
       return res.status(409).json({
         success: false,
         code: 'DUPLICATE_EMAIL',
         field: 'email',
         message: 'An account with this email already exists.',
-        existingUserId: Number(dupEmail.id) || null,
+        existingUserId: emailUserId,
       });
     }
     const [[dupUser]] = await conn.query(
@@ -1180,7 +1258,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
       const existingUserId = await findStaffUserIdForImport(conn, schoolId, { nationalId });
       if (existingUserId) {
         if (wantsImportUpsert(body)) {
-          const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, existingUserId, connReleaseState);
+          const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, existingUserId, connReleaseState, importCtx);
           if (redirected) return;
         }
         return res.status(409).json({
@@ -1201,7 +1279,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
       if (dupPhone) {
         const phoneUserId = Number(dupPhone.id) || null;
         if (phoneUserId && wantsImportUpsert(body)) {
-          const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, phoneUserId, connReleaseState);
+          const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, phoneUserId, connReleaseState, importCtx);
           if (redirected) return;
         }
         return res.status(409).json({
@@ -1530,9 +1608,9 @@ async function handleStaffProfileUpdate(req, res) {
     }
 
     if (updates.length) {
-      params.push(userId, schoolId);
+      params.push(userId);
       await promisePool.query(
-        `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ? AND school_id = ? AND deleted_at IS NULL`,
+        `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
         params
       );
     }
