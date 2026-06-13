@@ -1,6 +1,7 @@
 'use strict';
 
 const db = require('../config/database');
+const { miniWebsiteSlugSelect } = require('../utils/schoolMiniWebsitesSchema');
 
 function trimStr(v) {
   return String(v ?? '').trim();
@@ -9,13 +10,12 @@ function trimStr(v) {
 async function resolveSchoolById(schoolId) {
   const id = parseInt(schoolId, 10);
   if (!Number.isFinite(id) || id <= 0) return null;
+  const slugSql = await miniWebsiteSlugSelect('s.id');
   const [rows] = await db.promisePool.query(
     `SELECT s.id, s.school_name, s.school_code, s.status,
             s.province, s.district, s.sector, s.phone, s.email,
             s.education_levels, s.school_category,
-            (SELECT m.slug FROM school_mini_websites m
-             WHERE m.school_id = s.id AND m.status = 'published'
-             ORDER BY m.id DESC LIMIT 1) AS mini_website_slug
+            ${slugSql}
      FROM schools s
      WHERE s.deleted_at IS NULL AND s.id = ?
      LIMIT 1`,
@@ -27,13 +27,12 @@ async function resolveSchoolById(schoolId) {
 async function resolveSchoolByCode(raw) {
   const code = trimStr(raw).toUpperCase();
   if (!code) return null;
+  const slugSql = await miniWebsiteSlugSelect('s.id');
   const [rows] = await db.promisePool.query(
     `SELECT s.id, s.school_name, s.school_code, s.status,
             s.province, s.district, s.sector, s.phone, s.email,
             s.education_levels, s.school_category,
-            (SELECT m.slug FROM school_mini_websites m
-             WHERE m.school_id = s.id AND m.status = 'published'
-             ORDER BY m.id DESC LIMIT 1) AS mini_website_slug
+            ${slugSql}
      FROM schools s
      WHERE s.deleted_at IS NULL AND TRIM(UPPER(s.school_code)) = ?
      LIMIT 1`,

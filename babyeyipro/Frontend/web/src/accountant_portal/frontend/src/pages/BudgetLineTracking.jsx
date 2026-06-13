@@ -9,7 +9,6 @@ import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 import BudgetPushBanner from "@/shared/BudgetPushBanner";
 import BudgetSelectorPanel from "../components/BudgetSelectorPanel";
-import BudgetAllocationSummary from "../components/BudgetAllocationSummary";
 import { getSelectedBudgetId, setSelectedBudgetId } from "../utils/selectedSchoolBudget";
 import SchoolBudgetPageShell from "../components/SchoolBudgetPageShell";
 import { sbPageTitleClass, sbPageSubtitleClass, sbSectionTitle, sbKpiValue, sbKpiLabel } from "../utils/schoolBudgetTypography";
@@ -94,7 +93,7 @@ export default function BudgetLineTracking({ fmt }) {
             <RefreshCw size={16} /> Refresh
           </button>
           <button type="button" onClick={() => setLineModalOpen(true)} disabled={!budgetId} style={btnSecondary}>
-            <PlusCircle size={16} /> New Budget Line
+            <PlusCircle size={16} /> New Expense
           </button>
           <button type="button" onClick={() => setUsageModalOpen(true)} disabled={!lines.length} style={btnPrimary}>
             <PlusCircle size={18} /> Register Usage
@@ -103,8 +102,6 @@ export default function BudgetLineTracking({ fmt }) {
       </div>
 
       <BudgetSelectorPanel budgetId={budgetId} onBudgetIdChange={handleBudgetChange} fmt={fmt} />
-
-      {budgetId && <BudgetAllocationSummary budgetId={budgetId} fmt={fmt} lines={lines} />}
 
       {error && (
         <div style={{ marginBottom: 14, padding: 12, background: "#FEE2E2", borderRadius: 8, display: "flex", gap: 8 }}>
@@ -142,13 +139,13 @@ export default function BudgetLineTracking({ fmt }) {
         ))}
       </div>
 
-      <div style={{ ...sbSectionTitle, marginBottom: 10 }}>Budget usage by line</div>
+      <div style={{ ...sbSectionTitle, marginBottom: 10 }}>Spending by expense line</div>
       <div className="sb-table-scroll" style={{ background: COLORS.white, borderRadius: 12, border: `1px solid ${COLORS.gray200}`, overflow: "auto", marginBottom: 24 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 640 }}>
           <thead>
             <tr style={{ background: COLORS.navy }}>
-              {["Budget Line", "Allocated", "Used", "Remaining", "Usage %", "Status"].map((h) => (
-                <th key={h} style={{ padding: "11px 14px", color: COLORS.white, textAlign: "left", fontSize: 12 }}>{h}</th>
+              {["Expense", "Allocated", "Used", "Remaining", "Usage %", "Status"].map((h) => (
+                <th key={h} style={{ padding: "11px 14px", color: COLORS.white, textAlign: "left", fontSize: 12, fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -159,31 +156,20 @@ export default function BudgetLineTracking({ fmt }) {
               </tr>
             ) : lines.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: 28, textAlign: "center", color: COLORS.gray400 }}>No budget lines to track.</td>
+                <td colSpan={6} style={{ padding: 28, textAlign: "center", color: COLORS.gray400 }}>No expenses to track.</td>
               </tr>
             ) : (
               lines.map((b, i) => {
                 const st = statusStyle(b.statusKey);
+                const usageColor = b.usagePct >= 100 ? COLORS.red : b.usagePct >= 80 ? COLORS.amber : COLORS.green;
                 return (
                   <tr key={b.db_id} style={{ borderBottom: `1px solid ${COLORS.gray100}`, background: i % 2 ? COLORS.gray50 : COLORS.white }}>
-                    <td style={{ padding: "10px 14px", fontWeight: 500 }}>{b.lineName}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.navy }}>{b.lineName}</td>
                     <td style={{ padding: "10px 14px" }}>{fmt(b.plannedAmount)}</td>
-                    <td style={{ padding: "10px 14px" }}>{fmt(b.usedAmount)}</td>
+                    <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.amber }}>{fmt(b.usedAmount)}</td>
                     <td style={{ padding: "10px 14px", fontWeight: 500, color: COLORS.green }}>{fmt(b.remaining)}</td>
-                    <td style={{ padding: "10px 14px", minWidth: 120 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ flex: 1, background: COLORS.gray200, borderRadius: 99, height: 6 }}>
-                          <div
-                            style={{
-                              width: `${Math.min(b.usagePct, 100)}%`,
-                              height: "100%",
-                              background: b.usagePct >= 100 ? COLORS.red : b.usagePct >= 80 ? COLORS.amber : COLORS.green,
-                              borderRadius: 99,
-                            }}
-                          />
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 500 }}>{b.usagePct}%</span>
-                      </div>
+                    <td style={{ padding: "10px 14px" }}>
+                      <span style={{ fontWeight: 500, color: usageColor, fontVariantNumeric: "tabular-nums" }}>{b.usagePct}%</span>
                     </td>
                     <td style={{ padding: "10px 14px" }}>
                       <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 500 }}>{b.statusLabel}</span>
@@ -216,11 +202,14 @@ export default function BudgetLineTracking({ fmt }) {
               <div>
                 <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13 }}>{u.lineName}</div>
                 <div style={{ fontSize: 11, color: COLORS.gray400, marginTop: 2 }}>
-                  {u.expenseCategory || "—"} · {u.paymentMethod || "—"} · {u.usageDate}
+                  {u.expenseCategory || "—"} · {u.paymentMethod || "—"}
+                  {u.paymentBankName ? ` · ${u.paymentBankName}` : ""}
+                  {u.paymentPhone ? ` · ${u.paymentPhone}` : ""}
+                  · {u.usageDate}
                 </div>
                 {u.description && <div style={{ fontSize: 12, color: COLORS.gray600, marginTop: 4 }}>{u.description}</div>}
               </div>
-              <div style={{ fontWeight: 600, color: COLORS.amber }}>{fmt(u.usageAmount)}</div>
+              <div style={{ fontWeight: 500, color: COLORS.amber }}>{fmt(u.usageAmount)}</div>
             </div>
           ))
         )}

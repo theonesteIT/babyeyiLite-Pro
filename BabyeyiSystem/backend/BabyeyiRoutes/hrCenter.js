@@ -698,6 +698,10 @@ function mapStaffProfileRow(s) {
     contract_end: s.contract_end_date,
     is_active: !!s.is_active,
     payroll_basic_salary: s.payroll_basic_salary,
+    payroll_transport_allowance: s.payroll_transport_allowance,
+    payroll_housing_allowance: s.payroll_housing_allowance,
+    payroll_meal_allowance: s.payroll_meal_allowance,
+    payroll_other_allowances: s.payroll_other_allowances,
     payroll_bank_name: s.payroll_bank_name,
     payroll_account_number: s.payroll_account_number,
     payroll_account_holder: s.payroll_account_holder,
@@ -726,7 +730,9 @@ router.get('/school/hr/employees/:userId', requireRole(READ_ROLES), async (req, 
          st.full_name, st.gender, st.date_of_birth, st.national_id, st.passport_number, st.address,
          st.employment_type, st.job_title, st.date_of_employment, st.contract_start_date, st.contract_end_date,
          st.employment_status, st.department, st.sub_department,
-         st.payroll_basic_salary, st.payroll_bank_name, st.payroll_account_number, st.payroll_account_holder,
+         st.payroll_basic_salary, st.payroll_transport_allowance, st.payroll_housing_allowance,
+         st.payroll_meal_allowance, st.payroll_other_allowances,
+         st.payroll_bank_name, st.payroll_account_number, st.payroll_account_holder,
          st.payroll_mobile_money_phone, st.payroll_payment_method, st.hr_profile_json
        FROM staff st
        INNER JOIN users u ON u.id = st.user_id AND u.deleted_at IS NULL

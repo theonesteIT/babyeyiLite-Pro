@@ -3,6 +3,8 @@ const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 const { notifyStudentParentsPermission } = require('./parentStudentNotifications');
 
+const { ensureStudentsTable } = require('./students');
+
 const router = express.Router();
 const SCHOOL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'REGISTRAR', 'HOD', 'TEACHER', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
 const APPROVAL_ROLES = ['SCHOOL_ADMIN', 'SCHOOL_MANAGER', 'DOS', 'REGISTRAR', 'HOD', 'DISCIPLINE', 'DISCIPLINE_STAFF'];
@@ -44,8 +46,11 @@ async function ensureStudentPermissionTables() {
 
 function resolveSchoolId(req) {
   return (
+    req.query?.school_id ||
+    req.body?.school_id ||
     req.session?.school_id ||
     req.session?.user?.school_id ||
+    req.session?.user?.school?.id ||
     req.user?.school_id ||
     null
   );
@@ -63,6 +68,7 @@ function resolveUserId(req) {
 router.get('/permissions', requireRole(SCHOOL_ROLES), async (req, res) => {
   try {
     await ensureStudentPermissionTables();
+    await ensureStudentsTable();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
 

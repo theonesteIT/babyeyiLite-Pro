@@ -235,7 +235,7 @@ export default function PayrollDisbursement() {
   }, [academicLoaded, loadDeductionRules]);
 
   const loadRunDetail = useCallback(async (id, options = {}) => {
-    if (!id) {
+    if (id == null) {
       setRunDetail(null);
       setAuditTrail([]);
       return;
@@ -278,7 +278,7 @@ export default function PayrollDisbursement() {
   }, []);
 
   useEffect(() => {
-    if (selectedRunId) loadRunDetail(selectedRunId);
+    if (selectedRunId != null) loadRunDetail(selectedRunId);
     else setRunDetail(null);
   }, [selectedRunId, loadRunDetail]);
 
@@ -334,7 +334,7 @@ export default function PayrollDisbursement() {
       setSelectedRunId(match.db_id);
       setNotice("");
       setError("");
-    } else if (selectedRunId) {
+    } else if (selectedRunId != null) {
       loadRunDetail(selectedRunId);
     } else {
       setError(statusFilter === "Approved"
@@ -466,7 +466,7 @@ export default function PayrollDisbursement() {
   };
 
   const handleMarkPaid = async () => {
-    if (!selectedRunId || isLocked) return;
+    if (selectedRunId == null || isLocked) return;
     setActionBusy(true);
     setError("");
     try {
@@ -494,7 +494,7 @@ export default function PayrollDisbursement() {
   const canDeleteRun = !isLocked && runDetail && isPayrollRunApproved(runDetail?.status);
 
   const handleDeletePayrollRun = async () => {
-    if (!selectedRunId || isLocked) return;
+    if (selectedRunId == null || isLocked) return;
     const ok = window.confirm(
       `Delete payroll ${payrollNum || selectedRunId}?\n\nThis removes all staff lines and cannot be undone.`
     );
@@ -741,7 +741,7 @@ export default function PayrollDisbursement() {
                 {!isLocked && (
                   <button
                     type="button"
-                    onClick={() => selectedRunId && loadRunDetail(selectedRunId)}
+                    onClick={() => selectedRunId != null && loadRunDetail(selectedRunId)}
                     className="flex items-center gap-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold text-sm px-4 py-2.5 rounded-xl"
                   >
                     <RefreshCw size={14} /> Recalculate Final Payable

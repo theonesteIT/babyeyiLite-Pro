@@ -237,7 +237,7 @@ export default function ClassAttendance() {
   useEffect(() => {
     refreshTimerRef.current = setInterval(() => {
       loadData({ silent: true });
-    }, 15000);
+    }, 20000);
     return () => clearInterval(refreshTimerRef.current);
   }, [loadData]);
 
@@ -319,7 +319,7 @@ export default function ClassAttendance() {
           </div>
           <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
             <PulseIndicator />
-            <span className="hidden sm:inline">Live · auto-refresh every 15s</span>
+            <span className="hidden sm:inline">Live · auto-refresh every 20s</span>
             {lastSaved && (
               <span className="hidden sm:inline text-slate-400">· Saved {lastSaved.toLocaleTimeString()}</span>
             )}

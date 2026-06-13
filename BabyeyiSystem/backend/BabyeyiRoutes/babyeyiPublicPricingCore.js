@@ -8,6 +8,7 @@
 'use strict';
 
 const db = require('../config/database');
+const { inferFeeCategory } = require('../utils/feeCategoryInfer');
 
 const SQL_JOIN_STUDENT_REQ_BY_ITEM = `LEFT JOIN student_requirements sr ON CONVERT(TRIM(LOWER(sr.name)) USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(TRIM(LOWER(bsr.item)) USING utf8mb4) COLLATE utf8mb4_unicode_ci`;
 
@@ -20,6 +21,17 @@ function parseRequirementQuantity(raw) {
     if (Number.isFinite(n) && n > 0) return n;
   }
   return 1;
+}
+
+/** Babyeyi rows may legitimately use id 0 in legacy DBs — do not treat 0 as missing. */
+function isValidBabyeyiId(id) {
+  const n = parseInt(id, 10);
+  return Number.isFinite(n) && n >= 0;
+}
+
+function isValidSchoolId(id) {
+  const n = parseInt(id, 10);
+  return Number.isFinite(n) && n > 0;
 }
 
 function roundMoney(x) {
@@ -45,11 +57,13 @@ function finalizePricingPayload(meta, feeRows, feeRowsHavePayChannel, mappedLine
 
   const pasFeeRows = pasAtSchool.map((l) => ({
     id: `pasreq:${l.babyeyi_requirement_id}`,
+    selection_key: `pasreq:${l.babyeyi_requirement_id}`,
     name: l.requirement_name || 'Requirement',
     amount: l.line_total_rwf,
     unit_price_rwf: l.unit_price_rwf,
     quantity_value: l.quantity_value,
     pay_source: 'requirement_paid_at_school',
+    fee_category: inferFeeCategory(l.requirement_name, 'requirement_paid_at_school'),
     babyeyi_requirement_id: l.babyeyi_requirement_id,
     sort_order: 900000 + l.babyeyi_requirement_id,
   }));
@@ -65,9 +79,11 @@ function finalizePricingPayload(meta, feeRows, feeRowsHavePayChannel, mappedLine
   );
   const pasPayFeeRows = schoolChannelPaymentRows.map((f) => ({
     id: `paspay:${f.id}`,
+    selection_key: `paspay:${f.id}`,
     name: f.name,
     amount: Number(f.amount || 0),
     pay_source: 'payment_paid_at_school',
+    fee_category: inferFeeCategory(f.name, 'payment_paid_at_school'),
     babyeyi_payment_id: Number(f.id),
     sort_order: 850000 + Number(f.id),
   }));
@@ -79,13 +95,22 @@ function finalizePricingPayload(meta, feeRows, feeRowsHavePayChannel, mappedLine
     pasPayFeeRows.reduce((s, f) => s + Number(f.amount || 0), 0);
   const schoolFeesTotal = baseSchoolFeesTotal + pasSchoolTotal;
 
+  let onlinePayIdx = 0;
   const schoolFeesNormalized = [
-    ...onlinePaymentRows.map((f) => ({
-      id: Number(f.id),
-      name: f.name,
-      amount: Number(f.amount || 0),
-      sort_order: f.sort_order != null ? Number(f.sort_order) : undefined,
-    })),
+    ...onlinePaymentRows.map((f) => {
+      const sortOrd = f.sort_order != null ? Number(f.sort_order) : onlinePayIdx;
+      const selectionKey = `pay:${onlinePayIdx}:${Number(f.id)}`;
+      onlinePayIdx += 1;
+      return {
+        id: Number(f.id),
+        selection_key: selectionKey,
+        name: f.name,
+        amount: Number(f.amount || 0),
+        sort_order: sortOrd,
+        pay_source: 'babyeyi_online',
+        fee_category: inferFeeCategory(f.name),
+      };
+    }),
     ...pasFeeRows,
     ...pasPayFeeRows,
   ];
@@ -222,7 +247,7 @@ async function buildPricingFromAccountantArchive(arch, liveRow, bid, sid) {
 async function loadApprovedBabyeyiPricing(babyeyiId, schoolId) {
   const bid = parseInt(babyeyiId, 10);
   const sid = parseInt(schoolId, 10);
-  if (!bid || !sid) {
+  if (!isValidBabyeyiId(bid) || !isValidSchoolId(sid)) {
     return { ok: false, status: 400, message: 'babyeyiId and school_id are required' };
   }
 
@@ -345,4 +370,4 @@ async function loadApprovedBabyeyiPricing(babyeyiId, schoolId) {
   return finalizePricingPayload(meta, feeRows, feeRowsHavePayChannel, mappedLines);
 }
 
-module.exports = { loadApprovedBabyeyiPricing };
+module.exports = { loadApprovedBabyeyiPricing, isValidBabyeyiId, isValidSchoolId };

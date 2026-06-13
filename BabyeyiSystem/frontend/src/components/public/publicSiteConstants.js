@@ -1,4 +1,16 @@
 export const PUBLIC_COMBINED_PAY_PATH = '/combined-tution-requrement';
+export const PUBLIC_PAY_FEES_PATH = '/paid-at-school';
+export const PUBLIC_PAY_REQUIREMENTS_PATH = '/services/shulekit-pay';
+
+/** Build tuition-only and requirements-only pay links with an optional student/school code. */
+export function publicPayLinks(code) {
+  const c = String(code || '').trim();
+  const qs = c ? `?code=${encodeURIComponent(c)}` : '';
+  return {
+    fees: `${PUBLIC_PAY_FEES_PATH}${qs}`,
+    requirements: `${PUBLIC_PAY_REQUIREMENTS_PATH}${qs}`,
+  };
+}
 export const PUBLIC_LANGS = ['rw', 'en', 'fr'];
 export const SUPPORT_PHONE = '+250796898894';
 export const SUPPORT_PHONE_DISPLAY = '0796898894';

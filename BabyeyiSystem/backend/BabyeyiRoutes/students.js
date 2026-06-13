@@ -36,6 +36,8 @@ const PDFDocument  = require('pdfkit');
 const path         = require('path');
 const fs           = require('fs');
 const crypto       = require('crypto');
+const axios        = require('axios');
+const { execSync } = require('child_process');
 
 const router       = express.Router();
 const { promisePool } = require('../config/database');
@@ -52,6 +54,11 @@ const {
   enrollmentYearFilter,
   enrollmentClassSelect,
 } = require('./studentYearEnrollments');
+const {
+  optimizeStudentPortraitBuffer,
+  optimizeStudentPortraitFile,
+  replaceUploadWithOptimizedPortrait,
+} = require('../utils/studentPhotoOptimize');
 
 // ── Allowed roles ────────────────────────────────────────────────
 // DOS can also register/import students (same StudentsPage UX as School Manager).
@@ -99,9 +106,9 @@ const studentPhotoUpload = multer({
       cb(null, `student-${Date.now()}-${crypto.randomBytes(8).toString('hex')}${ext}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 12 * 1024 * 1024, files: 1 },
   fileFilter(_req, file, cb) {
-    const ok = ['image/jpeg', 'image/jpg', 'image/png'].includes(file.mimetype);
+    const ok = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.mimetype);
     if (ok) return cb(null, true);
     cb(new Error('Only image files are allowed (jpg/png).'));
   },
@@ -131,8 +138,14 @@ const excelStorage = multer.diskStorage({
 
 const excelUpload = multer({
   storage: excelStorage,
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 50 * 1024 * 1024, files: 2 },
   fileFilter(_req, file, cb) {
+    if (file.fieldname === 'photos_zip') {
+      const name = String(file.originalname || '').toLowerCase();
+      const ok = name.endsWith('.zip')
+        || ['application/zip', 'application/x-zip-compressed', 'multipart/x-zip'].includes(file.mimetype);
+      return ok ? cb(null, true) : cb(new Error('photos_zip must be a .zip file'));
+    }
     const okTypes = [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'application/vnd.ms-excel',
@@ -306,6 +319,7 @@ const PROVINCE_MAP = {
   west: 'West', 'western province': 'West', western: 'West',
   nothern: 'North', // common typo in data
   kigali: 'Kigali', 'kigali city': 'Kigali', 'kigali city ': 'Kigali',
+  kiali: 'Kigali', 'kiali city': 'Kigali', kialicity: 'Kigali',
 };
 
 function normalizeProvinceLabel(v) {
@@ -418,6 +432,325 @@ function findNurseryNamesListHeaderIndex(objectRows) {
   return -1;
 }
 
+function objectRowHasNoNamesKeys(r) {
+  if (!r || typeof r !== 'object') return false;
+  const keys = Object.keys(r).map((k) => normalizeHeaderKeyStr(k));
+  const hasNo = keys.some((k) => ['no', 'num', 'number', 'sno', 'sn'].includes(k));
+  const hasNames = keys.some((k) => ['names', 'name', 'studentname', 'fullname'].includes(k));
+  return hasNo && hasNames;
+}
+
+function readNoNamesObjectRowByKeyKind(r, kinds) {
+  if (!r || typeof r !== 'object') return '';
+  for (const [key, val] of Object.entries(r)) {
+    const k = normalizeHeaderKeyStr(key);
+    if (kinds.includes(k)) return trimStr(val);
+  }
+  return '';
+}
+
+function readNoNamesObjectRowOrdinal(r) {
+  return readNoNamesObjectRowByKeyKind(r, ['no', 'num', 'number', 'sno', 'sn']);
+}
+
+function readNoNamesObjectRowName(r) {
+  const raw = readNoNamesObjectRowByKeyKind(r, ['names', 'name', 'studentname', 'fullname']);
+  return stripLeadingNoiseFromNameText(raw);
+}
+
+function isLikelyNoNamesHeaderRow(r) {
+  const nameVal = readNoNamesObjectRowByKeyKind(r, ['names', 'name', 'studentname', 'fullname']);
+  if (/^names?$/i.test(nameVal)) return true;
+  const noVal = readNoNamesObjectRowOrdinal(r);
+  if (/^no$/i.test(noVal)) return true;
+  return false;
+}
+
+function findNoNamesListHeaderIndex(objectRows) {
+  const limit = Math.min(objectRows.length, 60);
+  for (let i = 0; i < limit; i += 1) {
+    const r = objectRows[i];
+    if (!objectRowHasNoNamesKeys(r)) continue;
+    if (isLikelyNoNamesHeaderRow(r)) return i;
+  }
+  return -1;
+}
+
+function findNoNamesDataStartIndex(objectRows) {
+  const limit = objectRows.length;
+  for (let i = 0; i < limit; i += 1) {
+    const r = objectRows[i];
+    if (!objectRowHasNoNamesKeys(r)) continue;
+    const no = readNoNamesObjectRowOrdinal(r);
+    const name = readNoNamesObjectRowName(r);
+    if (cellLooksLikeRowOrdinal(no) && name && !/^names?$/i.test(name)) return i;
+  }
+  return -1;
+}
+
+function findNoNamesArrayHeaderIndex(rawRows) {
+  const limit = Math.min(rawRows.length, 40);
+  for (let i = 0; i < limit; i += 1) {
+    const row = rawRows[i];
+    if (!Array.isArray(row)) continue;
+    const t = row.map(normalizeHeaderKey);
+    const hasNo = t.some((x) => ['no', 'num', 'number', 'sno', 'sn'].includes(x));
+    const hasNames = t.some((x) => ['names', 'name', 'studentname', 'fullname'].includes(x));
+    if (hasNo && hasNames) return i;
+  }
+  return -1;
+}
+
+function findNameColumnIndexInHeaders(headerCells) {
+  if (!Array.isArray(headerCells)) return -1;
+  for (let i = 0; i < headerCells.length; i += 1) {
+    const k = normalizeHeaderKey(headerCells[i]);
+    if (['names', 'name', 'studentname', 'fullname'].includes(k)) return i;
+  }
+  return -1;
+}
+
+function headerCellsLookLikeNoNamesLayout(headerCells) {
+  if (!Array.isArray(headerCells)) return false;
+  const t = headerCells.map(normalizeHeaderKey);
+  const hasNo = t.some((x) => ['no', 'num', 'number', 'sno', 'sn'].includes(x));
+  const hasNames = t.some((x) => ['names', 'name', 'studentname', 'fullname'].includes(x));
+  return hasNo && hasNames;
+}
+
+function readObjectRowByAliases(r, aliases = []) {
+  if (!r || typeof r !== 'object') return '';
+  const aliasSet = new Set(aliases.map((a) => normalizeHeaderKeyStr(a)));
+  for (const [key, val] of Object.entries(r)) {
+    if (aliasSet.has(normalizeHeaderKeyStr(key))) return trimStr(val);
+  }
+  return '';
+}
+
+function normalizeAgeToBirthYear(ageRaw) {
+  const age = Number(trimStr(ageRaw));
+  if (!Number.isFinite(age) || age < 3 || age > 35) return null;
+  const y = new Date().getFullYear() - Math.round(age);
+  return isLikelyYear(y) ? y : null;
+}
+
+function headerCellsLookLikeRichRoster(headerCells) {
+  if (!headerCellsLookLikeNoNamesLayout(headerCells)) return false;
+  const t = headerCells.map(normalizeHeaderKey);
+  return (
+    t.some((x) => ['code', 'sdmsid', 'sdms', 'sdmcode', 'sdm', 'studentcode'].includes(x))
+    || t.includes('gender')
+    || t.includes('district')
+    || t.includes('age')
+  );
+}
+
+function objectRowHasRichRosterKeys(r) {
+  if (!r || typeof r !== 'object' || !objectRowHasNoNamesKeys(r)) return false;
+  const keys = Object.keys(r).map((k) => normalizeHeaderKeyStr(k));
+  if (keys.some((k) => ['code', 'sdmsid', 'sdms', 'sdmcode', 'sdm', 'studentcode'].includes(k))) return true;
+  if (keys.some((k) => ['gender', 'district', 'fathername', 'mothername', 'age'].includes(k))) return true;
+  const code = readObjectRowByAliases(r, ['Code', 'SDMS ID', 'SDMS', 'SDM Code', 'SDM']);
+  return cellLooksLikeRegistrationId(code);
+}
+
+function objectRowLooksLikeRichRosterData(r) {
+  if (!objectRowHasNoNamesKeys(r) || isLikelyNoNamesHeaderRow(r)) return false;
+  return objectRowHasRichRosterKeys(r);
+}
+
+const RICH_ROSTER_CODE_ALIASES = ['Code', 'SDMS ID', 'SDMS', 'SDM Code', 'SDM', 'Student Code'];
+const RICH_ROSTER_NAME_ALIASES = ['Names', 'NAMES', 'Name', 'Student Name', 'Full Name'];
+const RICH_ROSTER_GENDER_ALIASES = ['Gender', 'Sex', 'Igitsina'];
+const RICH_ROSTER_AGE_ALIASES = ['Age', 'AGE'];
+const RICH_ROSTER_BIRTH_ALIASES = ['Birth Year', 'BirthYear', 'Year Of Birth', 'DOB Year'];
+const RICH_ROSTER_FATHER_NAME_ALIASES = ['Father Name', 'FatherName', 'Father Full Name', 'Father'];
+const RICH_ROSTER_MOTHER_NAME_ALIASES = ['Mother Name', 'MotherName', 'Mother Full Name', 'Mother'];
+const RICH_ROSTER_FATHER_PHONE_ALIASES = ['Father Phone', 'Father Tel', 'FatherPhone', 'Father Tel.'];
+const RICH_ROSTER_MOTHER_PHONE_ALIASES = ['Mother Phone', 'Mother Tel', 'MotherPhone', 'Mother Tel.'];
+const RICH_ROSTER_STUDENT_ID_ALIASES = ['Student ID', 'StudentID', 'Student Id', 'School ID', 'Official ID'];
+const RICH_ROSTER_PHOTO_ALIASES = ['Photo', 'Photo URL', 'Photo Url', 'Image', 'Picture', 'photo', 'Photo File'];
+
+const IMPORT_PHOTO_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+
+function extractImportPhotosZip(zipPath) {
+  const dest = path.join(TEMP_DIR, `import-photos-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`);
+  fs.mkdirSync(dest, { recursive: true });
+  try {
+    if (process.platform === 'win32') {
+      const zp = zipPath.replace(/'/g, "''");
+      const dp = dest.replace(/'/g, "''");
+      execSync(
+        `powershell -NoProfile -Command "Expand-Archive -LiteralPath '${zp}' -DestinationPath '${dp}' -Force"`,
+        { stdio: 'pipe' },
+      );
+    } else {
+      execSync(`unzip -o -q ${JSON.stringify(zipPath)} -d ${JSON.stringify(dest)}`, { stdio: 'pipe' });
+    }
+  } catch (err) {
+    fs.rmSync(dest, { recursive: true, force: true });
+    throw new Error('Could not extract photos ZIP. Use a standard .zip or put photo URLs in the Excel.');
+  }
+  return dest;
+}
+
+function buildImportPhotoIndex(rootDir) {
+  const map = new Map();
+  const visit = (dir) => {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const ent of entries) {
+      const p = path.join(dir, ent.name);
+      if (ent.isDirectory()) { visit(p); continue; }
+      const ext = path.extname(ent.name).toLowerCase();
+      if (!IMPORT_PHOTO_EXTS.has(ext)) continue;
+      const stem = path.basename(ent.name, ext).replace(/\s+/g, '');
+      if (!stem) continue;
+      map.set(stem, p);
+      const digits = normalizeStudentId(stem);
+      if (digits) map.set(digits, p);
+    }
+  };
+  visit(rootDir);
+  return map;
+}
+
+async function storeImportPhotoFile(sourcePath) {
+  return optimizeStudentPortraitFile(sourcePath, STUDENT_PHOTO_DIR);
+}
+
+async function downloadImportPhotoFromUrl(urlRaw) {
+  const url = trimStr(urlRaw);
+  if (!/^https?:\/\//i.test(url)) return null;
+  const res = await axios.get(url, {
+    responseType: 'arraybuffer',
+    timeout: 20000,
+    maxContentLength: 12 * 1024 * 1024,
+  });
+  const outBuffer = await optimizeStudentPortraitBuffer(Buffer.from(res.data));
+  const filename = `student-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.jpg`;
+  fs.writeFileSync(path.join(STUDENT_PHOTO_DIR, filename), outBuffer);
+  return filename;
+}
+
+async function resolveImportStudentPhoto({ photoRaw, sdmCode, studentUid, photoIndex }) {
+  const keys = [];
+  const raw = trimStr(photoRaw);
+  if (raw) {
+    if (/^https?:\/\//i.test(raw)) {
+      try { return await downloadImportPhotoFromUrl(raw); } catch { return null; }
+    }
+    const stem = path.basename(raw, path.extname(raw)).replace(/\s+/g, '');
+    keys.push(stem, normalizeStudentId(stem));
+  }
+  if (sdmCode) keys.push(String(sdmCode), normalizeStudentId(sdmCode));
+  if (studentUid) keys.push(String(studentUid), normalizeStudentId(studentUid));
+  for (const k of keys) {
+    if (!k) continue;
+    const hit = photoIndex?.get(k);
+    if (hit && fs.existsSync(hit)) return await storeImportPhotoFile(hit);
+  }
+  return null;
+}
+
+function parseRichRosterFieldsFromValues(values) {
+  const {
+    fullName, codeRaw, studentIdRaw, photoRaw, genderRaw, ageRaw, birthYearRaw,
+    provinceRaw, districtRaw, sectorRaw, cellRaw, villageRaw,
+    fatherName, motherName, fatherPhoneRaw, motherPhoneRaw,
+  } = values;
+
+  const { first_name, last_name } = splitFullNameForStudentImport(fullName);
+  const sdm_code = externalRegistrationIdForSdm(codeRaw) || null;
+  const gender = genderRaw ? normalizeGender(genderRaw) : null;
+  const birth_year = normalizeBirthYearValue(birthYearRaw) || normalizeAgeToBirthYear(ageRaw);
+
+  const province = normalizeProvinceLabel(cleanLocationToken(provinceRaw));
+  const district = cleanLocationToken(districtRaw);
+  const sector = cleanLocationToken(sectorRaw);
+  const cell = cleanLocationToken(cellRaw);
+  const village = cleanLocationToken(villageRaw);
+
+  const locationMissing = [];
+  if (!province) locationMissing.push('Province');
+  if (!district) locationMissing.push('District');
+  if (!sector) locationMissing.push('Sector');
+  if (!cell) locationMissing.push('Cell');
+  if (!village) locationMissing.push('Village');
+
+  const hasManyDigits = (v) => String(v || '').replace(/\D/g, '').length >= 6;
+  let father_phone = normalizePhone(fatherPhoneRaw);
+  let mother_phone = normalizePhone(motherPhoneRaw);
+  const phoneWarnings = { count: 0 };
+  if (fatherPhoneRaw && !father_phone && hasManyDigits(fatherPhoneRaw)) { phoneWarnings.count += 1; father_phone = null; }
+  if (motherPhoneRaw && !mother_phone && hasManyDigits(motherPhoneRaw)) { phoneWarnings.count += 1; mother_phone = null; }
+
+  const preferred_student_uid = normalizeStudentId(studentIdRaw) || null;
+
+  return {
+    first_name,
+    last_name,
+    sdm_code,
+    preferred_student_uid,
+    photo_raw: trimStr(photoRaw) || null,
+    gender,
+    birth_year,
+    province,
+    district,
+    sector,
+    cell,
+    village,
+    father_full_name: trimStr(fatherName) || null,
+    father_phone,
+    mother_full_name: trimStr(motherName) || null,
+    mother_phone,
+    import_missing_fields: JSON.stringify(locationMissing),
+    phoneWarnings: phoneWarnings.count,
+  };
+}
+
+function parseRichRosterObjectRow(r) {
+  return parseRichRosterFieldsFromValues({
+    fullName: readNoNamesObjectRowName(r) || readObjectRowByAliases(r, RICH_ROSTER_NAME_ALIASES),
+    codeRaw: readObjectRowByAliases(r, RICH_ROSTER_CODE_ALIASES),
+    studentIdRaw: readObjectRowByAliases(r, RICH_ROSTER_STUDENT_ID_ALIASES),
+    photoRaw: readObjectRowByAliases(r, RICH_ROSTER_PHOTO_ALIASES),
+    genderRaw: readObjectRowByAliases(r, RICH_ROSTER_GENDER_ALIASES),
+    ageRaw: readObjectRowByAliases(r, RICH_ROSTER_AGE_ALIASES),
+    birthYearRaw: readObjectRowByAliases(r, RICH_ROSTER_BIRTH_ALIASES),
+    provinceRaw: readObjectRowByAliases(r, ['Province', 'Intara']),
+    districtRaw: readObjectRowByAliases(r, ['District', 'Akarere']),
+    sectorRaw: readObjectRowByAliases(r, ['Sector', 'Umurenge']),
+    cellRaw: readObjectRowByAliases(r, ['Cell', 'Akagari']),
+    villageRaw: readObjectRowByAliases(r, ['Village', 'Umudugudu']),
+    fatherName: readObjectRowByAliases(r, RICH_ROSTER_FATHER_NAME_ALIASES),
+    motherName: readObjectRowByAliases(r, RICH_ROSTER_MOTHER_NAME_ALIASES),
+    fatherPhoneRaw: readObjectRowByAliases(r, RICH_ROSTER_FATHER_PHONE_ALIASES),
+    motherPhoneRaw: readObjectRowByAliases(r, RICH_ROSTER_MOTHER_PHONE_ALIASES),
+  });
+}
+
+function parseRichRosterArrayRow(row, headerCells) {
+  return parseRichRosterFieldsFromValues({
+    fullName: stripLeadingNoiseFromNameText(readFromRowByAliases(row, headerCells, RICH_ROSTER_NAME_ALIASES)),
+    codeRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_CODE_ALIASES),
+    studentIdRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_STUDENT_ID_ALIASES),
+    photoRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_PHOTO_ALIASES),
+    genderRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_GENDER_ALIASES),
+    ageRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_AGE_ALIASES),
+    birthYearRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_BIRTH_ALIASES),
+    provinceRaw: readFromRowByAliases(row, headerCells, ['Province', 'Intara']),
+    districtRaw: readFromRowByAliases(row, headerCells, ['District', 'Akarere']),
+    sectorRaw: readFromRowByAliases(row, headerCells, ['Sector', 'Umurenge']),
+    cellRaw: readFromRowByAliases(row, headerCells, ['Cell', 'Akagari']),
+    villageRaw: readFromRowByAliases(row, headerCells, ['Village', 'Umudugudu']),
+    fatherName: readFromRowByAliases(row, headerCells, RICH_ROSTER_FATHER_NAME_ALIASES),
+    motherName: readFromRowByAliases(row, headerCells, RICH_ROSTER_MOTHER_NAME_ALIASES),
+    fatherPhoneRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_FATHER_PHONE_ALIASES),
+    motherPhoneRaw: readFromRowByAliases(row, headerCells, RICH_ROSTER_MOTHER_PHONE_ALIASES),
+  });
+}
+
 /** True when a cell is a 9–15 digit registration id (not a person's name). */
 function cellLooksLikeRegistrationId(val) {
   const s = normalizeStudentId(val);
@@ -426,15 +759,33 @@ function cellLooksLikeRegistrationId(val) {
   return true;
 }
 
-/** Remove leading SDMS / student-id tokens accidentally pasted into a name cell. */
-function stripLeadingRegistrationIdsFromNameText(full) {
+/** True when a cell is a small row ordinal (NO / # column), not part of a name. */
+function cellLooksLikeRowOrdinal(val) {
+  const s = trimStr(val);
+  if (!/^\d{1,5}$/.test(s)) return false;
+  const n = Number(s);
+  return Number.isInteger(n) && n > 0 && n < 100000;
+}
+
+/** Remove leading SDMS ids and row ordinals accidentally pasted into a name cell. */
+function stripLeadingNoiseFromNameText(full) {
   const s = trimStr(full).replace(/\s+/g, ' ');
   if (!s) return '';
   const parts = s.split(' ').filter(Boolean);
-  while (parts.length && cellLooksLikeRegistrationId(parts[0])) {
-    parts.shift();
+  while (parts.length) {
+    const first = parts[0];
+    if (cellLooksLikeRegistrationId(first) || cellLooksLikeRowOrdinal(first)) {
+      parts.shift();
+      continue;
+    }
+    break;
   }
   return parts.join(' ');
+}
+
+/** @deprecated alias */
+function stripLeadingRegistrationIdsFromNameText(full) {
+  return stripLeadingNoiseFromNameText(full);
 }
 
 /**
@@ -453,10 +804,10 @@ function resolveImportNameColumnOffset(row, base) {
 function cleanImportedStudentNames(first_name, last_name, fullName) {
   let fn = trimStr(first_name);
   let ln = trimStr(last_name);
-  const full = stripLeadingRegistrationIdsFromNameText(fullName);
+  const full = stripLeadingNoiseFromNameText(fullName);
 
-  if (cellLooksLikeRegistrationId(fn)) fn = '';
-  if (cellLooksLikeRegistrationId(ln)) ln = '';
+  if (cellLooksLikeRegistrationId(fn) || cellLooksLikeRowOrdinal(fn)) fn = '';
+  if (cellLooksLikeRegistrationId(ln) || cellLooksLikeRowOrdinal(ln)) ln = '';
 
   if (full) {
     const sp = splitFullNameForStudentImport(full);
@@ -488,7 +839,7 @@ function cleanImportedStudentNames(first_name, last_name, fullName) {
  * Given names = all tokens except the last; last token = family name (common in Rwanda lists).
  */
 function splitFullNameForStudentImport(full) {
-  const s = stripLeadingRegistrationIdsFromNameText(full);
+  const s = stripLeadingNoiseFromNameText(full);
   if (!s) return { first_name: '', last_name: '' };
   const parts = s.split(' ').filter(Boolean);
   if (parts.length === 1) {
@@ -526,7 +877,7 @@ function isUrubutoStudentObjectRow(r, ordinalKey) {
 
 function detectHeaderRow(rawRows) {
   const importantTokens = [
-    'firstname', 'lastname', 'studentid', 'registrationnumber', 'name',
+    'firstname', 'lastname', 'studentid', 'registrationnumber', 'name', 'names', 'code',
     'gender', 'sex', 'birthyear', 'yearofbirth',
     'province', 'district', 'sector', 'cell', 'village',
     'amazina', 'igitsina', 'intara', 'akarere', 'umurenge', 'akagari', 'umudugudu',
@@ -769,6 +1120,7 @@ async function ensureStudentsExtraColumns() {
   await promisePool.query('ALTER TABLE students ADD COLUMN academic_year VARCHAR(32) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN student_code VARCHAR(15) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN sdm_code VARCHAR(64) NULL').catch(() => {});
+  await promisePool.query('ALTER TABLE students ADD COLUMN discipline_marks DECIMAL(8,2) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN student_photo VARCHAR(255) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN rfid_uid VARCHAR(64) NULL').catch(() => {});
   await promisePool.query('ALTER TABLE students ADD COLUMN fingerprint_id VARCHAR(128) NULL').catch(() => {});
@@ -1176,18 +1528,16 @@ router.put(
       );
       if (!existing) return res.status(404).json({ success: false, message: 'Student not found' });
 
-      // Remove old file best-effort (do not block on failure)
       const old = existing.student_photo ? String(existing.student_photo) : '';
-      if (old && /^[a-zA-Z0-9._-]+$/.test(old)) {
-        const oldPath = path.join(STUDENT_PHOTO_DIR, old);
-        fs.unlink(oldPath, () => {});
-      }
-
-      const filename = req.file.filename;
+      const filename = await replaceUploadWithOptimizedPortrait(req.file.path, STUDENT_PHOTO_DIR);
       await promisePool.query(
         'UPDATE students SET student_photo = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
         [filename, studentId, schoolId]
       );
+
+      if (old && old !== filename && /^[a-zA-Z0-9._-]+$/.test(old)) {
+        fs.unlink(path.join(STUDENT_PHOTO_DIR, old), () => {});
+      }
 
       return res.json({
         success: true,
@@ -1587,16 +1937,26 @@ router.post('/students', requireRole(SCHOOL_ROLES), async (req, res) => {
 router.post(
   '/students/import',
   requireRole(SCHOOL_ROLES),
-  excelUpload.single('file'),
+  excelUpload.fields([{ name: 'file', maxCount: 1 }, { name: 'photos_zip', maxCount: 1 }]),
   async (req, res) => {
     await ensureStudentsTable();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
-    if (!req.file?.path)  return res.status(400).json({ success: false, message: 'Excel file is required' });
+    const excelFile = req.files?.file?.[0];
+    const zipFile = req.files?.photos_zip?.[0];
+    if (!excelFile?.path) return res.status(400).json({ success: false, message: 'Excel file is required' });
+
+    let photoExtractDir = null;
+    let photoIndex = new Map();
 
     try {
+      if (zipFile?.path) {
+        photoExtractDir = extractImportPhotosZip(zipFile.path);
+        photoIndex = buildImportPhotoIndex(photoExtractDir);
+      }
+
       // ── 1. Parse workbook ──────────────────────────────────────
-      const workbook = xlsx.readFile(req.file.path);
+      const workbook = xlsx.readFile(excelFile.path);
 
       // Pick the sheet with the most data rows
       let bestSheet = null, bestRowCount = 0;
@@ -1647,6 +2007,120 @@ router.post(
       //
 
       const nurseryNamesHeaderIdx = findNurseryNamesListHeaderIndex(objectRows);
+      const noNamesHeaderIdx = findNoNamesListHeaderIndex(objectRows);
+      const noNamesDataStartIdx = findNoNamesDataStartIndex(objectRows);
+
+      const readSimpleListImportExtras = (sourceRow, headerCells) => {
+        if (!sourceRow) {
+          return { photo_raw: null, preferred_student_uid: null, sdm_code: null };
+        }
+        if (headerCells && Array.isArray(sourceRow)) {
+          return {
+            photo_raw: trimStr(readFromRowByAliases(sourceRow, headerCells, RICH_ROSTER_PHOTO_ALIASES)) || null,
+            preferred_student_uid: normalizeStudentId(
+              readFromRowByAliases(sourceRow, headerCells, RICH_ROSTER_STUDENT_ID_ALIASES),
+            ) || null,
+            sdm_code: externalRegistrationIdForSdm(
+              readFromRowByAliases(sourceRow, headerCells, RICH_ROSTER_CODE_ALIASES),
+            ) || null,
+          };
+        }
+        if (sourceRow && typeof sourceRow === 'object' && !Array.isArray(sourceRow)) {
+          return {
+            photo_raw: trimStr(readObjectRowByAliases(sourceRow, RICH_ROSTER_PHOTO_ALIASES)) || null,
+            preferred_student_uid: normalizeStudentId(
+              readObjectRowByAliases(sourceRow, RICH_ROSTER_STUDENT_ID_ALIASES),
+            ) || null,
+            sdm_code: externalRegistrationIdForSdm(
+              readObjectRowByAliases(sourceRow, RICH_ROSTER_CODE_ALIASES),
+            ) || null,
+          };
+        }
+        return { photo_raw: null, preferred_student_uid: null, sdm_code: null };
+      };
+
+      const appendSimpleNameListRow = (fullName, sourceRow, headerCells = null) => {
+        const full = stripLeadingNoiseFromNameText(fullName);
+        if (!full || /^names?$/i.test(full)) {
+          skippedRows += 1;
+          return;
+        }
+        const { first_name: fn, last_name: ln } = splitFullNameForStudentImport(full);
+        if (!fn || !ln) {
+          skippedRows += 1;
+          return;
+        }
+        const uid = nextUid();
+        if (seenImportUids.has(uid)) {
+          skippedRows += 1;
+          return;
+        }
+        seenImportUids.add(uid);
+        const extras = readSimpleListImportExtras(sourceRow, headerCells);
+        const locationMissing = ['Province', 'District', 'Sector', 'Cell', 'Village'];
+        toInsert.push({
+          uid,
+          preferred_student_uid: extras.preferred_student_uid,
+          photo_raw: extras.photo_raw,
+          sdm_code: extras.sdm_code,
+          first_name: fn,
+          last_name: ln,
+          gender: null,
+          birth_year: null,
+          nationality: 'Rwandan',
+          province: '',
+          district: '',
+          sector: '',
+          cell: '',
+          village: '',
+          father_full_name: null,
+          father_phone: null,
+          father_email: null,
+          mother_full_name: null,
+          mother_phone: null,
+          mother_email: null,
+          import_missing_fields: JSON.stringify(locationMissing),
+          source_row_json: JSON.stringify(sourceRow),
+        });
+      };
+
+      const appendRichRosterRow = (parsed, sourceRow) => {
+        if (!parsed?.first_name || !parsed?.last_name) {
+          skippedRows += 1;
+          return;
+        }
+        const uid = nextUid();
+        if (seenImportUids.has(uid)) {
+          skippedRows += 1;
+          return;
+        }
+        seenImportUids.add(uid);
+        phoneWarnings += Number(parsed.phoneWarnings || 0);
+        toInsert.push({
+          uid,
+          preferred_student_uid: parsed.preferred_student_uid || null,
+          photo_raw: parsed.photo_raw || null,
+          sdm_code: parsed.sdm_code,
+          first_name: parsed.first_name,
+          last_name: parsed.last_name,
+          gender: parsed.gender || null,
+          birth_year: parsed.birth_year || null,
+          nationality: 'Rwandan',
+          province: parsed.province || '',
+          district: parsed.district || '',
+          sector: parsed.sector || '',
+          cell: parsed.cell || '',
+          village: parsed.village || '',
+          father_full_name: parsed.father_full_name,
+          father_phone: parsed.father_phone,
+          father_email: null,
+          mother_full_name: parsed.mother_full_name,
+          mother_phone: parsed.mother_phone,
+          mother_email: null,
+          import_missing_fields: parsed.import_missing_fields,
+          source_row_json: JSON.stringify(sourceRow),
+        });
+      };
 
       if (nurseryNamesHeaderIdx >= 0) {
         // ── FORMAT N: Nursery / simple class list (one full name per row in column "") ──
@@ -1656,48 +2130,26 @@ router.post(
             skippedRows += 1;
             continue;
           }
-          const full = stripLeadingRegistrationIdsFromNameText(trimStr(r['']));
-          if (!full || /^names?$/i.test(full)) {
+          appendSimpleNameListRow(trimStr(r['']), r);
+        }
+      } else if (noNamesHeaderIdx >= 0 || noNamesDataStartIdx >= 0) {
+        // ── FORMAT NN: NO + NAMES (simple) or NO + Code + NAMES + … (rich class roster) ──
+        const start = noNamesHeaderIdx >= 0 ? noNamesHeaderIdx + 1 : noNamesDataStartIdx;
+        const headerRow = noNamesHeaderIdx >= 0 ? objectRows[noNamesHeaderIdx] : null;
+        const richRoster = headerRow
+          ? objectRowHasRichRosterKeys(headerRow)
+          : objectRowLooksLikeRichRosterData(objectRows[start]);
+        for (let i = start; i < objectRows.length; i += 1) {
+          const r = objectRows[i];
+          if (!r || typeof r !== 'object' || !objectRowHasNoNamesKeys(r)) {
             skippedRows += 1;
             continue;
           }
-
-          const { first_name: fn, last_name: ln } = splitFullNameForStudentImport(full);
-          if (!fn || !ln) {
-            skippedRows += 1;
-            continue;
+          if (richRoster || objectRowLooksLikeRichRosterData(r)) {
+            appendRichRosterRow(parseRichRosterObjectRow(r), r);
+          } else {
+            appendSimpleNameListRow(readNoNamesObjectRowName(r), r);
           }
-
-          const uid = nextUid();
-          if (seenImportUids.has(uid)) {
-            skippedRows += 1;
-            continue;
-          }
-          seenImportUids.add(uid);
-
-          const locationMissing = ['Province', 'District', 'Sector', 'Cell', 'Village'];
-          toInsert.push({
-            uid,
-            sdm_code: null,
-            first_name: fn,
-            last_name: ln,
-            gender: null,
-            birth_year: null,
-            nationality: 'Rwandan',
-            province: '',
-            district: '',
-            sector: '',
-            cell: '',
-            village: '',
-            father_full_name: null,
-            father_phone: null,
-            father_email: null,
-            mother_full_name: null,
-            mother_phone: null,
-            mother_email: null,
-            import_missing_fields: JSON.stringify(locationMissing),
-            source_row_json: JSON.stringify(r),
-          });
         }
       } else {
       const isUrubutoCompactLayout = looksLikeUrubutoCompactObjectHeaderRow(objectRows[0]);
@@ -1820,18 +2272,53 @@ router.post(
 
       } else {
         // ── FORMAT B / C: array rows ─────────────────────────────
+        const noNamesArrayIdx = findNoNamesArrayHeaderIndex(rawRows);
         const canonicalIndex = findUrubutoHeaderIndex(rawRows);
+
+        if (noNamesArrayIdx >= 0 && canonicalIndex < 0) {
+          const nnHeaderCells = rawRows[noNamesArrayIdx] || [];
+          const nameColIdx = findNameColumnIndexInHeaders(nnHeaderCells);
+          const richRosterArray = headerCellsLookLikeRichRoster(nnHeaderCells);
+          const nnDataRows = rawRows.slice(noNamesArrayIdx + 1);
+          for (let i = 0; i < nnDataRows.length; i += 1) {
+            const row = nnDataRows[i];
+            if (isBlankArrayRow(row)) continue;
+            if (nameColIdx < 0) {
+              skippedRows += 1;
+              continue;
+            }
+            if (richRosterArray) {
+              appendRichRosterRow(parseRichRosterArrayRow(row, nnHeaderCells), row);
+            } else {
+              appendSimpleNameListRow(trimStr(row[nameColIdx]), row, nnHeaderCells);
+            }
+          }
+        } else {
         const headerInfo     = detectHeaderRow(rawRows);
         const headerIndex    = canonicalIndex >= 0 ? canonicalIndex : headerInfo.index;
         const headerCells    = rawRows[headerIndex] || [];
         const dataRows       = rawRows.slice(headerIndex + 1);
         const headerTrusted  = Number(headerInfo.score || 0) >= 4 || canonicalIndex >= 0;
         const canonicalUrubuto = canonicalIndex >= 0;
+        const isNoNamesLayout = headerCellsLookLikeNoNamesLayout(headerCells);
 
         for (let i = 0; i < dataRows.length; i += 1) {
           const row    = dataRows[i];
           const rowNum = headerIndex + i + 2;
           if (isBlankArrayRow(row)) continue;
+
+          if (isNoNamesLayout && headerCellsLookLikeRichRoster(headerCells)) {
+            appendRichRosterRow(parseRichRosterArrayRow(row, headerCells), row);
+            continue;
+          }
+
+          if (isNoNamesLayout) {
+            const nameColIdx = findNameColumnIndexInHeaders(headerCells);
+            if (nameColIdx >= 0) {
+              appendSimpleNameListRow(trimStr(row[nameColIdx]), row, headerCells);
+              continue;
+            }
+          }
 
           // ── Canonical Urubuto array-row strict gate ──────────────
           //
@@ -1948,7 +2435,17 @@ router.post(
           // Generic / non-canonical path
           let first_name  = readFromRowByAliases(row, headerCells, ['F. Name','F Name','FirstName','First Name','Given Name']);
           let last_name   = readFromRowByAliases(row, headerCells, ['L. Name','L Name','LastName','Last Name','Surname']);
-          const fullName  = readFromRowByAliases(row, headerCells, ['Name','Student Name']);
+          let fullName    = readFromRowByAliases(row, headerCells, ['Names','NAMES','Name','Student Name','Full Name']);
+
+          if (isNoNamesLayout) {
+            const nameColIdx = findNameColumnIndexInHeaders(headerCells);
+            const nm = nameColIdx >= 0 ? stripLeadingNoiseFromNameText(trimStr(row[nameColIdx])) : '';
+            if (nm) {
+              fullName = nm;
+              first_name = '';
+              last_name = '';
+            }
+          }
           let genderRaw   = readFromRowByAliases(row, headerCells, ['Gender','Sex','Igitsina']);
           let birth_year  = readFromRowByAliases(row, headerCells, ['BirthYear','Birth Year','DOB Year','Year Of Birth']);
           let nationality = readFromRowByAliases(row, headerCells, ['Nationality','Country']);
@@ -1958,7 +2455,7 @@ router.post(
           let cell        = readFromRowByAliases(row, headerCells, ['Cell','Akagari']);
           let village     = readFromRowByAliases(row, headerCells, ['Village','Umudugudu']);
 
-          if (!headerTrusted) {
+          if (!headerTrusted && !isNoNamesLayout) {
             first_name = first_name || readFromFixedIndexes(row, [2, 0]);
             last_name  = last_name  || readFromFixedIndexes(row, [3, 1]);
             genderRaw  = genderRaw  || readFromFixedIndexes(row, [4, 3]);
@@ -1970,9 +2467,11 @@ router.post(
             village    = village    || readFromFixedIndexes(row, [10, 9]);
           }
 
-          // Strong fixed fallback
-          first_name = first_name || trimStr(row?.[1]);
-          last_name  = last_name  || trimStr(row?.[2]);
+          // Strong fixed fallback (skip when NO is column 0)
+          if (!isNoNamesLayout) {
+            first_name = first_name || trimStr(row?.[1]);
+            last_name  = last_name  || trimStr(row?.[2]);
+          }
           genderRaw  = genderRaw  || trimStr(row?.[3]);
           birth_year = birth_year || trimStr(row?.[4]);
           nationality = nationality || trimStr(row?.[11]);
@@ -2055,7 +2554,7 @@ router.post(
           seenImportUids.add(uid);
 
           let sdm_code = readFromRowByAliases(row, headerCells, [
-            'SDMS ID', 'SDMS', 'SDM Code', 'SDMCode', 'SDM', 'SDMSID',
+            'Code', 'SDMS ID', 'SDMS', 'SDM Code', 'SDMCode', 'SDM', 'SDMSID',
           ]);
           if (!sdm_code) {
             const ordinal = Number(trimStr(row?.[0]));
@@ -2071,8 +2570,18 @@ router.post(
           }
           sdm_code = externalRegistrationIdForSdm(sdm_code) || null;
 
+          const preferred_student_uid = normalizeStudentId(
+            readFromRowByAliases(row, headerCells, RICH_ROSTER_STUDENT_ID_ALIASES)
+          ) || null;
+          const photo_raw = trimStr(readFromRowByAliases(row, headerCells, RICH_ROSTER_PHOTO_ALIASES)) || null;
+
           toInsert.push({
-            uid, sdm_code, first_name, last_name,
+            uid,
+            preferred_student_uid,
+            photo_raw,
+            sdm_code,
+            first_name,
+            last_name,
             gender: gender || null, birth_year: year || null,
             nationality: normalizeNationalityLabel(nationality || inferLocationFromRowTail(row).nationality || 'Rwandan') || 'Rwandan',
             province, district, sector, cell, village,
@@ -2095,6 +2604,7 @@ router.post(
             import_missing_fields: JSON.stringify(locationMissing),
             source_row_json: JSON.stringify(row),
           });
+        }
         }
       }
       }
@@ -2130,6 +2640,7 @@ router.post(
       try {
         await conn.beginTransaction();
         let inserted = 0, updated = 0, duplicatesSkipped = 0, replacedSkipped = 0;
+        let photosAttached = 0;
 
         for (const s of toInsert) {
           const normUid = trimStr(s.uid);
@@ -2156,6 +2667,18 @@ router.post(
               const t = trimStr(v);
               return t === '' ? null : t;
             };
+            const [[existingRow]] = await conn.query(
+              'SELECT student_uid, sdm_code FROM students WHERE id = ? LIMIT 1',
+              [existing.id],
+            );
+            // eslint-disable-next-line no-await-in-loop
+            const photoFilename = await resolveImportStudentPhoto({
+              photoRaw: s.photo_raw,
+              sdmCode: sdmVal || existingRow?.sdm_code,
+              studentUid: trimStr(s.preferred_student_uid) || existingRow?.student_uid || normUid,
+              photoIndex,
+            });
+            if (photoFilename) photosAttached += 1;
             // eslint-disable-next-line no-await-in-loop
             await conn.query(
               `UPDATE students SET
@@ -2163,6 +2686,7 @@ router.post(
                  province=?, district=?, sector=?, cell=?, village=?,
                  class_name=?, academic_year=?,
                  sdm_code=COALESCE(?, sdm_code),
+                 student_photo=COALESCE(?, student_photo),
                  father_full_name=?, father_phone=?, father_email=?, father_national_id=?,
                  mother_full_name=?, mother_phone=?, mother_email=?, mother_national_id=?,
                  import_missing_fields=?, source_row_json=?, updated_at=NOW()
@@ -2172,6 +2696,7 @@ router.post(
                 locU(s.province), locU(s.district), locU(s.sector), locU(s.cell), locU(s.village),
                 s.class_name || null, s.academic_year || null,
                 trimStr(s.sdm_code) || null,
+                photoFilename,
                 s.father_full_name, s.father_phone, s.father_email, s.father_national_id || null,
                 s.mother_full_name, s.mother_phone, s.mother_email, s.mother_national_id || null,
                 s.import_missing_fields || null, s.source_row_json || null,
@@ -2182,7 +2707,8 @@ router.post(
           } else {
             // Only persist Excel UID if it matches this school's official 9-digit pattern (DD+SSS+NNNN).
             // Otherwise always allocate — never store phone numbers or Urubuto 12-digit IDs as student_uid.
-            const uidStr = String(s.uid || '').trim();
+            const preferredUid = trimStr(s.preferred_student_uid);
+            const uidStr = String(preferredUid || s.uid || '').trim();
             const officialNew = shouldTrustImportedStudentUid(uidStr, schoolMeta?.district, schoolMeta?.school_code)
               ? uidStr
               : nextUid();
@@ -2196,20 +2722,30 @@ router.post(
               return t === '' ? null : t;
             };
 
+            // eslint-disable-next-line no-await-in-loop
+            const photoFilename = await resolveImportStudentPhoto({
+              photoRaw: s.photo_raw,
+              sdmCode: sdmVal,
+              studentUid: officialNew,
+              photoIndex,
+            });
+            if (photoFilename) photosAttached += 1;
+
             await conn.query(
               `INSERT INTO students (
                  student_uid, student_code, school_id, first_name, last_name, gender, birth_year, nationality,
                  province, district, sector, cell, village,
-                 class_name, academic_year, sdm_code,
+                 class_name, academic_year, sdm_code, student_photo,
                  father_full_name, father_phone, father_email, father_national_id,
                  mother_full_name, mother_phone, mother_email, mother_national_id,
                  import_missing_fields, source_row_json
-               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+               ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
               [
                 officialNew, officialCode, schoolId,
                 s.first_name, s.last_name, s.gender, s.birth_year, nat,
                 loc(s.province), loc(s.district), loc(s.sector), loc(s.cell), loc(s.village),
                 s.class_name || null, s.academic_year || null, trimStr(s.sdm_code) || null,
+                photoFilename,
                 s.father_full_name, s.father_phone, s.father_email, s.father_national_id || null,
                 s.mother_full_name, s.mother_phone, s.mother_email, s.mother_national_id || null,
                 s.import_missing_fields || null, s.source_row_json || null,
@@ -2233,6 +2769,7 @@ router.post(
           inserted, updated, skipped: skippedRows,
           processed: toInsert.length + skippedRows,
           importMode, phoneWarnings, duplicatesSkipped, replacedSkipped,
+          photosAttached,
           errors,
         });
       } catch (e) {
@@ -2245,16 +2782,20 @@ router.post(
       console.error('POST /api/students/import error:', err);
       return res.status(500).json({ success: false, message: 'Import failed.' });
     } finally {
-      if (req.file?.path) fs.unlink(req.file.path, () => {});
+      if (excelFile?.path) fs.unlink(excelFile.path, () => {});
+      if (zipFile?.path) fs.unlink(zipFile.path, () => {});
+      if (photoExtractDir) fs.rmSync(photoExtractDir, { recursive: true, force: true });
     }
   }
 );
 
 // ── Multer error handler ─────────────────────────────────────────
 router.use((err, _req, res, _next) => {
-  if (err.code === 'LIMIT_FILE_SIZE')       return res.status(400).json({ success: false, message: 'File too large (max 5 MB)' });
+  if (err.code === 'LIMIT_FILE_SIZE')       return res.status(400).json({ success: false, message: 'File too large (max 50 MB)' });
   if (err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(400).json({ success: false, message: `Unexpected file field: ${err.field}` });
   return res.status(400).json({ success: false, message: err.message || 'Upload error' });
 });
 
 module.exports = router;
+module.exports.ensureStudentsTable = ensureStudentsTable;
+module.exports.ensureStudentsExtraColumns = ensureStudentsExtraColumns;

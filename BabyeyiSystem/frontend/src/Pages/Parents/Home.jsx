@@ -87,6 +87,12 @@ function ChildrenSkeleton() {
 
 const quickActions = [
   {
+    to: "/parents/school-reports",
+    title: "School reports",
+    desc: "View published mid-term and final report cards",
+    icon: BookOpen,
+  },
+  {
     to: "/parents/chat",
     title: "School chat",
     desc: "Message teachers and school staff",

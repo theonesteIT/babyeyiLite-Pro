@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   CreditCard, Eye, Gauge, Home, Loader2, Plus, Wallet,
-  X, ChevronRight, Shield, Sparkles, ArrowUpRight, Check
+  X, ChevronRight, Shield, Sparkles, ArrowUpRight, Check, GraduationCap, BookOpen, Filter
 } from "lucide-react";
 import AddChildModal from "../../components/Parents/AddChildModal";
 
@@ -261,6 +261,12 @@ export default function Shulecard() {
   const [busyLimit, setBusyLimit] = useState(false);
   const [msg, setMsg] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [markFilterOptions, setMarkFilterOptions] = useState(null);
+  const [markYear, setMarkYear] = useState("");
+  const [markTerm, setMarkTerm] = useState("");
+  const [markFiltersExplicit, setMarkFiltersExplicit] = useState(false);
+  const [academicData, setAcademicData] = useState(null);
+  const [loadingAcademics, setLoadingAcademics] = useState(false);
 
   const selectedWallet = selectedStudent?.wallet || { balance_rwf: 0, daily_limit_rwf: 5000 };
   const canViewFinancials = selectedStudent?.can_view_financials ?? selectedStudent?.access_type === "FULL";
@@ -283,6 +289,83 @@ export default function Shulecard() {
 
   useEffect(() => { loadStudents(); }, []);
   useEffect(() => { if (!selectedStudent && students.length > 0) setSelectedStudent(students[0]); }, [students, selectedStudent]);
+
+  const studentRef = selectedStudent
+    ? (selectedStudent.student_code || selectedStudent.student_uid || selectedStudent.id)
+    : null;
+
+  const markTermOptions = useMemo(() => {
+    const all = markFilterOptions?.terms || [];
+    if (!markYear) return all;
+    return markFilterOptions?.terms_by_year?.[markYear] || all;
+  }, [markFilterOptions, markYear]);
+
+  useEffect(() => {
+    if (!studentRef) {
+      setMarkFilterOptions(null);
+      setAcademicData(null);
+      return undefined;
+    }
+    let ignore = false;
+    (async () => {
+      try {
+        const fRes = await fetch(
+          `${API}/api/parent-portal/student-details/filters?student_ref=${encodeURIComponent(studentRef)}`,
+          { credentials: "include" },
+        );
+        const fJson = await fRes.json().catch(() => ({}));
+        if (ignore || !fRes.ok || !fJson.success) return;
+        setMarkFilterOptions(fJson.data || null);
+        setMarkYear(fJson.data?.current_academic_year || "");
+        setMarkTerm(fJson.data?.current_term || "");
+        setMarkFiltersExplicit(false);
+      } catch {
+        if (!ignore) setMarkFilterOptions(null);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [studentRef]);
+
+  useEffect(() => {
+    if (!studentRef) return undefined;
+    let ignore = false;
+    (async () => {
+      setLoadingAcademics(true);
+      try {
+        const q = new URLSearchParams({ student_ref: String(studentRef) });
+        if (markFiltersExplicit) {
+          q.set("academic_year", markYear);
+          q.set("term", markTerm);
+        }
+        const aRes = await fetch(
+          `${API}/api/parent-portal/student-details/academics?${q.toString()}`,
+          { credentials: "include" },
+        );
+        const aJson = await aRes.json().catch(() => ({}));
+        if (!ignore && aRes.ok && aJson.success) {
+          setAcademicData(aJson.data || null);
+        }
+      } catch {
+        if (!ignore) setAcademicData(null);
+      } finally {
+        if (!ignore) setLoadingAcademics(false);
+      }
+    })();
+    return () => { ignore = true; };
+  }, [studentRef, markYear, markTerm, markFiltersExplicit]);
+
+  const academicsSummary = academicData
+    ? {
+        average_percent: academicData.overall_gpa_percent,
+        assessment_count: academicData.assessment_count,
+        latest: (academicData.latest_by_subject || academicData.assessments || []).slice(0, 3).map((m) => ({
+          subject: m.subject || m.subject_name,
+          percent: m.percent ?? m.average_percent,
+          assessment_name: m.assessment_name || m.latest_assessment,
+          teacher_name: m.teacher_name,
+        })),
+      }
+    : selectedStudent?.academics;
 
   const goToPaymentsForTopup = (topupValue, paymentMethod, note) => {
     if (!selectedStudent?.id) return;
@@ -456,6 +539,113 @@ export default function Shulecard() {
                   ))}
                 </div>
 
+                {/* Academics from teacher portal */}
+                <div className="rounded-[28px] border border-[#000435]/10 bg-gradient-to-br from-[#000435] to-[#001266] p-6 text-white shadow-xl shadow-[#000435]/15">
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-300">
+                        <GraduationCap size={22} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-300/90">Academics</p>
+                        <p className="text-lg font-extrabold">Published teacher marks</p>
+                      </div>
+                    </div>
+                    {academicsSummary?.average_percent != null && (
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-amber-400">{academicsSummary.average_percent}%</p>
+                        <p className="text-[10px] uppercase tracking-wider text-white/50">Average</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {markFilterOptions && (
+                    <div className="mb-4 rounded-2xl bg-white/8 p-3 ring-1 ring-white/10">
+                      <p className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-amber-200/80">
+                        <Filter size={12} /> Filters
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={markYear}
+                          onChange={(e) => {
+                            setMarkYear(e.target.value);
+                            setMarkFiltersExplicit(true);
+                          }}
+                          className="h-9 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-bold text-white outline-none"
+                        >
+                          <option value="" className="text-[#000435]">All years</option>
+                          {(markFilterOptions.academic_years || []).map((y) => (
+                            <option key={y} value={y} className="text-[#000435]">{y}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={markTerm}
+                          onChange={(e) => {
+                            setMarkTerm(e.target.value);
+                            setMarkFiltersExplicit(true);
+                          }}
+                          className="h-9 rounded-xl border border-white/15 bg-white/10 px-3 text-xs font-bold text-white outline-none"
+                        >
+                          <option value="" className="text-[#000435]">All terms</option>
+                          {markTermOptions.map((t) => (
+                            <option key={t} value={t} className="text-[#000435]">{t}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <p className="mt-2 text-[10px] text-white/45">
+                        {markFiltersExplicit
+                          ? `${markYear || "All years"} · ${markTerm || "All terms"}`
+                          : `${markFilterOptions.current_academic_year || "Current year"} · ${markFilterOptions.current_term || "Current term"} (school default)`}
+                      </p>
+                    </div>
+                  )}
+
+                  {loadingAcademics ? (
+                    <div className="mb-5 flex justify-center py-8">
+                      <Loader2 className="animate-spin text-amber-400" size={28} />
+                    </div>
+                  ) : (academicsSummary?.latest || []).length > 0 ? (
+                    <div className="space-y-2 mb-5">
+                      {academicsSummary.latest.map((m) => (
+                        <div key={`${m.subject}-${m.assessment_name}`} className="flex items-center justify-between gap-3 rounded-2xl bg-white/8 px-4 py-3 ring-1 ring-white/10">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold">{m.subject}</p>
+                            <p className="truncate text-xs text-white/55">{m.assessment_name} · {m.teacher_name}</p>
+                          </div>
+                          <span className="shrink-0 rounded-lg bg-amber-500/20 px-2.5 py-1 text-xs font-extrabold text-amber-200">
+                            {m.percent != null ? `${m.percent}%` : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mb-5 rounded-2xl bg-white/5 px-4 py-6 text-center ring-1 ring-white/10">
+                      <BookOpen size={28} className="mx-auto mb-2 text-white/30" />
+                      <p className="text-sm font-semibold text-white/70">No published marks yet</p>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ref = selectedStudent.student_code || selectedStudent.student_uid || selectedStudent.id;
+                      const params = new URLSearchParams({ tab: "academic" });
+                      if (markFiltersExplicit && markYear) params.set("academic_year", markYear);
+                      if (markFiltersExplicit && markTerm) params.set("term", markTerm);
+                      if (!markFiltersExplicit && markFilterOptions?.current_academic_year) {
+                        params.set("academic_year", markFilterOptions.current_academic_year);
+                      }
+                      if (!markFiltersExplicit && markFilterOptions?.current_term) {
+                        params.set("term", markFilterOptions.current_term);
+                      }
+                      navigate(`/parents/student-details/${ref}?${params.toString()}`);
+                    }}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3.5 text-sm font-extrabold text-[#000435] transition hover:bg-amber-400"
+                  >
+                    View full academics
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+
                 <div className="space-y-4">
                   <button
                     type="button"
@@ -496,7 +686,7 @@ export default function Shulecard() {
                   {canSetLimit && (
                     <button
                       type="button"
-                      onClick={() => navigate(`/parents/student-details/${selectedStudent.student_code || selectedStudent.student_uid || selectedStudent.id}`)}
+                      onClick={() => navigate(`/parents/student-details/${selectedStudent.student_code || selectedStudent.student_uid || selectedStudent.id}?tab=academic`)}
                       className="flex w-full items-center justify-between rounded-[28px] border border-slate-200 bg-white px-6 py-5 text-slate-950 shadow-sm transition hover:-translate-y-0.5"
                     >
                       <div className="flex items-center gap-4">
@@ -504,8 +694,8 @@ export default function Shulecard() {
                           <Eye size={22} />
                         </div>
                         <div className="text-left">
-                          <p className="font-extrabold">View Details</p>
-                          <p className="text-sm text-slate-500">Transactions & activity</p>
+                          <p className="font-extrabold">Academics & activity</p>
+                          <p className="text-sm text-slate-500">Marks, attendance & discipline</p>
                         </div>
                       </div>
                       <ChevronRight size={22} className="text-slate-400" />

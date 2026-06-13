@@ -10,11 +10,13 @@ import {
 import api from "../../services/api";
 import { getPayrollRuns, getPayrollRun, isPayrollRunPaid } from "../../services/payrollRunService";
 import { getEmployeePayrollDeductions } from "../../services/payrollTemplateService";
+import { listTerminationsForPayrollMonth } from "../../services/terminationBenefitsService";
 import { buildPayrollPreviewRows } from "../../utils/payrollPreview";
 import { filterPayrollEmployeeDeductions } from "../../utils/payrollEmployeeDeductions";
 import {
   parseManagerAcademicSettings,
   yearOptionLabel,
+  resolvePayrollCalendarYear,
 } from "../../utils/academicCalendarFilters";
 import {
   computeReportAnalytics,
@@ -49,12 +51,8 @@ const TABS = [
 
 const CHART_COLORS = ["#000435", "#F59E0B", "#DC2626", "#059669", "#2563EB", "#7C3AED"];
 
-function toPayrollYear(y) {
-  const txt = String(y || "").trim();
-  const m = txt.match(/\b(20\d{2}|19\d{2})\b/);
-  if (m) return Number(m[1]);
-  const n = Number(txt);
-  return Number.isFinite(n) ? n : new Date().getFullYear();
+function toPayrollYear(academicYear, month) {
+  return resolvePayrollCalendarYear(academicYear, month);
 }
 
 function getSchoolName() {
@@ -425,7 +423,8 @@ export default function PayrollReports() {
   const [error, setError] = useState("");
   const [isPreview, setIsPreview] = useState(false);
 
-  const payrollYear = useMemo(() => toPayrollYear(academicYear), [academicYear]);
+  const payrollYear = useMemo(() => toPayrollYear(academicYear, month), [academicYear, month]);
+  const payrollMonthNum = useMemo(() => MONTHS.indexOf(month) + 1, [month]);
   const schoolName = getSchoolName();
 
   useEffect(() => {
@@ -449,15 +448,23 @@ export default function PayrollReports() {
   }, []);
 
   const loadPreview = useCallback(async () => {
-    const [tplRes, staffRes, empDedRows] = await Promise.all([
+    const [tplRes, staffRes, empDedRows, terminationPayrolls] = await Promise.all([
       api.get("/accountant/payroll/templates/active").catch(() => null),
       api.get("/accountant/payroll/staff/search", { params: { query: "", limit: 500 } }).catch(() => null),
       getEmployeePayrollDeductions().catch(() => []),
+      listTerminationsForPayrollMonth(payrollMonthNum, payrollYear).catch(() => []),
     ]);
     const template = tplRes?.data?.data || null;
     const staffRaw = Array.isArray(staffRes?.data?.data) ? staffRes.data.data : [];
     const empDeductions = filterPayrollEmployeeDeductions(Array.isArray(empDedRows) ? empDedRows : []);
-    const preview = buildPayrollPreviewRows(staffRaw, template, empDeductions, {}, null);
+    const preview = buildPayrollPreviewRows(
+      staffRaw,
+      template,
+      empDeductions,
+      {},
+      null,
+      Array.isArray(terminationPayrolls) ? terminationPayrolls : [],
+    );
     const enriched = preview.rows.map((reg) => ({
       registerRow: reg,
       status: "Processing",
@@ -468,7 +475,7 @@ export default function PayrollReports() {
     setPreviewRows(enriched);
     setRunDetail(null);
     setIsPreview(true);
-  }, []);
+  }, [payrollMonthNum, payrollYear]);
 
   const loadReport = useCallback(async (runIdOverride = null) => {
     if (!academicYear || !month) return;
@@ -621,9 +628,9 @@ export default function PayrollReports() {
         subtitle="Tax and bank payroll analytics with register export — filter by academic year and month."
       />
 
-      <div className="max-w-[1600px] mx-auto px-4 lg:px-8 -mt-4 space-y-5">
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 bg-white rounded-2xl border border-slate-100 p-1.5 shadow-sm w-fit">
+      <div className="max-w-[1600px] mx-auto px-4 lg:px-8 mt-6 space-y-5">
+        {/* Tabs — below hero, not overlapping ochre band */}
+        <div className="flex flex-wrap gap-2 bg-white rounded-2xl border border-slate-100 p-1.5 shadow-sm">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (

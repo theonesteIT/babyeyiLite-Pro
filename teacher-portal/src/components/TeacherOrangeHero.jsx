@@ -1,7 +1,7 @@
 import React from 'react';
 
 /**
- * Orange hero + teacher imagery — matches Dashboard welcome strip (ShuleTicha · Secure).
+ * Welcome hero — clean flat amber (no photo overlay / shadow).
  */
 export default function TeacherOrangeHero({
   title,
@@ -13,34 +13,34 @@ export default function TeacherOrangeHero({
 }) {
   return (
     <section
-      className={`relative flex min-h-[260px] items-center overflow-hidden bg-[#FF8C00] text-white md:min-h-[300px] shadow-none ${className}`}
+      className={`relative flex min-h-[200px] items-center overflow-hidden text-white md:min-h-[220px] ${className}`}
+      style={{ background: 'linear-gradient(135deg, #e8940a 0%, #f59e0b 42%, #d97706 100%)' }}
     >
-      <div className="absolute inset-0 z-[1]">
-        <img
-          src="/teacher.png"
-          alt=""
-          className="block h-full w-full object-cover object-top transition-transform duration-[8s] ease-in-out hover:scale-[1.04]"
-        />
-        <div className="absolute inset-0 z-[2] bg-black/25" aria-hidden />
-      </div>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 20% 30%, #fff 0%, transparent 45%), radial-gradient(circle at 80% 70%, #fff 0%, transparent 40%)',
+        }}
+        aria-hidden
+      />
 
       {badgeLabel ? (
-        <div className="absolute left-6 top-6 z-10 hidden md:flex items-center gap-2 rounded-full border border-white/25 bg-black/25 px-4 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/95 backdrop-blur-md">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
+        <div className="absolute left-5 top-5 z-10 hidden md:flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3.5 py-1.5 text-[10px] font-medium tracking-wide text-white">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300" />
           {badgeLabel}
         </div>
       ) : null}
 
       {rightSlot ? (
-        <div className="absolute right-6 top-6 z-10 hidden md:flex flex-wrap items-center justify-end gap-2 max-w-[min(100%-12rem,28rem)]">
+        <div className="absolute right-5 top-5 z-10 hidden md:flex flex-wrap items-center justify-end gap-2 max-w-[min(100%-12rem,28rem)]">
           {rightSlot}
         </div>
       ) : null}
 
-      <div className="relative z-10 w-full max-w-4xl px-7 pb-10 pt-14 md:px-10 md:pb-12 md:pt-12">
-        <h1 className="mb-2 font-sans text-2xl font-extrabold tracking-tight md:text-3xl">{title}</h1>
+      <div className="relative z-10 w-full max-w-4xl px-6 pb-8 pt-12 md:px-10 md:pb-10 md:pt-10">
+        <h1 className="mb-1.5 text-2xl font-medium tracking-tight text-white md:text-[1.65rem]">{title}</h1>
         {subtitle ? (
-          <p className="max-w-2xl text-sm font-semibold text-white/90 md:text-base">{subtitle}</p>
+          <p className="max-w-2xl text-sm font-normal text-white/90 md:text-base leading-relaxed">{subtitle}</p>
         ) : null}
         {children ? <div className="mt-4 flex flex-wrap gap-2">{children}</div> : null}
       </div>

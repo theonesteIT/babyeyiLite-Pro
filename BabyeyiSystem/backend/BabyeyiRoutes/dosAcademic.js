@@ -19,7 +19,47 @@ const { requireRole } = require('../middleware/deoAuth');
 const xlsx = require('xlsx');
 const PDFDocument = require('pdfkit');
 const ensureAcademicTables = require('./teacherPortal').ensureAcademicTables;
-const { normalizeGradebookLabel, sqlNormLabelEquals, sqlNormColumnsEqual } = require('../utils/gradebookLabels');
+const { ensureStudentsTable } = require('./students');
+const {
+  normalizeGradebookLabel,
+  sqlNormLabelEquals,
+  sqlNormColumnsEqual,
+  collectSchoolRegisteredClassNames,
+  formatSchoolClassRow,
+} = require('../utils/gradebookLabels');
+const {
+  ensureSchoolMarksAcademicTables,
+  seedDefaultAssessmentTypesIfEmpty,
+  syncAssessmentTypesToGradebookColumns,
+  slugifyAssessmentName,
+} = require('../utils/schoolMarksAcademicSchema');
+const { ensureSchoolGradebookSchema, seedDefaultGradebookColumnsIfEmpty } = require('../utils/schoolGradebookSchema');
+const {
+  ensureCompetencyTables,
+  listCompetencyCategories,
+  RATING_LEVELS,
+} = require('../utils/competencySchema');
+const {
+  getSchoolGradingScale,
+  saveSchoolGradingScale,
+  DEFAULT_GRADE_BANDS,
+} = require('../utils/schoolGradingSchema');
+const { runTimetableDemoSeed } = require('../utils/timetableDemoSeed');
+const {
+  ensureTeacherAssignmentsTable,
+  fetchSchoolAcademicContext,
+  createTeacherAssignment,
+  updateTeacherAssignmentSafe,
+  archiveTeacherAssignment,
+  supersedeTeacherAssignment,
+  removeOrArchiveAssignment,
+  fetchAssignmentHistory,
+  listTeacherAssignmentsForSchool,
+  buildTeacherAssignmentsOverview,
+  syncTeacherAssignmentsToTimetable,
+  syncTeachingAssignmentsFromTimetable,
+  isClassTeacherSubject,
+} = require('../utils/teacherAssignmentsSchema');
 
 /** Timetable assignment row used only to link homeroom teachers (teacher portal students list). */
 const CLASS_TEACHER_SUBJECT = 'Class Teacher';
@@ -77,6 +117,21 @@ function getRoleCode(req) {
 function trimStr(v) {
   if (v === undefined || v === null) return '';
   return String(v).trim();
+}
+
+async function fetchTeacherAssignmentsForClass(schoolId, className, academicYear = null, term = null) {
+  await ensureTeacherAssignmentsTable();
+  const ctx = await fetchSchoolAcademicContext(schoolId);
+  const year = academicYear || ctx.academicYear;
+  const termVal = term || ctx.term;
+  const [rows] = await promisePool.query(
+    `SELECT id, school_id, class_name, subject_name, teacher_user_id, periods_per_week, room
+     FROM teacher_assignments
+     WHERE school_id = ? AND class_name = ? AND status = 'active'
+       AND academic_year = ? AND term = ?`,
+    [schoolId, className, year, termVal],
+  );
+  return rows;
 }
 
 /** Avoid "Illegal mix of collations" when comparing registry vs students.academic_year */
@@ -312,6 +367,48 @@ function dayOfWeekName(d = new Date()) {
 function timeToMins(t) {
   const [hh, mm] = String(t || '00:00').slice(0, 5).split(':').map(Number);
   return (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
+}
+
+function timesOverlap(startA, endA, startB, endB) {
+  return timeToMins(startA) < timeToMins(endB) && timeToMins(startB) < timeToMins(endA);
+}
+
+function teacherSlotKey(staffId, day, startTime) {
+  return `${staffId}__${day}__${String(startTime || '').slice(0, 5)}`;
+}
+
+async function findTeacherPeriodConflicts(schoolId, opts = {}) {
+  const staffId = Number(opts.staffId);
+  const dayOfWeek = trimStr(opts.dayOfWeek);
+  const startTime = trimStr(opts.startTime);
+  const endTime = trimStr(opts.endTime);
+  const term = trimStr(opts.term) || '';
+  const academicYear = trimStr(opts.academicYear) || '';
+  const excludeId = opts.excludeId != null ? Number(opts.excludeId) : null;
+  if (!schoolId || !staffId || !dayOfWeek || !startTime || !endTime) return [];
+
+  let sql = `
+    SELECT tt.id, tt.class_name, tt.subject_name, tt.day_of_week,
+           tt.start_time, tt.end_time, tt.term, tt.academic_year,
+           TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name
+    FROM academic_timetables tt
+    LEFT JOIN users u ON u.id = tt.staff_id
+    WHERE tt.school_id = ? AND tt.staff_id = ? AND tt.day_of_week = ?
+      AND TRIM(COALESCE(tt.term, '')) = ? AND TRIM(COALESCE(tt.academic_year, '')) = ?`;
+  const params = [schoolId, staffId, dayOfWeek, term, academicYear];
+  if (excludeId && !Number.isNaN(excludeId)) {
+    sql += ' AND tt.id != ?';
+    params.push(excludeId);
+  }
+  const [rows] = await promisePool.query(sql, params);
+  return (rows || []).filter((row) => timesOverlap(startTime, endTime, row.start_time, row.end_time));
+}
+
+function formatTeacherConflictMessage(conflictRow, day, timeRange) {
+  const teacher = conflictRow.teacher_name || 'Teacher';
+  const otherClass = conflictRow.class_name || 'another class';
+  const otherSubject = conflictRow.subject_name || 'a lesson';
+  return `${teacher} is already teaching ${otherSubject} in ${otherClass} on ${day} at ${timeRange}.`;
 }
 
 function toDateSql(d = new Date()) {
@@ -640,6 +737,7 @@ function safeFilenamePart(s) {
 // ════════════════════════════════════════════════════════════════
 router.get('/dos/dashboard/stats', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
   try {
+    await ensureStudentsTable();
     await ensureAcademicTables();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) {
@@ -828,10 +926,200 @@ router.get('/dos/dashboard/stats', requireRole(DOS_DASHBOARD_ROLES), async (req,
 });
 
 // ════════════════════════════════════════════════════════════════
+// GET /api/dos/dashboard/today-timetable — school-wide today schedule (term filter)
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/dashboard/today-timetable', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(403).json({ success: false, message: 'No active school context' });
+    }
+
+    const settings = await getTeacherPeriodSettings(schoolId);
+    const term = String(req.query.term || settings.term || '').trim();
+    const academicYear = String(req.query.academic_year || settings.academic_year || '').trim();
+    const currentDay = new Date().toLocaleString('en-US', { weekday: 'long' });
+    const nowHm = new Date().toTimeString().slice(0, 5);
+    const timeToMins = (t) => {
+      const [h, m] = String(t || '00:00').slice(0, 5).split(':').map(Number);
+      return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+    };
+    const nowMins = timeToMins(nowHm);
+
+    let sql = `SELECT subject_name, class_name, room, start_time, end_time
+               FROM academic_timetables
+               WHERE school_id = ? AND day_of_week = ?
+                 AND (extra_activity_id IS NULL OR extra_activity_id = 0)`;
+    const params = [schoolId, currentDay];
+    if (term) { sql += ' AND TRIM(COALESCE(term,\'\')) = ?'; params.push(term); }
+    if (academicYear) { sql += ' AND TRIM(COALESCE(academic_year,\'\')) = ?'; params.push(academicYear); }
+    sql += ' ORDER BY start_time ASC';
+    const [rows] = await promisePool.query(sql, params);
+
+    const schedule = (rows || []).map((row) => {
+      const start = String(row.start_time || '').slice(0, 5);
+      const end = String(row.end_time || '').slice(0, 5);
+      const startM = timeToMins(start);
+      const endM = timeToMins(end);
+      return {
+        time: start,
+        end_time: end,
+        subject: row.subject_name || '—',
+        class_name: row.class_name || '—',
+        room: row.room || '—',
+        active: nowMins >= startM && nowMins < endM,
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        day: currentDay,
+        term,
+        academic_year: academicYear,
+        schedule,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/dashboard/today-timetable]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load today timetable' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// GET /api/dos/dashboard/academic-insights — performance charts data
+// ════════════════════════════════════════════════════════════════
+router.get('/dos/dashboard/academic-insights', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(403).json({ success: false, message: 'No active school context' });
+    }
+
+    const settings = await getTeacherPeriodSettings(schoolId);
+    const term = String(req.query.term || settings.term || '').trim();
+    const academicYear = String(req.query.academic_year || settings.academic_year || '').trim();
+
+    const termClause = term ? ' AND TRIM(COALESCE(a.term,\'\')) = ?' : '';
+    const yearClause = academicYear ? ' AND TRIM(COALESCE(a.academic_year,\'\')) = ?' : '';
+    const filterParams = [];
+    if (term) filterParams.push(term);
+    if (academicYear) filterParams.push(academicYear);
+
+    const [classRows] = await promisePool.query(
+      `SELECT
+         COALESCE(NULLIF(TRIM(a.class_name), ''), 'Unknown') AS name,
+         ROUND(AVG(m.score_obtained / NULLIF(a.max_score, 0) * 100), 1) AS avg_pct,
+         COUNT(*) AS mark_count
+       FROM academic_marks m
+       INNER JOIN academic_assessments a ON m.assessment_id = a.id AND a.school_id = m.school_id
+       WHERE m.school_id = ? AND a.max_score > 0${termClause}${yearClause}
+       GROUP BY COALESCE(NULLIF(TRIM(a.class_name), ''), 'Unknown')
+       HAVING mark_count >= 1
+       ORDER BY avg_pct DESC`,
+      [schoolId, ...filterParams]
+    );
+
+    const ranked = (classRows || []).map((r) => ({
+      name: r.name,
+      avg_pct: Number(r.avg_pct) || 0,
+      mark_count: Number(r.mark_count) || 0,
+    }));
+
+    const bestPerformingClasses = ranked.slice(0, 6);
+    const worstPerformingClasses = [...ranked].sort((a, b) => a.avg_pct - b.avg_pct).slice(0, 6);
+
+    const [subjectRows] = await promisePool.query(
+      `SELECT
+         COALESCE(NULLIF(TRIM(a.subject_name), ''), 'Unknown') AS name,
+         ROUND(AVG(m.score_obtained / NULLIF(a.max_score, 0) * 100), 1) AS avg_pct,
+         COUNT(*) AS mark_count
+       FROM academic_marks m
+       INNER JOIN academic_assessments a ON m.assessment_id = a.id AND a.school_id = m.school_id
+       WHERE m.school_id = ? AND a.max_score > 0${termClause}${yearClause}
+       GROUP BY COALESCE(NULLIF(TRIM(a.subject_name), ''), 'Unknown')
+       HAVING mark_count >= 1
+       ORDER BY avg_pct DESC
+       LIMIT 10`,
+      [schoolId, ...filterParams]
+    );
+
+    const subjectPerformance = (subjectRows || []).map((r) => ({
+      name: r.name,
+      avg_pct: Number(r.avg_pct) || 0,
+      mark_count: Number(r.mark_count) || 0,
+    }));
+
+    const catFilter = ` AND (
+      LOWER(COALESCE(a.column_slug, '')) LIKE '%cat%'
+      OR LOWER(COALESCE(a.assessment_name, '')) LIKE '%cat%'
+      OR LOWER(COALESCE(a.assessment_name, '')) LIKE '%continuous%'
+    )`;
+
+    let [catRows] = await promisePool.query(
+      `SELECT
+         DATE_FORMAT(a.created_at, '%b %d') AS label,
+         DATE(a.created_at) AS sort_date,
+         ROUND(AVG(m.score_obtained / NULLIF(a.max_score, 0) * 100), 1) AS avg_pct,
+         COUNT(*) AS mark_count
+       FROM academic_marks m
+       INNER JOIN academic_assessments a ON m.assessment_id = a.id AND a.school_id = m.school_id
+       WHERE m.school_id = ? AND a.max_score > 0${catFilter}${termClause}${yearClause}
+       GROUP BY DATE(a.created_at)
+       ORDER BY sort_date ASC
+       LIMIT 14`,
+      [schoolId, ...filterParams]
+    );
+
+    if (!(catRows || []).length) {
+      [catRows] = await promisePool.query(
+        `SELECT
+           DATE_FORMAT(a.created_at, '%b %d') AS label,
+           DATE(a.created_at) AS sort_date,
+           ROUND(AVG(m.score_obtained / NULLIF(a.max_score, 0) * 100), 1) AS avg_pct,
+           COUNT(*) AS mark_count
+         FROM academic_marks m
+         INNER JOIN academic_assessments a ON m.assessment_id = a.id AND a.school_id = m.school_id
+         WHERE m.school_id = ? AND a.max_score > 0${termClause}${yearClause}
+         GROUP BY DATE(a.created_at)
+         ORDER BY sort_date ASC
+         LIMIT 14`,
+        [schoolId, ...filterParams]
+      );
+    }
+
+    const catTrends = (catRows || []).map((r) => ({
+      label: r.label,
+      avg_pct: Number(r.avg_pct) || 0,
+      mark_count: Number(r.mark_count) || 0,
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        term,
+        academic_year: academicYear,
+        bestPerformingClasses,
+        worstPerformingClasses,
+        subjectPerformance,
+        catTrends,
+        hasMarksData: ranked.length > 0,
+      },
+    });
+  } catch (err) {
+    console.error('[GET /dos/dashboard/academic-insights]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load academic insights' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // GET /api/dos/class-enrollment — student count per class/section
 // ════════════════════════════════════════════════════════════════
 router.get('/dos/class-enrollment', requireRole(DOS_DASHBOARD_ROLES), async (req, res) => {
   try {
+    await ensureStudentsTable();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'No active school context' });
     const [rows] = await promisePool.query(
@@ -2389,15 +2677,17 @@ router.get('/dos/teaching-staff', requireRole(DOS_ACADEMIC_ADMIN), async (req, r
     if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
 
     const [rows] = await promisePool.query(
-      `SELECT u.id, u.first_name, u.last_name, u.email, UPPER(r.role_code) AS role_code
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.username, UPPER(r.role_code) AS role_code, st.staff_id
        FROM users u
        INNER JOIN roles r ON r.id = u.role_id
+       INNER JOIN staff st ON st.user_id = u.id AND st.school_id = u.school_id
        WHERE u.school_id = ? AND u.deleted_at IS NULL
-         AND UPPER(r.role_code) IN ('TEACHER','HOD','DOS')
+         AND UPPER(r.role_code) = 'TEACHER'
        ORDER BY u.last_name ASC, u.first_name ASC`,
       [schoolId]
     );
-    return res.json({ success: true, data: rows });
+    const { enrichTeacherPortalLogin } = require('../utils/teacherPortalLoginHints');
+    return res.json({ success: true, data: rows.map(enrichTeacherPortalLogin) });
   } catch (err) {
     console.error('GET /dos/teaching-staff:', err);
     return res.status(500).json({ success: false, message: 'Failed to list teaching staff' });
@@ -2408,8 +2698,9 @@ async function assertTeachingStaffForSchool(schoolId, staffUserId) {
   const [rows] = await promisePool.query(
     `SELECT u.id FROM users u
      INNER JOIN roles r ON r.id = u.role_id
+     INNER JOIN staff st ON st.user_id = u.id AND st.school_id = u.school_id
      WHERE u.id = ? AND u.school_id = ? AND u.deleted_at IS NULL
-       AND UPPER(r.role_code) IN ('TEACHER','HOD','DOS')`,
+       AND UPPER(r.role_code) = 'TEACHER'`,
     [staffUserId, schoolId]
   );
   return rows.length > 0;
@@ -2446,6 +2737,7 @@ router.get('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) =
         tt.room,
         tt.term,
         tt.academic_year,
+        tt.extra_activity_id,
         CONCAT(tt.start_time, ' - ', tt.end_time) AS time,
         TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
       FROM academic_timetables tt
@@ -2534,6 +2826,52 @@ router.post('/dos/subjects', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) =
 });
 
 // ════════════════════════════════════════════════════════════════
+// PUT /api/dos/subjects/:id — update catalogue subject fields
+// ════════════════════════════════════════════════════════════════
+router.put('/dos/subjects/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const id = Number(req.params.id);
+    if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id.' });
+
+    const name = req.body?.name != null ? normalizeGradebookLabel(req.body.name) : null;
+    const category = req.body?.category != null ? (trimStr(req.body.category) || null) : undefined;
+    const subject_code = req.body?.subject_code != null ? (trimStr(req.body.subject_code) || null) : undefined;
+    if (name !== null && !name) {
+      return res.status(400).json({ success: false, message: 'Subject name cannot be empty.' });
+    }
+
+    const [[existing]] = await promisePool.query(
+      'SELECT id, name, category, subject_code, is_active FROM school_subjects WHERE id = ? AND school_id = ? LIMIT 1',
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Subject not found.' });
+
+    const nextName = name !== null ? name : existing.name;
+    const nextCategory = category !== undefined ? category : existing.category;
+    const nextCode = subject_code !== undefined ? subject_code : existing.subject_code;
+
+    await promisePool.query(
+      'UPDATE school_subjects SET name = ?, category = ?, subject_code = ? WHERE id = ? AND school_id = ?',
+      [nextName, nextCategory, nextCode, id, schoolId]
+    );
+    return res.json({
+      success: true,
+      message: 'Subject updated.',
+      data: { id, name: nextName, category: nextCategory, subject_code: nextCode, is_active: existing.is_active },
+    });
+  } catch (err) {
+    if (err && err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'A subject with this name already exists.' });
+    }
+    console.error('PUT /dos/subjects/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update subject' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
 // PATCH /api/dos/subjects/:id — deactivate or reactivate a catalogue subject
 // ════════════════════════════════════════════════════════════════
 router.patch('/dos/subjects/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
@@ -2601,6 +2939,31 @@ router.post('/dos/timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) 
       return res.status(400).json({ success: false, message: 'Selected user is not a teaching role at this school.' });
     }
 
+    const teacherConflicts = await findTeacherPeriodConflicts(schoolId, {
+      staffId: staff_id, dayOfWeek: day_of_week, startTime: start_time, endTime: end_time,
+      term, academicYear: academic_year,
+    });
+    const crossClass = teacherConflicts.filter((c) => String(c.class_name) !== String(class_name));
+    if (crossClass.length > 0) {
+      const c = crossClass[0];
+      const timeRange = `${String(start_time).slice(0, 5)}–${String(end_time).slice(0, 5)}`;
+      return res.status(409).json({
+        success: false,
+        code: 'TEACHER_PERIOD_CONFLICT',
+        message: formatTeacherConflictMessage(c, day_of_week, timeRange),
+        conflicts: crossClass.map((row) => ({
+          type: 'teacher_clash',
+          teacher_name: row.teacher_name,
+          class_name: row.class_name,
+          subject_name: row.subject_name,
+          day: day_of_week,
+          time: timeRange,
+          term: row.term,
+          academic_year: row.academic_year,
+        })),
+      });
+    }
+
     const [ins] = await promisePool.query(
       `INSERT INTO academic_timetables
         (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year)
@@ -2630,7 +2993,8 @@ router.put('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, re
     if (!id || Number.isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid id.' });
 
     const [[existing]] = await promisePool.query(
-      'SELECT id FROM academic_timetables WHERE id = ? AND school_id = ? LIMIT 1',
+      `SELECT id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year
+       FROM academic_timetables WHERE id = ? AND school_id = ? LIMIT 1`,
       [id, schoolId]
     );
     if (!existing) return res.status(404).json({ success: false, message: 'Period not found.' });
@@ -2693,6 +3057,39 @@ router.put('/dos/timetable/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, re
 
     if (!fields.length) {
       return res.status(400).json({ success: false, message: 'No fields to update.' });
+    }
+
+    const nextClass = class_name || existing.class_name;
+    const nextStaff = (staff_id != null && !Number.isNaN(staff_id)) ? staff_id : existing.staff_id;
+    const nextDay = day_of_week || existing.day_of_week;
+    const nextStart = start_time || existing.start_time;
+    const nextEnd = end_time || existing.end_time;
+    const nextTerm = term !== undefined ? term : existing.term;
+    const nextYear = academic_year !== undefined ? academic_year : existing.academic_year;
+
+    const teacherConflicts = await findTeacherPeriodConflicts(schoolId, {
+      staffId: nextStaff, dayOfWeek: nextDay, startTime: nextStart, endTime: nextEnd,
+      term: nextTerm, academicYear: nextYear, excludeId: id,
+    });
+    const crossClass = teacherConflicts.filter((c) => String(c.class_name) !== String(nextClass));
+    if (crossClass.length > 0) {
+      const c = crossClass[0];
+      const timeRange = `${String(nextStart).slice(0, 5)}–${String(nextEnd).slice(0, 5)}`;
+      return res.status(409).json({
+        success: false,
+        code: 'TEACHER_PERIOD_CONFLICT',
+        message: formatTeacherConflictMessage(c, nextDay, timeRange),
+        conflicts: crossClass.map((row) => ({
+          type: 'teacher_clash',
+          teacher_name: row.teacher_name,
+          class_name: row.class_name,
+          subject_name: row.subject_name,
+          day: nextDay,
+          time: timeRange,
+          term: row.term,
+          academic_year: row.academic_year,
+        })),
+      });
     }
 
     vals.push(id, schoolId);
@@ -2842,7 +3239,7 @@ router.put('/dos/teacher-period/settings', requireRole(DOS_ACADEMIC_ADMIN), asyn
       [schoolId, academicYear, term, lateThreshold, userId]
     );
 
-    return res.json({ success: true, message: 'Teacher period settings saved' });
+    return res.json({ success: true, message: 'Teacher period settings saved', data: await getTeacherPeriodSettings(schoolId) });
   } catch (err) {
     console.error('PUT /dos/teacher-period/settings:', err);
     return res.status(500).json({ success: false, message: 'Failed to save teacher period settings' });
@@ -4118,8 +4515,112 @@ async function ensureSmartTimetableTables() {
   await promisePool.query(
     'ALTER TABLE timetable_assignments ADD UNIQUE KEY uq_ta_class_subject_teacher (school_id, class_name, subject_name, teacher_user_id)'
   ).catch(() => {});
+  await promisePool.query(
+    'ALTER TABLE timetable_course_config ADD COLUMN scheduling_rules_json JSON NULL'
+  ).catch(() => {});
+
+  await promisePool.query(
+    'ALTER TABLE academic_timetables ADD COLUMN extra_activity_id INT UNSIGNED NULL'
+  ).catch(() => {});
+  await promisePool.query(
+    'ALTER TABLE academic_timetables MODIFY staff_id INT UNSIGNED NULL'
+  ).catch(() => {});
+  await promisePool.query(
+    'CREATE INDEX idx_tt_extra_activity ON academic_timetables (school_id, extra_activity_id)'
+  ).catch(() => {});
+
+  await promisePool.query(`
+    CREATE TABLE IF NOT EXISTS timetable_extra_activities (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      school_id INT UNSIGNED NOT NULL,
+      activity_name VARCHAR(120) NOT NULL,
+      class_name VARCHAR(120) NOT NULL,
+      days_json JSON NOT NULL,
+      start_time VARCHAR(10) NOT NULL,
+      end_time VARCHAR(10) NOT NULL,
+      term VARCHAR(32) NULL,
+      academic_year VARCHAR(32) NULL,
+      notes VARCHAR(255) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY idx_tea_school (school_id),
+      KEY idx_tea_class (school_id, class_name)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   smartTTTablesReady = true;
+}
+
+function parseSchedulingRulesJson(raw) {
+  if (raw == null || raw === '') return { time_preference: 'any' };
+  if (typeof raw === 'object') return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : { time_preference: 'any' };
+  } catch {
+    return { time_preference: 'any' };
+  }
+}
+
+function getSchedulingRulesFromConfig(configRow) {
+  if (!configRow) return { time_preference: 'any' };
+  return parseSchedulingRulesJson(configRow.scheduling_rules_json);
+}
+
+function slotMatchesSchedulingRules(slot, rules = {}) {
+  const pref = String(rules.time_preference || 'any').toLowerCase();
+  const start = timeToMins(slot.start_time);
+  const end = timeToMins(slot.end_time);
+  if (pref === 'morning') {
+    const latestEnd = timeToMins(rules.latest_end || '12:00');
+    return end <= latestEnd;
+  }
+  if (pref === 'afternoon') {
+    const earliestStart = timeToMins(rules.earliest_start || '12:00');
+    return start >= earliestStart;
+  }
+  if (pref === 'custom') {
+    const es = rules.earliest_start ? timeToMins(rules.earliest_start) : 0;
+    const le = rules.latest_end ? timeToMins(rules.latest_end) : 24 * 60;
+    return start >= es && end <= le;
+  }
+  return true;
+}
+
+function scoreSlotForSchedulingRules(slot, rules = {}) {
+  if (!slotMatchesSchedulingRules(slot, rules)) return -1;
+  const pref = String(rules.time_preference || 'any').toLowerCase();
+  if (pref === 'custom' && rules.preferred_start) {
+    return 1000 - Math.abs(timeToMins(slot.start_time) - timeToMins(rules.preferred_start));
+  }
+  if (pref === 'morning') return 1000 - timeToMins(slot.start_time);
+  if (pref === 'afternoon') return timeToMins(slot.start_time);
+  return 500;
+}
+
+function orderSlotsBySchedulingRules(slots, rules = {}) {
+  const pref = String(rules.time_preference || 'any').toLowerCase();
+  if (pref === 'any') return [...slots];
+  const scored = slots
+    .map((slot) => ({ slot, score: scoreSlotForSchedulingRules(slot, rules) }))
+    .filter((x) => x.score >= 0)
+    .sort((a, b) => b.score - a.score);
+  if (scored.length) return scored.map((x) => x.slot);
+  return [...slots];
+}
+
+function schedulingRuleLabel(rules = {}) {
+  const pref = String(rules.time_preference || 'any').toLowerCase();
+  if (pref === 'morning') return `Morning only (end by ${rules.latest_end || '12:00'})`;
+  if (pref === 'afternoon') return `Afternoon only (from ${rules.earliest_start || '12:00'})`;
+  if (pref === 'custom') {
+    const parts = [];
+    if (rules.earliest_start) parts.push(`from ${rules.earliest_start}`);
+    if (rules.latest_end) parts.push(`until ${rules.latest_end}`);
+    if (rules.preferred_start) parts.push(`prefer ${rules.preferred_start}`);
+    return parts.length ? parts.join(', ') : 'Custom time window';
+  }
+  return 'Any time';
 }
 
 // ── School Schedule CRUD ──
@@ -4193,6 +4694,349 @@ function minsToTime(m) {
   return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+function parseExtraActivityDays(row) {
+  if (Array.isArray(row?.days)) return row.days.filter(Boolean);
+  if (typeof row?.days_json === 'string') {
+    try { return JSON.parse(row.days_json).filter(Boolean); } catch { return []; }
+  }
+  return [];
+}
+
+function getTeachingSlotsFromSchedule(scheduleOrSlots) {
+  const slots = Array.isArray(scheduleOrSlots)
+    ? scheduleOrSlots
+    : generateTimeSlots(scheduleOrSlots || {});
+  return slots.filter((s) => !s.is_break && !String(s.period_name || '').toLowerCase().match(/break|lunch|correction|free/));
+}
+
+function extraActivityAppliesToClass(activity, className) {
+  const cn = trimStr(activity?.class_name);
+  if (!cn || cn === '*' || cn.toUpperCase() === 'ALL') return true;
+  return cn === trimStr(className);
+}
+
+function slotsOverlappingTimeRange(teachingSlots, startTime, endTime) {
+  const start = String(startTime || '').slice(0, 5);
+  const end = String(endTime || '').slice(0, 5);
+  return teachingSlots.filter((s) =>
+    timeToMins(s.start_time) < timeToMins(end) && timeToMins(start) < timeToMins(s.end_time)
+  );
+}
+
+function countExtraActivityWeeklySlots(activity, teachingSlots, activeDays) {
+  const days = parseExtraActivityDays(activity);
+  let count = 0;
+  for (const day of days) {
+    if (activeDays?.length && !activeDays.includes(day)) continue;
+    count += slotsOverlappingTimeRange(teachingSlots, activity.start_time, activity.end_time).length;
+  }
+  return count;
+}
+
+function seedClassUsedFromExtraActivities(classUsedMaps, classNames, extraActivities, teachingSlots, activeDays) {
+  for (const className of classNames) {
+    const classUsed = classUsedMaps.get(className);
+    if (!classUsed) continue;
+    for (const act of extraActivities || []) {
+      if (!extraActivityAppliesToClass(act, className)) continue;
+      for (const day of parseExtraActivityDays(act)) {
+        if (activeDays?.length && !activeDays.includes(day)) continue;
+        for (const slot of slotsOverlappingTimeRange(teachingSlots, act.start_time, act.end_time)) {
+          classUsed.set(`${className}__${day}__${slot.start_time}`, `__extra__${act.activity_name}`);
+        }
+      }
+    }
+  }
+}
+
+async function loadExtraActivitiesForSchool(schoolId, term, academicYear) {
+  const params = [schoolId];
+  let sql = 'SELECT * FROM timetable_extra_activities WHERE school_id = ?';
+  if (term) { sql += ' AND (term IS NULL OR TRIM(term) = \'\' OR TRIM(term) = ?)'; params.push(trimStr(term)); }
+  if (academicYear) { sql += ' AND (academic_year IS NULL OR TRIM(academic_year) = \'\' OR TRIM(academic_year) = ?)'; params.push(trimStr(academicYear)); }
+  sql += ' ORDER BY class_name ASC, start_time ASC';
+  const [rows] = await promisePool.query(sql, params);
+  return (rows || []).map((r) => ({
+    ...r,
+    days: parseExtraActivityDays(r),
+  }));
+}
+
+function validateExtraActivityPlacement({
+  schoolId,
+  className,
+  days,
+  startTime,
+  endTime,
+  activities,
+  assignments,
+  teachingSlots,
+  activeDays,
+  timetableRows,
+  excludeId,
+  excludeIds = [],
+}) {
+  const skipIds = new Set([...(excludeIds || []), ...(excludeId ? [Number(excludeId)] : [])].filter((id) => id > 0));
+  const shouldSkipActivity = (actId) => skipIds.has(Number(actId));
+  const shouldSkipTimetableRow = (row) => row.extra_activity_id != null && skipIds.has(Number(row.extra_activity_id));
+
+  const assignedPeriods = (assignments || [])
+    .filter((a) => trimStr(a.class_name) === trimStr(className))
+    .reduce((s, a) => s + (Number(a.periods_per_week) || 0), 0);
+  const teachingPerWeek = teachingSlots.length * (activeDays?.length || 5);
+  let extraUsed = 0;
+  for (const a of activities || []) {
+    if (shouldSkipActivity(a.id)) continue;
+    if (!extraActivityAppliesToClass(a, className)) continue;
+    extraUsed += countExtraActivityWeeklySlots(a, teachingSlots, activeDays);
+  }
+  const slotsNeeded = (days || []).reduce(
+    (s, day) => s + slotsOverlappingTimeRange(teachingSlots, startTime, endTime).length,
+    0
+  );
+  const remaining = Math.max(0, teachingPerWeek - assignedPeriods - extraUsed);
+  const conflicts = [];
+  const start = String(startTime || '').slice(0, 5);
+  const end = String(endTime || '').slice(0, 5);
+
+  for (const day of days || []) {
+    for (const act of activities || []) {
+      if (shouldSkipActivity(act.id)) continue;
+      if (!extraActivityAppliesToClass(act, className)) continue;
+      if (!parseExtraActivityDays(act).includes(day)) continue;
+      if (timeToMins(start) < timeToMins(act.end_time) && timeToMins(act.start_time) < timeToMins(end)) {
+        conflicts.push({ type: 'extra_overlap', day, message: `Overlaps "${act.activity_name}"` });
+      }
+    }
+    for (const row of timetableRows || []) {
+      if (trimStr(row.class_name) !== trimStr(className)) continue;
+      if (row.day_of_week !== day) continue;
+      if (shouldSkipTimetableRow(row)) continue;
+      if (timeToMins(start) < timeToMins(row.end_time) && timeToMins(row.start_time) < timeToMins(end)) {
+        const label = row.extra_activity_id ? row.subject_name : `${row.subject_name} lesson`;
+        conflicts.push({ type: row.extra_activity_id ? 'extra_overlap' : 'lesson_overlap', day, message: `Overlaps ${label}` });
+      }
+    }
+  }
+
+  const suggestions = [];
+  if (slotsNeeded > remaining || conflicts.length || slotsNeeded === 0) {
+    for (const day of activeDays || []) {
+      for (const slot of teachingSlots) {
+        const blocked = (timetableRows || []).some(
+          (r) => trimStr(r.class_name) === trimStr(className) && r.day_of_week === day
+            && !shouldSkipTimetableRow(r)
+            && timeToMins(slot.start_time) < timeToMins(r.end_time) && timeToMins(r.start_time) < timeToMins(slot.end_time)
+        ) || (activities || []).some((a) => {
+          if (shouldSkipActivity(a.id)) return false;
+          if (!extraActivityAppliesToClass(a, className)) return false;
+          return parseExtraActivityDays(a).includes(day)
+            && timeToMins(slot.start_time) < timeToMins(a.end_time) && timeToMins(a.start_time) < timeToMins(slot.end_time);
+        });
+        if (!blocked) {
+          suggestions.push({
+            day,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            period_name: slot.period_name,
+          });
+        }
+        if (suggestions.length >= 8) break;
+      }
+      if (suggestions.length >= 8) break;
+    }
+  }
+
+  const ok = conflicts.length === 0 && slotsNeeded > 0 && slotsNeeded <= remaining;
+  return {
+    ok,
+    class_name: trimStr(className),
+    slots_needed: slotsNeeded,
+    capacity: {
+      teaching_slots_per_week: teachingPerWeek,
+      assigned_periods: assignedPeriods,
+      extra_slots_used: extraUsed,
+      remaining_for_extra: remaining,
+      total_committed: assignedPeriods + extraUsed,
+    },
+    conflicts,
+    suggestions,
+    messages: [
+      ...(slotsNeeded === 0 ? ['Time range does not match any teaching period slot.'] : []),
+      ...(slotsNeeded > remaining ? [`Only ${remaining} slot(s) available for extra activities this week.`] : []),
+      ...(conflicts.length ? [`${conflicts.length} conflict(s) on selected days.`] : []),
+    ],
+  };
+}
+
+function resolveExtraActivityClassNames(body = {}) {
+  if (Array.isArray(body.class_names) && body.class_names.length) {
+    return [...new Set(body.class_names.map((c) => trimStr(c)).filter(Boolean))];
+  }
+  const single = trimStr(body.class_name);
+  return single ? [single] : [];
+}
+
+async function loadExtraActivityValidationContext(schoolId, term, academicYear) {
+  const [[scheduleRow]] = await promisePool.query('SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1', [schoolId]);
+  const schedule = scheduleRow || { day_start_time: '08:00', day_end_time: '17:00', period_duration_mins: 40, breaks_json: '[]' };
+  if (typeof schedule.breaks_json === 'string') schedule.breaks = JSON.parse(schedule.breaks_json);
+  else schedule.breaks = schedule.breaks_json || [];
+  const activeDays = typeof schedule.active_days_json === 'string'
+    ? JSON.parse(schedule.active_days_json)
+    : (schedule.active_days_json || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+  const teachingSlots = getTeachingSlotsFromSchedule(schedule);
+  const activities = await loadExtraActivitiesForSchool(schoolId, term, academicYear);
+  const [allAssignments] = await promisePool.query('SELECT * FROM timetable_assignments WHERE school_id = ?', [schoolId]);
+  const ttWhere = ['school_id = ?'];
+  const ttParams = [schoolId];
+  if (term) { ttWhere.push('TRIM(COALESCE(term, \'\')) = ?'); ttParams.push(trimStr(term)); }
+  if (academicYear) { ttWhere.push('TRIM(COALESCE(academic_year, \'\')) = ?'); ttParams.push(trimStr(academicYear)); }
+  const [allTimetableRows] = await promisePool.query(
+    `SELECT id, class_name, subject_name, day_of_week, start_time, end_time, extra_activity_id FROM academic_timetables WHERE ${ttWhere.join(' AND ')}`,
+    ttParams
+  );
+  return { teachingSlots, activeDays, activities, allAssignments, allTimetableRows };
+}
+
+async function syncExtraActivityToTimetable(schoolId, activity) {
+  const id = Number(activity.id);
+  if (!id) return;
+  const className = trimStr(activity.class_name);
+  const activityName = trimStr(activity.activity_name);
+  const days = parseExtraActivityDays(activity);
+  const startTime = String(activity.start_time || '').slice(0, 5);
+  const endTime = String(activity.end_time || '').slice(0, 5);
+  const term = trimStr(activity.term) || null;
+  const academicYear = trimStr(activity.academic_year) || null;
+
+  const [[scheduleRow]] = await promisePool.query(
+    'SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1',
+    [schoolId]
+  );
+  const schedule = scheduleRow || { day_start_time: '08:00', day_end_time: '17:00', period_duration_mins: 40, breaks_json: '[]' };
+  if (typeof schedule.breaks_json === 'string') schedule.breaks = JSON.parse(schedule.breaks_json);
+  const teachingSlots = getTeachingSlotsFromSchedule(schedule);
+  const overlappingSlots = slotsOverlappingTimeRange(teachingSlots, startTime, endTime);
+
+  await promisePool.query(
+    'DELETE FROM academic_timetables WHERE school_id = ? AND extra_activity_id = ?',
+    [schoolId, id]
+  );
+
+  for (const day of days) {
+    const slotsToWrite = overlappingSlots.length
+      ? overlappingSlots
+      : [{ start_time: startTime, end_time: endTime }];
+
+    for (const slot of slotsToWrite) {
+      const slotStart = String(slot.start_time || '').slice(0, 5);
+      const slotEnd = String(slot.end_time || '').slice(0, 5);
+      await promisePool.query(
+        `INSERT INTO academic_timetables
+          (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year, extra_activity_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [schoolId, className, activityName, null, day, slotStart, slotEnd, 'EXTRA', term, academicYear, id]
+      );
+    }
+  }
+}
+
+async function removeExtraActivityFromTimetable(schoolId, extraActivityId) {
+  await promisePool.query(
+    'DELETE FROM academic_timetables WHERE school_id = ? AND extra_activity_id = ?',
+    [schoolId, Number(extraActivityId)]
+  );
+}
+
+async function resyncExtraActivitiesForClasses(schoolId, classNames, term, academicYear) {
+  const names = [...new Set((classNames || []).map((c) => trimStr(c)).filter(Boolean))];
+  if (!names.length) return;
+  const activities = await loadExtraActivitiesForSchool(schoolId, term, academicYear);
+  for (const act of activities) {
+    if (!names.includes(trimStr(act.class_name))) continue;
+    await syncExtraActivityToTimetable(schoolId, act);
+  }
+}
+
+function resolveExcludeActivityIds(body = {}) {
+  const ids = new Set();
+  if (body.exclude_id != null) ids.add(Number(body.exclude_id));
+  if (Array.isArray(body.exclude_ids)) {
+    for (const id of body.exclude_ids) {
+      if (id != null && !Number.isNaN(Number(id))) ids.add(Number(id));
+    }
+  }
+  return [...ids].filter((id) => id > 0);
+}
+
+async function validateExtraActivityMultiClass(schoolId, {
+  classNames, days, startTime, endTime, term, academicYear, excludeId, excludeIds = [],
+}) {
+  const skipIds = new Set([...(excludeIds || []), ...(excludeId ? [excludeId] : [])].filter((id) => id > 0));
+  const names = [...new Set((classNames || []).map((c) => trimStr(c)).filter(Boolean))];
+  if (!names.length) {
+    return {
+      ok: false,
+      class_count: 0,
+      by_class: {},
+      ok_classes: [],
+      failed_classes: [],
+      messages: ['Select at least one class'],
+    };
+  }
+
+  const ctx = await loadExtraActivityValidationContext(schoolId, term, academicYear);
+  const by_class = {};
+  const ok_classes = [];
+  const failed_classes = [];
+
+  for (const className of names) {
+    const assignments = (ctx.allAssignments || []).filter((a) => trimStr(a.class_name) === className);
+    const timetableRows = (ctx.allTimetableRows || []).filter((r) => trimStr(r.class_name) === className);
+    const result = validateExtraActivityPlacement({
+      schoolId,
+      className,
+      days,
+      startTime,
+      endTime,
+      activities: ctx.activities,
+      assignments,
+      teachingSlots: ctx.teachingSlots,
+      activeDays: ctx.activeDays,
+      timetableRows,
+      excludeId: skipIds.size === 1 ? [...skipIds][0] : null,
+      excludeIds: [...skipIds],
+    });
+    by_class[className] = result;
+    if (result.ok) ok_classes.push(className);
+    else failed_classes.push(className);
+  }
+
+  const slotsNeeded = by_class[names[0]]?.slots_needed || 0;
+  const ok = failed_classes.length === 0;
+  const suggestions = failed_classes.length === 1 ? (by_class[failed_classes[0]]?.suggestions || []) : [];
+
+  return {
+    ok,
+    class_count: names.length,
+    ok_count: ok_classes.length,
+    failed_count: failed_classes.length,
+    slots_needed: slotsNeeded,
+    by_class,
+    ok_classes,
+    failed_classes,
+    conflicts: failed_classes.flatMap((c) => (by_class[c]?.conflicts || []).map((x) => ({ ...x, class_name: c }))),
+    suggestions,
+    messages: ok
+      ? [`All ${names.length} selected class(es) can use this time slot`]
+      : [
+        `${failed_classes.length} of ${names.length} class(es) cannot use this slot: ${failed_classes.join(', ')}`,
+        ...failed_classes.flatMap((c) => (by_class[c]?.messages || []).map((m) => `${c}: ${m}`)),
+      ],
+  };
+}
+
 router.put('/dos/timetable-system/schedule', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
     await ensureSmartTimetableTables();
@@ -4259,6 +5103,9 @@ router.put('/dos/timetable-system/teacher-profiles/:teacherId', requireRole(DOS_
     const schoolId = resolveSchoolId(req);
     const teacherId = Number(req.params.teacherId);
     if (!schoolId || !teacherId) return res.status(400).json({ success: false, message: 'Invalid request' });
+    if (!(await assertTeachingStaffForSchool(schoolId, teacherId))) {
+      return res.status(400).json({ success: false, message: 'Selected user must have the Teacher role.' });
+    }
     const { subjects, max_periods_per_day, available_days, preferred_slots, department } = req.body || {};
     await promisePool.query(
       `INSERT INTO timetable_teacher_profiles (school_id, teacher_user_id, subjects_json, max_periods_per_day, available_days_json, preferred_slots_json, department)
@@ -4282,7 +5129,11 @@ router.get('/dos/timetable-system/course-config', requireRole(DOS_ACADEMIC_ADMIN
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
     const [rows] = await promisePool.query('SELECT * FROM timetable_course_config WHERE school_id = ? ORDER BY subject_name ASC', [schoolId]);
-    return res.json({ success: true, data: rows });
+    const data = (rows || []).map((r) => ({
+      ...r,
+      scheduling_rules: getSchedulingRulesFromConfig(r),
+    }));
+    return res.json({ success: true, data });
   } catch (err) {
     console.error('GET /dos/timetable-system/course-config:', err);
     return res.status(500).json({ success: false, message: 'Failed to load course config' });
@@ -4295,14 +5146,19 @@ router.put('/dos/timetable-system/course-config/:subjectName', requireRole(DOS_A
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
     const subjectName = decodeURIComponent(req.params.subjectName);
-    const { default_duration_mins, requires_lab, is_double_period, priority_level, department, periods_per_week } = req.body || {};
+    const {
+      default_duration_mins, requires_lab, is_double_period, priority_level, department, periods_per_week,
+      scheduling_rules,
+    } = req.body || {};
+    const rulesJson = scheduling_rules != null ? JSON.stringify(scheduling_rules) : null;
     await promisePool.query(
-      `INSERT INTO timetable_course_config (school_id, subject_name, default_duration_mins, requires_lab, is_double_period, priority_level, department, periods_per_week)
-       VALUES (?,?,?,?,?,?,?,?)
+      `INSERT INTO timetable_course_config (school_id, subject_name, default_duration_mins, requires_lab, is_double_period, priority_level, department, periods_per_week, scheduling_rules_json)
+       VALUES (?,?,?,?,?,?,?,?,?)
        ON DUPLICATE KEY UPDATE default_duration_mins=VALUES(default_duration_mins), requires_lab=VALUES(requires_lab),
-         is_double_period=VALUES(is_double_period), priority_level=VALUES(priority_level), department=VALUES(department), periods_per_week=VALUES(periods_per_week)`,
+         is_double_period=VALUES(is_double_period), priority_level=VALUES(priority_level), department=VALUES(department),
+         periods_per_week=VALUES(periods_per_week), scheduling_rules_json=VALUES(scheduling_rules_json)`,
       [schoolId, subjectName, Number(default_duration_mins) || 40, requires_lab ? 1 : 0, is_double_period ? 1 : 0,
-       priority_level || 'medium', trimStr(department) || null, Number(periods_per_week) || 3]
+       priority_level || 'medium', trimStr(department) || null, Number(periods_per_week) || 3, rulesJson]
     );
     return res.json({ success: true, message: 'Course config saved' });
   } catch (err) {
@@ -4311,68 +5167,95 @@ router.put('/dos/timetable-system/course-config/:subjectName', requireRole(DOS_A
   }
 });
 
-// ── Course Assignments CRUD ──
+// ── Timetable view: reads active teacher_assignments (source of truth) ──
 router.get('/dos/timetable-system/assignments', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
-    await ensureSmartTimetableTables();
+    await ensureTeacherAssignmentsTable();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
-    const [rows] = await promisePool.query(
-      `SELECT ta.*,
-              TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name
-       FROM timetable_assignments ta
-       INNER JOIN users u ON u.id = ta.teacher_user_id
-       WHERE ta.school_id = ?
-       ORDER BY ta.class_name ASC, ta.subject_name ASC`, [schoolId]
-    );
-    return res.json({ success: true, data: rows });
+    const ctx = await fetchSchoolAcademicContext(schoolId);
+    const academicYear = trimStr(req.query.academic_year) || ctx.academicYear;
+    const term = trimStr(req.query.term) || ctx.term;
+    const { rows } = await listTeacherAssignmentsForSchool(schoolId, {
+      academicYear, term, status: 'active', includeStats: false,
+    });
+    const data = rows.map((r) => ({
+      id: r.id,
+      teacher_assignment_id: r.id,
+      school_id: r.school_id,
+      class_name: r.class_name,
+      subject_name: r.subject_name,
+      teacher_user_id: r.teacher_user_id,
+      teacher_name: r.teacher_name,
+      periods_per_week: r.periods_per_week,
+      room: r.room,
+      academic_year: r.academic_year,
+      term: r.term,
+      status: r.status,
+    }));
+    return res.json({ success: true, data, source: 'teacher_assignments' });
   } catch (err) {
     console.error('GET /dos/timetable-system/assignments:', err);
     return res.status(500).json({ success: false, message: 'Failed to load assignments' });
   }
 });
 
+/** @deprecated — use POST /dos/teacher-assignments */
 router.post('/dos/timetable-system/assignments', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
-    await ensureSmartTimetableTables();
+    await ensureTeacherAssignmentsTable();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
-    const { class_name, subject_name, teacher_user_id, periods_per_week, room } = req.body || {};
-    if (!class_name || !subject_name || !teacher_user_id) return res.status(400).json({ success: false, message: 'class_name, subject_name and teacher_user_id required' });
-    await promisePool.query(
-      `INSERT INTO timetable_assignments (school_id, class_name, subject_name, teacher_user_id, periods_per_week, room)
-       VALUES (?,?,?,?,?,?)
-       ON DUPLICATE KEY UPDATE periods_per_week=VALUES(periods_per_week), room=VALUES(room)`,
-      [schoolId, trimStr(class_name), trimStr(subject_name), Number(teacher_user_id), Number(periods_per_week) || 3, trimStr(room) || null]
-    );
-    return res.json({ success: true, message: 'Assignment saved' });
+    const { class_name, subject_name, teacher_user_id, periods_per_week, room, academic_year, term } = req.body || {};
+    if (!class_name || !subject_name || !teacher_user_id) {
+      return res.status(400).json({ success: false, message: 'class_name, subject_name and teacher_user_id required' });
+    }
+    if (!(await assertTeachingStaffForSchool(schoolId, Number(teacher_user_id)))) {
+      return res.status(400).json({ success: false, message: 'Selected user must have the Teacher role.' });
+    }
+    const created = await createTeacherAssignment(schoolId, {
+      class_name, subject_name, teacher_user_id, periods_per_week, room, academic_year, term,
+    }, resolveDosUserId(req));
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, message: 'Teacher assignment saved', data: created });
   } catch (err) {
     console.error('POST /dos/timetable-system/assignments:', err);
-    return res.status(500).json({ success: false, message: 'Failed to save assignment' });
+    return res.status(500).json({ success: false, message: err.message || 'Failed to save assignment' });
   }
 });
 
 router.post('/dos/timetable-system/assignments/bulk', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
-    await ensureSmartTimetableTables();
+    await ensureTeacherAssignmentsTable();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
-    const { class_name, subjects, teacher_ids, periods_per_week } = req.body || {};
+    const { class_name, subjects, teacher_ids, periods_per_week, academic_year, term } = req.body || {};
     if (!class_name || !Array.isArray(subjects) || !subjects.length || !Array.isArray(teacher_ids) || !teacher_ids.length) {
       return res.status(400).json({ success: false, message: 'class_name, subjects[] and teacher_ids[] required' });
     }
     let inserted = 0;
-    for (const subjectName of subjects) {
-      for (const teacherId of teacher_ids) {
-        await promisePool.query(
-          `INSERT INTO timetable_assignments (school_id, class_name, subject_name, teacher_user_id, periods_per_week, room)
-           VALUES (?,?,?,?,?,NULL)
-           ON DUPLICATE KEY UPDATE periods_per_week=VALUES(periods_per_week)`,
-          [schoolId, trimStr(class_name), trimStr(subjectName), Number(teacherId), Number(periods_per_week) || 3]
-        );
-        inserted++;
+    for (const teacherId of teacher_ids) {
+      if (!(await assertTeachingStaffForSchool(schoolId, Number(teacherId)))) {
+        return res.status(400).json({ success: false, message: 'All selected teachers must have the Teacher role.' });
       }
     }
+    for (const subjectName of subjects) {
+      if (isClassTeacherSubject(subjectName)) continue;
+      for (const teacherId of teacher_ids) {
+        try {
+          await createTeacherAssignment(schoolId, {
+            class_name,
+            subject_name: subjectName,
+            teacher_user_id: teacherId,
+            periods_per_week,
+            academic_year,
+            term,
+          }, resolveDosUserId(req));
+          inserted += 1;
+        } catch { /* duplicate scope */ }
+      }
+    }
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
     return res.json({ success: true, message: `Created ${inserted} assignments`, data: { inserted } });
   } catch (err) {
     console.error('POST /dos/timetable-system/assignments/bulk:', err);
@@ -4380,15 +5263,610 @@ router.post('/dos/timetable-system/assignments/bulk', requireRole(DOS_ACADEMIC_A
   }
 });
 
+// ── Teacher Assignments (source of truth for marks + timetable) ──
+router.get('/dos/teacher-assignments/overview', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const ctx = await fetchSchoolAcademicContext(schoolId);
+    const academicYear = trimStr(req.query.academic_year) || ctx.academicYear;
+    const term = trimStr(req.query.term) || ctx.term;
+    const status = trimStr(req.query.status) || 'active';
+    const result = await buildTeacherAssignmentsOverview(schoolId, { academicYear, term, status });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('GET /dos/teacher-assignments/overview:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load teacher overview' });
+  }
+});
+
+router.get('/dos/teacher-assignments', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const ctx = await fetchSchoolAcademicContext(schoolId);
+    const academicYear = trimStr(req.query.academic_year) || ctx.academicYear;
+    const term = trimStr(req.query.term) || ctx.term;
+    const status = trimStr(req.query.status) || null;
+    const result = await listTeacherAssignmentsForSchool(schoolId, { academicYear, term, status });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('GET /dos/teacher-assignments:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load teacher assignments' });
+  }
+});
+
+router.get('/dos/teaching-assignments', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const ctx = await fetchSchoolAcademicContext(schoolId);
+    const academicYear = trimStr(req.query.academic_year) || ctx.academicYear;
+    const term = trimStr(req.query.term) || ctx.term;
+    const result = await listTeacherAssignmentsForSchool(schoolId, { academicYear, term });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('GET /dos/teaching-assignments:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load teacher assignments' });
+  }
+});
+
+router.post('/dos/teacher-assignments', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const {
+      class_name,
+      class_names,
+      subject_name,
+      teacher_user_id,
+      academic_year,
+      term,
+      periods_per_week,
+      room,
+    } = req.body || {};
+
+    const classList = Array.isArray(class_names) && class_names.length
+      ? class_names.map((c) => trimStr(c)).filter(Boolean)
+      : (class_name ? [trimStr(class_name)] : []);
+
+    if (!classList.length || !subject_name || !teacher_user_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one class, subject_name and teacher_user_id required',
+      });
+    }
+    if (!(await assertTeachingStaffForSchool(schoolId, Number(teacher_user_id)))) {
+      return res.status(400).json({ success: false, message: 'Selected user must have the Teacher role.' });
+    }
+
+    const created = [];
+    const skipped = [];
+    for (const cn of classList) {
+      try {
+        created.push(await createTeacherAssignment(schoolId, {
+          class_name: cn,
+          subject_name,
+          teacher_user_id,
+          academic_year,
+          term,
+          periods_per_week,
+          room,
+        }, resolveDosUserId(req)));
+      } catch (err) {
+        skipped.push({ class_name: cn, message: err.message || 'Failed' });
+      }
+    }
+
+    if (!created.length) {
+      return res.status(400).json({
+        success: false,
+        message: skipped[0]?.message || 'No assignments created',
+        data: { created, skipped },
+      });
+    }
+
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    const msg = created.length === 1
+      ? 'Teacher assignment saved'
+      : `${created.length} assignments saved${skipped.length ? ` (${skipped.length} skipped)` : ''}`;
+    return res.json({ success: true, message: msg, data: { created, skipped } });
+  } catch (err) {
+    console.error('POST /dos/teacher-assignments:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to save assignment' });
+  }
+});
+
+router.put('/dos/teacher-assignments/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    const { periods_per_week, room, teacher_user_id, class_name, subject_name, supersede } = req.body || {};
+
+    if (supersede || teacher_user_id != null || class_name || subject_name) {
+      const result = await supersedeTeacherAssignment(schoolId, id, {
+        teacher_user_id, class_name, subject_name, periods_per_week, room,
+      }, resolveDosUserId(req));
+      await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+      return res.json({ success: true, ...result });
+    }
+
+    await updateTeacherAssignmentSafe(schoolId, id, { periods_per_week, room });
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, message: 'Assignment updated (timetable settings only — marks unchanged)' });
+  } catch (err) {
+    console.error('PUT /dos/teacher-assignments/:id:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to update assignment' });
+  }
+});
+
+router.post('/dos/teacher-assignments/:id/archive', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    const result = await archiveTeacherAssignment(schoolId, Number(req.params.id));
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, data: result, message: result.message });
+  } catch (err) {
+    console.error('POST archive teacher-assignment:', err);
+    return res.status(500).json({ success: false, message: 'Failed to archive assignment' });
+  }
+});
+
+router.get('/dos/teacher-assignments/:id/history', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    const chain = await fetchAssignmentHistory(schoolId, Number(req.params.id));
+    return res.json({ success: true, data: { history: chain } });
+  } catch (err) {
+    console.error('GET teacher-assignment history:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load history' });
+  }
+});
+
+router.post('/dos/teacher-assignments/sync-to-timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const result = await syncTeacherAssignmentsToTimetable(schoolId);
+    return res.json({
+      success: true,
+      message: `Synced ${result.synced} assignment(s) to timetable for ${result.academic_year} · ${result.term}`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('POST sync-to-timetable:', err);
+    return res.status(500).json({ success: false, message: 'Failed to sync to timetable' });
+  }
+});
+
+router.post('/dos/teacher-assignments/sync-from-timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const result = await syncTeachingAssignmentsFromTimetable(schoolId, resolveDosUserId(req));
+    return res.json({
+      success: true,
+      message: `Imported ${result.synced} assignment(s) from legacy timetable`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('POST sync-from-timetable:', err);
+    return res.status(500).json({ success: false, message: 'Failed to import from timetable' });
+  }
+});
+
+router.post('/dos/teaching-assignments/sync-from-timetable', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    const result = await syncTeachingAssignmentsFromTimetable(schoolId, resolveDosUserId(req));
+    return res.json({
+      success: true,
+      message: `Synced ${result.synced} teaching assignment(s) for ${result.academic_year} · ${result.term}`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('POST /dos/teaching-assignments/sync-from-timetable:', err);
+    return res.status(500).json({ success: false, message: 'Failed to sync teaching assignments' });
+  }
+});
+
+router.delete('/dos/teacher-assignments/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    const result = await removeOrArchiveAssignment(schoolId, Number(req.params.id));
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, data: result, message: result.message });
+  } catch (err) {
+    console.error('DELETE /dos/teacher-assignments/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to remove assignment' });
+  }
+});
+
+router.delete('/dos/teaching-assignments/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    const result = await removeOrArchiveAssignment(schoolId, Number(req.params.id));
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, data: result, message: result.message });
+  } catch (err) {
+    console.error('DELETE /dos/teaching-assignments/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to remove assignment' });
+  }
+});
+
+router.post('/dos/teaching-assignments', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureTeacherAssignmentsTable();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const { class_name, subject_name, teacher_user_id, academic_year, term, periods_per_week, room } = req.body || {};
+    if (!class_name || !subject_name || !teacher_user_id) {
+      return res.status(400).json({ success: false, message: 'class_name, subject_name and teacher_user_id required' });
+    }
+    if (!(await assertTeachingStaffForSchool(schoolId, Number(teacher_user_id)))) {
+      return res.status(400).json({ success: false, message: 'Selected user must have the Teacher role.' });
+    }
+    const created = await createTeacherAssignment(schoolId, {
+      class_name, subject_name, teacher_user_id, academic_year, term, periods_per_week, room,
+    }, resolveDosUserId(req));
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, message: 'Teacher assignment saved', data: created });
+  } catch (err) {
+    console.error('POST /dos/teaching-assignments:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to save assignment' });
+  }
+});
+
 router.delete('/dos/timetable-system/assignments/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
-    await ensureSmartTimetableTables();
+    await ensureTeacherAssignmentsTable();
     const schoolId = resolveSchoolId(req);
-    await promisePool.query('DELETE FROM timetable_assignments WHERE id = ? AND school_id = ?', [Number(req.params.id), schoolId]);
-    return res.json({ success: true, message: 'Assignment removed' });
+    const result = await removeOrArchiveAssignment(schoolId, Number(req.params.id));
+    await syncTeacherAssignmentsToTimetable(schoolId).catch(() => {});
+    return res.json({ success: true, message: result.message, data: result });
   } catch (err) {
     console.error('DELETE /dos/timetable-system/assignments:', err);
     return res.status(500).json({ success: false, message: 'Failed to delete assignment' });
+  }
+});
+
+router.put('/dos/timetable-system/assignments/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid assignment id' });
+
+    const [rows] = await promisePool.query(
+      'SELECT * FROM timetable_assignments WHERE id = ? AND school_id = ? LIMIT 1',
+      [id, schoolId]
+    );
+    if (!rows?.length) return res.status(404).json({ success: false, message: 'Assignment not found' });
+
+    const existing = rows[0];
+    const { teacher_user_id, periods_per_week, room } = req.body || {};
+    const newTeacherId = teacher_user_id != null ? Number(teacher_user_id) : existing.teacher_user_id;
+    const newPeriods = periods_per_week != null ? Math.max(1, Number(periods_per_week) || 1) : existing.periods_per_week;
+    const newRoom = room !== undefined ? (trimStr(room) || null) : existing.room;
+
+    if (!newTeacherId) return res.status(400).json({ success: false, message: 'teacher_user_id is required' });
+    if (!(await assertTeachingStaffForSchool(schoolId, newTeacherId))) {
+      return res.status(400).json({ success: false, message: 'Selected user must have the Teacher role.' });
+    }
+
+    if (newTeacherId !== existing.teacher_user_id) {
+      const [dup] = await promisePool.query(
+        `SELECT id FROM timetable_assignments
+         WHERE school_id = ? AND class_name = ? AND subject_name = ? AND teacher_user_id = ? AND id != ?`,
+        [schoolId, existing.class_name, existing.subject_name, newTeacherId, id]
+      );
+      if (dup?.length) {
+        return res.status(409).json({
+          success: false,
+          message: 'That teacher is already assigned to this subject for this class. Edit that row or remove it first.',
+        });
+      }
+      await promisePool.query('DELETE FROM timetable_assignments WHERE id = ? AND school_id = ?', [id, schoolId]);
+      await promisePool.query(
+        `INSERT INTO timetable_assignments (school_id, class_name, subject_name, teacher_user_id, periods_per_week, room)
+         VALUES (?,?,?,?,?,?)`,
+        [schoolId, existing.class_name, existing.subject_name, newTeacherId, newPeriods, newRoom]
+      );
+      return res.json({ success: true, message: 'Assignment updated — teacher changed' });
+    }
+
+    await promisePool.query(
+      'UPDATE timetable_assignments SET periods_per_week = ?, room = ? WHERE id = ? AND school_id = ?',
+      [newPeriods, newRoom, id, schoolId]
+    );
+    return res.json({ success: true, message: 'Assignment updated' });
+  } catch (err) {
+    console.error('PUT /dos/timetable-system/assignments/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update assignment' });
+  }
+});
+
+// ── Extra activities (homework, debate, etc.) — display-only, blocks generator slots ──
+router.get('/dos/timetable-system/extra-activities', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const term = trimStr(req.query?.term);
+    const academicYear = trimStr(req.query?.academic_year);
+    const className = trimStr(req.query?.class_name);
+    const rows = await loadExtraActivitiesForSchool(schoolId, term, academicYear);
+    const filtered = className
+      ? rows.filter((r) => extraActivityAppliesToClass(r, className))
+      : rows;
+    return res.json({ success: true, data: filtered });
+  } catch (err) {
+    console.error('GET /dos/timetable-system/extra-activities:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load extra activities' });
+  }
+});
+
+router.post('/dos/timetable-system/extra-activities/validate', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const body = req.body || {};
+    const classNames = resolveExtraActivityClassNames(body);
+    const days = Array.isArray(body.days) ? body.days.map((d) => trimStr(d)).filter(Boolean) : [];
+    const startTime = trimStr(body.start_time);
+    const endTime = trimStr(body.end_time);
+    const term = trimStr(body.term);
+    const academicYear = trimStr(body.academic_year);
+    const excludeId = body.exclude_id != null ? Number(body.exclude_id) : null;
+    const excludeIds = resolveExcludeActivityIds(body);
+
+    if (!classNames.length || !days.length || !startTime || !endTime) {
+      return res.status(400).json({ success: false, message: 'class_names[], days[], start_time and end_time required' });
+    }
+
+    const validation = await validateExtraActivityMultiClass(schoolId, {
+      classNames,
+      days,
+      startTime,
+      endTime,
+      term,
+      academicYear,
+      excludeId,
+      excludeIds,
+    });
+
+    return res.json({ success: true, data: validation });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/extra-activities/validate:', err);
+    return res.status(500).json({ success: false, message: 'Validation failed' });
+  }
+});
+
+router.post('/dos/timetable-system/extra-activities', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const { activity_name, class_name, class_names, days, start_time, end_time, term, academic_year, notes } = req.body || {};
+    const classNames = resolveExtraActivityClassNames({ class_name, class_names });
+    const activityName = trimStr(activity_name);
+    const dayList = Array.isArray(days) ? days.map((d) => trimStr(d)).filter(Boolean) : [];
+    const startTime = trimStr(start_time);
+    const endTime = trimStr(end_time);
+    const useTerm = trimStr(term) || '';
+    const useYear = trimStr(academic_year) || '';
+
+    if (!activityName || !classNames.length || !dayList.length || !startTime || !endTime) {
+      return res.status(400).json({ success: false, message: 'activity_name, class_names[], days[], start_time, end_time required' });
+    }
+    if (timeToMins(startTime) >= timeToMins(endTime)) {
+      return res.status(400).json({ success: false, message: 'End time must be after start time' });
+    }
+
+    const validation = await validateExtraActivityMultiClass(schoolId, {
+      classNames,
+      days: dayList,
+      startTime,
+      endTime,
+      term: useTerm,
+      academicYear: useYear,
+      excludeId: null,
+    });
+    if (!validation.ok) {
+      return res.status(409).json({
+        success: false,
+        code: 'EXTRA_ACTIVITY_INVALID',
+        message: validation.messages.join(' '),
+        validation,
+      });
+    }
+
+    const insertedIds = [];
+    for (const className of classNames) {
+      const [ins] = await promisePool.query(
+        `INSERT INTO timetable_extra_activities (school_id, activity_name, class_name, days_json, start_time, end_time, term, academic_year, notes)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
+        [schoolId, activityName, className, JSON.stringify(dayList), startTime, endTime, useTerm || null, useYear || null, trimStr(notes) || null]
+      );
+      const newId = ins.insertId;
+      insertedIds.push(newId);
+      await syncExtraActivityToTimetable(schoolId, {
+        id: newId,
+        activity_name: activityName,
+        class_name: className,
+        days_json: JSON.stringify(dayList),
+        start_time: startTime,
+        end_time: endTime,
+        term: useTerm,
+        academic_year: useYear,
+      });
+    }
+    return res.json({
+      success: true,
+      message: `Extra activity saved for ${classNames.length} class(es) and added to timetables`,
+      data: { ids: insertedIds, class_names: classNames, timetable_synced: true },
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/extra-activities:', err);
+    return res.status(500).json({ success: false, message: 'Failed to save extra activity' });
+  }
+});
+
+router.put('/dos/timetable-system/extra-activities/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const id = Number(req.params.id);
+    const { activity_name, class_name, days, start_time, end_time, term, academic_year, notes } = req.body || {};
+    const className = trimStr(class_name);
+    const dayList = Array.isArray(days) ? days.map((d) => trimStr(d)).filter(Boolean) : [];
+    const startTime = trimStr(start_time);
+    const endTime = trimStr(end_time);
+    const useTerm = trimStr(term) || '';
+    const useYear = trimStr(academic_year) || '';
+
+    const [[scheduleRow]] = await promisePool.query('SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1', [schoolId]);
+    const schedule = scheduleRow || { day_start_time: '08:00', day_end_time: '17:00', period_duration_mins: 40, breaks_json: '[]' };
+    if (typeof schedule.breaks_json === 'string') schedule.breaks = JSON.parse(schedule.breaks_json);
+    const activeDays = typeof schedule.active_days_json === 'string'
+      ? JSON.parse(schedule.active_days_json)
+      : (schedule.active_days_json || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+    const teachingSlots = getTeachingSlotsFromSchedule(schedule);
+    const activities = await loadExtraActivitiesForSchool(schoolId, useTerm, useYear);
+    const assignments = await fetchTeacherAssignmentsForClass(schoolId, className, useYear, useTerm);
+    const ttWhere = ['school_id = ?', 'class_name = ?'];
+    const ttParams = [schoolId, className];
+    if (useTerm) { ttWhere.push('TRIM(COALESCE(term, \'\')) = ?'); ttParams.push(useTerm); }
+    if (useYear) { ttWhere.push('TRIM(COALESCE(academic_year, \'\')) = ?'); ttParams.push(useYear); }
+    const [timetableRows] = await promisePool.query(
+      `SELECT id, class_name, subject_name, day_of_week, start_time, end_time, extra_activity_id FROM academic_timetables WHERE ${ttWhere.join(' AND ')}`,
+      ttParams
+    );
+
+    const validation = validateExtraActivityPlacement({
+      schoolId,
+      className,
+      days: dayList,
+      startTime,
+      endTime,
+      activities,
+      assignments,
+      teachingSlots,
+      activeDays,
+      timetableRows,
+      excludeId: id,
+    });
+    if (!validation.ok) {
+      return res.status(409).json({
+        success: false,
+        code: 'EXTRA_ACTIVITY_INVALID',
+        message: validation.messages.join(' '),
+        validation,
+      });
+    }
+
+    await promisePool.query(
+      `UPDATE timetable_extra_activities SET activity_name=?, class_name=?, days_json=?, start_time=?, end_time=?, term=?, academic_year=?, notes=?
+       WHERE id=? AND school_id=?`,
+      [trimStr(activity_name), className, JSON.stringify(dayList), startTime, endTime, useTerm || null, useYear || null, trimStr(notes) || null, id, schoolId]
+    );
+    await syncExtraActivityToTimetable(schoolId, {
+      id,
+      activity_name: trimStr(activity_name),
+      class_name: className,
+      days_json: JSON.stringify(dayList),
+      start_time: startTime,
+      end_time: endTime,
+      term: useTerm,
+      academic_year: useYear,
+    });
+    return res.json({ success: true, message: 'Extra activity updated and timetable synced', data: { timetable_synced: true } });
+  } catch (err) {
+    console.error('PUT /dos/timetable-system/extra-activities/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update extra activity' });
+  }
+});
+
+router.delete('/dos/timetable-system/extra-activities/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    await removeExtraActivityFromTimetable(schoolId, id);
+    await promisePool.query('DELETE FROM timetable_extra_activities WHERE id = ? AND school_id = ?', [id, schoolId]);
+    return res.json({ success: true, message: 'Extra activity removed from timetables' });
+  } catch (err) {
+    console.error('DELETE /dos/timetable-system/extra-activities/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete extra activity' });
+  }
+});
+
+router.get('/dos/timetable-system/extra-activities/capacity', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const className = trimStr(req.query?.class_name);
+    const term = trimStr(req.query?.term);
+    const academicYear = trimStr(req.query?.academic_year);
+    if (!className) return res.status(400).json({ success: false, message: 'class_name required' });
+
+    const [[scheduleRow]] = await promisePool.query('SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1', [schoolId]);
+    const schedule = scheduleRow || { day_start_time: '08:00', day_end_time: '17:00', period_duration_mins: 40, breaks_json: '[]' };
+    if (typeof schedule.breaks_json === 'string') schedule.breaks = JSON.parse(schedule.breaks_json);
+    const activeDays = typeof schedule.active_days_json === 'string'
+      ? JSON.parse(schedule.active_days_json)
+      : (schedule.active_days_json || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+    const teachingSlots = getTeachingSlotsFromSchedule(schedule);
+    const activities = await loadExtraActivitiesForSchool(schoolId, term, academicYear);
+    const assignments = await fetchTeacherAssignmentsForClass(schoolId, className, academicYear, term);
+    let extraUsed = 0;
+    for (const a of activities) {
+      if (!extraActivityAppliesToClass(a, className)) continue;
+      extraUsed += countExtraActivityWeeklySlots(a, teachingSlots, activeDays);
+    }
+    const assignedPeriods = assignments.reduce((s, a) => s + (Number(a.periods_per_week) || 0), 0);
+    const teachingPerWeek = teachingSlots.length * activeDays.length;
+
+    return res.json({
+      success: true,
+      data: {
+        class_name: className,
+        teaching_slots_per_week: teachingPerWeek,
+        teaching_periods_per_day: teachingSlots.length,
+        active_days: activeDays.length,
+        assigned_periods: assignedPeriods,
+        extra_slots_used: extraUsed,
+        remaining_for_extra: Math.max(0, teachingPerWeek - assignedPeriods - extraUsed),
+        total_committed: assignedPeriods + extraUsed,
+        balanced: assignedPeriods + extraUsed <= teachingPerWeek,
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/timetable-system/extra-activities/capacity:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load capacity' });
   }
 });
 
@@ -4427,151 +5905,1369 @@ router.get('/dos/timetable-system/workload', requireRole(DOS_ACADEMIC_ADMIN), as
   }
 });
 
-// ── Smart Timetable Generator ──
+function buildTeacherBusyMap(rows = []) {
+  const teacherBusy = new Map();
+  for (const row of rows) {
+    teacherBusy.set(teacherSlotKey(row.staff_id, row.day_of_week, row.start_time), {
+      class_name: row.class_name,
+      subject_name: row.subject_name,
+      staff_id: row.staff_id,
+    });
+  }
+  return teacherBusy;
+}
+
+function entrySlotWeight() {
+  return 1;
+}
+
+function rowSlotWeight() {
+  return 1;
+}
+
+/** Always exactly periods_per_week slots — never multiplied */
+function expandLessonUnits(assignment) {
+  const ppw = Number(assignment.periods_per_week) || 3;
+  return Array.from({ length: ppw }, () => ({ slot_weight: 1 }));
+}
+
+function consecutivePairDays(ppw) {
+  if (ppw >= 8) return 2;
+  if (ppw >= 3) return 1;
+  return 0;
+}
+
+function getNextTeachingSlot(teachingSlots, slot) {
+  const idx = teachingSlots.findIndex((s) => s.start_time === slot.start_time);
+  if (idx < 0 || idx >= teachingSlots.length - 1) return null;
+  const next = teachingSlots[idx + 1];
+  if (timeToMins(next.start_time) !== timeToMins(slot.end_time)) return null;
+  return next;
+}
+
+function getPreviousTeachingSlot(teachingSlots, slot) {
+  const idx = teachingSlots.findIndex((s) => s.start_time === slot.start_time);
+  if (idx <= 0) return null;
+  const prev = teachingSlots[idx - 1];
+  if (timeToMins(slot.start_time) !== timeToMins(prev.end_time)) return null;
+  return prev;
+}
+
+function classDayOffset(className, availDays) {
+  const m = String(className || '').match(/([A-H])$/i);
+  const letter = m?.[1]?.toUpperCase();
+  const idx = letter ? letter.charCodeAt(0) - 65 : 0;
+  return idx % Math.max(availDays.length, 1);
+}
+
+function buildPlacementQueue(assignments, activeDays, profileMap, configMap, shuffle = false) {
+  const sortedAssignments = [...assignments].sort((a, b) => {
+    const cfgA = configMap.get(a.subject_name);
+    const cfgB = configMap.get(b.subject_name);
+    const prioOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    return (prioOrder[cfgA?.priority_level] ?? 2) - (prioOrder[cfgB?.priority_level] ?? 2);
+  });
+
+  const placementQueue = [];
+  for (const assignment of sortedAssignments) {
+    const units = expandLessonUnits(assignment);
+    const cfg = configMap.get(assignment.subject_name);
+    const allowFollowed = Boolean(cfg?.is_double_period);
+    const profile = profileMap.get(assignment.teacher_user_id);
+    const availDays = (profile && profile.available_days.length > 0)
+      ? activeDays.filter((d) => profile.available_days.includes(d))
+      : [...activeDays];
+    const classOffset = classDayOffset(assignment.class_name, availDays);
+    const ppw = units.length;
+    let idx = 0;
+
+    if (allowFollowed && ppw >= 2) {
+      const pairDays = consecutivePairDays(ppw);
+      for (let p = 0; p < pairDays && idx + 1 < ppw; p++) {
+        const day = availDays[(classOffset + p * 2) % availDays.length];
+        placementQueue.push({ ...assignment, ...units[idx], target_day: day, slot_weight: 1 });
+        idx += 1;
+        placementQueue.push({
+          ...assignment,
+          ...units[idx],
+          target_day: day,
+          slot_weight: 1,
+          follow_same_subject: true,
+        });
+        idx += 1;
+      }
+    }
+
+    for (; idx < ppw; idx++) {
+      placementQueue.push({
+        ...assignment,
+        ...units[idx],
+        target_day: availDays[(classOffset + idx) % availDays.length],
+        slot_weight: 1,
+      });
+    }
+  }
+
+  placementQueue.sort((a, b) => {
+    if (a.follow_same_subject && !b.follow_same_subject) return 1;
+    if (!a.follow_same_subject && b.follow_same_subject) return -1;
+    const dayIdxA = activeDays.indexOf(a.target_day);
+    const dayIdxB = activeDays.indexOf(b.target_day);
+    if (dayIdxA !== dayIdxB) return dayIdxA - dayIdxB;
+    return shuffle ? Math.random() - 0.5 : 0;
+  });
+  return placementQueue;
+}
+
+function countTeacherWeekBooked(teacherId, activeDays, teachingSlots, teacherBusy) {
+  let booked = 0;
+  for (const day of activeDays) {
+    for (const slot of teachingSlots) {
+      if (teacherBusy.has(teacherSlotKey(teacherId, day, slot.start_time))) booked += 1;
+    }
+  }
+  return booked;
+}
+
+function diagnosePlacementFailure({
+  class_name, item, preferredDay, teachingSlots, activeDays,
+  classUsed, teacherBusy, teacherDayCount, profile, subjectCfg, teacherNameMap,
+}) {
+  const schedulingRules = getSchedulingRulesFromConfig(subjectCfg);
+  const teacherId = item.teacher_user_id;
+  const maxPd = profile?.max_periods_per_day || 6;
+  const teacherName = teacherNameMap?.get(teacherId) || `Teacher #${teacherId}`;
+  const slotsPerDay = teachingSlots.length;
+  const teacherWeekCapacity = activeDays.length * maxPd;
+  const teacherWeekBooked = countTeacherWeekBooked(teacherId, activeDays, teachingSlots, teacherBusy);
+  const teacherUtilization = teacherWeekCapacity > 0
+    ? Math.round((teacherWeekBooked / teacherWeekCapacity) * 100)
+    : 100;
+
+  let classBlocked = 0;
+  let teacherBlocked = 0;
+  let dayLimitBlocked = 0;
+  let ruleBlocked = 0;
+  const daysToTry = [preferredDay, ...activeDays.filter((d) => d !== preferredDay)];
+
+  for (const tryDay of daysToTry) {
+    for (const slot of teachingSlots) {
+      const classKey = `${class_name}__${tryDay}__${slot.start_time}`;
+      const teacherKey = teacherSlotKey(teacherId, tryDay, slot.start_time);
+      const tdKey = `${teacherId}__${tryDay}`;
+      const dayCount = teacherDayCount.get(tdKey) || 0;
+      if (classUsed.has(classKey)) classBlocked += 1;
+      if (teacherBusy.has(teacherKey)) teacherBlocked += 1;
+      if (dayCount >= maxPd) dayLimitBlocked += 1;
+      if (!slotMatchesSchedulingRules(slot, schedulingRules)) ruleBlocked += 1;
+    }
+  }
+
+  const dos_actions = [];
+  let reason = 'no_slot';
+  let summary = `No free slot for ${item.subject_name} in ${class_name}`;
+
+  if (teacherUtilization >= 95 || teacherWeekBooked >= teacherWeekCapacity) {
+    reason = 'teacher_overloaded';
+    summary = `${teacherName} is fully booked (${teacherWeekBooked}/${teacherWeekCapacity} periods this week, ${teacherUtilization}% used)`;
+    dos_actions.push(`Assign a second teacher for ${item.subject_name} on ${class_name} (Assignments tab)`);
+    dos_actions.push(`Split classes: give P5F–P5H subjects to another teacher — ${teacherName} covers too many classes`);
+    dos_actions.push(`Increase max periods/day for ${teacherName} (Teachers tab → Edit profile, currently ${maxPd})`);
+  } else if (teacherBlocked >= classBlocked && teacherBlocked > 0) {
+    reason = 'teacher_busy';
+    summary = `${teacherName} is busy in all ${teacherBlocked} candidate slots — teaching other classes at those times`;
+    dos_actions.push(`Assign another teacher to ${item.subject_name} for ${class_name}`);
+    dos_actions.push(`Reduce periods/week for subjects ${teacherName} teaches across multiple classes`);
+  } else if (dayLimitBlocked > 0 && dayLimitBlocked >= teacherBlocked) {
+    reason = 'teacher_daily_limit';
+    summary = `${teacherName} hit the daily limit (${maxPd} periods/day) on every day ${class_name} still needs`;
+    dos_actions.push(`Raise max periods/day for ${teacherName} in Teacher profiles (currently ${maxPd})`);
+    dos_actions.push(`Spread ${item.subject_name} to more teachers so no single teacher exceeds ${maxPd}/day`);
+  } else if (classBlocked > teacherBlocked) {
+    reason = 'class_full';
+    summary = `${class_name} already uses every time slot on the tried days (${classBlocked} slots blocked)`;
+    dos_actions.push(`Extend the school day in Time Settings (more periods per day)`);
+    dos_actions.push(`Reduce total periods/week for ${class_name} in course assignments`);
+  }
+
+  if (ruleBlocked > 0 && reason === 'no_slot') {
+    reason = 'scheduling_rules';
+    const pref = schedulingRules.time_preference || 'any';
+    summary = `${item.subject_name} scheduling rule (${pref}) blocks ${ruleBlocked} slot(s) — no compliant slot left`;
+    dos_actions.push(`Relax scheduling rules for ${item.subject_name} in Courses → Configure`);
+  }
+
+  if (!dos_actions.length) {
+    dos_actions.push(`Assign a dedicated teacher for ${item.subject_name} on ${class_name}`);
+    dos_actions.push('Add more teaching periods in Time Settings or enable Saturday');
+  }
+
+  return {
+    reason,
+    summary,
+    teacher_name: teacherName,
+    teacher_user_id: teacherId,
+    teacher_week_booked: teacherWeekBooked,
+    teacher_week_capacity: teacherWeekCapacity,
+    teacher_utilization_pct: teacherUtilization,
+    dos_actions,
+  };
+}
+
+function findPlacementSlot({
+  class_name, item, preferredDay, teachingSlots, activeDays,
+  classUsed, teacherBusy, teacherDayCount, classDayCount, profile, subjectCfg,
+  autoResolve = false,
+}) {
+  const schedulingRules = getSchedulingRulesFromConfig(subjectCfg);
+  let daysToTry = autoResolve
+    ? [preferredDay, ...activeDays.filter((d) => d !== preferredDay)]
+    : [preferredDay];
+
+  if (autoResolve && classDayCount) {
+    daysToTry = [...new Set(daysToTry)].sort((a, b) => {
+      const ca = classDayCount.get(`${class_name}__${a}`) || 0;
+      const cb = classDayCount.get(`${class_name}__${b}`) || 0;
+      if (ca !== cb) return ca - cb;
+      if (a === preferredDay) return -1;
+      if (b === preferredDay) return 1;
+      return activeDays.indexOf(a) - activeDays.indexOf(b);
+    });
+  }
+  const slotWeight = 1;
+
+  if (item.follow_same_subject) {
+    for (const tryDay of daysToTry) {
+      for (const slot of teachingSlots) {
+        if (!slotMatchesSchedulingRules(slot, schedulingRules)) continue;
+        const prev = getPreviousTeachingSlot(teachingSlots, slot);
+        if (!prev) continue;
+        const prevKey = `${class_name}__${tryDay}__${prev.start_time}`;
+        if (classUsed.get(prevKey) !== item.subject_name) continue;
+
+        const classKey = `${class_name}__${tryDay}__${slot.start_time}`;
+        if (classUsed.has(classKey)) continue;
+        const teacherKey = teacherSlotKey(item.teacher_user_id, tryDay, slot.start_time);
+        if (teacherBusy.has(teacherKey)) continue;
+        const tdKey = `${item.teacher_user_id}__${tryDay}`;
+        const dayCount = teacherDayCount.get(tdKey) || 0;
+        const maxPd = profile?.max_periods_per_day || 6;
+        if (dayCount + slotWeight > maxPd) continue;
+
+        return {
+          slot,
+          slots: [slot],
+          day: tryDay,
+          preferredDay,
+          slot_weight: 1,
+          follow_same_subject: true,
+        };
+      }
+    }
+  }
+
+  for (const tryDay of daysToTry) {
+    const ruleMatching = teachingSlots.filter((s) => slotMatchesSchedulingRules(s, schedulingRules));
+    const slotsToTry = orderSlotsBySchedulingRules(
+      ruleMatching.length ? ruleMatching : teachingSlots,
+      schedulingRules
+    );
+
+    for (const slot of slotsToTry) {
+      const slotsNeeded = [slot];
+
+      let blocked = false;
+      for (const s of slotsNeeded) {
+        const classKey = `${class_name}__${tryDay}__${s.start_time}`;
+        if (classUsed.has(classKey)) { blocked = true; break; }
+        const teacherKey = teacherSlotKey(item.teacher_user_id, tryDay, s.start_time);
+        if (teacherBusy.has(teacherKey)) { blocked = true; break; }
+      }
+      if (blocked) continue;
+
+      const tdKey = `${item.teacher_user_id}__${tryDay}`;
+      const dayCount = teacherDayCount.get(tdKey) || 0;
+      const maxPd = profile?.max_periods_per_day || 6;
+      if (dayCount + slotWeight > maxPd) continue;
+
+      return {
+        slot,
+        endSlot: slot,
+        slots: slotsNeeded,
+        day: tryDay,
+        preferredDay,
+        slot_weight: 1,
+      };
+    }
+  }
+  return null;
+}
+
+function commitPlacement({
+  class_name, item, placement, useTerm, useYear, classUsed, teacherBusy, teacherDayCount, classDayCount,
+}) {
+  const { slot, day } = placement;
+  const classKey = `${class_name}__${day}__${slot.start_time}`;
+  const teacherKey = teacherSlotKey(item.teacher_user_id, day, slot.start_time);
+  classUsed.set(classKey, item.subject_name);
+  teacherBusy.set(teacherKey, { class_name, subject_name: item.subject_name, staff_id: item.teacher_user_id });
+
+  const tdKey = `${item.teacher_user_id}__${day}`;
+  teacherDayCount.set(tdKey, (teacherDayCount.get(tdKey) || 0) + 1);
+  if (classDayCount) {
+    const cdKey = `${class_name}__${day}`;
+    classDayCount.set(cdKey, (classDayCount.get(cdKey) || 0) + 1);
+  }
+
+  return {
+    class_name,
+    subject_name: item.subject_name,
+    staff_id: item.teacher_user_id,
+    day_of_week: day,
+    start_time: slot.start_time,
+    end_time: slot.end_time,
+    room: item.room || null,
+    term: useTerm,
+    academic_year: useYear,
+    is_double_period: item.follow_same_subject ? 1 : 0,
+    slot_weight: 1,
+  };
+}
+
+function normalizeCommitResult(result) {
+  if (!result) return [];
+  return Array.isArray(result) ? result : [result];
+}
+
+function describeFixAction({ class_name, item, preferredDay, placement, subjectCfg }) {
+  const timeLabel = String(placement.slot.start_time).slice(0, 5);
+  const rules = getSchedulingRulesFromConfig(subjectCfg);
+  const parts = [];
+  if (placement.day !== preferredDay) {
+    parts.push(`moved ${item.subject_name} from ${preferredDay} to ${placement.day} at ${timeLabel}`);
+  } else {
+    parts.push(`placed ${item.subject_name} on ${placement.day} at ${timeLabel}`);
+  }
+  if (rules.time_preference && rules.time_preference !== 'any') {
+    parts.push(`respecting ${rules.time_preference} scheduling rule`);
+  }
+  return `${class_name}: ${parts.join(' — ')}`;
+}
+
+function generateTimetableForClass({
+  class_name, useTerm, useYear, assignments, activeDays, teachingSlots,
+  teacherBusy, profileMap, configMap, autoResolve = false, shuffle = false,
+  teacherNameMap = new Map(), extraActivities = [],
+}) {
+  const generated = [];
+  const conflicts = [];
+  const fixActions = [];
+  const classUsed = new Map();
+  const classUsedMaps = new Map([[class_name, classUsed]]);
+  seedClassUsedFromExtraActivities(classUsedMaps, [class_name], extraActivities, teachingSlots, activeDays);
+  const teacherDayCount = new Map();
+  const classDayCount = new Map();
+  const placementQueue = buildPlacementQueue(assignments, activeDays, profileMap, configMap, shuffle);
+
+  for (const item of placementQueue) {
+    const preferredDay = item.target_day;
+    const profile = profileMap.get(item.teacher_user_id);
+    const subjectCfg = configMap.get(item.subject_name);
+
+    if (!autoResolve) {
+      let placed = false;
+      const schedulingRules = getSchedulingRulesFromConfig(subjectCfg);
+      const ruleMatching = teachingSlots.filter((s) => slotMatchesSchedulingRules(s, schedulingRules));
+      const slotsToTry = orderSlotsBySchedulingRules(
+        ruleMatching.length ? ruleMatching : teachingSlots,
+        schedulingRules
+      );
+
+      for (const slot of slotsToTry) {
+        const classKey = `${class_name}__${preferredDay}__${slot.start_time}`;
+        if (classUsed.has(classKey)) continue;
+
+        const teacherKey = teacherSlotKey(item.teacher_user_id, preferredDay, slot.start_time);
+        if (teacherBusy.has(teacherKey)) {
+          const busy = teacherBusy.get(teacherKey);
+          conflicts.push({
+            type: 'teacher_conflict',
+            class_name,
+            teacher_user_id: item.teacher_user_id,
+            day: preferredDay,
+            time: slot.start_time,
+            subject: item.subject_name,
+            conflicts_with_class: busy?.class_name || null,
+          });
+          continue;
+        }
+
+        const tdKey = `${item.teacher_user_id}__${preferredDay}`;
+        const dayCount = teacherDayCount.get(tdKey) || 0;
+        const maxPd = profile?.max_periods_per_day || 6;
+        if (dayCount >= maxPd) {
+          conflicts.push({ type: 'overload', class_name, teacher_user_id: item.teacher_user_id, day: preferredDay, subject: item.subject_name });
+          continue;
+        }
+
+        const entry = {
+          class_name,
+          subject_name: item.subject_name,
+          staff_id: item.teacher_user_id,
+          day_of_week: preferredDay,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          room: item.room || null,
+          term: useTerm,
+          academic_year: useYear,
+        };
+        generated.push(entry);
+        classUsed.set(classKey, item.subject_name);
+        teacherBusy.set(teacherKey, { class_name, subject_name: item.subject_name, staff_id: item.teacher_user_id });
+        teacherDayCount.set(tdKey, dayCount + 1);
+        placed = true;
+        break;
+      }
+      if (!placed) {
+        conflicts.push({ type: 'insufficient_slots', class_name, subject: item.subject_name, day: preferredDay, message: `No free slot on ${preferredDay}` });
+      }
+      continue;
+    }
+
+    const placement = findPlacementSlot({
+      class_name,
+      item,
+      preferredDay,
+      teachingSlots,
+      activeDays,
+      classUsed,
+      teacherBusy,
+      teacherDayCount,
+      profile,
+      subjectCfg,
+      autoResolve: true,
+    });
+
+    if (!placement) {
+      const diagnosis = diagnosePlacementFailure({
+        class_name,
+        item,
+        preferredDay,
+        teachingSlots,
+        activeDays,
+        classUsed,
+        teacherBusy,
+        teacherDayCount,
+        profile,
+        subjectCfg,
+        teacherNameMap,
+      });
+      conflicts.push({
+        type: 'insufficient_slots',
+        class_name,
+        subject: item.subject_name,
+        day: preferredDay,
+        teacher_user_id: item.teacher_user_id,
+        message: diagnosis.summary,
+        diagnosis,
+        dos_actions: diagnosis.dos_actions,
+      });
+      continue;
+    }
+
+    const committed = commitPlacement({
+      class_name, item, placement, useTerm, useYear, classUsed, teacherBusy, teacherDayCount, classDayCount,
+    });
+    for (const entry of normalizeCommitResult(committed)) {
+      generated.push(entry);
+    }
+    const { day } = placement;
+    const { slot } = placement;
+
+    if (day !== preferredDay) {
+      fixActions.push({
+        class_name,
+        subject: item.subject_name,
+        from_day: preferredDay,
+        to_day: day,
+        time: String(slot.start_time).slice(0, 5),
+        action: 'moved_day',
+        description: describeFixAction({ class_name, item, preferredDay, placement, subjectCfg }),
+      });
+    }
+  }
+
+  return { generated, conflicts, fix_actions: fixActions };
+}
+
+function tryPlaceLessonUnit({
+  class_name, item, useTerm, useYear, teachingSlots, activeDays,
+  classUsed, teacherBusy, teacherDayCount, classDayCount, profileMap, configMap, teacherNameMap,
+}) {
+  const profile = profileMap.get(item.teacher_user_id);
+  const subjectCfg = configMap.get(item.subject_name);
+  const preferredDay = item.target_day;
+
+  const tryOne = (attemptItem) => {
+    const placement = findPlacementSlot({
+      class_name,
+      item: attemptItem,
+      preferredDay,
+      teachingSlots,
+      activeDays,
+      classUsed,
+      teacherBusy,
+      teacherDayCount,
+      classDayCount,
+      profile,
+      subjectCfg,
+      autoResolve: true,
+    });
+    if (!placement) return null;
+    const committed = commitPlacement({
+      class_name,
+      item: attemptItem,
+      placement,
+      useTerm,
+      useYear,
+      classUsed,
+      teacherBusy,
+      teacherDayCount,
+      classDayCount,
+    });
+    const entries = normalizeCommitResult(committed);
+    return { entry: entries[0], entries, placement, attemptItem };
+  };
+
+  const single = tryOne(item);
+  if (single) return { ...single, preferredDay, subjectCfg };
+
+  const diagnosis = diagnosePlacementFailure({
+    class_name, item, preferredDay, teachingSlots, activeDays,
+    classUsed, teacherBusy, teacherDayCount, profile, subjectCfg, teacherNameMap,
+  });
+  return {
+    conflict: {
+      type: 'insufficient_slots',
+      class_name,
+      subject: item.subject_name,
+      day: preferredDay,
+      teacher_user_id: item.teacher_user_id,
+      message: diagnosis.summary,
+      diagnosis,
+      dos_actions: diagnosis.dos_actions,
+    },
+  };
+}
+
+function assignmentPlacementKey(className, subjectName, teacherUserId) {
+  return `${trimStr(className)}__${trimStr(subjectName)}__${Number(teacherUserId) || 0}`;
+}
+
+function enrichAssignmentsWithTeacherNames(assignments, teacherNameMap) {
+  return (assignments || []).map((a) => ({
+    ...a,
+    teacher_name: teacherNameMap?.get?.(a.teacher_user_id) || a.teacher_name || null,
+  }));
+}
+
+function countPlacedForAssignment(byClass, className, assignment) {
+  const teacherId = assignment?.teacher_user_id ?? assignment?.staff_id;
+  return (byClass[className] || [])
+    .filter((e) =>
+      String(e.subject_name || '').trim() === String(assignment.subject_name || '').trim()
+      && String(e.staff_id) === String(teacherId)
+    )
+    .reduce((sum, e) => sum + entrySlotWeight(e), 0);
+}
+
+function countPlacedSlotsForSubject(byClass, className, subjectName) {
+  return (byClass[className] || [])
+    .filter((e) => e.subject_name === subjectName)
+    .reduce((sum, e) => sum + entrySlotWeight(e), 0);
+}
+
+function buildGapFillQueue(byClass, classNames, classAssignmentsMap, activeDays) {
+  const gaps = [];
+  for (const className of classNames) {
+    for (const a of classAssignmentsMap.get(className) || []) {
+      const expected = Number(a.periods_per_week) || 0;
+      const placed = countPlacedForAssignment(byClass, className, a);
+      const missing = expected - placed;
+      const offset = classDayOffset(className, activeDays);
+      for (let i = 0; i < missing; i++) {
+        gaps.push({
+          ...a,
+          class_name: className,
+          target_day: activeDays[(offset + placed + i) % activeDays.length],
+          slot_weight: 1,
+        });
+      }
+    }
+  }
+  return gaps;
+}
+
+function tryPlaceGapAggressive({
+  class_name, item, useTerm, useYear, teachingSlots, activeDays,
+  classUsed, teacherBusy, teacherDayCount, classDayCount, profileMap, configMap, teacherNameMap,
+}) {
+  const daysToTry = [...activeDays].sort((a, b) => {
+    const ca = classDayCount.get(`${class_name}__${a}`) || 0;
+    const cb = classDayCount.get(`${class_name}__${b}`) || 0;
+    return ca - cb;
+  });
+  for (const day of daysToTry) {
+    const attempt = { ...item, target_day: day, slot_weight: 1 };
+    const result = tryPlaceLessonUnit({
+      class_name,
+      item: attempt,
+      useTerm,
+      useYear,
+      teachingSlots,
+      activeDays,
+      classUsed,
+      teacherBusy,
+      teacherDayCount,
+      classDayCount,
+      profileMap,
+      configMap,
+      teacherNameMap,
+    });
+    if (!result.conflict) return result;
+  }
+  return null;
+}
+
+function fillMissingPeriodsPass(ctx) {
+  const {
+    classNames, classAssignmentsMap, activeDays, byClass, generated, conflicts, fixActions,
+  } = ctx;
+  let filled = 0;
+  for (let round = 0; round < 6; round++) {
+    const gaps = buildGapFillQueue(byClass, classNames, classAssignmentsMap, activeDays);
+    if (!gaps.length) break;
+    let progress = false;
+    for (const gap of gaps) {
+      const class_name = gap.class_name;
+      const result = tryPlaceGapAggressive({
+        class_name,
+        item: gap,
+        useTerm: ctx.useTerm,
+        useYear: ctx.useYear,
+        teachingSlots: ctx.teachingSlots,
+        activeDays,
+        classUsed: ctx.classUsedMaps.get(class_name),
+        teacherBusy: ctx.teacherBusy,
+        teacherDayCount: ctx.teacherDayCount,
+        classDayCount: ctx.classDayCount,
+        profileMap: ctx.profileMap,
+        configMap: ctx.configMap,
+        teacherNameMap: ctx.teacherNameMap,
+      });
+      if (!result) continue;
+      progress = true;
+      filled += 1;
+      const entries = result.entries || (result.entry ? [result.entry] : []);
+      for (const entry of entries) {
+        generated.push(entry);
+        byClass[class_name].push(entry);
+      }
+      const idx = conflicts.findIndex(
+        (c) => c.class_name === class_name && c.subject === gap.subject_name && c.type === 'insufficient_slots'
+      );
+      if (idx >= 0) conflicts.splice(idx, 1);
+      fixActions.push({
+        class_name,
+        subject: gap.subject_name,
+        action: 'gap_fill',
+        description: `${class_name}: filled missing ${gap.subject_name} period on ${entries[0]?.day_of_week}`,
+      });
+    }
+    if (!progress) break;
+  }
+  return filled;
+}
+
+function generateTimetableGlobal({
+  classNames, classAssignmentsMap, useTerm, useYear,
+  activeDays, teachingSlots, teacherBusySeed, profileMap, configMap,
+  teacherNameMap = new Map(), shuffle = false, extraActivities = [],
+}) {
+  const teacherBusy = new Map(teacherBusySeed);
+  const classUsedMaps = new Map(classNames.map((cn) => [cn, new Map()]));
+  seedClassUsedFromExtraActivities(classUsedMaps, classNames, extraActivities, teachingSlots, activeDays);
+  const teacherDayCount = new Map();
+  const classDayCount = new Map();
+  const generated = [];
+  const conflicts = [];
+  const fixActions = [];
+  const byClass = Object.fromEntries(classNames.map((cn) => [cn, []]));
+  const skipped = [];
+  const teacherPendingCount = new Map();
+  const globalQueue = [];
+
+  for (const className of classNames) {
+    const assignments = classAssignmentsMap.get(className) || [];
+    if (!assignments.length) {
+      skipped.push({ class_name: className, reason: 'No course assignments found' });
+      continue;
+    }
+    const queue = buildPlacementQueue(assignments, activeDays, profileMap, configMap, shuffle);
+    for (const item of queue) {
+      globalQueue.push({ ...item, class_name: className });
+      teacherPendingCount.set(
+        item.teacher_user_id,
+        (teacherPendingCount.get(item.teacher_user_id) || 0) + 1
+      );
+    }
+  }
+
+  const prioOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  globalQueue.sort((a, b) => {
+    if (a.class_name === b.class_name && a.subject_name === b.subject_name) {
+      if (a.follow_same_subject && !b.follow_same_subject) return 1;
+      if (!a.follow_same_subject && b.follow_same_subject) return -1;
+    }
+    const cfgA = configMap.get(a.subject_name);
+    const cfgB = configMap.get(b.subject_name);
+    const rulesA = getSchedulingRulesFromConfig(cfgA);
+    const rulesB = getSchedulingRulesFromConfig(cfgB);
+    const morningA = rulesA.time_preference === 'morning' ? 1 : 0;
+    const morningB = rulesB.time_preference === 'morning' ? 1 : 0;
+    if (morningB !== morningA) return morningB - morningA;
+    const loadA = teacherPendingCount.get(a.teacher_user_id) || 0;
+    const loadB = teacherPendingCount.get(b.teacher_user_id) || 0;
+    if (loadB !== loadA) return loadB - loadA;
+    const pA = prioOrder[cfgA?.priority_level] ?? 2;
+    const pB = prioOrder[cfgB?.priority_level] ?? 2;
+    if (pA !== pB) return pA - pB;
+    const ppwA = Number(a.periods_per_week) || 3;
+    const ppwB = Number(b.periods_per_week) || 3;
+    if (ppwA !== ppwB) return ppwA - ppwB;
+    const dayIdxA = activeDays.indexOf(a.target_day);
+    const dayIdxB = activeDays.indexOf(b.target_day);
+    if (dayIdxA !== dayIdxB) return dayIdxA - dayIdxB;
+    return shuffle ? Math.random() - 0.5 : String(a.class_name).localeCompare(String(b.class_name));
+  });
+
+  for (const item of globalQueue) {
+    const class_name = item.class_name;
+    const preferredDay = item.target_day;
+
+    const result = tryPlaceLessonUnit({
+      class_name,
+      item,
+      useTerm,
+      useYear,
+      teachingSlots,
+      activeDays,
+      classUsed: classUsedMaps.get(class_name),
+      teacherBusy,
+      teacherDayCount,
+      classDayCount,
+      profileMap,
+      configMap,
+      teacherNameMap,
+    });
+
+    if (result.conflict) {
+      if (result.partial_entries?.length) {
+        for (const e of result.partial_entries) {
+          generated.push(e);
+          byClass[class_name].push(e);
+        }
+      }
+      conflicts.push(result.conflict);
+      continue;
+    }
+
+    const placedEntries = result.entries || (result.entry ? [result.entry] : []);
+    for (const entry of placedEntries) {
+      generated.push(entry);
+      byClass[class_name].push(entry);
+    }
+
+    const subjectCfg = configMap.get(item.subject_name);
+    const day = result.placement?.day || result.entries?.[0]?.day_of_week;
+    const slot = result.placement?.slot;
+    if (day && day !== preferredDay && slot) {
+      fixActions.push({
+        class_name,
+        subject: item.subject_name,
+        from_day: preferredDay,
+        to_day: day,
+        time: String(slot.start_time).slice(0, 5),
+        action: 'moved_day',
+        description: describeFixAction({
+          class_name,
+          item,
+          preferredDay,
+          placement: result.placement,
+          subjectCfg,
+        }),
+      });
+    }
+  }
+
+  fillMissingPeriodsPass({
+    classNames,
+    classAssignmentsMap,
+    activeDays,
+    teachingSlots,
+    useTerm,
+    useYear,
+    byClass,
+    generated,
+    conflicts,
+    fixActions,
+    classUsedMaps,
+    teacherBusy,
+    teacherDayCount,
+    classDayCount,
+    profileMap,
+    configMap,
+    teacherNameMap,
+  });
+
+  const classStats = classNames.map((cn) => ({
+    class_name: cn,
+    total: (byClass[cn] || []).reduce((sum, e) => sum + entrySlotWeight(e), 0),
+    entries: (byClass[cn] || []).length,
+    conflicts: conflicts.filter((c) => c.class_name === cn).length,
+  }));
+
+  return {
+    generated,
+    by_class: byClass,
+    conflicts,
+    fix_actions: fixActions,
+    skipped,
+    stats: {
+      total: generated.reduce((sum, e) => sum + entrySlotWeight(e), 0),
+      entries: generated.length,
+      conflicts: conflicts.length,
+      classes: classNames.length,
+      generated_classes: classStats.filter((c) => c.total > 0).length,
+      by_class: classStats,
+    },
+  };
+}
+
+function generationScore(result, classAssignmentsMap, classNames) {
+  const coverage = buildPeriodCoverage(result, classAssignmentsMap, classNames);
+  return {
+    missing: coverage.total_missing || 0,
+    excess: coverage.total_excess || 0,
+    conflicts: (result.conflicts || []).length,
+    placed: coverage.total_placed || 0,
+    coveragePct: coverage.coverage_pct || 0,
+  };
+}
+
+function isBetterGeneration(candidate, current) {
+  if (!current) return true;
+  if (candidate.missing !== current.missing) return candidate.missing < current.missing;
+  if (candidate.excess !== current.excess) return candidate.excess < current.excess;
+  if (candidate.conflicts !== current.conflicts) return candidate.conflicts < current.conflicts;
+  if (candidate.coveragePct !== current.coveragePct) return candidate.coveragePct > current.coveragePct;
+  return candidate.placed > current.placed;
+}
+
+function runMultiClassGeneration({
+  classNames, classAssignmentsMap, useTerm, useYear,
+  activeDays, teachingSlots, teacherBusySeed, profileMap, configMap,
+  autoResolve = false, teacherNameMap = new Map(), extraActivities = [],
+}) {
+  const useGlobal = autoResolve || classNames.length > 1;
+  const MAX_ATTEMPTS = useGlobal ? 15 : 1;
+  let bestResult = null;
+  let bestScore = null;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let result;
+    if (useGlobal) {
+      result = generateTimetableGlobal({
+        classNames,
+        classAssignmentsMap,
+        useTerm,
+        useYear,
+        activeDays,
+        teachingSlots,
+        teacherBusySeed,
+        profileMap,
+        configMap,
+        teacherNameMap,
+        shuffle: attempt > 0,
+        extraActivities,
+      });
+    } else {
+      const teacherBusy = new Map(teacherBusySeed);
+      const allGenerated = [];
+      const allConflicts = [];
+      const allFixActions = [];
+      const byClass = {};
+      const classStats = [];
+      const skipped = [];
+
+      for (const className of classNames) {
+        const assignments = classAssignmentsMap.get(className) || [];
+        if (!assignments.length) {
+          skipped.push({ class_name: className, reason: 'No course assignments found' });
+          byClass[className] = [];
+          continue;
+        }
+
+        const { generated, conflicts, fix_actions = [] } = generateTimetableForClass({
+          class_name: className,
+          useTerm,
+          useYear,
+          assignments,
+          activeDays,
+          teachingSlots,
+          teacherBusy,
+          profileMap,
+          configMap,
+          autoResolve: false,
+          shuffle: false,
+          teacherNameMap,
+          extraActivities,
+        });
+
+        byClass[className] = generated;
+        allGenerated.push(...generated);
+        allConflicts.push(...conflicts);
+        allFixActions.push(...fix_actions);
+        classStats.push({ class_name: className, total: generated.length, conflicts: conflicts.length });
+      }
+
+      result = {
+        generated: allGenerated,
+        by_class: byClass,
+        conflicts: allConflicts,
+        fix_actions: allFixActions,
+        skipped,
+        stats: {
+          total: allGenerated.length,
+          conflicts: allConflicts.length,
+          classes: classNames.length,
+          generated_classes: classStats.filter((c) => c.total > 0).length,
+          by_class: classStats,
+        },
+      };
+    }
+
+    const score = generationScore(result, classAssignmentsMap, classNames);
+    if (isBetterGeneration(score, bestScore)) {
+      bestResult = result;
+      bestScore = score;
+    }
+    if (score.missing === 0 && score.excess === 0 && score.conflicts === 0) break;
+  }
+
+  return bestResult;
+}
+
+function buildPeriodCoverage(generation, classAssignmentsMap, classNames = []) {
+  const placedCounts = new Map();
+  for (const entry of generation?.generated || []) {
+    const k = assignmentPlacementKey(entry.class_name, entry.subject_name, entry.staff_id);
+    placedCounts.set(k, (placedCounts.get(k) || 0) + entrySlotWeight(entry));
+  }
+
+  const byClass = [];
+  let totalExpected = 0;
+  let totalPlaced = 0;
+  const gaps = [];
+  const autoFixSuggestions = [];
+
+  for (const className of classNames) {
+    const assignments = classAssignmentsMap.get(className) || [];
+    const subjects = [];
+    let classExpected = 0;
+    const classEntries = (generation?.generated || []).filter(
+      (e) => String(e.class_name || '').trim() === String(className || '').trim()
+    );
+    const classPlaced = classEntries.reduce((sum, e) => sum + entrySlotWeight(e), 0);
+
+    for (const a of assignments) {
+      const expected = Number(a.periods_per_week) || 0;
+      const k = assignmentPlacementKey(className, a.subject_name, a.teacher_user_id);
+      const placed = placedCounts.get(k) || 0;
+      const missing = Math.max(0, expected - placed);
+      const excess = Math.max(0, placed - expected);
+      classExpected += expected;
+      totalExpected += expected;
+
+      subjects.push({
+        subject_name: a.subject_name,
+        teacher_user_id: a.teacher_user_id,
+        teacher_name: a.teacher_name || null,
+        expected,
+        placed,
+        missing,
+        excess,
+        complete: missing === 0 && excess === 0,
+      });
+
+      if (missing > 0) {
+        gaps.push({
+          class_name: className,
+          subject_name: a.subject_name,
+          expected,
+          placed,
+          missing,
+          excess: 0,
+          teacher_user_id: a.teacher_user_id,
+          teacher_name: a.teacher_name || null,
+        });
+        const teacherLabel = a.teacher_name ? ` (${a.teacher_name})` : '';
+        autoFixSuggestions.push(
+          `Add ${missing} more ${a.subject_name} period(s) for ${className}${teacherLabel} — check teacher availability or reduce other class load`
+        );
+      }
+      if (excess > 0) {
+        const teacherLabel = a.teacher_name ? ` (${a.teacher_name})` : '';
+        autoFixSuggestions.push(
+          `Remove ${excess} extra ${a.subject_name} period(s) from ${className}${teacherLabel} (${placed}/${expected} scheduled — regenerate or delete duplicates)`
+        );
+      }
+    }
+
+    totalPlaced += classPlaced;
+
+    byClass.push({
+      class_name: className,
+      subjects,
+      total_expected: classExpected,
+      total_placed: classPlaced,
+      total_missing: Math.max(0, classExpected - classPlaced),
+      total_excess: Math.max(0, classPlaced - classExpected),
+      fully_matched: classPlaced === classExpected,
+      coverage_pct: classExpected > 0 ? Math.min(100, Math.round((classPlaced / classExpected) * 100)) : 100,
+    });
+  }
+
+  const totalMissing = Math.max(0, totalExpected - totalPlaced);
+  const totalExcess = Math.max(0, totalPlaced - totalExpected);
+  const allFullyMatched = byClass.every((c) => c.fully_matched);
+
+  return {
+    all_fully_matched: allFullyMatched,
+    total_expected: totalExpected,
+    total_placed: totalPlaced,
+    total_missing: totalMissing,
+    total_excess: totalExcess,
+    total_free_periods: totalMissing,
+    coverage_pct: totalExpected > 0 ? Math.round((totalPlaced / totalExpected) * 100) : 100,
+    by_class: byClass,
+    gaps,
+    auto_fix_suggestions: [...new Set(autoFixSuggestions)].slice(0, 15),
+    can_apply_partial: totalPlaced > 0,
+    apply_partial_message: allFullyMatched
+      ? 'All courses match their weekly periods — safe to apply the full timetable'
+      : `${totalMissing} period(s) could not be placed and will show as free time in the timetable grid`,
+    dos_message: allFullyMatched
+      ? null
+      : 'Weekly period targets are not fully met for some classes. Assign more teachers or adjust periods/week before expecting a complete timetable.',
+  };
+}
+
+function finalizePartialGeneration(generation, acceptPartial = false) {
+  if (!acceptPartial) return generation;
+
+  const insufficient = (generation.conflicts || []).filter((c) => c.type === 'insufficient_slots');
+  const blocking = (generation.conflicts || []).filter((c) => c.type !== 'insufficient_slots');
+  const skippedLessons = insufficient.map((c) => ({
+    class_name: c.class_name,
+    subject: c.subject,
+    day: c.day,
+    reason: c.message || 'No available slot — left as free time',
+    becomes: 'free_period',
+  }));
+
+  return {
+    ...generation,
+    conflicts: blocking,
+    skipped_lessons: [...(generation.skipped_lessons || []), ...skippedLessons],
+    accept_partial: true,
+    partial_summary: {
+      unplaced_lessons: insufficient.length,
+      free_periods: insufficient.length,
+      blocking_conflicts: blocking.length,
+    },
+  };
+}
+
+function buildDosRecommendations(conflicts = [], classAssignmentsMap = new Map(), periodCoverage = null) {
+  const unfixable = conflicts.filter((c) => c.type === 'insufficient_slots');
+  if (!unfixable.length) return null;
+
+  const byTeacher = new Map();
+  const byClass = new Map();
+  const actionSet = new Set();
+  const conflictDetails = [];
+
+  for (const c of unfixable) {
+    const cls = c.class_name;
+    byClass.set(cls, (byClass.get(cls) || 0) + 1);
+    const d = c.diagnosis || {};
+    const tid = c.teacher_user_id || d.teacher_user_id;
+    if (tid) {
+      const existing = byTeacher.get(tid) || {
+        teacher_name: d.teacher_name || `Teacher #${tid}`,
+        count: 0,
+        utilization_pct: d.teacher_utilization_pct || 0,
+        subjects: new Set(),
+        classes: new Set(),
+      };
+      existing.count += 1;
+      if (c.subject) existing.subjects.add(c.subject);
+      if (cls) existing.classes.add(cls);
+      byTeacher.set(tid, existing);
+    }
+    (c.dos_actions || d.dos_actions || []).forEach((a) => actionSet.add(a));
+    conflictDetails.push({
+      class_name: cls,
+      subject: c.subject,
+      day: c.day,
+      reason: d.reason || 'no_slot',
+      summary: c.message || d.summary || 'Could not place lesson',
+      dos_actions: c.dos_actions || d.dos_actions || [],
+    });
+  }
+
+  const overloadedTeachers = [...byTeacher.values()]
+    .sort((a, b) => b.count - a.count)
+    .map((t) => ({
+      teacher_name: t.teacher_name,
+      failed_lessons: t.count,
+      subjects: [...t.subjects],
+      classes: [...t.classes],
+      utilization_pct: t.utilization_pct,
+    }));
+
+  const affectedClasses = [...byClass.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([class_name, count]) => ({ class_name, missing_lessons: count }));
+
+  const priorityActions = [];
+  if (periodCoverage && !periodCoverage.all_fully_matched) {
+    priorityActions.push(
+      `Period coverage is ${periodCoverage.coverage_pct}% — ${periodCoverage.total_missing} period(s) missing across selected classes`
+    );
+    (periodCoverage.auto_fix_suggestions || []).slice(0, 4).forEach((s) => priorityActions.push(s));
+    priorityActions.push('You can still apply a partial timetable — missing periods will appear as free time');
+  }
+  if (overloadedTeachers.length) {
+    const top = overloadedTeachers[0];
+    priorityActions.push(
+      `${top.teacher_name} teaches ${top.subjects.join(', ')} across ${top.classes.length} class(es) — assign a second teacher`
+    );
+  }
+  priorityActions.push('Go to Assignments tab → reassign subjects on overloaded classes to another teacher');
+  priorityActions.push('Or increase max periods/day for overloaded teachers in Teachers → Edit profile');
+  priorityActions.push('Or extend the school day in Time Settings to add more periods');
+
+  let rootCause = 'Not enough free time slots for all assigned lessons';
+  if (periodCoverage && !periodCoverage.all_fully_matched) {
+    rootCause = `Course periods/week are not fully matched (${periodCoverage.coverage_pct}% coverage) — teachers or time slots are insufficient`;
+  } else if (overloadedTeachers.some((t) => t.utilization_pct >= 90)) {
+    rootCause = 'One or more teachers are fully booked — the same teacher cannot be in two classes at once';
+  }
+
+  return {
+    root_cause: rootCause,
+    cannot_auto_fix: unfixable.length,
+    period_coverage_pct: periodCoverage?.coverage_pct ?? null,
+    all_periods_matched: periodCoverage?.all_fully_matched ?? null,
+    total_free_periods: periodCoverage?.total_free_periods ?? 0,
+    affected_classes: affectedClasses,
+    overloaded_teachers: overloadedTeachers,
+    period_gaps: (periodCoverage?.gaps || []).slice(0, 20),
+    what_dos_can_do: [...new Set([...priorityActions, ...actionSet])].slice(0, 10),
+    what_system_can_do: [
+      'Apply placed lessons now — unplaced periods stay as free time in the timetable',
+      'Auto-fix relocates lessons to other days/slots where teachers are available',
+      'Re-run generator after you assign more teachers to fill missing periods',
+    ],
+    conflict_details: conflictDetails.slice(0, 30),
+  };
+}
+
+function buildFixAdvice(generation, classAssignmentsMap, periodCoverage = null) {
+  const actions = generation?.fix_actions || [];
+  const remaining = generation?.conflicts?.length || 0;
+  const dosRecommendations = buildDosRecommendations(generation?.conflicts || [], classAssignmentsMap, periodCoverage);
+  const summary = {
+    total_adjustments: actions.length,
+    remaining_conflicts: remaining,
+    strategy: [
+      'Schedule all classes together (fair placement) so one class does not take all teacher slots',
+      'Search all time slots on the preferred day, then other days if the teacher or class is busy',
+      'Respect course scheduling rules (e.g. PE morning only, before 13:00)',
+      'Retry up to 8 generation passes and keep the best conflict-free result',
+    ],
+  };
+
+  const byType = {
+    moved_day: actions.filter((a) => a.action === 'moved_day').length,
+    placed_slot: actions.filter((a) => a.action === 'placed_slot').length,
+  };
+
+  const steps = [];
+  if (actions.length) {
+    steps.push(`Relocate ${byType.moved_day} lesson(s) to different days where the teacher is free`);
+    steps.push(`Assign lessons to open time slots that satisfy course scheduling rules`);
+  } else if (remaining === 0) {
+    steps.push('Resolved all warnings by finding open time slots without changing the planned day');
+  }
+  if (remaining > 0) {
+    steps.push(`${remaining} lesson(s) could not be placed automatically — see "What DOS can do" below`);
+    if (dosRecommendations?.root_cause) {
+      steps.push(`Root cause: ${dosRecommendations.root_cause}`);
+    }
+  } else {
+    steps.push('All generation warnings resolved — you can apply the timetable safely');
+  }
+
+  return {
+    summary,
+    steps,
+    actions: actions.slice(0, 50),
+    dos_recommendations: dosRecommendations,
+  };
+}
+
+// ── Smart Timetable Generator (single or multiple classes) ──
 router.post('/dos/timetable-system/generate', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
     await ensureSmartTimetableTables();
     await ensureAcademicTables();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
-    const { class_name, term, academic_year } = req.body || {};
-    if (!class_name) return res.status(400).json({ success: false, message: 'class_name is required' });
+
+    const body = req.body || {};
+    const classNames = Array.isArray(body.class_names) && body.class_names.length
+      ? body.class_names.map((c) => trimStr(c)).filter(Boolean)
+      : (trimStr(body.class_name) ? [trimStr(body.class_name)] : []);
+    if (!classNames.length) {
+      return res.status(400).json({ success: false, message: 'class_name or class_names[] is required' });
+    }
 
     const calendar = await getAcademicCalendarSettings(schoolId);
-    const useTerm = trimStr(term) || (Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1');
-    const useYear = trimStr(academic_year) || calendar.current_academic_year || '2025-2026';
+    const useTerm = trimStr(body.term) || (Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1');
+    const useYear = trimStr(body.academic_year) || calendar.current_academic_year || '2025-2026';
 
     const [[scheduleRow]] = await promisePool.query('SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1', [schoolId]);
     const schedule = scheduleRow || {
       day_start_time: '08:00', day_end_time: '17:00', period_duration_mins: 40,
-      active_days_json: JSON.stringify(['Monday','Tuesday','Wednesday','Thursday','Friday']),
+      active_days_json: JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
       breaks_json: JSON.stringify([]),
     };
-    const activeDays = typeof schedule.active_days_json === 'string' ? JSON.parse(schedule.active_days_json) : (schedule.active_days_json || ['Monday','Tuesday','Wednesday','Thursday','Friday']);
-    schedule.breaks = typeof schedule.breaks_json === 'string' ? JSON.parse(schedule.breaks_json) : (schedule.breaks_json || []);
+    const activeDays = typeof schedule.active_days_json === 'string'
+      ? JSON.parse(schedule.active_days_json)
+      : (schedule.active_days_json || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+    schedule.breaks = typeof schedule.breaks_json === 'string'
+      ? JSON.parse(schedule.breaks_json)
+      : (schedule.breaks_json || []);
     const slots = generateTimeSlots(schedule);
-    const teachingSlots = slots.filter(s => !s.is_break);
+    const teachingSlots = slots.filter((s) => !s.is_break);
 
-    const [assignments] = await promisePool.query(
-      'SELECT * FROM timetable_assignments WHERE school_id = ? AND class_name = ?', [schoolId, class_name]
+    const [existingTimetable] = await promisePool.query(
+      `SELECT staff_id, day_of_week, start_time, end_time, class_name, subject_name
+       FROM academic_timetables
+       WHERE school_id = ? AND TRIM(COALESCE(term, '')) = ? AND TRIM(COALESCE(academic_year, '')) = ?`,
+      [schoolId, useTerm, useYear]
     );
-    if (assignments.length === 0) return res.status(400).json({ success: false, message: 'No course assignments found for this class. Add assignments first.' });
-
-    const [allTimetable] = await promisePool.query(
-      `SELECT staff_id, day_of_week, start_time, end_time, class_name FROM academic_timetables
-       WHERE school_id = ? AND term = ? AND academic_year = ? AND class_name != ?`,
-      [schoolId, useTerm, useYear, class_name]
-    );
-
-    const teacherBusy = new Map();
-    for (const row of allTimetable) {
-      const key = `${row.staff_id}__${row.day_of_week}__${String(row.start_time).slice(0,5)}`;
-      teacherBusy.set(key, true);
-    }
+    const teacherBusy = buildTeacherBusyMap(existingTimetable);
 
     const [profileRows] = await promisePool.query('SELECT * FROM timetable_teacher_profiles WHERE school_id = ?', [schoolId]);
-    const profileMap = new Map(profileRows.map(p => [p.teacher_user_id, {
+    const profileMap = new Map(profileRows.map((p) => [p.teacher_user_id, {
       max_periods_per_day: p.max_periods_per_day || 6,
       available_days: typeof p.available_days_json === 'string' ? JSON.parse(p.available_days_json) : (p.available_days_json || []),
       preferred_slots: typeof p.preferred_slots_json === 'string' ? JSON.parse(p.preferred_slots_json) : (p.preferred_slots_json || []),
     }]));
 
     const [configRows] = await promisePool.query('SELECT * FROM timetable_course_config WHERE school_id = ?', [schoolId]);
-    const configMap = new Map(configRows.map(c => [c.subject_name, c]));
+    const configMap = new Map(configRows.map((c) => [c.subject_name, c]));
 
-    const generated = [];
-    const conflicts = [];
-    const classUsed = new Map();
-    const teacherDayCount = new Map();
-    const subjectDayCount = new Map();
+    const [teacherNameRows] = await promisePool.query(
+      `SELECT id, TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS full_name
+       FROM users u WHERE u.school_id = ? AND u.deleted_at IS NULL`,
+      [schoolId]
+    );
+    const teacherNameMap = new Map(
+      (teacherNameRows || []).map((r) => [r.id, r.full_name || `Teacher #${r.id}`])
+    );
 
-    const sortedAssignments = [...assignments].sort((a, b) => {
-      const cfgA = configMap.get(a.subject_name);
-      const cfgB = configMap.get(b.subject_name);
-      const prioOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      return (prioOrder[cfgA?.priority_level] ?? 2) - (prioOrder[cfgB?.priority_level] ?? 2);
-    });
-
-    const placementQueue = [];
-    for (const assignment of sortedAssignments) {
-      const ppw = assignment.periods_per_week || 3;
-      const profile = profileMap.get(assignment.teacher_user_id);
-      const availDays = (profile && profile.available_days.length > 0)
-        ? activeDays.filter(d => profile.available_days.includes(d))
-        : [...activeDays];
-      const spacing = Math.max(1, Math.floor(availDays.length / ppw));
-      const chosenDays = [];
-      for (let i = 0; i < ppw; i++) {
-        const idx = (i * spacing) % availDays.length;
-        let day = availDays[idx];
-        if (chosenDays.includes(day)) {
-          day = availDays.find(d => !chosenDays.includes(d));
-          if (!day) day = availDays[idx];
-        }
-        chosenDays.push(day);
-      }
-      for (const day of chosenDays) {
-        placementQueue.push({ ...assignment, target_day: day });
-      }
+    const classAssignmentsMap = new Map();
+    for (const className of classNames) {
+      const assignments = await fetchTeacherAssignmentsForClass(schoolId, className, useYear, useTerm);
+      classAssignmentsMap.set(className, enrichAssignmentsWithTeacherNames(assignments, teacherNameMap));
     }
 
-    placementQueue.sort((a, b) => {
-      const dayIdxA = activeDays.indexOf(a.target_day);
-      const dayIdxB = activeDays.indexOf(b.target_day);
-      if (dayIdxA !== dayIdxB) return dayIdxA - dayIdxB;
-      return Math.random() - 0.5;
+    const autoResolve = Boolean(body.auto_resolve);
+    const acceptPartial = Boolean(body.accept_partial);
+    const extraActivities = await loadExtraActivitiesForSchool(schoolId, useTerm, useYear);
+    let generation = runMultiClassGeneration({
+      classNames,
+      classAssignmentsMap,
+      useTerm,
+      useYear,
+      activeDays,
+      teachingSlots,
+      teacherBusySeed: teacherBusy,
+      profileMap,
+      configMap,
+      autoResolve,
+      teacherNameMap,
+      extraActivities,
     });
 
-    const daySlotPointers = new Map();
-    for (const day of activeDays) daySlotPointers.set(day, 0);
+    const periodCoverage = buildPeriodCoverage(generation, classAssignmentsMap, classNames);
+    generation = finalizePartialGeneration(generation, acceptPartial || autoResolve);
+    const dosRecommendations = buildDosRecommendations(generation.conflicts, classAssignmentsMap, periodCoverage);
+    const fixAdvice = (autoResolve || acceptPartial)
+      ? buildFixAdvice(generation, classAssignmentsMap, periodCoverage)
+      : null;
 
-    for (const item of placementQueue) {
-      const day = item.target_day;
-      const profile = profileMap.get(item.teacher_user_id);
-      const shuffledSlots = [...teachingSlots];
-      const pointer = daySlotPointers.get(day) || 0;
-      const reordered = [...shuffledSlots.slice(pointer), ...shuffledSlots.slice(0, pointer)];
+    const blockingCount = (generation.conflicts || []).length;
+    const freePeriods = periodCoverage.total_free_periods;
 
-      let placed = false;
-      for (const slot of reordered) {
-        const classKey = `${day}__${slot.start_time}`;
-        if (classUsed.has(classKey)) continue;
-
-        const teacherKey = `${item.teacher_user_id}__${day}__${slot.start_time}`;
-        if (teacherBusy.has(teacherKey)) {
-          conflicts.push({ type: 'teacher_conflict', teacher_user_id: item.teacher_user_id, day, time: slot.start_time, subject: item.subject_name });
-          continue;
-        }
-
-        const tdKey = `${item.teacher_user_id}__${day}`;
-        const dayCount = teacherDayCount.get(tdKey) || 0;
-        const maxPd = profile?.max_periods_per_day || 6;
-        if (dayCount >= maxPd) {
-          conflicts.push({ type: 'overload', teacher_user_id: item.teacher_user_id, day, subject: item.subject_name });
-          continue;
-        }
-
-        generated.push({
-          class_name, subject_name: item.subject_name, staff_id: item.teacher_user_id,
-          day_of_week: day, start_time: slot.start_time, end_time: slot.end_time,
-          room: item.room || null, term: useTerm, academic_year: useYear,
-        });
-        classUsed.set(classKey, true);
-        teacherBusy.set(teacherKey, true);
-        teacherDayCount.set(tdKey, dayCount + 1);
-        const sdKey = `${item.subject_name}__${day}`;
-        subjectDayCount.set(sdKey, (subjectDayCount.get(sdKey) || 0) + 1);
-        const slotIdx = teachingSlots.findIndex(s => s.start_time === slot.start_time);
-        daySlotPointers.set(day, (slotIdx + 1) % teachingSlots.length);
-        placed = true;
-        break;
-      }
-      if (!placed) {
-        conflicts.push({ type: 'insufficient_slots', subject: item.subject_name, day, message: `No free slot on ${day}` });
-      }
-    }
-
-    return res.json({ success: true, data: { generated, conflicts, stats: { total: generated.length, conflicts: conflicts.length } } });
+    return res.json({
+      success: true,
+      message: autoResolve || acceptPartial
+        ? (periodCoverage.all_fully_matched && blockingCount === 0
+          ? `All ${periodCoverage.total_placed} periods placed — ready to apply`
+          : periodCoverage.all_fully_matched
+            ? `${blockingCount} blocking conflict(s) remain`
+            : `${freePeriods} period(s) will be free time — ${periodCoverage.coverage_pct}% coverage`)
+        : undefined,
+      data: {
+        generated: generation.generated,
+        by_class: generation.by_class,
+        conflicts: generation.conflicts,
+        skipped_lessons: generation.skipped_lessons || [],
+        fix_actions: generation.fix_actions || [],
+        fix_advice: fixAdvice,
+        dos_recommendations: dosRecommendations,
+        period_coverage: periodCoverage,
+        accept_partial: generation.accept_partial || false,
+        partial_summary: generation.partial_summary || null,
+        auto_resolved: autoResolve,
+        skipped: generation.skipped,
+        term: useTerm,
+        academic_year: useYear,
+        class_names: classNames,
+        stats: {
+          ...generation.stats,
+          period_coverage_pct: periodCoverage.coverage_pct,
+          total_free_periods: periodCoverage.total_free_periods,
+          all_fully_matched: periodCoverage.all_fully_matched,
+        },
+      },
+    });
   } catch (err) {
     console.error('POST /dos/timetable-system/generate:', err);
     return res.status(500).json({ success: false, message: 'Failed to generate timetable' });
@@ -4584,78 +7280,756 @@ router.post('/dos/timetable-system/apply', requireRole(DOS_ACADEMIC_ADMIN), asyn
     await ensureAcademicTables();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
-    const { entries, class_name, term, academic_year, clear_existing } = req.body || {};
+    const { entries, class_name, class_names, term, academic_year, clear_existing, skip_conflict_check } = req.body || {};
     if (!Array.isArray(entries) || entries.length === 0) return res.status(400).json({ success: false, message: 'No entries to apply' });
 
-    if (clear_existing && class_name) {
-      const delWhere = ['school_id = ?', 'class_name = ?'];
-      const delParams = [schoolId, class_name];
-      if (term) { delWhere.push('term = ?'); delParams.push(term); }
-      if (academic_year) { delWhere.push('academic_year = ?'); delParams.push(academic_year); }
-      await promisePool.query(`DELETE FROM academic_timetables WHERE ${delWhere.join(' AND ')}`, delParams);
+    const useTerm = trimStr(term) || trimStr(entries[0]?.term) || '';
+    const useYear = trimStr(academic_year) || trimStr(entries[0]?.academic_year) || '';
+    const classesToClear = Array.isArray(class_names) && class_names.length
+      ? class_names.map((c) => trimStr(c)).filter(Boolean)
+      : (trimStr(class_name) ? [trimStr(class_name)] : Array.from(new Set(entries.map((e) => trimStr(e.class_name)).filter(Boolean))));
+
+    if (!skip_conflict_check) {
+      const applyConflicts = [];
+      for (const e of entries) {
+        const conflicts = await findTeacherPeriodConflicts(schoolId, {
+          staffId: e.staff_id,
+          dayOfWeek: e.day_of_week,
+          startTime: e.start_time,
+          endTime: e.end_time,
+          term: e.term || useTerm,
+          academicYear: e.academic_year || useYear,
+        });
+        const crossClass = conflicts.filter((c) => String(c.class_name) !== String(e.class_name));
+        if (crossClass.length > 0) {
+          const c = crossClass[0];
+          applyConflicts.push({
+            type: 'teacher_clash',
+            class_name: e.class_name,
+            subject_name: e.subject_name,
+            teacher_name: c.teacher_name,
+            conflicts_with_class: c.class_name,
+            conflicts_with_subject: c.subject_name,
+            day: e.day_of_week,
+            time: `${String(e.start_time).slice(0, 5)}–${String(e.end_time).slice(0, 5)}`,
+            term: e.term || useTerm,
+            academic_year: e.academic_year || useYear,
+          });
+        }
+      }
+      if (applyConflicts.length > 0) {
+        return res.status(409).json({
+          success: false,
+          code: 'TEACHER_PERIOD_CONFLICT',
+          message: `${applyConflicts.length} teacher time conflict(s) detected. Resolve conflicts before applying.`,
+          conflicts: applyConflicts,
+        });
+      }
+    }
+
+    if (clear_existing && classesToClear.length) {
+      for (const cls of classesToClear) {
+        await promisePool.query(
+          'DELETE FROM academic_timetables WHERE school_id = ? AND class_name = ? AND extra_activity_id IS NULL',
+          [schoolId, cls]
+        );
+      }
+    }
+
+    const seenApplySlots = new Set();
+    const sanitizedEntries = [];
+    for (const e of entries) {
+      const slotKey = `${trimStr(e.class_name)}__${trimStr(e.day_of_week)}__${String(e.start_time).slice(0, 5)}`;
+      if (seenApplySlots.has(slotKey)) continue;
+      seenApplySlots.add(slotKey);
+      sanitizedEntries.push(e);
     }
 
     let inserted = 0;
-    for (const e of entries) {
+    for (const e of sanitizedEntries) {
       try {
         await promisePool.query(
           `INSERT INTO academic_timetables (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year)
            VALUES (?,?,?,?,?,?,?,?,?,?)`,
-          [schoolId, e.class_name, e.subject_name, e.staff_id, e.day_of_week, e.start_time, e.end_time, e.room || null, e.term, e.academic_year]
+          [schoolId, e.class_name, e.subject_name, e.staff_id, e.day_of_week, e.start_time, e.end_time, e.room || null, e.term || useTerm, e.academic_year || useYear]
         );
         inserted++;
       } catch (dupErr) {
         if (dupErr.code !== 'ER_DUP_ENTRY') throw dupErr;
       }
     }
-    return res.json({ success: true, message: `Applied ${inserted} timetable entries`, data: { inserted } });
+    await resyncExtraActivitiesForClasses(schoolId, classesToClear, useTerm, useYear);
+
+    const allowPartial = Boolean(req.body?.allow_partial);
+    const freePeriods = Number(req.body?.expected_free_periods) || 0;
+
+    return res.json({
+      success: true,
+      message: allowPartial && freePeriods > 0
+        ? `Applied ${inserted} lessons — ${freePeriods} period(s) left as free time in the timetable`
+        : `Applied ${inserted} timetable entries across ${classesToClear.length} class(es)`,
+      data: { inserted, classes: classesToClear, term: useTerm, academic_year: useYear },
+    });
   } catch (err) {
     console.error('POST /dos/timetable-system/apply:', err);
     return res.status(500).json({ success: false, message: 'Failed to apply timetable' });
   }
 });
 
-// ── Conflict Checker ──
-router.post('/dos/timetable-system/check-conflicts', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+async function clearClassTimetables(schoolId, classNames, term, academicYear) {
+  let deleted = 0;
+  const names = (classNames || []).map((c) => trimStr(c)).filter(Boolean);
+  if (!names.length) return 0;
+  for (const cls of names) {
+    const delWhere = ['school_id = ?', 'class_name = ?'];
+    const delParams = [schoolId, cls];
+    if (term) { delWhere.push('TRIM(COALESCE(term, \'\')) = ?'); delParams.push(trimStr(term)); }
+    if (academicYear) { delWhere.push('TRIM(COALESCE(academic_year, \'\')) = ?'); delParams.push(trimStr(academicYear)); }
+    delWhere.push('extra_activity_id IS NULL');
+    const [res] = await promisePool.query(`DELETE FROM academic_timetables WHERE ${delWhere.join(' AND ')}`, delParams);
+    deleted += res.affectedRows || 0;
+  }
+  return deleted;
+}
+
+router.post('/dos/timetable-system/seed-demo', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const clear = req.body?.clear !== false;
+    const result = await runTimetableDemoSeed(schoolId, { clear });
+
+    return res.json({
+      success: true,
+      message: `Imported ${result.teacher_count} teachers, ${result.subject_count} courses, and ${result.assignment_count} class assignments for ${result.classes.join(', ')}.`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/seed-demo:', err);
+    return res.status(500).json({
+      success: false,
+      message: err?.message || 'Failed to import timetable demo seed',
+    });
+  }
+});
+
+router.post('/dos/timetable-system/seed-wisdom-p5', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const { runWisdomP5TimetableSeed } = require('../utils/wisdomP5TimetableSeed');
+    const fullClear = req.body?.full_clear !== false;
+    const result = await runWisdomP5TimetableSeed(schoolId, {
+      fullClear,
+      syncTeacherAssignments: req.body?.sync_teacher_assignments !== false,
+    });
+
+    return res.json({
+      success: true,
+      message: `Imported ${result.teacher_count} teachers, ${result.courses.length} courses, and ${result.timetable_assignments} assignments for ${result.classes.join(', ')}. Timetables cleared.`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/seed-wisdom-p5:', err);
+    return res.status(500).json({
+      success: false,
+      message: err?.message || 'Failed to import P5 wisdom timetable seed',
+    });
+  }
+});
+
+router.post('/dos/timetable-system/clear-timetables', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
   try {
     await ensureAcademicTables();
     const schoolId = resolveSchoolId(req);
     if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
-    const { term, academic_year } = req.body || {};
-    const where = ['tt.school_id = ?'];
-    const params = [schoolId];
-    if (term) { where.push('tt.term = ?'); params.push(term); }
-    if (academic_year) { where.push('tt.academic_year = ?'); params.push(academic_year); }
+    const { class_names, class_name, term, academic_year } = req.body || {};
+    const calendar = await getAcademicCalendarSettings(schoolId);
+    const useTerm = trimStr(term) || (Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1');
+    const useYear = trimStr(academic_year) || calendar.current_academic_year || '2025-2026';
+    const classNames = Array.isArray(class_names) && class_names.length
+      ? class_names.map((c) => trimStr(c)).filter(Boolean)
+      : (trimStr(class_name) ? [trimStr(class_name)] : []);
+    if (!classNames.length) {
+      return res.status(400).json({ success: false, message: 'class_names[] or class_name is required' });
+    }
+    const deleted = await clearClassTimetables(schoolId, classNames, useTerm, useYear);
+    return res.json({
+      success: true,
+      message: `Cleared ${deleted} timetable entry(ies) for ${classNames.length} class(es). Assignments and teachers unchanged.`,
+      data: { deleted, class_names: classNames, term: useTerm, academic_year: useYear },
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/clear-timetables:', err);
+    return res.status(500).json({ success: false, message: 'Failed to clear timetables' });
+  }
+});
 
-    const [rows] = await promisePool.query(
-      `SELECT tt.staff_id, tt.day_of_week, tt.start_time, tt.end_time, tt.class_name, tt.subject_name,
-              TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name
-       FROM academic_timetables tt
-       INNER JOIN users u ON u.id = tt.staff_id
-       WHERE ${where.join(' AND ')}
-       ORDER BY tt.staff_id, tt.day_of_week, tt.start_time`, params
+router.post('/dos/timetable-system/regenerate', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSmartTimetableTables();
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const body = req.body || {};
+    const classNames = Array.isArray(body.class_names) && body.class_names.length
+      ? body.class_names.map((c) => trimStr(c)).filter(Boolean)
+      : (trimStr(body.class_name) ? [trimStr(body.class_name)] : []);
+    if (!classNames.length) {
+      return res.status(400).json({ success: false, message: 'class_names[] is required' });
+    }
+
+    const calendar = await getAcademicCalendarSettings(schoolId);
+    const useTerm = trimStr(body.term) || (Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1');
+    const useYear = trimStr(body.academic_year) || calendar.current_academic_year || '2025-2026';
+    const autoApply = body.auto_apply !== false;
+
+    const cleared = await clearClassTimetables(schoolId, classNames, useTerm, useYear);
+
+    const [[scheduleRow]] = await promisePool.query('SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1', [schoolId]);
+    const schedule = scheduleRow || {
+      day_start_time: '07:20', day_end_time: '16:20', period_duration_mins: 40,
+      active_days_json: JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
+      breaks_json: JSON.stringify([]),
+    };
+    const activeDays = typeof schedule.active_days_json === 'string'
+      ? JSON.parse(schedule.active_days_json)
+      : (schedule.active_days_json || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+    schedule.breaks = typeof schedule.breaks_json === 'string'
+      ? JSON.parse(schedule.breaks_json)
+      : (schedule.breaks_json || []);
+    const teachingSlots = generateTimeSlots(schedule).filter((s) => !s.is_break);
+
+    const [profileRows] = await promisePool.query('SELECT * FROM timetable_teacher_profiles WHERE school_id = ?', [schoolId]);
+    const profileMap = new Map(profileRows.map((p) => [p.teacher_user_id, {
+      max_periods_per_day: p.max_periods_per_day || 6,
+      available_days: typeof p.available_days_json === 'string' ? JSON.parse(p.available_days_json) : (p.available_days_json || []),
+      preferred_slots: typeof p.preferred_slots_json === 'string' ? JSON.parse(p.preferred_slots_json) : (p.preferred_slots_json || []),
+    }]));
+    const [configRows] = await promisePool.query('SELECT * FROM timetable_course_config WHERE school_id = ?', [schoolId]);
+    const configMap = new Map(configRows.map((c) => [c.subject_name, c]));
+    const [teacherNameRows] = await promisePool.query(
+      `SELECT id, TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS full_name FROM users u WHERE u.school_id = ? AND u.deleted_at IS NULL`,
+      [schoolId]
     );
+    const teacherNameMap = new Map((teacherNameRows || []).map((r) => [r.id, r.full_name || `Teacher #${r.id}`]));
+    const classAssignmentsMap = new Map();
+    for (const className of classNames) {
+      const assignments = await fetchTeacherAssignmentsForClass(schoolId, className, useYear, useTerm);
+      classAssignmentsMap.set(className, enrichAssignmentsWithTeacherNames(assignments, teacherNameMap));
+    }
 
-    const conflicts = [];
-    for (let i = 0; i < rows.length; i++) {
-      for (let j = i + 1; j < rows.length; j++) {
-        const a = rows[i], b = rows[j];
-        if (a.staff_id === b.staff_id && a.day_of_week === b.day_of_week) {
-          const aStart = timeToMins(a.start_time), aEnd = timeToMins(a.end_time);
-          const bStart = timeToMins(b.start_time), bEnd = timeToMins(b.end_time);
-          if (aStart < bEnd && bStart < aEnd) {
+    const extraActivities = await loadExtraActivitiesForSchool(schoolId, useTerm, useYear);
+    const generation = runMultiClassGeneration({
+      classNames,
+      classAssignmentsMap,
+      useTerm,
+      useYear,
+      activeDays,
+      teachingSlots,
+      teacherBusySeed: new Map(),
+      profileMap,
+      configMap,
+      autoResolve: true,
+      teacherNameMap,
+      extraActivities,
+    });
+    const periodCoverage = buildPeriodCoverage(generation, classAssignmentsMap, classNames);
+
+    let applied = 0;
+    if (autoApply && generation.generated?.length) {
+      for (const cls of classNames) {
+        const delWhere = ['school_id = ?', 'class_name = ?'];
+        const delParams = [schoolId, cls];
+        if (useTerm) { delWhere.push('TRIM(COALESCE(term, \'\')) = ?'); delParams.push(useTerm); }
+        if (useYear) { delWhere.push('TRIM(COALESCE(academic_year, \'\')) = ?'); delParams.push(useYear); }
+        await promisePool.query(`DELETE FROM academic_timetables WHERE ${delWhere.join(' AND ')}`, delParams);
+      }
+      for (const e of generation.generated) {
+        await promisePool.query(
+          `INSERT INTO academic_timetables (school_id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, room, term, academic_year)
+           VALUES (?,?,?,?,?,?,?,?,?,?)`,
+          [schoolId, e.class_name, e.subject_name, e.staff_id, e.day_of_week, e.start_time, e.end_time, e.room || null, useTerm, useYear]
+        );
+        applied++;
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: autoApply
+        ? `Regenerated and applied ${applied} periods for ${classNames.length} class(es) — ${periodCoverage.coverage_pct}% coverage`
+        : `Regenerated preview for ${classNames.length} class(es) — ${periodCoverage.coverage_pct}% coverage`,
+      data: {
+        cleared,
+        applied,
+        generated: generation.generated,
+        by_class: generation.by_class,
+        conflicts: generation.conflicts,
+        period_coverage: periodCoverage,
+        term: useTerm,
+        academic_year: useYear,
+        class_names: classNames,
+        stats: generation.stats,
+      },
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/regenerate:', err);
+    return res.status(500).json({ success: false, message: 'Failed to regenerate timetable' });
+  }
+});
+
+async function scanTimetableConflicts(schoolId, { term, academicYear, className } = {}) {
+  const where = ['tt.school_id = ?'];
+  const params = [schoolId];
+  if (term) { where.push('TRIM(COALESCE(tt.term, \'\')) = ?'); params.push(trimStr(term)); }
+  if (academicYear) { where.push('TRIM(COALESCE(tt.academic_year, \'\')) = ?'); params.push(trimStr(academicYear)); }
+  if (className) { where.push(`(${sqlNormLabelEquals('tt.class_name')})`); params.push(trimStr(className)); }
+
+  const [rows] = await promisePool.query(
+    `SELECT tt.id, tt.staff_id, tt.day_of_week, tt.start_time, tt.end_time, tt.class_name, tt.subject_name,
+            tt.term, tt.academic_year,
+            TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name
+     FROM academic_timetables tt
+     INNER JOIN users u ON u.id = tt.staff_id
+     WHERE ${where.join(' AND ')}
+     ORDER BY tt.staff_id, tt.day_of_week, tt.start_time`,
+    params
+  );
+
+  const [configRows] = await promisePool.query(
+    'SELECT subject_name, scheduling_rules_json FROM timetable_course_config WHERE school_id = ?',
+    [schoolId]
+  );
+  const subjectRulesMap = new Map((configRows || []).map((c) => [c.subject_name, getSchedulingRulesFromConfig(c)]));
+
+  const conflicts = [];
+  const seen = new Set();
+
+  for (const r of rows) {
+    const rules = subjectRulesMap.get(r.subject_name) || { time_preference: 'any' };
+    if (rules.time_preference !== 'any' && !slotMatchesSchedulingRules(r, rules)) {
+      conflicts.push({
+        id: `rv-${r.id}`,
+        severity: 'critical',
+        type: 'rule_violation',
+        title: 'Rule Violation',
+        message: `${r.class_name} ${r.subject_name} at ${String(r.start_time).slice(0, 5)} violates: ${schedulingRuleLabel(rules)}`,
+        entry_id: r.id,
+        class_name: r.class_name,
+        subject_name: r.subject_name,
+        teacher_name: r.teacher_name,
+        teacher_id: r.staff_id,
+        day: r.day_of_week,
+        time: `${String(r.start_time).slice(0, 5)}–${String(r.end_time).slice(0, 5)}`,
+        rule: schedulingRuleLabel(rules),
+        scheduling_rules: rules,
+        term: r.term,
+        academic_year: r.academic_year,
+        auto_fixable: true,
+      });
+    }
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    for (let j = i + 1; j < rows.length; j++) {
+      const a = rows[i];
+      const b = rows[j];
+
+      if (a.day_of_week === b.day_of_week && timesOverlap(a.start_time, a.end_time, b.start_time, b.end_time)) {
+        if (a.staff_id === b.staff_id && a.class_name !== b.class_name) {
+          const key = `tc-${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
+          if (!seen.has(key)) {
+            seen.add(key);
             conflicts.push({
-              type: 'teacher_double_booked',
-              teacher_name: a.teacher_name, teacher_id: a.staff_id,
-              day: a.day_of_week, time: `${String(a.start_time).slice(0,5)}-${String(a.end_time).slice(0,5)}`,
-              class_a: a.class_name, subject_a: a.subject_name,
-              class_b: b.class_name, subject_b: b.subject_name,
+              id: key,
+              severity: 'critical',
+              type: 'teacher_clash',
+              title: 'Teacher Clash',
+              message: `${a.teacher_name} assigned to ${a.class_name} and ${b.class_name} at ${String(a.start_time).slice(0, 5)} on ${a.day_of_week}`,
+              teacher_name: a.teacher_name,
+              teacher_id: a.staff_id,
+              entry_id_a: a.id,
+              entry_id_b: b.id,
+              move_entry_id: b.id,
+              day: a.day_of_week,
+              time: `${String(a.start_time).slice(0, 5)}–${String(a.end_time).slice(0, 5)}`,
+              class_a: a.class_name,
+              subject_a: a.subject_name,
+              class_b: b.class_name,
+              subject_b: b.subject_name,
+              term: a.term,
+              academic_year: a.academic_year,
+              auto_fixable: true,
+            });
+          }
+        }
+        if (a.class_name === b.class_name) {
+          const key = `cc-${Math.min(a.id, b.id)}-${Math.max(a.id, b.id)}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            conflicts.push({
+              id: key,
+              severity: 'critical',
+              type: 'class_clash',
+              title: 'Class Double Booked',
+              message: `${a.class_name} has ${a.subject_name} and ${b.subject_name} at the same time on ${a.day_of_week}`,
+              class_name: a.class_name,
+              entry_id_a: a.id,
+              entry_id_b: b.id,
+              move_entry_id: b.id,
+              day: a.day_of_week,
+              time: `${String(a.start_time).slice(0, 5)}–${String(a.end_time).slice(0, 5)}`,
+              subject_a: a.subject_name,
+              subject_b: b.subject_name,
+              term: a.term,
+              academic_year: a.academic_year,
+              auto_fixable: true,
             });
           }
         }
       }
     }
-    return res.json({ success: true, data: conflicts });
+  }
+
+  const assignWhere = ['ta.school_id = ?'];
+  const assignParams = [schoolId];
+  if (className) { assignWhere.push(`(${sqlNormLabelEquals('ta.class_name')})`); assignParams.push(trimStr(className)); }
+  const [assignments] = await promisePool.query(
+    `SELECT ta.class_name, ta.subject_name, ta.teacher_user_id, ta.periods_per_week,
+            TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name
+     FROM timetable_assignments ta
+     LEFT JOIN users u ON u.id = ta.teacher_user_id
+     WHERE ${assignWhere.join(' AND ')}`,
+    assignParams
+  );
+
+  const scheduledCounts = new Map();
+  for (const r of rows) {
+    const k = assignmentPlacementKey(r.class_name, r.subject_name, r.staff_id);
+    scheduledCounts.set(k, (scheduledCounts.get(k) || 0) + rowSlotWeight(r));
+  }
+
+  for (const a of assignments) {
+    const k = assignmentPlacementKey(a.class_name, a.subject_name, a.teacher_user_id);
+    const expected = Number(a.periods_per_week) || 0;
+    const actual = scheduledCounts.get(k) || 0;
+    if (expected > 0 && actual < expected) {
+      conflicts.push({
+        id: `sm-${k}`,
+        severity: 'warning',
+        type: 'subject_missing',
+        title: 'Subject Missing',
+        message: `${a.class_name} missing ${expected - actual} ${a.subject_name} period(s) (${actual}/${expected} scheduled)`,
+        class_name: a.class_name,
+        subject_name: a.subject_name,
+        teacher_name: a.teacher_name,
+        expected,
+        actual,
+        missing: expected - actual,
+        term: trimStr(term) || null,
+        academic_year: trimStr(academicYear) || null,
+        auto_fixable: false,
+      });
+    }
+    if (expected > 0 && actual > expected) {
+      conflicts.push({
+        id: `so-${k}`,
+        severity: 'warning',
+        type: 'subject_over_scheduled',
+        title: 'Too Many Periods',
+        message: `${a.class_name} has ${actual - expected} extra ${a.subject_name} period(s) (${actual}/${expected} scheduled)`,
+        class_name: a.class_name,
+        subject_name: a.subject_name,
+        teacher_name: a.teacher_name,
+        expected,
+        actual,
+        excess: actual - expected,
+        term: trimStr(term) || null,
+        academic_year: trimStr(academicYear) || null,
+        auto_fixable: false,
+      });
+    }
+  }
+
+  const critical = conflicts.filter((c) => c.severity === 'critical').length;
+  const fixable = conflicts.filter((c) => c.auto_fixable).length;
+  const warnings = conflicts.filter((c) => c.severity === 'warning').length;
+  return {
+    conflicts,
+    summary: {
+      total: conflicts.length,
+      critical,
+      warnings,
+      fixable,
+      ok: conflicts.length === 0,
+    },
+  };
+}
+
+async function loadTeachingSlotsForSchool(schoolId) {
+  const [[scheduleRow]] = await promisePool.query(
+    'SELECT * FROM timetable_school_schedule WHERE school_id = ? LIMIT 1',
+    [schoolId]
+  );
+  const schedule = scheduleRow || {
+    day_start_time: '08:00',
+    day_end_time: '17:00',
+    period_duration_mins: 40,
+    active_days_json: JSON.stringify(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
+    breaks_json: JSON.stringify([]),
+  };
+  schedule.breaks = typeof schedule.breaks_json === 'string'
+    ? JSON.parse(schedule.breaks_json)
+    : (schedule.breaks_json || []);
+  const activeDays = typeof schedule.active_days_json === 'string'
+    ? JSON.parse(schedule.active_days_json)
+    : (schedule.active_days_json || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+  const slots = generateTimeSlots(schedule);
+  return {
+    activeDays,
+    teachingSlots: slots.filter((s) => !s.is_break),
+  };
+}
+
+async function findRelocatedSlotForEntry(schoolId, entry, teachingSlots, activeDays, excludeEntryId) {
+  const term = trimStr(entry.term) || '';
+  const year = trimStr(entry.academic_year) || '';
+  const [allRows] = await promisePool.query(
+    `SELECT id, staff_id, class_name, day_of_week, start_time, end_time, subject_name
+     FROM academic_timetables
+     WHERE school_id = ? AND TRIM(COALESCE(term, '')) = ? AND TRIM(COALESCE(academic_year, '')) = ?`,
+    [schoolId, term, year]
+  );
+
+  const [[rulesRow]] = await promisePool.query(
+    'SELECT scheduling_rules_json FROM timetable_course_config WHERE school_id = ? AND subject_name = ? LIMIT 1',
+    [schoolId, entry.subject_name]
+  );
+  const rules = getSchedulingRulesFromConfig(rulesRow);
+
+  const daysToTry = [entry.day_of_week, ...activeDays.filter((d) => d !== entry.day_of_week)];
+  const orderedSlots = orderSlotsBySchedulingRules(
+    teachingSlots.filter((s) => slotMatchesSchedulingRules(s, rules)),
+    rules
+  );
+  const slotsToTry = orderedSlots.length ? orderedSlots : teachingSlots;
+
+  for (const day of daysToTry) {
+    for (const slot of slotsToTry) {
+      if (!slotMatchesSchedulingRules(slot, rules)) continue;
+
+      const classClash = (allRows || []).some(
+        (r) => r.id !== excludeEntryId
+          && r.class_name === entry.class_name
+          && r.day_of_week === day
+          && timesOverlap(slot.start_time, slot.end_time, r.start_time, r.end_time)
+      );
+      if (classClash) continue;
+
+      const teacherClash = (allRows || []).some(
+        (r) => r.id !== excludeEntryId
+          && r.staff_id === entry.staff_id
+          && r.day_of_week === day
+          && timesOverlap(slot.start_time, slot.end_time, r.start_time, r.end_time)
+      );
+      if (teacherClash) continue;
+
+      return { day_of_week: day, start_time: slot.start_time, end_time: slot.end_time };
+    }
+  }
+  return null;
+}
+
+async function autoFixTimetableConflicts(schoolId, { term, academicYear, conflictIds } = {}) {
+  const { activeDays, teachingSlots } = await loadTeachingSlotsForSchool(schoolId);
+  const scan = await scanTimetableConflicts(schoolId, { term, academicYear });
+  let toFix = (scan.conflicts || []).filter((c) => c.auto_fixable);
+  if (Array.isArray(conflictIds) && conflictIds.length) {
+    const idSet = new Set(conflictIds);
+    toFix = toFix.filter((c) => idSet.has(c.id));
+  }
+
+  const fixed = [];
+  const failed = [];
+  const fixedEntryIds = new Set();
+
+  for (const conflict of toFix) {
+    const entryId = conflict.move_entry_id || conflict.entry_id;
+    if (!entryId || fixedEntryIds.has(entryId)) continue;
+
+    const [[entry]] = await promisePool.query(
+      `SELECT id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, term, academic_year
+       FROM academic_timetables WHERE id = ? AND school_id = ? LIMIT 1`,
+      [entryId, schoolId]
+    );
+    if (!entry) {
+      failed.push({ conflict_id: conflict.id, reason: 'Entry not found' });
+      continue;
+    }
+
+    const newSlot = await findRelocatedSlotForEntry(schoolId, entry, teachingSlots, activeDays, entryId);
+    if (!newSlot) {
+      failed.push({ conflict_id: conflict.id, reason: 'No free compliant slot found' });
+      continue;
+    }
+
+    await promisePool.query(
+      `UPDATE academic_timetables SET day_of_week = ?, start_time = ?, end_time = ? WHERE id = ? AND school_id = ?`,
+      [newSlot.day_of_week, newSlot.start_time, newSlot.end_time, entryId, schoolId]
+    );
+    fixedEntryIds.add(entryId);
+    fixed.push({
+      conflict_id: conflict.id,
+      type: conflict.type,
+      entry_id: entryId,
+      from: { day: entry.day_of_week, time: `${String(entry.start_time).slice(0, 5)}–${String(entry.end_time).slice(0, 5)}` },
+      to: { day: newSlot.day_of_week, time: `${String(newSlot.start_time).slice(0, 5)}–${String(newSlot.end_time).slice(0, 5)}` },
+      class_name: entry.class_name,
+      subject_name: entry.subject_name,
+    });
+  }
+
+  const afterScan = await scanTimetableConflicts(schoolId, { term, academicYear });
+  return { fixed, failed, remaining: afterScan.conflicts, summary: afterScan.summary };
+}
+
+// ── Class weekly period coverage (applied timetables vs assignments) ──
+router.get('/dos/timetable-system/class-coverage', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const term = trimStr(req.query?.term) || '';
+    const academicYear = trimStr(req.query?.academic_year) || '';
+
+    const ttWhere = ['school_id = ?'];
+    const ttParams = [schoolId];
+    if (term) { ttWhere.push('TRIM(COALESCE(term, \'\')) = ?'); ttParams.push(term); }
+    if (academicYear) { ttWhere.push('TRIM(COALESCE(academic_year, \'\')) = ?'); ttParams.push(academicYear); }
+
+    const [rows] = await promisePool.query(
+      `SELECT id, class_name, subject_name, staff_id, day_of_week, start_time, end_time, term, academic_year
+       FROM academic_timetables WHERE ${ttWhere.join(' AND ')}`,
+      ttParams
+    );
+
+    const [assignments] = await promisePool.query(
+      'SELECT * FROM timetable_assignments WHERE school_id = ? ORDER BY class_name, subject_name',
+      [schoolId]
+    );
+
+    const classNames = [...new Set((assignments || []).map((a) => trimStr(a.class_name)).filter(Boolean))];
+    const classAssignmentsMap = new Map();
+    for (const a of assignments || []) {
+      const cn = trimStr(a.class_name);
+      if (!classAssignmentsMap.has(cn)) classAssignmentsMap.set(cn, []);
+      classAssignmentsMap.get(cn).push(a);
+    }
+
+    const coverage = buildPeriodCoverage({ generated: rows || [] }, classAssignmentsMap, classNames);
+
+    const slotSeen = new Map();
+    const duplicateSlots = [];
+    for (const r of rows || []) {
+      const key = `${r.class_name}__${r.day_of_week}__${String(r.start_time).slice(0, 5)}`;
+      if (slotSeen.has(key)) {
+        duplicateSlots.push({
+          class_name: r.class_name,
+          day_of_week: r.day_of_week,
+          start_time: r.start_time,
+          subjects: [slotSeen.get(key).subject_name, r.subject_name],
+        });
+      } else {
+        slotSeen.set(key, r);
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        ...coverage,
+        duplicate_slots: duplicateSlots,
+        classes_without_assignments: classNames.filter((cn) => !(classAssignmentsMap.get(cn) || []).length),
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/timetable-system/class-coverage:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load class coverage' });
+  }
+});
+
+// ── Conflict Center ──
+router.get('/dos/timetable-system/conflict-center', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const term = trimStr(req.query?.term);
+    const academicYear = trimStr(req.query?.academic_year);
+    const className = trimStr(req.query?.class_name);
+    const calendar = await getAcademicCalendarSettings(schoolId);
+    const useTerm = term || (Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1');
+    const useYear = academicYear || calendar.current_academic_year || '2025-2026';
+    const result = await scanTimetableConflicts(schoolId, { term: useTerm, academicYear: useYear, className });
+    return res.json({
+      success: true,
+      data: result.conflicts,
+      summary: result.summary,
+      filters: { term: useTerm, academic_year: useYear, class_name: className || null },
+    });
+  } catch (err) {
+    console.error('GET /dos/timetable-system/conflict-center:', err);
+    return res.status(500).json({ success: false, message: 'Failed to scan conflicts' });
+  }
+});
+
+// ── Auto Fix Conflicts ──
+router.post('/dos/timetable-system/auto-fix', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const { term, academic_year, conflict_ids } = req.body || {};
+    const calendar = await getAcademicCalendarSettings(schoolId);
+    const useTerm = trimStr(term) || (Array.isArray(calendar.active_terms) && calendar.active_terms.length ? calendar.active_terms[0] : 'Term 1');
+    const useYear = trimStr(academic_year) || calendar.current_academic_year || '2025-2026';
+    const result = await autoFixTimetableConflicts(schoolId, {
+      term: useTerm,
+      academicYear: useYear,
+      conflictIds: conflict_ids,
+    });
+    return res.json({
+      success: true,
+      message: `Auto-fixed ${result.fixed.length} issue(s)${result.failed.length ? `, ${result.failed.length} could not be fixed` : ''}`,
+      data: result,
+    });
+  } catch (err) {
+    console.error('POST /dos/timetable-system/auto-fix:', err);
+    return res.status(500).json({ success: false, message: 'Failed to auto-fix conflicts' });
+  }
+});
+
+// ── Conflict Checker (legacy POST) ──
+router.post('/dos/timetable-system/check-conflicts', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid session' });
+    const { term, academic_year, class_name } = req.body || {};
+    const result = await scanTimetableConflicts(schoolId, { term, academicYear: academic_year, className: class_name });
+    return res.json({ success: true, data: result.conflicts, summary: result.summary });
   } catch (err) {
     console.error('POST /dos/timetable-system/check-conflicts:', err);
     return res.status(500).json({ success: false, message: 'Failed to check conflicts' });
@@ -4864,6 +8238,580 @@ router.delete('/dos/class-teachers/:id', requireRole(DOS_ACADEMIC_ADMIN), async 
   } catch (err) {
     console.error('DELETE /dos/class-teachers/:id:', err);
     return res.status(500).json({ success: false, message: 'Failed to remove class teacher' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// Marks Academic — classes overview, class–subject map, assessment types
+// ════════════════════════════════════════════════════════════════
+
+router.get('/dos/marks-academic/classes', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureAcademicTables();
+    await ensureClassTeacherTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const [registryRows] = await promisePool.query(
+      'SELECT id, group_name, stream_name, category, combination FROM school_classes WHERE school_id = ?',
+      [schoolId]
+    );
+    const [studentRows] = await promisePool.query(
+      `SELECT DISTINCT TRIM(class_name) AS class_name FROM students WHERE school_id = ? AND TRIM(IFNULL(class_name,'')) <> ''`,
+      [schoolId]
+    );
+    const studentClassNames = studentRows.map((r) => r.class_name);
+    const allClassNames = collectSchoolRegisteredClassNames({ registryRows, studentClassNames });
+
+    const [enrollmentRows] = await promisePool.query(
+      `SELECT COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown') AS class_name, COUNT(*) AS student_count
+       FROM students WHERE school_id = ? GROUP BY COALESCE(NULLIF(TRIM(class_name), ''), 'Unknown')`,
+      [schoolId]
+    );
+    const enrollmentMap = new Map(
+      enrollmentRows.map((r) => [normalizeGradebookLabel(r.class_name).toLowerCase(), Number(r.student_count || 0)])
+    );
+
+    const [assignmentRows] = await promisePool.query(
+      `SELECT cta.id AS assignment_id, cta.class_name, cta.teacher_user_id, cta.academic_year, cta.created_at AS assigned_at,
+              TRIM(CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,''))) AS teacher_name,
+              u.email AS teacher_email
+       FROM class_teacher_assignments cta
+       INNER JOIN users u ON u.id = cta.teacher_user_id AND u.deleted_at IS NULL
+       WHERE cta.school_id = ?`,
+      [schoolId]
+    );
+    const teacherMap = new Map(
+      assignmentRows.map((r) => [normalizeGradebookLabel(r.class_name).toLowerCase(), r])
+    );
+
+    const registryMap = new Map();
+    for (const r of registryRows) {
+      const label = formatSchoolClassRow(r);
+      if (label) registryMap.set(label.toLowerCase(), r);
+    }
+
+    const rows = allClassNames.map((className) => {
+      const key = className.toLowerCase();
+      const reg = registryMap.get(key);
+      const t = teacherMap.get(key);
+      return {
+        class_name: className,
+        registry_id: reg?.id || null,
+        group_name: reg?.group_name || null,
+        stream_name: reg?.stream_name || null,
+        category: reg?.category || null,
+        combination: reg?.combination || null,
+        student_count: enrollmentMap.get(key) || 0,
+        assignment_id: t?.assignment_id || null,
+        teacher_user_id: t?.teacher_user_id || null,
+        teacher_name: t?.teacher_name || null,
+        teacher_email: t?.teacher_email || null,
+        academic_year: t?.academic_year || null,
+        assigned_at: t?.assigned_at || null,
+      };
+    });
+
+    const assigned_count = rows.filter((r) => r.teacher_user_id).length;
+    return res.json({
+      success: true,
+      data: {
+        rows,
+        total_classes: rows.length,
+        assigned_count,
+        unassigned_count: rows.length - assigned_count,
+        total_students: rows.reduce((s, r) => s + r.student_count, 0),
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/marks-academic/classes:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load classes' });
+  }
+});
+
+router.get('/dos/class-subjects', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    await ensureSmartTimetableTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const classNameFilter = trimStr(req.query.class_name);
+
+    const [catalogue] = await promisePool.query(
+      'SELECT id, name, category, subject_code, is_active FROM school_subjects WHERE school_id = ?',
+      [schoolId]
+    );
+    const subjectByName = new Map(
+      catalogue.map((s) => [normalizeGradebookLabel(s.name).toLowerCase(), s])
+    );
+
+    const [scsRows] = await promisePool.query(
+      `SELECT scs.id, scs.class_name, scs.subject_id, scs.created_at,
+              ss.name AS subject_name, ss.category, ss.subject_code, ss.is_active
+       FROM school_class_subjects scs
+       INNER JOIN school_subjects ss ON ss.id = scs.subject_id AND ss.school_id = scs.school_id
+       WHERE scs.school_id = ?
+       ORDER BY scs.class_name ASC, ss.name ASC`,
+      [schoolId]
+    );
+
+    const [ttRows] = await promisePool.query(
+      `SELECT DISTINCT class_name, subject_name
+       FROM timetable_assignments
+       WHERE school_id = ?
+         AND TRIM(IFNULL(subject_name, '')) <> ''
+         AND LOWER(TRIM(subject_name)) NOT IN ('class teacher', 'class_teacher')`,
+      [schoolId]
+    );
+
+    const mergedMap = new Map();
+
+    for (const tt of ttRows) {
+      const cn = normalizeGradebookLabel(tt.class_name);
+      const sn = normalizeGradebookLabel(tt.subject_name);
+      const sub = subjectByName.get(sn.toLowerCase());
+      if (!cn || !sub) continue;
+      const key = `${cn.toLowerCase()}|${sub.id}`;
+      mergedMap.set(key, {
+        id: null,
+        class_name: cn,
+        subject_id: sub.id,
+        subject_name: sub.name,
+        category: sub.category,
+        subject_code: sub.subject_code,
+        is_active: sub.is_active,
+        source: 'timetable',
+        from_timetable: true,
+        created_at: null,
+      });
+    }
+
+    for (const r of scsRows) {
+      const cn = normalizeGradebookLabel(r.class_name);
+      const key = `${cn.toLowerCase()}|${r.subject_id}`;
+      if (mergedMap.has(key)) {
+        const existing = mergedMap.get(key);
+        existing.id = r.id;
+        existing.source = 'both';
+        existing.created_at = r.created_at;
+      } else {
+        mergedMap.set(key, {
+          ...r,
+          class_name: cn,
+          source: 'manual',
+          from_timetable: false,
+        });
+      }
+    }
+
+    let rows = Array.from(mergedMap.values());
+    if (classNameFilter) {
+      const filterKey = normalizeGradebookLabel(classNameFilter).toLowerCase();
+      rows = rows.filter((r) => normalizeGradebookLabel(r.class_name).toLowerCase() === filterKey);
+    }
+    rows.sort((a, b) => {
+      const c = String(a.class_name).localeCompare(String(b.class_name));
+      if (c !== 0) return c;
+      return String(a.subject_name).localeCompare(String(b.subject_name));
+    });
+
+    const byClass = {};
+    for (const r of rows) {
+      const cn = normalizeGradebookLabel(r.class_name);
+      if (!byClass[cn]) byClass[cn] = [];
+      byClass[cn].push(r);
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        rows,
+        by_class: byClass,
+        timetable_linked: true,
+        timetable_assignment_count: ttRows.length,
+      },
+    });
+  } catch (err) {
+    console.error('GET /dos/class-subjects:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load class subjects' });
+  }
+});
+
+router.put('/dos/class-subjects', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  const conn = await promisePool.getConnection();
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const className = normalizeGradebookLabel(req.body?.class_name);
+    const subjectIds = Array.isArray(req.body?.subject_ids) ? req.body.subject_ids.map(Number).filter(Boolean) : [];
+    if (!className) return res.status(400).json({ success: false, message: 'class_name is required' });
+
+    await conn.beginTransaction();
+    await conn.query(
+      `DELETE FROM school_class_subjects WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')})`,
+      [schoolId, className]
+    );
+    for (const subjectId of subjectIds) {
+      const [[sub]] = await conn.query(
+        'SELECT id FROM school_subjects WHERE id = ? AND school_id = ? AND is_active = 1 LIMIT 1',
+        [subjectId, schoolId]
+      );
+      if (!sub) continue;
+      await conn.query(
+        'INSERT INTO school_class_subjects (school_id, class_name, subject_id) VALUES (?,?,?)',
+        [schoolId, className, subjectId]
+      );
+    }
+    await conn.commit();
+    return res.json({ success: true, message: 'Class subjects updated.', data: { class_name: className, count: subjectIds.length } });
+  } catch (err) {
+    try { await conn.rollback(); } catch (_) {}
+    console.error('PUT /dos/class-subjects:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update class subjects' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/dos/class-subjects', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const className = normalizeGradebookLabel(req.body?.class_name);
+    const subjectId = Number(req.body?.subject_id);
+    if (!className || !subjectId) {
+      return res.status(400).json({ success: false, message: 'class_name and subject_id are required' });
+    }
+
+    const [[sub]] = await promisePool.query(
+      'SELECT id, name FROM school_subjects WHERE id = ? AND school_id = ? LIMIT 1',
+      [subjectId, schoolId]
+    );
+    if (!sub) return res.status(404).json({ success: false, message: 'Subject not found' });
+
+    const [ins] = await promisePool.query(
+      `INSERT INTO school_class_subjects (school_id, class_name, subject_id) VALUES (?,?,?)
+       ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`,
+      [schoolId, className, subjectId]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Subject assigned to class.',
+      data: { id: ins.insertId, class_name: className, subject_id: subjectId, subject_name: sub.name },
+    });
+  } catch (err) {
+    console.error('POST /dos/class-subjects:', err);
+    return res.status(500).json({ success: false, message: 'Failed to assign subject' });
+  }
+});
+
+router.delete('/dos/class-subjects/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    await promisePool.query('DELETE FROM school_class_subjects WHERE id = ? AND school_id = ?', [id, schoolId]);
+    return res.json({ success: true, message: 'Subject removed from class.' });
+  } catch (err) {
+    console.error('DELETE /dos/class-subjects/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to remove class subject' });
+  }
+});
+
+router.get('/dos/assessment-types', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const schoolLevel = trimStr(req.query.school_level) || 'ALL';
+    await seedDefaultAssessmentTypesIfEmpty(schoolId, schoolLevel);
+
+    const [rows] = await promisePool.query(
+      `SELECT id, name, slug, weight_percent, sort_order, is_active, school_level, created_at, updated_at
+       FROM school_assessment_types
+       WHERE school_id = ? AND school_level = ?
+       ORDER BY sort_order ASC, id ASC`,
+      [schoolId, schoolLevel]
+    );
+
+    const total_weight = rows.filter((r) => r.is_active).reduce((s, r) => s + Number(r.weight_percent || 0), 0);
+    return res.json({ success: true, data: { rows, total_weight, school_level: schoolLevel } });
+  } catch (err) {
+    console.error('GET /dos/assessment-types:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load assessment types' });
+  }
+});
+
+router.post('/dos/assessment-types', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+
+    const name = trimStr(req.body?.name);
+    const schoolLevel = trimStr(req.body?.school_level) || 'ALL';
+    const weightPercent = Number(req.body?.weight_percent);
+    const slug = trimStr(req.body?.slug) || slugifyAssessmentName(name);
+    const sortOrder = Number(req.body?.sort_order) || 0;
+
+    if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+    if (!Number.isFinite(weightPercent) || weightPercent < 0 || weightPercent > 100) {
+      return res.status(400).json({ success: false, message: 'weight_percent must be between 0 and 100' });
+    }
+
+    const [ins] = await promisePool.query(
+      `INSERT INTO school_assessment_types (school_id, name, slug, weight_percent, sort_order, is_active, school_level)
+       VALUES (?,?,?,?,?,1,?)`,
+      [schoolId, name, slug, weightPercent, sortOrder, schoolLevel]
+    );
+    await syncAssessmentTypesToGradebookColumns(schoolId);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Assessment type created.',
+      data: { id: ins.insertId, name, slug, weight_percent: weightPercent, school_level: schoolLevel },
+    });
+  } catch (err) {
+    if (String(err?.code) === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'An assessment type with this slug already exists for this level.' });
+    }
+    console.error('POST /dos/assessment-types:', err);
+    return res.status(500).json({ success: false, message: 'Failed to create assessment type' });
+  }
+});
+
+router.put('/dos/assessment-types/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ success: false, message: 'Invalid id' });
+
+    const [[existing]] = await promisePool.query(
+      'SELECT * FROM school_assessment_types WHERE id = ? AND school_id = ? LIMIT 1',
+      [id, schoolId]
+    );
+    if (!existing) return res.status(404).json({ success: false, message: 'Assessment type not found' });
+
+    const name = req.body?.name != null ? trimStr(req.body.name) : existing.name;
+    const weightPercent = req.body?.weight_percent != null ? Number(req.body.weight_percent) : Number(existing.weight_percent);
+    const sortOrder = req.body?.sort_order != null ? Number(req.body.sort_order) : existing.sort_order;
+    const isActive = req.body?.is_active != null ? (req.body.is_active ? 1 : 0) : existing.is_active;
+
+    if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+    if (!Number.isFinite(weightPercent) || weightPercent < 0 || weightPercent > 100) {
+      return res.status(400).json({ success: false, message: 'weight_percent must be between 0 and 100' });
+    }
+
+    await promisePool.query(
+      `UPDATE school_assessment_types SET name = ?, weight_percent = ?, sort_order = ?, is_active = ? WHERE id = ? AND school_id = ?`,
+      [name, weightPercent, sortOrder, isActive, id, schoolId]
+    );
+    await syncAssessmentTypesToGradebookColumns(schoolId);
+
+    return res.json({ success: true, message: 'Assessment type updated.' });
+  } catch (err) {
+    console.error('PUT /dos/assessment-types/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update assessment type' });
+  }
+});
+
+router.patch('/dos/assessment-types/reorder', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (!items.length) return res.status(400).json({ success: false, message: 'items[] required' });
+
+    for (const item of items) {
+      const id = Number(item.id);
+      const sortOrder = Number(item.sort_order);
+      if (!id || !Number.isFinite(sortOrder)) continue;
+      await promisePool.query(
+        'UPDATE school_assessment_types SET sort_order = ? WHERE id = ? AND school_id = ?',
+        [sortOrder, id, schoolId]
+      );
+    }
+    await syncAssessmentTypesToGradebookColumns(schoolId);
+    return res.json({ success: true, message: 'Order updated.' });
+  } catch (err) {
+    console.error('PATCH /dos/assessment-types/reorder:', err);
+    return res.status(500).json({ success: false, message: 'Failed to reorder' });
+  }
+});
+
+router.delete('/dos/assessment-types/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolMarksAcademicTables();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    const [[row]] = await promisePool.query(
+      'SELECT slug FROM school_assessment_types WHERE id = ? AND school_id = ? LIMIT 1',
+      [id, schoolId]
+    );
+    if (!row) return res.status(404).json({ success: false, message: 'Not found' });
+
+    await promisePool.query('DELETE FROM school_assessment_types WHERE id = ? AND school_id = ?', [id, schoolId]);
+    await promisePool.query('DELETE FROM school_gradebook_columns WHERE school_id = ? AND slug = ?', [schoolId, row.slug]);
+    return res.json({ success: true, message: 'Assessment type removed.' });
+  } catch (err) {
+    console.error('DELETE /dos/assessment-types/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete assessment type' });
+  }
+});
+
+const {
+  getSchoolAcademicHealthWeights,
+  saveSchoolAcademicHealthWeights,
+} = require('../utils/academicHealthSchema');
+
+router.get('/dos/academic-health-weights', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const data = await getSchoolAcademicHealthWeights(schoolId);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('GET /dos/academic-health-weights:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load academic health weights' });
+  }
+});
+
+router.put('/dos/academic-health-weights', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    const data = await saveSchoolAcademicHealthWeights(schoolId, req.body || {});
+    return res.json({ success: true, data, message: 'Academic health formula saved' });
+  } catch (err) {
+    console.error('PUT /dos/academic-health-weights:', err);
+    return res.status(400).json({ success: false, message: err.message || 'Failed to save academic health weights' });
+  }
+});
+
+// Gradebook columns (manager UI compatibility)
+router.get('/dos/gradebook-columns', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureSchoolGradebookSchema();
+    const schoolId = resolveSchoolId(req);
+    await seedDefaultGradebookColumnsIfEmpty(schoolId);
+    const [rows] = await promisePool.query(
+      'SELECT id, slug, label, sort_order, default_max_score FROM school_gradebook_columns WHERE school_id = ? ORDER BY sort_order ASC, id ASC',
+      [schoolId]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET /dos/gradebook-columns:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load gradebook columns' });
+  }
+});
+
+router.get('/dos/grading-system', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const bands = await getSchoolGradingScale(schoolId);
+    return res.json({ success: true, data: { bands, defaults: DEFAULT_GRADE_BANDS } });
+  } catch (err) {
+    console.error('GET /dos/grading-system:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load grading system' });
+  }
+});
+
+router.put('/dos/grading-system', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const bands = Array.isArray(req.body?.bands) ? req.body.bands : [];
+    const saved = await saveSchoolGradingScale(schoolId, bands);
+    return res.json({ success: true, message: 'Grading system saved.', data: { bands: saved } });
+  } catch (err) {
+    console.error('PUT /dos/grading-system:', err);
+    return res.status(500).json({ success: false, message: err?.message || 'Failed to save grading system' });
+  }
+});
+
+router.get('/dos/competency-categories', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureCompetencyTables();
+    const schoolId = resolveSchoolId(req);
+    if (!schoolId) return res.status(400).json({ success: false, message: 'School not found in session.' });
+    const rows = await listCompetencyCategories(schoolId, { activeOnly: false });
+    return res.json({ success: true, data: { rows, rating_levels: RATING_LEVELS } });
+  } catch (err) {
+    console.error('GET /dos/competency-categories:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load competency categories' });
+  }
+});
+
+router.post('/dos/competency-categories', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureCompetencyTables();
+    const schoolId = resolveSchoolId(req);
+    const name = trimStr(req.body?.name);
+    if (!schoolId || !name) {
+      return res.status(400).json({ success: false, message: 'name is required' });
+    }
+    const sortOrder = Number(req.body?.sort_order) || 0;
+    const [ins] = await promisePool.query(
+      `INSERT INTO school_competency_categories (school_id, name, sort_order, is_active)
+       VALUES (?,?,?,1)`,
+      [schoolId, name, sortOrder],
+    );
+    return res.status(201).json({ success: true, data: { id: ins.insertId, name } });
+  } catch (err) {
+    if (String(err?.code) === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ success: false, message: 'Category already exists.' });
+    }
+    console.error('POST /dos/competency-categories:', err);
+    return res.status(500).json({ success: false, message: 'Failed to create category' });
+  }
+});
+
+router.put('/dos/competency-categories/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureCompetencyTables();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    const name = req.body?.name != null ? trimStr(req.body.name) : null;
+    const sortOrder = req.body?.sort_order != null ? Number(req.body.sort_order) : null;
+    const isActive = req.body?.is_active != null ? (req.body.is_active ? 1 : 0) : null;
+    const fields = [];
+    const params = [];
+    if (name) { fields.push('name = ?'); params.push(name); }
+    if (sortOrder != null && Number.isFinite(sortOrder)) { fields.push('sort_order = ?'); params.push(sortOrder); }
+    if (isActive != null) { fields.push('is_active = ?'); params.push(isActive); }
+    if (!fields.length) return res.status(400).json({ success: false, message: 'Nothing to update' });
+    params.push(id, schoolId);
+    await promisePool.query(
+      `UPDATE school_competency_categories SET ${fields.join(', ')} WHERE id = ? AND school_id = ?`,
+      params,
+    );
+    return res.json({ success: true, message: 'Category updated.' });
+  } catch (err) {
+    console.error('PUT /dos/competency-categories/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update category' });
+  }
+});
+
+router.delete('/dos/competency-categories/:id', requireRole(DOS_ACADEMIC_ADMIN), async (req, res) => {
+  try {
+    await ensureCompetencyTables();
+    const schoolId = resolveSchoolId(req);
+    const id = Number(req.params.id);
+    await promisePool.query(
+      'DELETE FROM school_competency_categories WHERE id = ? AND school_id = ?',
+      [id, schoolId],
+    );
+    return res.json({ success: true, message: 'Category removed.' });
+  } catch (err) {
+    console.error('DELETE /dos/competency-categories/:id:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete category' });
   }
 });
 

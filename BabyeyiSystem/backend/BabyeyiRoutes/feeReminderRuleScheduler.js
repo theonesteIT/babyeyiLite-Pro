@@ -404,6 +404,8 @@ async function executeReminderRule(ruleRow, opts = {}) {
     subject: preset.subject,
     messageBody: preset.body,
     deadline: deadlineLabel,
+    academicYear: scope.academicYear,
+    term: scope.term,
   });
 
   const finalStatus =

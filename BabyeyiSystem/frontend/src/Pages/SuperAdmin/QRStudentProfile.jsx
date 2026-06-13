@@ -448,7 +448,7 @@ function AcademicTab({ data }) {
       <div className="qrp-stat-row">
         <div className="qrp-stat-card qrp-stat-card-wide">
           <div className="qrp-stat-val">{average_grade != null ? `${average_grade}%` : '—'}</div>
-          <div className="qrp-stat-lbl">Average across assessments</div>
+          <div className="qrp-stat-lbl">Average across published assessments</div>
         </div>
       </div>
       {latest_by_subject.length > 0 ? (
@@ -457,8 +457,13 @@ function AcademicTab({ data }) {
           <ul className="qrp-list">
             {latest_by_subject.map((m) => (
               <li key={m.subject_name} className="qrp-list-item qrp-list-item-row">
-                <span className="qrp-list-title">{m.subject_name}</span>
-                <span className="qrp-score-pill">{m.percent}%</span>
+                <div>
+                  <span className="qrp-list-title">{m.subject_name}</span>
+                  <div className="qrp-list-meta">{m.assessment_name} · {m.teacher_name || 'Teacher'}</div>
+                </div>
+                <span className="qrp-score-pill">
+                  {m.mark_code_label || (m.percent != null ? `${m.percent}%` : `${m.score_obtained}/${m.max_score}`)}
+                </span>
               </li>
             ))}
           </ul>
@@ -466,15 +471,24 @@ function AcademicTab({ data }) {
       ) : null}
       {assessments.length > 0 ? (
         <>
-          <h3 className="qrp-subhead">All assessments</h3>
+          <h3 className="qrp-subhead">Teacher-registered marks</h3>
           <ul className="qrp-list">
             {assessments.slice(0, 20).map((m, i) => (
-              <li key={`${m.subject_name}-${m.assessment_name}-${i}`} className="qrp-list-item qrp-list-item-row">
-                <div>
-                  <div className="qrp-list-title">{m.assessment_name}</div>
-                  <div className="qrp-list-meta">{m.subject_name} · {formatDateLabel(m.assessment_date)}</div>
+              <li key={`${m.subject_name}-${m.assessment_name}-${i}`} className="qrp-list-item qrp-list-item-col">
+                <div className="qrp-list-item qrp-list-item-row" style={{ border: 'none', padding: 0 }}>
+                  <div>
+                    <div className="qrp-list-title">{m.assessment_name}</div>
+                    <div className="qrp-list-meta">
+                      {m.subject_name} · {formatDateLabel(m.assessment_date)}
+                    </div>
+                    <div className="qrp-list-meta qrp-teacher-meta">
+                      Registered by {m.teacher_name || 'Teacher'}
+                    </div>
+                  </div>
+                  <span className="qrp-score-pill">
+                    {m.mark_code_label || `${m.score_obtained ?? '—'}/${m.max_score}`}
+                  </span>
                 </div>
-                <span className="qrp-score-pill">{m.score_obtained}/{m.max_score}</span>
               </li>
             ))}
           </ul>
@@ -1582,6 +1596,15 @@ const CSS = `
     font-size: 11px;
     color: var(--text-muted);
     margin-top: 3px;
+  }
+  .qrp-teacher-meta {
+    color: var(--gold-light);
+    font-weight: 600;
+    opacity: 0.85;
+  }
+  .qrp-list-item-col {
+    flex-direction: column;
+    align-items: stretch;
   }
   .qrp-list-desc {
     font-size: 12px;

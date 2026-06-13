@@ -45,7 +45,7 @@ export default function RoundRollCall() {
 
     const fetchClasses = useCallback(async () => {
         try {
-            const res = await api.get('/teacher-portal/classes');
+            const res = await api.get('/teacher-portal/classes', { params: { scope: 'school' } });
             setClasses(res.data?.success ? res.data.data || [] : []);
         } catch (e) {
             console.error(e);

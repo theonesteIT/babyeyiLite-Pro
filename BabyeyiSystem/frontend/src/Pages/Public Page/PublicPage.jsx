@@ -32,8 +32,17 @@ import PublicHeader, { usePublicHeaderState } from "../../components/public/Head
 import PublicFooter from "../../components/public/Footer";
 import WhatsAppIcon from "../../components/public/WhatsAppIcon";
 import {
-  PUBLIC_COMBINED_PAY_PATH, WHATSAPP_URL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY, SUPPORT_EMAIL,
+  PUBLIC_COMBINED_PAY_PATH,
+  PUBLIC_PAY_FEES_PATH,
+  PUBLIC_PAY_REQUIREMENTS_PATH,
+  publicPayLinks,
+  WHATSAPP_URL, SUPPORT_PHONE, SUPPORT_PHONE_DISPLAY, SUPPORT_EMAIL,
 } from "../../components/public/publicSiteConstants";
+import {
+  loadRecentHeroStudentCodes,
+  saveHeroStudentCode,
+} from "../../utils/publicHeroStudentCode";
+import BabyeyiNotificationPrompt from "../../components/public/BabyeyiNotificationPrompt";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const ADMIN_POPUP_DATE_KEY = "babyeyi_admin_popup_date";
@@ -253,12 +262,21 @@ function useVisible(ref) {
 function AISearchBox() {
   const { t } = useTranslation();
   const [val, setVal] = useState("");
+  const [recentCodes, setRecentCodes] = useState([]);
+  const [inputActive, setInputActive] = useState(false);
   const [ph, setPh] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [err, setErr] = useState(null);
   const timer = useRef(null);
   const pi = useRef(0); const ci = useRef(0);
+
+  const persistCode = useCallback((code) => {
+    const c = String(code || "").trim();
+    if (!c) return;
+    saveHeroStudentCode(c);
+    setRecentCodes(loadRecentHeroStudentCodes());
+  }, []);
 
   const prompts = [
     t("public.searchInputHint"),
@@ -290,6 +308,7 @@ function AISearchBox() {
   const lookup = async () => {
     const q = val.trim(); setErr(null); setResult(null);
     if (!q) { setErr(t("public.searchErrEnterCode")); return; }
+    persistCode(q);
     setLoading(true);
     try {
       const r = await fetch(`${API_BASE}/api/public/student-code-lookup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q }) });
@@ -310,7 +329,7 @@ function AISearchBox() {
         {[0, 200, 400].map((d) => (
           <span key={d} className="w-1.5 h-1.5 rounded-full bg-[#000435] animate-pulse" style={{ animationDelay: `${d}ms` }} />
         ))}
-        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] text-[#000435]">
+        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] sm:tracking-[0.18em] text-white">
           {t("public.searchBanner")}
         </span>
       </div>
@@ -333,6 +352,11 @@ function AISearchBox() {
         <input
           type="text" value={val}
           onChange={(e) => { setVal(e.target.value); setErr(null); setResult(null); }}
+          onFocus={() => {
+            setInputActive(true);
+            setRecentCodes(loadRecentHeroStudentCodes());
+          }}
+          onBlur={() => setTimeout(() => setInputActive(false), 180)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookup(); } }}
           placeholder={ph || t("public.searchPlaceholder")}
           className="flex-1 min-w-0 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-[13px] sm:text-[14px] text-[#000435] placeholder:text-slate-400 outline-none"
@@ -358,6 +382,30 @@ function AISearchBox() {
       </div>
 
       {err && <p className="text-[12px] text-amber-200/75 font-medium mt-2 pl-1">{err}</p>}
+
+      {recentCodes.length > 0 && inputActive && (
+        <div className="mt-2.5 pl-1">
+          <p className="text-[9px] font-black uppercase tracking-[.12em] text-[#000435]/70 mb-1.5">
+            {t("public.savedStudentCodes")}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {recentCodes.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => { setVal(code); setErr(null); setResult(null); }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
+                  val.trim() === code
+                    ? "bg-[#000435] text-amber-300"
+                    : "bg-white/90 text-[#000435] border border-[#000435]/20 hover:bg-white"
+                }`}
+              >
+                {code}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {result && (
         <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-6">
@@ -409,25 +457,30 @@ function AISearchBox() {
             <div className="px-5 py-4 shrink-0 space-y-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
               {result.data && (() => {
                 const st = String(result.data.student_uid || result.data.student_code || result.data.sdm_code || "").trim();
-                const payHref = st
-                  ? `${PUBLIC_COMBINED_PAY_PATH}?code=${encodeURIComponent(st)}`
-                  : PUBLIC_COMBINED_PAY_PATH;
+                const { fees: payFeesHref, requirements: payReqHref } = publicPayLinks(st);
                 const slug = String(result.data.mini_website_slug || "").trim();
                 return (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Link to={payHref} onClick={() => setResult(null)}
-                      className="btn-shine inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
-                      style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                      <CreditCard size={15} strokeWidth={2.5} /> {t("public.modalPayFeesForStudent")}
-                    </Link>
-                    {slug ? (
-                      <Link to={`/school/${encodeURIComponent(slug)}`} onClick={() => setResult(null)}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Link to={payFeesHref} onClick={() => setResult(null)}
+                        className="btn-shine inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
+                        style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
+                        <CreditCard size={15} strokeWidth={2.5} /> {t("public.modalPayFeesForStudent")}
+                      </Link>
+                      <Link to={payReqHref} onClick={() => setResult(null)}
                         className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-white transition-colors hover:bg-white/15"
                         style={{ border: "1.5px solid rgba(251,191,36,0.4)", background: "rgba(255,255,255,0.07)" }}>
+                        <Package size={15} strokeWidth={2.2} /> {t("public.modalPayRequirementsForStudent")}
+                      </Link>
+                    </div>
+                    {slug ? (
+                      <Link to={`/school/${encodeURIComponent(slug)}`} onClick={() => setResult(null)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-white transition-colors hover:bg-white/15"
+                        style={{ border: "1.5px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.05)" }}>
                         <Globe size={15} strokeWidth={2.2} /> {t("public.modalSchoolMiniWebsite")} <ExternalLink size={13} className="opacity-60" />
                       </Link>
                     ) : (
-                      <div className="flex flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-[11px] font-medium text-white/40 text-center"
+                      <div className="flex w-full items-center justify-center rounded-xl px-3 py-2.5 text-[11px] font-medium text-white/40 text-center"
                         style={{ border: "1px dashed rgba(255,255,255,0.15)" }}>
                         {t("public.modalMiniWebsiteNotPublished")}
                       </div>
@@ -437,18 +490,23 @@ function AISearchBox() {
               })()}
               {result.school && !result.data && (() => {
                 const code = String(result.lookupCode || "").trim();
-                const payHref = code
-                  ? `${PUBLIC_COMBINED_PAY_PATH}?code=${encodeURIComponent(code)}`
-                  : PUBLIC_COMBINED_PAY_PATH;
+                const { fees: payFeesHref, requirements: payReqHref } = publicPayLinks(code);
                 return (
                   <div className="flex flex-col gap-2">
-                    <Link to={payHref} onClick={() => setResult(null)}
-                      className="btn-shine inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
-                      style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
-                      <CreditCard size={15} strokeWidth={2.5} /> {t("public.modalPayFeesFullCheckout")}
-                    </Link>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Link to={payFeesHref} onClick={() => setResult(null)}
+                        className="btn-shine inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-[#000435] transition-colors"
+                        style={{ background: "linear-gradient(135deg,#FBBF24,#F59E0B)" }}>
+                        <CreditCard size={15} strokeWidth={2.5} /> {t("public.modalPayFeesForStudent")}
+                      </Link>
+                      <Link to={payReqHref} onClick={() => setResult(null)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-[13px] font-black text-white transition-colors hover:bg-white/15"
+                        style={{ border: "1.5px solid rgba(251,191,36,0.4)", background: "rgba(255,255,255,0.07)" }}>
+                        <Package size={15} strokeWidth={2.2} /> {t("public.modalPayRequirementsForStudent")}
+                      </Link>
+                    </div>
                     <p className="text-[11px] text-white/45 text-center leading-snug px-1">
-                      {t("public.modalTuitionHint")}
+                      {t("public.modalPaySplitHint")}
                     </p>
                   </div>
                 );
@@ -546,32 +604,37 @@ function HeroSection({ bannerVisible = false }) {
             <span className="text-white"></span>
           </h1>
 
-          {/* Hero cards (4 only) */}
+          {/* Hero quick actions */}
           <div className="anim-su4 flex flex-col gap-2.5 sm:gap-3 w-full sm:max-w-[clamp(300px,90vw,490px)]">
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <Link to={PUBLIC_COMBINED_PAY_PATH}
+              <Link to={PUBLIC_PAY_FEES_PATH}
                 className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-amber-400 transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
                 style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
                 <CreditCard size={14} strokeWidth={2.5} className="shrink-0" /> {t("public.payFees")}
               </Link>
-              <a href="/parents/login"
-                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
-                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,15px)", background: "#000435" }}>
-                <LogIn size={14} className="text-amber-300 shrink-0" /> {t("public.parentLogin")}
-              </a>
+              <Link to={PUBLIC_PAY_REQUIREMENTS_PATH}
+                className="btn-shine inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-amber-400 transition-all active:scale-[.97] hover:shadow-[0_8px_28px_rgba(251,191,36,.4)]"
+                style={{ minHeight: "clamp(44px,5.5vw,56px)", fontSize: "clamp(11px,2.8vw,14px)", background: "#000435" }}>
+                <Package size={14} strokeWidth={2.5} className="shrink-0" /> {t("public.payRequirements")}
+              </Link>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <a href="/parents/login"
+                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-black text-white transition-all hover:bg-white/8"
+                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", background: "#000435" }}>
+                <LogIn size={14} className="text-amber-300 shrink-0" /> {t("public.parentLogin")}
+              </a>
               <Link to="/register"
                 className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-amber-400/14"
-                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)",background: "#000435" }}>
+                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", background: "#000435" }}>
                 <Building2 size={14} className="text-amber-400 shrink-0" /> {t("public.registerSchool")}
               </Link>
-              <Link to="/services"
-                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10"
-                style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", background: "#000435" }}>
-                <Sparkles size={14} className="text-amber-200/80 shrink-0" /> {t("public.toolsServices")}
-              </Link>
             </div>
+            <Link to="/services"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-2xl font-semibold text-white transition-all hover:bg-white/10 w-full"
+              style={{ minHeight: "clamp(42px,5vw,52px)", fontSize: "clamp(10.5px,2.6vw,14px)", background: "#000435" }}>
+              <Sparkles size={14} className="text-amber-200/80 shrink-0" /> {t("public.toolsServices")}
+            </Link>
           </div>
 
           <div className="mt-6 sm:mt-7 w-full">
@@ -1538,6 +1601,7 @@ export default function PublicPage() {
       {/* <CTASection /> */}
       <PublicFooter />
       <FloatingSupportWidget />
+      <BabyeyiNotificationPrompt mode="landing" />
     </div>
   );
 }

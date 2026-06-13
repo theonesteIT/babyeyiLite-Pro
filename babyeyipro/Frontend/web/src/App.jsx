@@ -15,6 +15,7 @@ import DisciplinePortalRoutes from './discipline/PortalRoutes'
 import GateKeeperPortalRoutes from './GateKeeper/PortalRoutes'
 import RepresentativePortalRoutes from './Representative/PortalRoutes'
 import AssetsPortalRoutes from './assets_portal/PortalRoutes'
+import StudentMarkReportQR from './pages/StudentMarkReportQR'
 
 const PRO_BASENAME = (() => {
   const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
@@ -61,6 +62,7 @@ const KNOWN_ROOTS = [
   '/discipline-staff',
   '/teacher',
   '/discipline',
+  '/student-mark-report',
 ]
 
 function RoleAwareFallback() {
@@ -172,6 +174,7 @@ export default function App() {
               </ProGate>
             }
           />
+          <Route path="/student-mark-report/:snapshotId" element={<StudentMarkReportQR />} />
           <Route path="*" element={<RoleAwareFallback />} />
         </Routes>
       </MasterAuthProvider>

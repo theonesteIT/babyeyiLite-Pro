@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, ChevronDown, LogOut, Settings, User, ShoppingBag } from 'lucide-react';
+import { Menu, Search, Bell, ChevronDown, Settings, User, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMasterAuth } from '../../context/MasterAuthContext';
@@ -11,7 +11,7 @@ import { resolveUserPhotoUrl } from '../../shared/utils/userPhotoUrl';
 const TopNav = ({ title, onMenuClick }) => {
   const navigate = useNavigate();
   const { patchUser } = useMasterAuth();
-  const { teacher, logout } = useAuth();
+  const { teacher } = useAuth();
   const [userOpen, setUserOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -157,19 +157,6 @@ const TopNav = ({ title, onMenuClick }) => {
                   className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-re-navy/5 hover:text-re-navy transition-all"
                 >
                   <ShoppingBag size={13} /> Ticha Deals
-                </button>
-              </div>
-
-              <div className="border-t border-black/5 py-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUserOpen(false);
-                    void logout();
-                  }}
-                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
-                >
-                  <LogOut size={13} /> Sign out
                 </button>
               </div>
             </div>

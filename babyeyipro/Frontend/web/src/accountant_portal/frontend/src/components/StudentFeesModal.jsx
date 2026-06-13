@@ -89,7 +89,10 @@ export default function StudentFeesModal({
                     : '—',
                 amount: Number(item.amount || 0),
                 channel: item.channel || item.payment_method || 'Recorded',
-                category: term || 'Fees',
+                category: item.category || (Array.isArray(item.fee_categories) && item.fee_categories.length
+                    ? item.fee_categories.join(', ')
+                    : (term || 'Fees')),
+                fee_lines: Array.isArray(item.fee_lines) ? item.fee_lines : [],
                 ref: item.reference || item.invoice_no || (item.payment_id ? `PAY-${item.payment_id}` : '—'),
                 transactionRef: item.transaction_ref || '',
                 bankName: item.bank_name || '',

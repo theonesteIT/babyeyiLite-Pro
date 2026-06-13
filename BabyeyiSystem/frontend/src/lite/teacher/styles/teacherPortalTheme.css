@@ -1,0 +1,131 @@
+/* Teacher portal — clean, modern typography (less heavy bold) */
+
+.tp-root {
+  --tp-navy: #000435;
+  --tp-amber: #c87800;
+  --tp-surface: #f0f2f9;
+  --tp-card-radius: 1.25rem;
+  --tp-heading-weight: 600;
+  --tp-label-weight: 500;
+  --tp-body-weight: 400;
+  color: #0e1f35;
+}
+
+.tp-root h1,
+.tp-root h2,
+.tp-root h3,
+.tp-root h4 {
+  font-weight: var(--tp-heading-weight);
+  letter-spacing: -0.02em;
+}
+
+.tp-root strong,
+.tp-root b {
+  font-weight: 600;
+}
+
+.tp-root .font-black {
+  font-weight: 600 !important;
+}
+
+.tp-root .font-extrabold {
+  font-weight: 600 !important;
+}
+
+.tp-root .font-bold {
+  font-weight: 500 !important;
+}
+
+.tp-root .font-semibold {
+  font-weight: 500 !important;
+}
+
+.tp-card {
+  background: #fff;
+  border: 1px solid rgba(0, 4, 53, 0.08);
+  border-radius: var(--tp-card-radius);
+  box-shadow: 0 1px 3px rgba(0, 4, 53, 0.04);
+}
+
+.tp-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.tp-card-header h3,
+.tp-card-header h4 {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--tp-navy);
+  letter-spacing: -0.01em;
+}
+
+.tp-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: #fff;
+  border: 1px solid rgba(0, 4, 53, 0.08);
+  border-radius: var(--tp-card-radius);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 4, 53, 0.04);
+}
+
+@media (min-width: 640px) {
+  .tp-stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.tp-stat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 6.25rem;
+  padding: 1.25rem 1rem;
+  transition: background-color 0.15s ease;
+}
+
+.tp-stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--tp-navy);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.tp-stat-label {
+  margin-top: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #6b7280;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+
+.tp-tool-tile {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.875rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgba(0, 4, 53, 0.06);
+  background: #fff;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.tp-support-card {
+  display: block;
+  border-radius: var(--tp-card-radius);
+  border: 1px solid rgba(0, 4, 53, 0.12);
+  background: linear-gradient(145deg, #000435 0%, #0a116b 100%);
+  padding: 1.25rem;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 4, 53, 0.12);
+}

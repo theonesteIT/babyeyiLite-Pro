@@ -1059,10 +1059,12 @@ function ImportCard({ toast, onImported }) {
   const [importClass, setImportClass] = useState("");
   const [importYear, setImportYear] = useState("");
   const [file,       setFile]       = useState(null);
+  const [photosZip,  setPhotosZip]  = useState(null);
   const [busy,       setBusy]       = useState(false);
   const [result,     setResult]     = useState(null);
   const [errors,     setErrors]     = useState([]);
   const fileRef = useRef();
+  const zipRef = useRef();
 
   const handleImport = async () => {
     const cls = importClass.trim();
@@ -1078,6 +1080,7 @@ function ImportCard({ toast, onImported }) {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (photosZip) fd.append("photos_zip", photosZip);
       fd.append("importMode", "insert_only");
       fd.append("class_name", cls);
       fd.append("academic_year", yr);
@@ -1093,7 +1096,9 @@ function ImportCard({ toast, onImported }) {
         toast?.(`Imported ${json.inserted} students successfully.`, "success");
         onImported?.();
         setFile(null);
+        setPhotosZip(null);
         if (fileRef.current) fileRef.current.value = "";
+        if (zipRef.current) zipRef.current.value = "";
       }
     } catch {
       setResult({ ok: false, message: "Cannot connect to server." });
@@ -1116,7 +1121,8 @@ function ImportCard({ toast, onImported }) {
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
             <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
             <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
-            <span className="font-semibold text-amber-700">3.</span> Upload &amp; import. Urubuto exports also work.
+            <span className="font-semibold text-amber-700">3.</span> Optional photos ZIP (named like Code / Student ID) ·{" "}
+            <span className="font-semibold text-amber-700">4.</span> Upload &amp; import.
           </p>
         </div>
       </div>
@@ -1175,6 +1181,20 @@ function ImportCard({ toast, onImported }) {
           />
         </label>
 
+        <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all min-h-[44px] touch-manipulation flex-1 sm:flex-initial sm:min-w-[200px]">
+          <Upload className="w-4 h-4 text-sky-600 shrink-0" />
+          <span className="text-[11px] font-bold text-slate-700 truncate flex-1 min-w-0">
+            {photosZip ? photosZip.name : "Photos ZIP (optional)"}
+          </span>
+          <input
+            ref={zipRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={e => { setPhotosZip(e.target.files?.[0] || null); setResult(null); }}
+          />
+        </label>
+
         <button
           type="button"
           onClick={handleImport}
@@ -1194,6 +1214,7 @@ function ImportCard({ toast, onImported }) {
           {result.ok && result.meta && (
             <span className="ml-2 text-[10px] opacity-75">
               · Inserted: {result.meta.inserted} · Updated: {result.meta.updated} · Skipped: {result.meta.skipped}
+              {result.meta.photosAttached > 0 ? ` · Photos: ${result.meta.photosAttached}` : ""}
               {result.meta.phoneWarnings > 0 ? ` · ⚠ ${result.meta.phoneWarnings} phone(s) skipped` : ""}
             </span>
           )}

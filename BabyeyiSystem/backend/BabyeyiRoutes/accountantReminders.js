@@ -21,6 +21,7 @@ const {
   collectParentPhonesForStudent,
   ensureParentWebPushTable,
 } = require('./parentWebPush');
+const { buildRemainPayHref } = require('../utils/publicPayDeepLink');
 
 const router = express.Router();
 
@@ -301,6 +302,8 @@ async function deliverCampaignNow({
   subject,
   messageBody,
   deadline,
+  academicYear,
+  term,
 }) {
   let delivered = 0;
   let failed = 0;
@@ -360,13 +363,19 @@ async function deliverCampaignNow({
             status = 'skipped';
             errorMessage = 'Web Push not configured on server';
           } else {
+            const payUrl = buildRemainPayHref('/paid-at-school', {
+              code: student.student_code || student.id,
+              remain: student.balance,
+              year: academicYear,
+              term,
+            });
             const pushResult = await sendWebPushToParentPhones(
               phones,
               {
                 title: renderedSubject,
                 body: renderedBody.slice(0, 240),
-                tag: `fee-reminder-${campaignId}`,
-                url: '/parents/home',
+                tag: `fee-reminder-${campaignId}-${student.student_id}`,
+                url: payUrl,
               },
               { category: 'fee_reminders' }
             );
@@ -1243,6 +1252,8 @@ router.post('/accountant/fee-reminders/campaigns', requireAuth, requireRole(ACCO
         subject,
         messageBody,
         deadline,
+        academicYear,
+        term,
       });
       deliveredCount = result.delivered;
       failedCount = result.failed;

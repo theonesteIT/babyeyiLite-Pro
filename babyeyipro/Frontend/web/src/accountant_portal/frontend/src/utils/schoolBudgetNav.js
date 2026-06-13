@@ -23,7 +23,7 @@ export const SCHOOL_BUDGET_NAV = [
     items: [
       { id: 'budget-dashboard', label: 'Dashboard', Icon: LayoutDashboard },
       { id: 'create-budget', label: 'Create Budget', Icon: PlusCircle },
-      { id: 'budget-lines', label: 'Budget Lines', Icon: ClipboardList },
+      { id: 'budget-lines', label: 'Expenses', Icon: ClipboardList },
       { id: 'budget-usage-tracking', label: 'Usage Tracking', Icon: BarChart3 },
       { id: 'dept-budgets', label: 'Department Budgets', Icon: Building2 },
      

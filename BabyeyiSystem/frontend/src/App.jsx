@@ -64,6 +64,7 @@ import PublicBabyeyiFinder from './Pages/Public Page/PublicBabyeyiFinder';
 import SearchStudent from './Pages/Public Page/SearchStudent';
 import PaymentsPage from './Pages/Public Page/payments';
 import PaidAtSchool from './Pages/Public Page/PaidAtSchool';
+import RemainderStudentPayFess from './Pages/Public Page/RemainderStudentPayFess';
 import CombinedTutionRequrement from './Pages/Public Page/CombinedTutionRequrement';
 import ShuleKitPay from './Pages/Public Page/ShuleKitPay';
 import InvoiceVerify from './Pages/Public Page/InvoiceVerify';
@@ -89,8 +90,6 @@ import PublicUniformVoucherRequestFlow from './Pages/Public Page/PublicUniformVo
 import PublicUniformVoucherTrack from './Pages/Public Page/PublicUniformVoucherTrack';
 import OnlineService from './Pages/Public Page/OnlineService';
 import PublicShuleCard from './Pages/Public Page/PublicShuleCard';
-import PublicLanguageFab from './components/PublicLanguageFab';
-
 // ── Auth pages ──────────────────────────────────────────────────
 import Login           from './Pages/Auth/Login';
 import SuperAdminSignup from './Pages/Auth/SuperAdminSignup';
@@ -149,6 +148,7 @@ import SchoolStudentCardTemplate2 from './Pages/SuperAdmin/SchoolStudentCardTemp
 import SchoolStaffCardTemplate from './Pages/SuperAdmin/SchoolStaffCardTemplate';
 import QRStudentsProfile from './Pages/SuperAdmin/QRStudentProfile';
 import QRStaffProfile from './Pages/SuperAdmin/QRStaffProfile';
+import StudentMarkReportPublic from './Pages/Public Page/StudentMarkReportPublic';
 import ShuleAvanceTeacher from './Pages/SuperAdmin/ShuleAvanceTeacher';
 import TeacherDealProducts from './Pages/SuperAdmin/TeacherDealProducts';
 import TichaDealRequest from './Pages/SuperAdmin/TichaDealRequest';
@@ -171,6 +171,7 @@ import QuickPayStudentSelect    from './Pages/Parents/QuickPayStudentSelect';
 import ParentPaymentsReport     from './Pages/Parents/PaymentsReport';
 import ShuleCardData            from './Pages/Parents/ShuleCardData';
 import ParentStudentDetails     from './Pages/Parents/ParentStudentDetails';
+import ParentStudentReports     from './Pages/Parents/ParentStudentReports';
 import ParentSchoolChat         from './Pages/Parents/ParentSchoolChat';
 import InvoicesListPage         from './Pages/Shared/InvoicesListPage';
 import ParentPortalGate from './components/ParentPortalGate';
@@ -178,12 +179,7 @@ import StudentDashboard from './Pages/Student/student_dashboard';
 import { getPostLogoutLoginPath } from './utils/postLogoutLoginPath';
 
 export default function App() {
-  const withPublicLanguage = (element) => (
-    <>
-      {element}
-      <PublicLanguageFab />
-    </>
-  );
+  const withPublicLanguage = (element) => element;
 
   return (
     <BrowserRouter>
@@ -209,6 +205,7 @@ export default function App() {
           <Route path="/public-pay/search-student" element={withPublicLanguage(<SearchStudent />)} />
           <Route path="/payments" element={withPublicLanguage(<PaymentsPage />)} />
           <Route path="/paid-at-school" element={withPublicLanguage(<PaidAtSchool />)} />
+          <Route path="/remainder-student-pay-fees" element={withPublicLanguage(<RemainderStudentPayFess />)} />
           <Route path="/combined-tution-requrement" element={withPublicLanguage(<CombinedTutionRequrement />)} />
           <Route path="/pay-by-school" element={<Navigate to="/combined-tution-requrement" replace />} />
           <Route path="/invoice-verify/:id" element={withPublicLanguage(<InvoiceVerify />)} />
@@ -238,6 +235,8 @@ export default function App() {
           <Route path="/staff/:staffId" element={<QRStaffProfile />} />
           <Route path="/qr-staff-profile/:staffId" element={<QRStaffProfile />} />
           <Route path="/qr-staff-profile" element={<QRStaffProfile />} />
+          <Route path="/student-mark-report/:snapshotId" element={<StudentMarkReportPublic />} />
+          <Route path="/pro/student-mark-report/:snapshotId" element={<StudentMarkReportPublic />} />
           <Route path="/track" element={withPublicLanguage(<ApplicationStatusTracker />)} />
 
           {/* ── Auth ──────────────────────────────────────────── */}
@@ -327,6 +326,7 @@ export default function App() {
             <Route path="payments-report" element={<ParentPaymentsReport />} />
             <Route path="shulecard-data" element={<ShuleCardData />} />
             <Route path="student-details/:studentId" element={<ParentStudentDetails />} />
+            <Route path="school-reports" element={<ParentStudentReports />} />
             <Route path="chat" element={<ParentSchoolChat />} />
           </Route>
           {/* Public school registration (no auth required) */}

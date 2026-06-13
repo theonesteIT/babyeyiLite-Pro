@@ -2,7 +2,7 @@
 'use strict';
 
 const db = require('../config/database');
-const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
+const { loadApprovedBabyeyiPricing, isValidBabyeyiId, isValidSchoolId } = require('./babyeyiPublicPricingCore');
 const { resolveSchoolIdFromInput } = require('./schoolResolvePublic');
 
 function studentRowKey(s) {
@@ -27,13 +27,29 @@ function roundMoney(x) {
   return Math.round(Number(x || 0) * 100) / 100;
 }
 
-/** Fee id keys: numeric babyeyi_payments.id, -1 synthetic, "pasreq:<bsr_id>", or "paspay:<payment_id>" for tuition paid at school. */
+/** Fee id keys: "pay:<idx>:<id>", numeric babyeyi_payments.id, "pasreq:<bsr_id>", or "paspay:<payment_id>". */
 function feeRowKeyFromId(id) {
   if (id == null) return id;
   const s = String(id);
-  if (s.startsWith('pasreq:') || s.startsWith('paspay:')) return s;
+  if (s.startsWith('pasreq:') || s.startsWith('paspay:') || s.startsWith('pay:')) return s;
   const n = Number(id);
   return Number.isFinite(n) ? n : s;
+}
+
+function feeRowKeyFromPricingRow(f) {
+  if (!f) return null;
+  if (f.selection_key) return feeRowKeyFromId(f.selection_key);
+  return feeRowKeyFromId(f.id);
+}
+
+function feePaidFromSlot(slot, fid, feeRow) {
+  if (!slot) return 0;
+  const k = feeRowKeyFromId(fid);
+  let paid = roundMoney(slot.fee.get(k) || 0);
+  if (paid <= 0 && feeRow && feeRow.id != null && String(k).startsWith('pay:')) {
+    paid = roundMoney(slot.fee.get(feeRowKeyFromId(feeRow.id)) || 0);
+  }
+  return paid;
 }
 
 /**
@@ -75,25 +91,33 @@ async function loadFeesForSelection(babyeyiId, feeIds, metaRow) {
 
   const map = new Map();
   for (const f of pr.data.school_fees || []) {
-    map.set(feeRowKeyFromId(f.id), f);
+    map.set(feeRowKeyFromPricingRow(f), f);
   }
 
   const fees = [];
   for (const raw of rawList) {
-    const k = feeRowKeyFromId(raw);
-    const f = map.get(k);
+    let k = feeRowKeyFromId(raw);
+    let f = map.get(k);
+    if (!f && Number.isFinite(Number(raw)) && !String(raw).startsWith('pay:')) {
+      f = (pr.data.school_fees || []).find((row) => Number(row.id) === Number(raw));
+      if (f) k = feeRowKeyFromPricingRow(f);
+    }
     if (!f) continue;
     fees.push({
       id: k,
+      selection_key: f.selection_key || k,
+      legacy_id: f.id,
       name: f.name || 'Fee item',
       amount: roundMoney(Number(f.amount || 0)),
+      fee_category: f.fee_category || null,
+      pay_source: f.pay_source || null,
     });
   }
   return fees;
 }
 
 async function loadReqLinesForSelection(babyeyiId, reqIds, schoolId) {
-  const ids = (Array.isArray(reqIds) ? reqIds : []).map((x) => parseInt(x, 10)).filter((n) => n > 0);
+  const ids = (Array.isArray(reqIds) ? reqIds : []).map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 0);
   if (!ids.length || !schoolId) return [];
 
   const pr = await loadApprovedBabyeyiPricing(babyeyiId, schoolId);
@@ -113,41 +137,23 @@ function normalizeCatalogFromPricing(pricingData) {
   const feeIds = [];
   const feeRows = [];
   for (const f of pricingData?.school_fees || []) {
-    const rawId = f?.id;
-    if (rawId != null && String(rawId).startsWith('pasreq:')) {
-      const sid = String(rawId);
-      feeIds.push(sid);
-      feeRows.push({
-        id: sid,
-        name: f?.name,
-        amount: roundMoney(Number(f?.amount || 0)),
-      });
-      continue;
-    }
-    if (rawId != null && String(rawId).startsWith('paspay:')) {
-      const sid = String(rawId);
-      feeIds.push(sid);
-      feeRows.push({
-        id: sid,
-        name: f?.name,
-        amount: roundMoney(Number(f?.amount || 0)),
-      });
-      continue;
-    }
-    const id = Number(rawId);
-    if (!Number.isFinite(id)) continue;
-    feeIds.push(id);
+    const key = feeRowKeyFromPricingRow(f);
+    if (key == null || key === '') continue;
+    feeIds.push(key);
     feeRows.push({
-      id,
+      id: key,
+      selection_key: f?.selection_key || key,
+      legacy_id: f?.id,
       name: f?.name,
       amount: roundMoney(Number(f?.amount || 0)),
+      fee_category: f?.fee_category || null,
     });
   }
   const reqIds = [];
   const reqRows = [];
   for (const r of pricingData?.requirements || []) {
     const rid = Number(r?.babyeyi_requirement_id);
-    if (!Number.isFinite(rid) || rid <= 0) continue;
+    if (!Number.isFinite(rid) || rid < 0) continue;
     reqIds.push(rid);
     reqRows.push({
       babyeyi_requirement_id: rid,
@@ -244,7 +250,7 @@ async function buildPaidAllocationsByStudent(babyeyiId, schoolId) {
     if (!keys.length) continue;
 
     for (const f of totals.fees) {
-      const fid = feeRowKeyFromId(f.id);
+      const fid = feeRowKeyFromId(f.selection_key || f.id);
       const amt = roundMoney(Number(f.amount || 0));
       if (amt <= 0) continue;
       const perStudentLine = roundMoney((P * amt) / T);
@@ -283,7 +289,7 @@ function sumRemainingForOneStudent(st, feeIdArr, reqIdArr, feeRows, reqRows, pai
     const paid = roundMoney(sk && slot ? slot.fee.get(fid) || 0 : 0);
     sub += roundMoney(Math.max(0, owed - paid));
   }
-  for (const rid of reqIdArr.map((x) => parseInt(x, 10)).filter((n) => n > 0)) {
+  for (const rid of reqIdArr.map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 0)) {
     const r = reqMap.get(rid);
     if (!r) continue;
     const owed = roundMoney(Number(r.line_total_rwf || 0));
@@ -327,7 +333,7 @@ async function quoteBabyeyiPayBalance(opts) {
   const selectedStudents = Array.isArray(opts.selectedStudents) ? opts.selectedStudents : [];
   const schoolCredits = schoolCounterCreditsMap(opts);
 
-  if (!schoolId || !babyeyiId) {
+  if (!isValidSchoolId(schoolId) || !isValidBabyeyiId(babyeyiId)) {
     return { ok: false, status: 400, message: 'school_id and babyeyi_id are required' };
   }
 
@@ -381,7 +387,7 @@ async function quoteBabyeyiPayBalance(opts) {
       const f = feeMap.get(fid);
       if (!f) continue;
       const owed = roundMoney(Number(f.amount || 0));
-      const paid = roundMoney(sk && slot ? slot.fee.get(fid) || 0 : 0);
+      const paid = roundMoney(sk && slot ? feePaidFromSlot(slot, fid, f) : 0);
       const declared =
         String(fid).startsWith('pasreq:') || String(fid).startsWith('paspay:')
           ? roundMoney(Math.min(owed, schoolCredits.get(String(fid)) || 0))
@@ -398,7 +404,7 @@ async function quoteBabyeyiPayBalance(opts) {
         remaining_rwf: rem,
       });
     }
-    for (const rid of selectedReqIds.map((x) => parseInt(x, 10)).filter((n) => n > 0)) {
+    for (const rid of selectedReqIds.map((x) => parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 0)) {
       const r = reqMap.get(rid);
       if (!r) continue;
       const owed = roundMoney(Number(r.line_total_rwf || 0));
@@ -464,6 +470,14 @@ async function quoteBabyeyiPayBalance(opts) {
   }
   const remainingUnselectedLinesRwF = roundMoney(Math.max(0, remainingFullDocumentRwF - roundMoney(remainingRwF)));
 
+  let selectionPaidRwF = 0;
+  for (const row of perStudentRows) {
+    for (const line of row.lines || []) {
+      selectionPaidRwF += roundMoney(Number(line.paid_rwf || 0));
+    }
+  }
+  selectionPaidRwF = roundMoney(selectionPaidRwF);
+
   return {
     ok: true,
     data: {
@@ -471,6 +485,7 @@ async function quoteBabyeyiPayBalance(opts) {
       class_name: meta.class_name || null,
       combined_total_rwf: combinedTotal,
       selection_due_rwf: roundMoney(selectionDueRwF),
+      selection_paid_rwf: selectionPaidRwF,
       remaining_rwf: roundMoney(remainingRwF),
       /** All published fee + requirement lines on this Babyeyi (not only checked items). */
       remaining_full_document_rwf: remainingFullDocumentRwF,
@@ -500,7 +515,7 @@ async function validateBabyeyiPaymentAgainstBalance(body) {
     ? body.selected_students
     : (body.selected_student ? [body.selected_student] : []);
 
-  if (!schoolId || !babyeyiId || selectedStudents.length === 0) {
+  if (!isValidSchoolId(schoolId) || !isValidBabyeyiId(babyeyiId) || selectedStudents.length === 0) {
     return { ok: true };
   }
 
@@ -520,7 +535,23 @@ async function validateBabyeyiPaymentAgainstBalance(body) {
   return { ok: true };
 }
 
+async function buildSelectedFeeLines(babyeyiId, feeIds, schoolId) {
+  const metaRow = { school_id: schoolId };
+  const fees = await loadFeesForSelection(babyeyiId, feeIds, metaRow);
+  return fees.map((f) => ({
+    selection_key: f.selection_key || feeRowKeyFromId(f.id),
+    id: f.legacy_id != null ? f.legacy_id : f.id,
+    name: f.name || 'Fee item',
+    amount_rwf: f.amount,
+    fee_category: f.fee_category || 'School fees',
+    pay_source: f.pay_source || null,
+  }));
+}
+
 module.exports = {
+  buildSelectedFeeLines,
+  feeRowKeyFromId,
+  feeRowKeyFromPricingRow,
   quoteBabyeyiPayBalance,
   validateBabyeyiPaymentAgainstBalance,
   studentRowKey,

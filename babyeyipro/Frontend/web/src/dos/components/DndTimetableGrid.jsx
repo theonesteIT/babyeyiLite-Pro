@@ -6,8 +6,10 @@ import {
 } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import {
-  AlertTriangle, BookOpen, Clock, Edit3, Copy, Lock, Trash2, UserPlus, X, GripVertical, Check,
+  AlertTriangle, BookOpen, Clock, Edit3, Copy, Lock, Trash2, UserPlus, X, GripVertical, Check, Layers, Sparkles,
 } from 'lucide-react';
+import { EXTRA_ACTIVITY_STYLE } from '../utils/extraActivityUtils';
+import { resolveTimetableRowId, timetableLessonDragId } from '../utils/timetableRowUtils';
 
 const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -32,6 +34,8 @@ const paletteForSubject = (subject = '') => {
 
 const normalizeTime = (v) => { const r = String(v || '').trim(); if (!r) return ''; const p = r.split(':'); return p.length < 2 ? r : `${p[0].padStart(2, '0')}:${p[1].padStart(2, '0')}`; };
 const fmt12 = (t) => { if (!t) return '—'; const [h, m] = t.split(':').map(Number); return `${((h % 12) || 12)}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; };
+const timeToMins = (t) => { const [h, m] = String(t || '00:00').slice(0, 5).split(':').map(Number); return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0); };
+const timesOverlap = (startA, endA, startB, endB) => timeToMins(startA) < timeToMins(endB) && timeToMins(startB) < timeToMins(endA);
 
 function LessonActionModal({ lesson, onClose, onEdit, onDelete, onDuplicate, onLock }) {
   const pal = paletteForSubject(lesson.subject_name);
@@ -148,10 +152,14 @@ function LessonActionModal({ lesson, onClose, onEdit, onDelete, onDuplicate, onL
 }
 
 function DraggableLesson({ lesson, period, onEdit, onDelete, onDuplicate, onLock, isDragging, onShowModal }) {
-  const pal = paletteForSubject(lesson.subject_name);
+  const isExtra = Boolean(lesson.extra_activity_id);
+  const pal = isExtra
+    ? { bg: EXTRA_ACTIVITY_STYLE.bg, border: EXTRA_ACTIVITY_STYLE.border, title: EXTRA_ACTIVITY_STYLE.title, meta: EXTRA_ACTIVITY_STYLE.abbr }
+    : paletteForSubject(lesson.subject_name);
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: `lesson-${lesson.id}`,
+    id: timetableLessonDragId(lesson),
     data: { lesson, period },
+    disabled: isExtra,
   });
 
   const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 100 } : undefined;
@@ -160,18 +168,28 @@ function DraggableLesson({ lesson, period, onEdit, onDelete, onDuplicate, onLock
     <motion.div
       ref={setNodeRef}
       style={{ ...style, backgroundColor: pal.bg, borderColor: pal.border }}
-      className={`relative rounded-xl border-2 p-2.5 cursor-grab active:cursor-grabbing transition-all group ${isDragging ? 'opacity-40 scale-95' : 'hover:shadow-lg hover:scale-[1.02]'} ${lesson.is_locked ? 'ring-2 ring-amber-400/50' : ''}`}
+      className={`relative rounded-xl border-2 p-2.5 transition-all group ${isExtra ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${isDragging ? 'opacity-40 scale-95' : 'hover:shadow-lg hover:scale-[1.02]'} ${lesson.is_locked ? 'ring-2 ring-amber-400/50' : ''}`}
       layout
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       onContextMenu={(e) => { e.preventDefault(); onShowModal(lesson); }}
-      {...attributes}
-      {...listeners}
+      {...(isExtra ? {} : attributes)}
+      {...(isExtra ? {} : listeners)}
     >
+      {isExtra && (
+        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-fuchsia-500 flex items-center justify-center shadow-sm">
+          <Sparkles size={9} className="text-white" />
+        </div>
+      )}
       {lesson.is_locked && (
         <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center shadow-sm">
           <Lock size={9} className="text-white" />
+        </div>
+      )}
+      {Boolean(lesson.is_double_period || lesson.double_block_part) && (
+        <div className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm" title="Followed period (back-to-back with same subject)">
+          <Layers size={9} className="text-white" />
         </div>
       )}
 
@@ -255,7 +273,8 @@ function SaveNotification({ show }) {
 }
 
 export default function DndTimetableGrid({
-  rows, periods, activeDays, filterClassName: filterClass, teachers, onUpdate, onDelete, onEdit, onDuplicate, onCreateAt, flash
+  rows, periods, activeDays, filterClassName: filterClass, teachers, onUpdate, onDelete, onEdit, onDuplicate, onCreateAt, flash,
+  extraActivityLookup = new Map(),
 }) {
   const [activeId, setActiveId] = useState(null);
   const [conflict, setConflict] = useState(null);
@@ -272,14 +291,28 @@ export default function DndTimetableGrid({
 
   const lessonMap = useMemo(() => {
     const m = new Map();
-    for (const r of filteredRows) {
-      const k = `${r.day_of_week}__${normalizeTime(r.start_time)}`;
+    const addLesson = (day, periodStart, lesson) => {
+      const k = `${day}__${normalizeTime(periodStart)}`;
       const c = m.get(k) || [];
-      c.push(r);
-      m.set(k, c);
+      if (!c.some((x) => x === lesson || (x.id && x.id === lesson.id && normalizeTime(x.start_time) === normalizeTime(lesson.start_time)))) {
+        c.push(lesson);
+        m.set(k, c);
+      }
+    };
+    for (const r of filteredRows) {
+      addLesson(r.day_of_week, r.start_time, r);
+    }
+    for (const p of periods) {
+      const pStart = normalizeTime(p.start_time);
+      const pEnd = normalizeTime(p.end_time);
+      for (const r of filteredRows) {
+        if (!timesOverlap(pStart, pEnd, r.start_time, r.end_time)) continue;
+        if (normalizeTime(r.start_time) === pStart) continue;
+        addLesson(r.day_of_week, p.start_time, r);
+      }
     }
     return m;
-  }, [filteredRows]);
+  }, [filteredRows, periods]);
 
   const displayDays = useMemo(() =>
     (activeDays?.length ? activeDays.filter(d => WEEK_DAYS.includes(d)) : WEEK_DAYS),
@@ -288,24 +321,27 @@ export default function DndTimetableGrid({
 
   const activeLesson = useMemo(() => {
     if (!activeId) return null;
-    const id = Number(String(activeId).replace('lesson-', ''));
-    return filteredRows.find(r => r.id === id);
+    return filteredRows.find((r) => timetableLessonDragId(r) === activeId) || null;
   }, [activeId, filteredRows]);
 
   const checkConflicts = useCallback((lesson, targetDay, targetPeriod) => {
     const targetStart = normalizeTime(targetPeriod.start_time);
     const targetEnd = normalizeTime(targetPeriod.end_time);
+    const lessonTerm = String(lesson.term || '').trim();
+    const lessonYear = String(lesson.academic_year || '').trim();
 
     for (const r of allRows) {
       if (r.id === lesson.id) continue;
       if (r.day_of_week !== targetDay) continue;
-      if (normalizeTime(r.start_time) !== targetStart) continue;
+      if (lessonTerm && String(r.term || '').trim() && String(r.term || '').trim() !== lessonTerm) continue;
+      if (lessonYear && String(r.academic_year || '').trim() && String(r.academic_year || '').trim() !== lessonYear) continue;
+      if (!timesOverlap(targetStart, targetEnd, r.start_time, r.end_time)) continue;
 
       if (r.staff_id === lesson.staff_id && r.class_name !== lesson.class_name) {
-        return `Teacher "${lesson.teacher_name || 'Unknown'}" is already assigned to ${r.class_name} at ${fmt12(targetStart)}`;
+        return `Teacher "${lesson.teacher_name || 'Unknown'}" already teaches ${r.subject_name} in ${r.class_name} at ${fmt12(normalizeTime(r.start_time))} (${lessonTerm || 'this term'})`;
       }
       if (r.room && r.room === lesson.room && r.class_name !== lesson.class_name) {
-        return `Room "${r.room}" is already occupied by ${r.class_name} - ${r.subject_name} at ${fmt12(targetStart)}`;
+        return `Room "${r.room}" is already occupied by ${r.class_name} - ${r.subject_name} at ${fmt12(normalizeTime(r.start_time))}`;
       }
     }
     return null;
@@ -335,6 +371,11 @@ export default function DndTimetableGrid({
 
     const lesson = active.data.current?.lesson;
     if (!lesson) return;
+    if (!resolveTimetableRowId(lesson.id)) {
+      setConflict('This lesson is not saved yet. Add it with Add Slot before moving it.');
+      setTimeout(() => setConflict(null), 4000);
+      return;
+    }
     if (lesson.is_locked) {
       setConflict('This lesson is locked and cannot be moved.');
       setTimeout(() => setConflict(null), 3000);
@@ -361,7 +402,7 @@ export default function DndTimetableGrid({
       r.id !== lesson.id && r.day_of_week === day && normalizeTime(r.start_time) === targetStart
     );
 
-    if (existingLesson && !existingLesson.is_locked) {
+    if (existingLesson && !existingLesson.is_locked && resolveTimetableRowId(existingLesson.id)) {
       const swapConflict = checkConflicts(existingLesson, lesson.day_of_week, { start_time: lesson.start_time, end_time: lesson.end_time });
       if (swapConflict) {
         setConflict(swapConflict);
@@ -446,6 +487,7 @@ export default function DndTimetableGrid({
                   {displayDays.map(day => {
                     const key = `${day}__${normalizeTime(period.start_time)}`;
                     const lessons = lessonMap.get(key) || [];
+                    const extras = extraActivityLookup.get(key) || [];
                     const slotId = `slot-${day}-${normalizeTime(period.start_time)}`;
 
                     return (
@@ -462,7 +504,7 @@ export default function DndTimetableGrid({
                                 key={lesson.id}
                                 lesson={lesson}
                                 period={period}
-                                isDragging={activeId === `lesson-${lesson.id}`}
+                                isDragging={activeId === timetableLessonDragId(lesson)}
                                 onEdit={onEdit}
                                 onDelete={onDelete}
                                 onDuplicate={onDuplicate}
@@ -470,6 +512,18 @@ export default function DndTimetableGrid({
                                 onShowModal={setModalLesson}
                               />
                             ))
+                          ) : extras.length > 0 ? (
+                            <div
+                              className="w-full min-h-[60px] rounded-xl border-2 px-2 py-2 flex flex-col items-center justify-center text-center"
+                              style={{ backgroundColor: EXTRA_ACTIVITY_STYLE.bg, borderColor: EXTRA_ACTIVITY_STYLE.border }}
+                              title={`${extras[0].activity_name} · ${fmt12(normalizeTime(extras[0].start_time))}–${fmt12(normalizeTime(extras[0].end_time))}`}
+                            >
+                              <Sparkles size={12} style={{ color: EXTRA_ACTIVITY_STYLE.title }} className="mb-0.5" />
+                              <p className="text-[10px] font-black uppercase leading-tight" style={{ color: EXTRA_ACTIVITY_STYLE.title }}>
+                                {extras[0].activity_name}
+                              </p>
+                              <p className="text-[8px] font-bold opacity-70" style={{ color: EXTRA_ACTIVITY_STYLE.abbr }}>Extra activity</p>
+                            </div>
                           ) : (
                             <button
                               type="button"

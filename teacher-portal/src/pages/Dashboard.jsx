@@ -6,22 +6,25 @@ import {
   BookOpen,
   Users,
   ArrowRight,
-  RefreshCw,
-  FileSpreadsheet,
   ChevronRight,
   CheckSquare,
   Banknote,
   Gift,
+  Sparkles,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import TeacherOrangeHero from '../components/TeacherOrangeHero';
+import TeacherDashboardTimetable from '../components/TeacherDashboardTimetable';
+import TeacherDashboardSchoolChart from '../components/TeacherDashboardSchoolChart';
 
 const Dashboard = () => {
   const { teacher } = useAuth();
 
   const [stats, setStats] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [weeklySchedule, setWeeklySchedule] = useState([]);
+  const [schoolOverview, setSchoolOverview] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,6 +34,8 @@ const Dashboard = () => {
         if (res.data.success) {
           setStats(res.data.data.stats || []);
           setSchedule(res.data.data.schedule || []);
+          setWeeklySchedule(res.data.data.weeklySchedule || []);
+          setSchoolOverview(res.data.data.schoolOverview || null);
         }
       } catch (e) {
         console.error('Failed to fetch dashboard', e);
@@ -42,263 +47,144 @@ const Dashboard = () => {
   }, []);
 
   const quickTools = [
-    { title: 'Ticha AI', desc: 'Get help with lesson planning', icon: <MessageSquare size={20} />, color: 'text-re-purple', path: '/ticha-ai' },
-    { title: 'Ticha Avance', desc: 'Apply for teacher credit', icon: <Wallet size={20} />, color: 'text-re-orange', path: '/shule-avance' },
-    { title: 'Ticha Deals', desc: 'Get discounts on goods & services', icon: <Gift size={20} />, color: 'text-amber-600', path: '/ticha-deals' },
-    { title: 'English Club', desc: 'Professional development', icon: <BookOpen size={20} />, color: 'text-re-blue', path: '/english-club' },
+    { title: 'Ticha AI', desc: 'Lesson planning assistant', icon: MessageSquare, color: 'text-violet-600 bg-violet-50', path: '/ticha-ai' },
+    { title: 'Ticha Avance', desc: 'Teacher credit & advances', icon: Wallet, color: 'text-amber-700 bg-amber-50', path: '/shule-avance' },
+    { title: 'Ticha Deals', desc: 'Discounts on goods & services', icon: Gift, color: 'text-orange-600 bg-orange-50', path: '/ticha-deals' },
+    { title: 'English Club', desc: 'Professional development', icon: BookOpen, color: 'text-sky-600 bg-sky-50', path: '/english-club' },
   ];
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-re-bg"><RefreshCw className="animate-spin text-re-orange" /></div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-[#f0f2f9]">
+        <div className="w-10 h-10 rounded-full border-4 border-[#000435]/15 border-t-[#000435] animate-spin" />
+        <p className="text-sm text-re-text-muted">Loading dashboard…</p>
+      </div>
+    );
   }
 
   return (
-    <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-
+    <div className="animate-in fade-in duration-500 min-h-full pb-24 lg:pb-10">
       <TeacherOrangeHero
         title={`Welcome back, ${teacher?.first_name || 'Teacher'}`}
         subtitle="Ready to inspire your students today?"
       />
 
-      {/* MAIN */}
-      <div className="max-w-[1300px] mx-auto px-5 md:px-8 -mt-10 relative z-20 pb-14">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20 space-y-5 pb-10">
+        {stats.length > 0 && (
+          <div className="tp-stat-grid shadow-sm">
+            {stats.map((stat, i) => {
+              let displayLabel = stat.label;
+              if (stat.label === 'Total Classes') displayLabel = 'Total classes today';
+              if (stat.label === 'Total Sessions') displayLabel = 'Total sessions today';
 
-          {/* LEFT */}
-          <div className="lg:col-span-2 space-y-5">
+              const isLast = i === stats.length - 1;
+              const isOddCol = i % 2 === 0;
+              const showBottomBorder = i < 2 && stats.length > 2;
 
-            {/* STATS */}
-            <div className="bg-white rounded-xl md:rounded-[24px] shadow-lg md:shadow-2xl border border-black/5 overflow-hidden grid grid-cols-2">
-              {stats.map((stat, i) => {
-                let displayLabel = stat.label;
-                if (stat.label === 'Total Classes') displayLabel = 'Total classes Today';
-                if (stat.label === 'Total Sessions') displayLabel = 'Total sessions today';
+              return (
+                <div
+                  key={i}
+                  className={`tp-stat-cell border-black/[0.05]
+                    ${!isLast && isOddCol ? 'border-r' : ''}
+                    ${showBottomBorder ? 'border-b sm:border-b-0' : ''}
+                    ${i < stats.length - 1 ? 'sm:border-r' : ''}`}
+                >
+                  <span className="tp-stat-value">{stat.value}</span>
+                  <p className="tp-stat-label">{displayLabel}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-                return (
-                  <div
-                    key={i}
-                    className={`p-5 flex flex-col items-center justify-center text-center border-gray-100 
-                    ${i % 2 === 0 ? 'border-r' : ''} 
-                    ${i < 2 ? 'border-b' : ''}`}
-                  >
-                    <span className="text-2xl md:text-3xl font-bold text-re-text">
-                      {stat.value}
-                    </span>
-                    <p className="text-[16px] font-medium text-re-text-muted mt-1 opacity-60">
-                      {displayLabel}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* TOOLS */}
-            <h3 className="text-xs block md:hidden ml-1 mt-8 font-semibold text-re-text">
-              Quick Access Tools
-            </h3>
-
-            <div className="bg-white rounded-xl md:rounded-[24px] shadow-lg md:shadow-sm border border-black/5 p-0 md:p-5 md:space-y-4">
-              <h3 className="text-[16px] hidden md:block font-bold text-re-text opacity-80">
-                Quick Access Tools
-              </h3>
-
-              <div className=" hidden md:grid grid-cols-1 divide-y-2 divide-gray-200 md:divide-y-0 md:grid-cols-2 gap-3">
-                {quickTools.map((tool, i) => (
-                  <div key={i} className="p-2.5 md:rounded-lg hover:bg-re-bg transition-all group">
-
-                    <div className="space-y-2 flex items-center md:items-start gap-2 md:flex-col">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-re-bg shadow-inner ${tool.color}`} >
-                        {React.cloneElement(tool.icon, { size: 16 })}
-                      </div>
-                      <div>
-                        <h4 className="text-[20px] text-re-text">
-                          {tool.title}
-                        </h4>
-                        <p className="text-[12px] hidden md:block text-re-text-muted pr-2">
-                          {tool.desc}
-                        </p>
-                      </div>
-
-                      <Link
-                        to={tool.path}
-                        className="flex items-center text-[14px] gap-1 text-re-orange font-bold text-[10px] group-hover:gap-2 transition-all ml-auto md:ml-0"
-                      >
-                        <span className='hidden md:block '> Open Tool </span>  <ChevronRight size={18} className='block md:hidden' /> <ArrowRight className='hidden md:block' size={11} />
-                      </Link>
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-              <div className="md:hidden grid grid-cols-1">
-                {quickTools.map((tool, i) => (
-                  <Link to={tool.path} key={i} className={`hover:bg-re-bg cursor-pointer ${i == quickTools.length - 1 && 'rounded-b-xl'} ${i == 0 && 'rounded-t-xl'} transition-all group  `}>
-
-                    <div className="space-y-2 flex items-center gap-3">
-                      <div className={`pl-4 pt-3  flex  items-center justify-center  `} >
-                        {React.cloneElement(tool.icon, { size: 25 })}
-                      </div>
-                      <div className={`flex py-3 pr-3  ${i !== 0 ? 'border-t-1' : ''} border-gray-300 flex-1`}>
-                        <div>
-                          <h4 className="text-xs font-medium">
-                            {tool.title}
-                          </h4>
-                        </div>
-                        <div
-                          className="flex items-center gap-1 text-gray-500  font-semibold  ml-auto "
-                        >
-                          <ChevronRight size={18} />
-                        </div>
-                      </div>
-
-                    </div>
-
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* QUICK LINKS - MOBILE ONLY */}
-            <div className="md:hidden mt-8 px-1">
-              <div className="bg-white border border-black/5 divide-x divide-gray-300 rounded-xl p-3 flex items-center justify-between shadow-xl">
-                <Link to="/students" className="flex-1 flex flex-col items-center justify-center gap-1.5">
-                  <Users size={25} className="text-re-orange/70" />
-                  <span className='text-xs'> Student list</span>
-                </Link>
-                <Link to="/attendance" className="flex-1 flex flex-col items-center justify-center gap-1.5">
-                  <CheckSquare size={25} className="text-re-orange/70" />
-                  <span className='text-xs'> Attendance</span>
-                </Link>
-                <Link to="/payroll" className="flex-1 flex flex-col items-center justify-center gap-1.5">
-                  <Banknote size={25} className="text-re-orange/70" />
-                  <span className='text-xs'> My payroll</span>
-                </Link>
-              </div>
-            </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-stretch">
+          <div className="lg:col-span-2 min-w-0">
+            <TeacherDashboardTimetable schedule={schedule} weeklySchedule={weeklySchedule} />
           </div>
 
-          {/* RIGHT Sidebar (Sticky Container) */}
-          <div className="space-y-5 lg:sticky lg:top-20 h-fit">
+          <div className="lg:col-span-3 min-w-0">
+            <TeacherDashboardSchoolChart overview={schoolOverview} />
+          </div>
+        </div>
 
-            <h3 className="text-xs block md:hidden ml-1 mt-8 font-semibold text-re-text">
-              Today's Schedule
-            </h3>
+        <div className="tp-card overflow-hidden">
+          <div className="tp-card-header">
+            <Sparkles size={15} className="text-[#c87800]" strokeWidth={1.75} />
+            <h3>Quick access</h3>
+          </div>
 
-            {/* Today's Schedule Card */}
-            <div className="bg-white rounded-xl md:rounded-[24px] shadow-lg md:shadow-2xl border border-black/5 p-0 md:p-5">
-              <div className="hidden md:flex items-center gap-2 mb-4">
-                <span className="w-0.5 h-3 bg-re-purple rounded-full"></span>
-                <h3 className="text-[16px] font-bold text-re-text opacity-70">Today's Schedule</h3>
-              </div>
-
-              {/* Desktop Schedule */}
-              <div className="hidden md:block space-y-2">
-                {schedule.map((item, i) => (
-                  <div key={i} className={`flex items-start gap-3 p-2 rounded-lg transition-all
-                    ${item.active ? 'bg-orange-50/50 border-b shadow-inner border-orange-100' : 'hover:bg-re-bg'}`}>
-
-                    <span className={`text-[10px] font-bold min-w-[32px] pt-0.5
-                      ${item.active ? 'text-re-orange' : 'text-re-text-muted opacity-40'}`}>
-                      {item.time}
+          <div className="hidden md:grid sm:grid-cols-2 lg:grid-cols-4 gap-3 p-4">
+            {quickTools.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <Link key={tool.path} to={tool.path} className="tp-tool-tile group">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tool.color}`}>
+                    <Icon size={17} strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm text-[#000435] leading-snug font-normal">{tool.title}</h4>
+                    <p className="text-xs text-re-text-muted mt-0.5 leading-relaxed">{tool.desc}</p>
+                    <span className="inline-flex items-center gap-1 mt-2 text-xs text-[#c87800] group-hover:gap-1.5 transition-all">
+                      Open <ArrowRight size={12} strokeWidth={2} />
                     </span>
-
-                    <div>
-                      <p className="font-bold text-re-text text-xs leading-none">
-                        {item.title}
-                      </p>
-                      <p className="text-[10px] text-re-text-muted font-medium opacity-40 mt-1">
-                        {item.room}
-                      </p>
-                    </div>
                   </div>
-                ))}
-                {schedule.length === 0 && (
-                  <div className="py-6 flex flex-col items-center justify-center text-center">
-                    
-                    <p className="text-[13px] font-bold text-re-text-muted opacity-60">
-                      No classes scheduled.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile Schedule */}
-              <div className="md:hidden grid grid-cols-1">
-                {schedule.map((item, i) => (
-                  <div key={i} className={`hover:bg-re-bg cursor-pointer ${i === schedule.length - 1 && 'rounded-b-xl'} ${i === 0 && 'rounded-t-xl'} transition-all group`}>
-                    <div className="flex items-center gap-3">
-                      <div className="pl-4 py-3 flex flex-col items-center justify-center min-w-[60px]">
-                        <span className={`text-[10px] font-bold ${item.active ? 'text-re-orange' : 'text-re-text-muted'}`}>
-                          {item.time}
-                        </span>
-                      </div>
-                      <div className={`flex py-3 pr-3 ${i !== 0 ? 'border-t' : ''} border-gray-100 flex-1 items-center justify-between`}>
-                        <div className="min-w-0">
-                          <h4 className={`text-xs font-medium truncate ${item.active ? 'text-re-orange font-bold' : 'text-re-text'}`}>
-                            {item.title}
-                          </h4>
-                          <p className="text-[10px] text-re-text-muted opacity-60 truncate">
-                            {item.room}
-                          </p>
-                        </div>
-                        <div className="text-gray-400 ml-2">
-                          <ChevronRight size={16} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {schedule.length === 0 && (
-                  <div className="p-10 flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
-                   
-                    <p className="text-[16px]  text-re-text-muted">
-                      No classes scheduled for today.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4 md:p-0 md:mt-4 text-center border-t md:border-t-0 border-black/5">
-                <Link to="/timetable" className="text-re-orange  text-[13px] font-bold text-[10px] hover:underline opacity-80 block w-full">
-                  View Full Timetable
                 </Link>
-              </div>
-            </div>
+              );
+            })}
+          </div>
 
-            {/* Quick Support Card (Rich Gradient + Texture) */}
-            <Link
-              to="/chat"
-              className="relative hidden md:block rounded-[24px] p-6 text-white shadow-re-premium-purple overflow-hidden group cursor-pointer active:scale-95 transition-all bg-re-grad-purple"
-            >
+          <div className="md:hidden divide-y divide-black/[0.06]">
+            {quickTools.map((tool, i) => {
+              const Icon = tool.icon;
+              return (
+                <Link
+                  key={tool.path}
+                  to={tool.path}
+                  className={`flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50/80 transition-colors ${i === 0 ? 'rounded-t-[inherit]' : ''}`}
+                >
+                  <Icon size={22} strokeWidth={1.75} className="text-[#c87800]/80 shrink-0" />
+                  <span className="text-sm text-[#000435] flex-1">{tool.title}</span>
+                  <ChevronRight size={18} className="text-slate-300 shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
-              {/* Background Texture Overlay */}
-              <div className="absolute inset-0 opacity-10 mix-blend-overlay">
-                <img src="/teacher.jpg" alt="" className="w-full h-full object-cover grayscale" />
-              </div>
-
-              <div className="relative z-10 flex flex-col gap-4">
-                <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md shadow-inner">
-                  <Users size={18} className="text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-xs opacity-90">Need Support?</h4>
-                  <p className="text-[10px] text-white font-bold leading-snug mt-2 opacity-80">
-                    Connect with a Babyeyi assistant for help with classes or records.
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 text-[10px] font-bold group-hover:gap-2.5 transition-all">
-                  Chat Now <ArrowRight size={12} />
-                </div>
-              </div>
-
-              {/* Premium Glows */}
-              <div className="absolute -bottom-10 -right-10 w-28 h-28 bg-white/20 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
-              <div className="absolute -top-10 -left-10 w-20 h-20 bg-white/10 rounded-full blur-2xl"></div>
+        <div className="md:hidden">
+          <p className="text-xs text-re-text-muted mb-2 px-1">Shortcuts</p>
+          <div className="tp-card grid grid-cols-3 divide-x divide-black/[0.06]">
+            <Link to="/students" className="flex flex-col items-center justify-center gap-1.5 py-4 hover:bg-slate-50/80 transition-colors">
+              <Users size={22} strokeWidth={1.75} className="text-[#c87800]/75" />
+              <span className="text-[11px] text-re-text-muted">Students</span>
+            </Link>
+            <Link to="/attendance" className="flex flex-col items-center justify-center gap-1.5 py-4 hover:bg-slate-50/80 transition-colors">
+              <CheckSquare size={22} strokeWidth={1.75} className="text-[#c87800]/75" />
+              <span className="text-[11px] text-re-text-muted">Attendance</span>
+            </Link>
+            <Link to="/payroll" className="flex flex-col items-center justify-center gap-1.5 py-4 hover:bg-slate-50/80 transition-colors">
+              <Banknote size={22} strokeWidth={1.75} className="text-[#c87800]/75" />
+              <span className="text-[11px] text-re-text-muted">Payroll</span>
             </Link>
           </div>
-
         </div>
+
+        <Link to="/chat" className="tp-support-card hidden md:block group active:scale-[0.99]">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+              <Users size={18} strokeWidth={1.75} className="text-white/90" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm text-white font-normal">Need support?</h4>
+              <p className="text-xs text-white/60 mt-1 leading-relaxed">
+                Connect with your school admin or Babyeyi assistant.
+              </p>
+              <span className="inline-flex items-center gap-1.5 mt-3 text-xs text-[#FEBF10] group-hover:gap-2 transition-all">
+                Open chat <ArrowRight size={13} strokeWidth={2} />
+              </span>
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
   );

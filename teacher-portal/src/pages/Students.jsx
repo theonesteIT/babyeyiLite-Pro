@@ -199,7 +199,6 @@ const Students = () => {
     const [classes, setClasses] = useState([]);
     const [stats, setStats] = useState({
         totalEnrolled: '0',
-        genderSplit: '—',
         avgAttendance: '0%',
         activePermissions: '0',
     });
@@ -215,7 +214,6 @@ const Students = () => {
                          const st = res.data.stats;
                          setStats({
                              totalEnrolled: st.totalEnrolled?.toLocaleString?.() ?? String(st.totalEnrolled ?? '0'),
-                             genderSplit: `${st.malePercent ?? 0}% M · ${st.femalePercent ?? 0}% F`,
                              avgAttendance: `${st.avgAttendance ?? 0}%`,
                              activePermissions: String(st.activePermissions ?? 0),
                          });
@@ -231,7 +229,11 @@ const Students = () => {
              try {
                  const res = await api.get('/teacher-portal/classes');
                  if (res.data.success) {
-                     setClasses(res.data.data || []);
+                     const list = res.data.data || [];
+                     setClasses(list);
+                     if (list.length === 1) {
+                         setSelectedClass(list[0]);
+                     }
                  }
              } catch (e) {
                  console.error('Failed to fetch classes:', e);
@@ -313,10 +315,9 @@ const Students = () => {
                     {/* Top Layer: Stats Grid + Actions (Dashboard Style) */}
                     <div className="hidden md:grid grid-cols-1 lg:grid-cols-4 border-b border-black/5">
                         {/* Stats (3 columns on lg) */}
-                        <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-black/5">
+                        <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 divide-x divide-y sm:divide-y-0 divide-black/5">
                             {[
                                 { label: 'Total Enrolled', value: stats.totalEnrolled, icon: <Users size={14} className="text-re-orange opacity-40 mb-2" /> },
-                                { label: 'Gender (M · F)', value: stats.genderSplit, icon: <Award size={14} className="text-re-orange opacity-40 mb-2" /> },
                                 { label: 'School att. (90d)', value: stats.avgAttendance, icon: <Activity size={14} className="text-re-orange opacity-40 mb-2" /> },
                                 { label: 'Active permissions', value: stats.activePermissions, icon: <UserCheck size={14} className="text-re-orange opacity-40 mb-2" /> },
                             ].map((stat, i) => (

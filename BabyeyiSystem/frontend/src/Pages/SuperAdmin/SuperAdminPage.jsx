@@ -1250,20 +1250,56 @@ function SchoolsPage({ navigate, addToast }) {
     return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;
   };
 
-  const openSubscription = (school) => {
-    setSubscriptionSchool(school);
+  /** Resolve numeric school id — handles stale list rows still showing legacy id 0. */
+  const resolveSchoolRecordId = async (school) => {
+    const raw = school?.id ?? school?.school_id;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+
+    const code = String(school?.school_code || '').trim();
+    const name = String(school?.school_name || '').trim();
+    if (!code && !name) return null;
+
+    try {
+      const res = await axios.get(`${API}/schools`, {
+        ...axCfg,
+        params: { search: code || name, limit: 30 },
+      });
+      const rows = res.data?.data || [];
+      const match = rows.find((r) => code && r.school_code === code)
+        || rows.find((r) => name && r.school_name === name);
+      const next = Number(match?.id);
+      return Number.isFinite(next) && next > 0 ? next : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const openSubscription = async (school) => {
+    const resolvedId = await resolveSchoolRecordId(school);
+    if (!resolvedId) {
+      addToast('Could not find this school — refresh the page and try again', 'error');
+      return;
+    }
+    const current = resolvedId === Number(school?.id) ? school : { ...school, id: resolvedId };
+    setSubscriptionSchool(current);
     setSubForm({
-      subscription_plan: school.subscription_plan === 'pro' ? 'pro' : 'lite',
-      pro_enabled: !!(school.pro_enabled === 1 || school.pro_enabled === true),
-      pro_start_date: toDateTimeLocal(school.pro_start_date),
-      pro_end_date: toDateTimeLocal(school.pro_end_date),
-      school_status: school.school_status || 'active',
+      subscription_plan: current.subscription_plan === 'pro' ? 'pro' : 'lite',
+      pro_enabled: !!(current.pro_enabled === 1 || current.pro_enabled === true),
+      pro_start_date: toDateTimeLocal(current.pro_start_date),
+      pro_end_date: toDateTimeLocal(current.pro_end_date),
+      school_status: current.school_status || 'active',
     });
     setModal({ type: 'subscription' });
   };
 
   const saveSubscription = async () => {
     if (!subscriptionSchool) return;
+    const schoolId = await resolveSchoolRecordId(subscriptionSchool);
+    if (!schoolId) {
+      addToast('Invalid school — refresh the schools list and try again', 'error');
+      return;
+    }
     setSavingSub(true);
     try {
       const payload = {
@@ -1274,7 +1310,7 @@ function SchoolsPage({ navigate, addToast }) {
         pro_end_date: subForm.pro_end_date ? subForm.pro_end_date : null,
       };
       const res = await axios.patch(
-        `${API}/auth/schools/${subscriptionSchool.id}/subscription`,
+        `${API}/auth/schools/${schoolId}/subscription`,
         payload,
         axCfg
       );

@@ -10,6 +10,13 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:5100'
   return {
     plugins: [react(), tailwindcss()],
+    legacy: {
+      // Recharts 3 pulls es-toolkit/compat CJS shims — needed on Vite 8 / Rolldown interop
+      inconsistentCjsInterop: true,
+    },
+    optimizeDeps: {
+      include: ['recharts', 'es-toolkit', 'es-toolkit/compat'],
+    },
     server: {
       port: 5173,
       strictPort: true,

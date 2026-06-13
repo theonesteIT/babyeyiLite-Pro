@@ -242,12 +242,14 @@ export default function GateAttendance() {
   }, [loadGateData]);
 
   useEffect(() => {
-    // Live refresh so Arduino scans appear automatically on Gate dashboard + Today Log.
+    // Live refresh — slower poll to avoid API rate limits; skip on Settings (PUT would compete with GET burst).
+    if (page === 'settings') return undefined;
+    const intervalMs = page === 'gate' ? 8000 : 12000;
     const timer = setInterval(() => {
       loadGateData({ silent: true });
-    }, 2500);
+    }, intervalMs);
     return () => clearInterval(timer);
-  }, [loadGateData]);
+  }, [loadGateData, page]);
 
   const processTap = useCallback(async (rawUID) => {
     const uid = rawUID.trim().toUpperCase();

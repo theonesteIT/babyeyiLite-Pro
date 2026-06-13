@@ -6,12 +6,31 @@ const {
   ensureSchoolGradebookSchema,
   seedDefaultGradebookColumnsIfEmpty,
 } = require('../utils/schoolGradebookSchema');
+const { ensureSchoolMarksAcademicTables } = require('../utils/schoolMarksAcademicSchema');
+const { ensureAcademicMarksSchemaIntegrity } = require('../utils/academicMarksSchemaRepair');
+const { loadSchoolAcademicCalendar } = require('../utils/schoolAcademicCalendar');
+const {
+    ensureTeacherAssignmentsTable,
+    fetchSchoolAcademicContext,
+    fetchTeachingAssignmentsForTeacher,
+    syncTeachingAssignmentsFromTimetable,
+    teacherHasAssignment: schemaTeacherHasAssignment,
+    resolveAssignmentIdForTeacher,
+} = require('../utils/teacherAssignmentsSchema');
 const {
     normalizeGradebookLabel,
     sqlNormLabelEquals,
     sqlNormColumnsEqual,
     resolveTimetableClassLabels,
+    collectSchoolRegisteredClassNames,
 } = require('../utils/gradebookLabels');
+const {
+    ensureCompetencyTables,
+    listCompetencyCategories,
+    RATING_LEVELS,
+} = require('../utils/competencySchema');
+const { notifyStudentParentsMarks } = require('./parentStudentNotifications');
+const { markCodeLabel } = require('../utils/parentStudentMarks');
 
 const accountantFeesRoutes = require('./accountantFees');
 
@@ -40,6 +59,47 @@ function resolveSchoolId(req) {
 
 function resolveUserId(req) {
     return req.session?.userId || req.session?.user?.id || req.user?.id || null;
+}
+
+function queueMarksParentNotify({
+    schoolId, userId, studentId, assessment, score, maxScore, markCodeLabel: codeLabel,
+}) {
+    setImmediate(async () => {
+        try {
+            const sid = Number(studentId);
+            if (!sid || !assessment) return;
+            const [[schoolRow]] = await promisePool.query(
+                'SELECT school_name FROM schools WHERE id = ? LIMIT 1',
+                [schoolId],
+            );
+            const [[teacherRow]] = await promisePool.query(
+                'SELECT first_name, last_name FROM users WHERE id = ? LIMIT 1',
+                [userId],
+            );
+            const [[stu]] = await promisePool.query(
+                'SELECT first_name, last_name, student_uid, student_code FROM students WHERE id = ? LIMIT 1',
+                [sid],
+            );
+            const teacherName = `${teacherRow?.first_name || ''} ${teacherRow?.last_name || ''}`.trim() || 'Teacher';
+            const studentName = `${stu?.first_name || ''} ${stu?.last_name || ''}`.trim() || 'Student';
+            const studentRef = stu?.student_code || stu?.student_uid || String(sid);
+            await notifyStudentParentsMarks(sid, {
+                studentName,
+                schoolName: schoolRow?.school_name || 'School',
+                subject: assessment.subject_name,
+                assessmentName: assessment.assessment_name,
+                score: score != null ? Number(score) : null,
+                maxScore: maxScore != null ? Number(maxScore) : Number(assessment.max_score) || 100,
+                markCodeLabel: codeLabel || null,
+                teacherName,
+                studentRef,
+                schoolId,
+                assessmentId: assessment.id,
+            });
+        } catch (e) {
+            console.warn('[marks-cell/parent-notify]', e.message);
+        }
+    });
 }
 
 function hashToken(raw) {
@@ -86,6 +146,271 @@ async function ensureClassTeacherAssignmentsTable() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     classTeacherAssignmentsReady = true;
+}
+
+let academicMarksExtrasReady = false;
+async function ensureAcademicMarksExtras() {
+    if (academicMarksExtrasReady) return;
+    const alters = [
+        ['academic_assessments', 'assessment_date', 'DATE NULL'],
+        ['academic_assessments', 'description', 'VARCHAR(500) NULL'],
+        ['academic_assessments', 'status', "VARCHAR(20) NOT NULL DEFAULT 'published'"],
+        ['academic_assessments', 'teacher_assignment_id', 'INT UNSIGNED NULL'],
+        ['academic_assessments', 'term', 'VARCHAR(32) NULL'],
+        ['academic_assessments', 'academic_year', 'VARCHAR(32) NULL'],
+        ['academic_marks', 'mark_code', 'VARCHAR(4) NULL'],
+    ];
+    for (const [table, col, def] of alters) {
+        try {
+            await promisePool.query(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+        } catch (e) {
+            if (e.code !== 'ER_DUP_FIELDNAME') throw e;
+        }
+    }
+    try {
+        await promisePool.query('ALTER TABLE academic_marks MODIFY score_obtained DECIMAL(8,2) NULL');
+    } catch (_) { /* already nullable */ }
+    await ensureAcademicMarksSchemaIntegrity();
+    academicMarksExtrasReady = true;
+}
+
+function letterGradeFromPercent(pct) {
+    if (pct == null || !Number.isFinite(pct)) return null;
+    if (pct >= 80) return 'A';
+    if (pct >= 70) return 'B';
+    if (pct >= 60) return 'C';
+    if (pct >= 50) return 'D';
+    return 'F';
+}
+
+async function fetchSchoolAcademicYear(schoolId) {
+    try {
+        const [rows] = await promisePool.query(
+            `SELECT setting_value FROM school_settings
+             WHERE school_id = ? AND setting_key = 'current_academic_year' LIMIT 1`,
+            [schoolId]
+        );
+        if (rows[0]?.setting_value) return String(rows[0].setting_value).trim();
+    } catch (_) { /* ignore */ }
+    const y = new Date().getFullYear();
+    return `${y}-${y + 1}`;
+}
+
+async function fetchActiveAssessmentTypes(schoolId) {
+    await ensureSchoolMarksAcademicTables();
+    await seedDefaultGradebookColumnsIfEmpty(schoolId);
+    const [rows] = await promisePool.query(
+        `SELECT sat.id, sat.name, sat.slug, sat.weight_percent, sat.sort_order, sat.is_active,
+                sgc.default_max_score
+         FROM school_assessment_types sat
+         LEFT JOIN school_gradebook_columns sgc ON sgc.school_id = sat.school_id AND sgc.slug = sat.slug
+         WHERE sat.school_id = ? AND sat.is_active = 1 AND sat.school_level IN ('ALL')
+         ORDER BY sat.sort_order ASC, sat.id ASC`,
+        [schoolId]
+    );
+    return rows;
+}
+
+async function fetchTeacherAssignmentPairsLegacy(schoolId, userId) {
+    const [ttResult, regResult, stuResult, assignResult] = await Promise.all([
+        promisePool.query(
+            `SELECT DISTINCT class_name, subject_name
+             FROM academic_timetables
+             WHERE school_id = ? AND staff_id = ?
+             ORDER BY class_name ASC, subject_name ASC`,
+            [schoolId, userId]
+        ),
+        promisePool.query(
+            'SELECT group_name, stream_name, combination FROM school_classes WHERE school_id = ?',
+            [schoolId]
+        ),
+        promisePool.query(
+            `SELECT DISTINCT class_name FROM students
+             WHERE school_id = ? AND class_name IS NOT NULL AND TRIM(class_name) <> ''`,
+            [schoolId]
+        ),
+        promisePool.query(
+            `SELECT DISTINCT class_name, subject_name
+             FROM timetable_assignments
+             WHERE school_id = ? AND teacher_user_id = ?
+               AND TRIM(IFNULL(subject_name, '')) <> ''
+               AND LOWER(TRIM(subject_name)) NOT IN ('class teacher', 'class_teacher')`,
+            [schoolId, userId]
+        ).catch(() => [[], []]),
+    ]);
+    const regList = regResult[0] || [];
+    const studentClassNames = (stuResult[0] || []).map((x) => x.class_name);
+    const seen = new Set();
+    const pairs = [];
+    const allRows = [...(ttResult[0] || []), ...(assignResult[0] || [])];
+    for (const r of allRows) {
+        const subject_name = normalizeGradebookLabel(r.subject_name);
+        if (!subject_name) continue;
+        const resolvedClasses = resolveTimetableClassLabels(r.class_name, studentClassNames, regList);
+        for (const class_name of resolvedClasses) {
+            const cn = normalizeGradebookLabel(class_name);
+            if (!cn) continue;
+            const key = `${cn.toLowerCase()}|${subject_name.toLowerCase()}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            pairs.push({ class_name: cn, subject_name });
+        }
+    }
+    pairs.sort((a, b) => a.class_name.localeCompare(b.class_name) || a.subject_name.localeCompare(b.subject_name));
+    return pairs;
+}
+
+async function fetchTeacherAssignmentPairs(schoolId, userId, { academicYear = null, term = null } = {}) {
+    await ensureTeacherAssignmentsTable();
+    let permanent = await fetchTeachingAssignmentsForTeacher(schoolId, userId, { academicYear, term });
+    if (!permanent.length) {
+        await syncTeachingAssignmentsFromTimetable(schoolId).catch(() => {});
+        permanent = await fetchTeachingAssignmentsForTeacher(schoolId, userId, { academicYear, term });
+    }
+    if (permanent.length) {
+        return permanent.map((a) => ({
+            class_name: a.class_name,
+            subject_name: a.subject_name,
+            assignment_id: a.id,
+            academic_year: a.academic_year,
+            term: a.term,
+        }));
+    }
+    return fetchTeacherAssignmentPairsLegacy(schoolId, userId);
+}
+
+/** Homeroom / class-teacher classes only (DOS Class Teachers assignment). */
+async function fetchTeacherClassTeacherClassNames(schoolId, teacherUserId) {
+    await ensureClassTeacherAssignmentsTable();
+    const [ctaRows] = await promisePool.query(
+        `SELECT DISTINCT class_name
+         FROM class_teacher_assignments
+         WHERE school_id = ?
+           AND teacher_user_id = ?
+           AND class_name IS NOT NULL
+           AND TRIM(class_name) <> ''
+         ORDER BY class_name ASC`,
+        [schoolId, teacherUserId],
+    );
+    return (ctaRows || [])
+        .map((r) => normalizeGradebookLabel(r.class_name))
+        .filter(Boolean);
+}
+
+/** Class names for subject teaching: DOS teacher_assignments + timetable legacy (+ homeroom). */
+async function fetchTeacherAssignedClassNames(schoolId, teacherUserId, { academicYear = null, term = null } = {}) {
+    await ensureClassTeacherAssignmentsTable();
+    const classSet = new Set();
+
+    const pairs = await fetchTeacherAssignmentPairs(schoolId, teacherUserId, { academicYear, term });
+    for (const p of pairs) {
+        const cn = normalizeGradebookLabel(p.class_name);
+        if (cn) classSet.add(cn);
+    }
+
+    for (const cn of await fetchTeacherClassTeacherClassNames(schoolId, teacherUserId)) {
+        classSet.add(cn);
+    }
+
+    return [...classSet].sort((a, b) => a.localeCompare(b));
+}
+
+function assignmentPairKey(class_name, subject_name) {
+    return `${normalizeGradebookLabel(class_name).toLowerCase()}|${normalizeGradebookLabel(subject_name).toLowerCase()}`;
+}
+
+async function teacherHasAssignment(schoolId, userId, class_name, subject_name, assignmentId = null) {
+    return schemaTeacherHasAssignment(schoolId, userId, class_name, subject_name, {
+        assignmentId: assignmentId || null,
+    });
+}
+
+function shortAssessmentLabel(name, index, columnSlug) {
+    const slug = String(columnSlug || '').toLowerCase();
+    const slugLabels = {
+        homework: 'HW',
+        quiz: 'QZ',
+        cat: 'CAT',
+        project: 'PRJ',
+        practical: 'PRC',
+        mid_term: 'MID',
+        end_term: 'FIN',
+    };
+    if (slug && slugLabels[slug]) {
+        return `${slugLabels[slug]}${index + 1}`;
+    }
+    let n = String(name || '').trim();
+    n = n.replace(/^\[demo\]\s*/i, '').replace(/^term\s+\d+\s+/i, '');
+    if (n.length <= 8) return n || `A${index + 1}`;
+    const parts = n.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+        const label = `${parts[0].slice(0, 3)}${parts[parts.length - 1].slice(0, 3)}`;
+        return label.length <= 8 ? label : label.slice(0, 8);
+    }
+    return n.slice(0, 8);
+}
+
+async function computeStudentSubjectAverage(schoolId, class_name, subject_name, studentId, typeWeights) {
+    const [marksRows] = await promisePool.query(
+        `SELECT m.score_obtained, m.mark_code, a.max_score, a.column_slug
+         FROM academic_marks m
+         INNER JOIN academic_assessments a ON a.id = m.assessment_id AND a.school_id = m.school_id
+         WHERE m.school_id = ? AND m.student_id = ?
+           AND (${sqlNormLabelEquals('a.class_name')})
+           AND (${sqlNormLabelEquals('a.subject_name')})
+           AND a.column_slug IS NOT NULL AND TRIM(a.column_slug) <> ''`,
+        [schoolId, studentId, class_name, subject_name]
+    );
+    const bySlug = {};
+    for (const r of marksRows) {
+        if (r.mark_code) continue;
+        const slug = String(r.column_slug).toLowerCase();
+        if (!bySlug[slug]) bySlug[slug] = { sum: 0, max: 0 };
+        bySlug[slug].sum += Number(r.score_obtained) || 0;
+        bySlug[slug].max += Number(r.max_score) || 0;
+    }
+    let weighted = 0;
+    let usedWeight = 0;
+    for (const t of typeWeights) {
+        const slug = String(t.slug).toLowerCase();
+        const bucket = bySlug[slug];
+        if (!bucket || bucket.max <= 0) continue;
+        const pct = (bucket.sum / bucket.max) * 100;
+        const w = Number(t.weight_percent) || 0;
+        weighted += (pct * w) / 100;
+        usedWeight += w;
+    }
+    if (usedWeight <= 0) return null;
+    return Math.round(weighted * 10) / 10;
+}
+
+function buildWeightedSummary(students, columns, typeWeights) {
+    const weightMap = {};
+    let totalConfiguredWeight = 0;
+    for (const t of typeWeights) {
+        weightMap[t.slug] = Number(t.weight_percent) || 0;
+        totalConfiguredWeight += Number(t.weight_percent) || 0;
+    }
+    return students.map((s) => {
+        let weighted = 0;
+        const category_breakdown = {};
+        for (const col of columns) {
+            const slug = col.slug;
+            const pct = s.category_percent?.[slug];
+            const w = weightMap[slug] || 0;
+            if (pct != null && w > 0) {
+                weighted += (pct * w) / 100;
+                category_breakdown[slug] = { percent: Math.round(pct * 100) / 100, weight_percent: w };
+            }
+        }
+        const finalPct = totalConfiguredWeight > 0 ? Math.round(weighted * 100) / 100 : null;
+        return {
+            ...s,
+            category_breakdown,
+            weighted_average: finalPct,
+            grade: letterGradeFromPercent(finalPct),
+        };
+    });
 }
 
 let avanceUssdTablesReady = false;
@@ -629,6 +954,7 @@ async function ensureTeacherTables() {
     `);
 
     await ensureSchoolGradebookSchema();
+    await ensureAcademicMarksExtras();
 
     await promisePool.query(`
       CREATE TABLE IF NOT EXISTS school_classes (
@@ -742,6 +1068,8 @@ function normalizePeriodLabel(startTime) {
 }
 
 function toSqlDate(dateStr) {
+    const raw = String(dateStr || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw.slice(0, 10))) return raw.slice(0, 10);
     const d = dateStr ? new Date(dateStr) : new Date();
     return d.toISOString().slice(0, 10);
 }
@@ -1371,6 +1699,7 @@ router.post('/attendance-module/teacher/simulate-scan', requireTeacherRole, asyn
 
 router.get('/attendance-module/teacher-class-checkin', requireTeacherRole, async (req, res) => {
     try {
+        await ensureTeacherTables();
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
         const date = toSqlDate(req.query.date);
@@ -1378,21 +1707,51 @@ router.get('/attendance-module/teacher-class-checkin', requireTeacherRole, async
         const [expected] = await promisePool.query(
             `SELECT t.staff_id AS teacher_id, t.class_name AS class_id, t.subject_name AS course,
                     t.start_time, t.end_time,
-                    ${"TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))"} AS teacher_name
+                    TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
              FROM academic_timetables t
              LEFT JOIN users u ON u.id = t.staff_id
-             WHERE t.school_id = ? AND t.day_of_week = ?`,
+             WHERE t.school_id = ?
+               AND LOWER(TRIM(t.day_of_week)) = LOWER(TRIM(?))
+               AND (t.extra_activity_id IS NULL OR t.extra_activity_id = 0)
+             ORDER BY t.start_time ASC, t.class_name ASC`,
             [schoolId, dayName]
-        );
-        for (const row of expected) {
-            const period = normalizePeriodLabel(row.start_time);
-            await promisePool.query(
-                `INSERT INTO attendance_teacher_class
-                 (school_id, teacher_id, class_id, period, course, attendance_date, status, source)
-                 VALUES (?, ?, ?, ?, ?, ?, 'Missed', 'AUTO')
-                 ON DUPLICATE KEY UPDATE course = VALUES(course)`,
-                [schoolId, row.teacher_id, normalizeGradebookLabel(row.class_id), period, row.course, date]
+        ).catch(async () => {
+            const [rows] = await promisePool.query(
+                `SELECT t.staff_id AS teacher_id, t.class_name AS class_id, t.subject_name AS course,
+                        t.start_time, t.end_time,
+                        TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))) AS teacher_name
+                 FROM academic_timetables t
+                 LEFT JOIN users u ON u.id = t.staff_id
+                 WHERE t.school_id = ?
+                   AND LOWER(TRIM(t.day_of_week)) = LOWER(TRIM(?))
+                 ORDER BY t.start_time ASC, t.class_name ASC`,
+                [schoolId, dayName]
             );
+            return [rows];
+        });
+
+        const slots = (expected || []).filter((row) => row.teacher_id && normalizeGradebookLabel(row.class_id));
+        const slotsByTeacher = new Map();
+        for (const row of slots) {
+            if (!slotsByTeacher.has(row.teacher_id)) slotsByTeacher.set(row.teacher_id, []);
+            slotsByTeacher.get(row.teacher_id).push(row);
+        }
+        for (const teacherSlots of slotsByTeacher.values()) {
+            teacherSlots.sort((a, b) => String(a.start_time || '').localeCompare(String(b.start_time || '')));
+            for (let i = 0; i < teacherSlots.length; i += 1) {
+                const row = teacherSlots[i];
+                const period = `P${i + 1}`;
+                const classId = normalizeGradebookLabel(row.class_id);
+                await promisePool.query(
+                    `INSERT INTO attendance_teacher_class
+                     (school_id, teacher_id, class_id, period, course, attendance_date, status, source)
+                     VALUES (?, ?, ?, ?, ?, ?, 'Missed', 'AUTO')
+                     ON DUPLICATE KEY UPDATE course = VALUES(course)`,
+                    [schoolId, row.teacher_id, classId, period, row.course || null, date]
+                ).catch((insErr) => {
+                    console.warn('[teacher-class-checkin] skip insert:', insErr.message);
+                });
+            }
         }
         const [rows] = await promisePool.query(
             `SELECT c.teacher_id, c.class_id, c.period, c.course, c.attendance_date,
@@ -1524,15 +1883,63 @@ router.get('/dashboard', requireTeacherRole, async (req, res) => {
         const [[studentCount]] = await promisePool.query('SELECT COUNT(*) as c FROM students WHERE school_id = ?', [schoolId]);
 
         const currentDay = new Date().toLocaleString('en-US', { weekday: 'long' });
-        const scheduleSql = isSchoolWideTimetableRole(req)
-            ? `SELECT subject_name as subject, class_name as \`group\`, room, CONCAT(start_time, " - ", end_time) as time
-               FROM academic_timetables WHERE school_id = ? AND day_of_week = ? ORDER BY start_time ASC`
-            : `SELECT subject_name as subject, class_name as \`group\`, room, CONCAT(start_time, " - ", end_time) as time
-               FROM academic_timetables WHERE school_id = ? AND staff_id = ? AND day_of_week = ? ORDER BY start_time ASC`;
+        const nowHm = new Date().toTimeString().slice(0, 5);
+        const timeToMinsDash = (t) => {
+            const [h, m] = String(t || '00:00').slice(0, 5).split(':').map(Number);
+            return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+        };
+        const nowMinsDash = timeToMinsDash(nowHm);
+
+        const [[periodSettings]] = await promisePool.query(
+            'SELECT term, academic_year FROM school_teacher_period_settings WHERE school_id = ? LIMIT 1',
+            [schoolId]
+        ).catch(() => [[null]]);
+        const dashTerm = String(periodSettings?.term || '').trim();
+        const dashYear = String(periodSettings?.academic_year || '').trim();
+
+        const scheduleBase = isSchoolWideTimetableRole(req)
+            ? `SELECT subject_name as subject, class_name as \`group\`, room, start_time, end_time
+               FROM academic_timetables WHERE school_id = ? AND day_of_week = ?
+                 AND (extra_activity_id IS NULL OR extra_activity_id = 0)`
+            : `SELECT subject_name as subject, class_name as \`group\`, room, start_time, end_time
+               FROM academic_timetables WHERE school_id = ? AND staff_id = ? AND day_of_week = ?
+                 AND (extra_activity_id IS NULL OR extra_activity_id = 0)`;
         const scheduleParams = isSchoolWideTimetableRole(req)
             ? [schoolId, currentDay]
             : [schoolId, userId, currentDay];
+        let scheduleSql = scheduleBase;
+        if (dashTerm) { scheduleSql += ' AND TRIM(COALESCE(term,\'\')) = ?'; scheduleParams.push(dashTerm); }
+        if (dashYear) { scheduleSql += ' AND TRIM(COALESCE(academic_year,\'\')) = ?'; scheduleParams.push(dashYear); }
+        scheduleSql += ' ORDER BY start_time ASC';
         const [todayScheduleRows] = await promisePool.query(scheduleSql, scheduleParams);
+
+        const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        let weeklySql = isSchoolWideTimetableRole(req)
+            ? `SELECT subject_name as subject, class_name as \`group\`, room, start_time, end_time, day_of_week as day
+               FROM academic_timetables WHERE school_id = ? AND day_of_week IN (?,?,?,?,?)
+                 AND (extra_activity_id IS NULL OR extra_activity_id = 0)`
+            : `SELECT subject_name as subject, class_name as \`group\`, room, start_time, end_time, day_of_week as day
+               FROM academic_timetables WHERE school_id = ? AND staff_id = ? AND day_of_week IN (?,?,?,?,?)
+                 AND (extra_activity_id IS NULL OR extra_activity_id = 0)`;
+        const weeklyParams = isSchoolWideTimetableRole(req)
+            ? [schoolId, ...weekDays]
+            : [schoolId, userId, ...weekDays];
+        if (dashTerm) { weeklySql += ' AND TRIM(COALESCE(term,\'\')) = ?'; weeklyParams.push(dashTerm); }
+        if (dashYear) { weeklySql += ' AND TRIM(COALESCE(academic_year,\'\')) = ?'; weeklyParams.push(dashYear); }
+        weeklySql += ' ORDER BY FIELD(day_of_week, "Monday","Tuesday","Wednesday","Thursday","Friday"), start_time ASC';
+        const [weeklyRows] = await promisePool.query(weeklySql, weeklyParams);
+
+        const [periodLogsToday] = await promisePool.query(
+            `SELECT class_name, subject_name, start_time, end_time, entry_time, exit_time, status,
+                    TIME_FORMAT(entry_time, '%H:%i') AS entry_hm
+             FROM teacher_period_attendance
+             WHERE school_id = ? AND teacher_id = ? AND period_date = CURDATE()`,
+            [schoolId, userId]
+        ).catch(() => [[]]);
+
+        const logMap = new Map((periodLogsToday || []).map((l) => [
+            `${l.class_name}__${String(l.start_time).slice(0, 5)}`, l,
+        ]));
 
         const [[attAgg]] = await promisePool.query(
             `SELECT
@@ -1560,7 +1967,89 @@ router.get('/dashboard', requireTeacherRole, async (req, res) => {
             { label: 'Lessons Done', value: String(lessonsDoneRow?.c ?? 0) },
         ];
 
-        res.json({ success: true, data: { stats, schedule: todayScheduleRows } });
+        const schedule = (todayScheduleRows || []).map((row) => {
+            const start = String(row.start_time || '').slice(0, 5);
+            const end = String(row.end_time || '').slice(0, 5);
+            const startM = timeToMinsDash(start);
+            const endM = timeToMinsDash(end);
+            const active = nowMinsDash >= startM && nowMinsDash < endM;
+            const log = logMap.get(`${row.group}__${start}`);
+            return {
+                time: start,
+                end_time: end,
+                title: `${row.subject} · ${row.group}`,
+                subject: row.subject,
+                class_name: row.group,
+                room: row.room || '—',
+                active,
+                period_checked_in: Boolean(log?.entry_time),
+                period_status: log?.status || null,
+                entry_time: log?.entry_hm || null,
+            };
+        });
+
+        const weeklySchedule = (weeklyRows || []).map((row) => ({
+            day: row.day,
+            time: String(row.start_time || '').slice(0, 5),
+            end_time: String(row.end_time || '').slice(0, 5),
+            title: `${row.subject} · ${row.group}`,
+            subject: row.subject,
+            class_name: row.group,
+            room: row.room || '—',
+        }));
+
+        await ensureClassTeacherAssignmentsTable();
+        await ensureTeacherAssignmentsTable();
+
+        const roleCode = String(req.session?.user?.role_code || req.user?.role_code || '').toUpperCase();
+        const homeroomClasses = roleCode === 'TEACHER'
+            ? await fetchTeacherClassTeacherClassNames(schoolId, userId)
+            : [];
+
+        let genderAgg = { total: 0, girls: 0, boys: 0 };
+        let assignedStudentCount = Number(studentCount?.c ?? 0);
+
+        if (roleCode === 'TEACHER') {
+            if (homeroomClasses.length) {
+                const classOr = homeroomClasses.map(() => sqlNormLabelEquals('class_name')).join(' OR ');
+                const [[scopedGender]] = await promisePool.query(
+                    `SELECT
+                       COUNT(*) AS total,
+                       SUM(CASE WHEN LOWER(TRIM(COALESCE(gender, ''))) IN ('female', 'f', 'girl', 'girls') THEN 1 ELSE 0 END) AS girls,
+                       SUM(CASE WHEN LOWER(TRIM(COALESCE(gender, ''))) IN ('male', 'm', 'boy', 'boys') THEN 1 ELSE 0 END) AS boys
+                     FROM students
+                     WHERE school_id = ? AND (${classOr})`,
+                    [schoolId, ...homeroomClasses],
+                ).catch(() => [[{ total: 0, girls: 0, boys: 0 }]]);
+                genderAgg = scopedGender || genderAgg;
+                assignedStudentCount = Number(scopedGender?.total ?? 0);
+            }
+        } else {
+            const [[schoolGender]] = await promisePool.query(
+                `SELECT
+                   COUNT(*) AS total,
+                   SUM(CASE WHEN LOWER(TRIM(COALESCE(gender, ''))) IN ('female', 'f', 'girl', 'girls') THEN 1 ELSE 0 END) AS girls,
+                   SUM(CASE WHEN LOWER(TRIM(COALESCE(gender, ''))) IN ('male', 'm', 'boy', 'boys') THEN 1 ELSE 0 END) AS boys
+                 FROM students
+                 WHERE school_id = ?`,
+                [schoolId],
+            ).catch(() => [[{ total: studentCount?.c || 0, girls: 0, boys: 0 }]]);
+            genderAgg = schoolGender || genderAgg;
+            assignedStudentCount = Number(schoolGender?.total ?? studentCount?.c ?? 0);
+        }
+
+        if (stats[1]?.label === 'Active Students') {
+            stats[1].value = String(assignedStudentCount);
+        }
+
+        const schoolOverview = {
+            students: Number(genderAgg?.total ?? 0),
+            girls: Number(genderAgg?.girls ?? 0),
+            boys: Number(genderAgg?.boys ?? 0),
+            classNames: homeroomClasses,
+        };
+
+        res.json({ success: true, data: { stats, schedule, weeklySchedule, schoolOverview } });
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed to fetch dashboard stats' });
@@ -1574,6 +2063,7 @@ router.get('/dashboard', requireTeacherRole, async (req, res) => {
 router.get('/students', requireTeacherRole, async (req, res) => {
     try {
         await ensureClassTeacherAssignmentsTable();
+        await ensureTeacherAssignmentsTable();
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
@@ -1620,6 +2110,7 @@ router.get('/students', requireTeacherRole, async (req, res) => {
             if (forAttendance && classLabelList.length) {
                 const ttMatch = classLabelList.map(() => sqlNormLabelEquals('tt.class_name')).join(' OR ');
                 const taMatch = classLabelList.map(() => sqlNormLabelEquals('ta.class_name')).join(' OR ');
+                const dosMatch = classLabelList.map(() => sqlNormLabelEquals('ta_dos.class_name')).join(' OR ');
                 query += `
               AND (
                 EXISTS (
@@ -1636,18 +2127,32 @@ router.get('/students', requireTeacherRole, async (req, res) => {
                     AND ta.teacher_user_id = ?
                     AND (${taMatch})
                 )
+                OR EXISTS (
+                  SELECT 1
+                  FROM teacher_assignments ta_dos
+                  WHERE ta_dos.school_id = ?
+                    AND ta_dos.teacher_user_id = ?
+                    AND ta_dos.status = 'active'
+                    AND (${dosMatch})
+                )
               )`;
-                params.push(schoolId, teacherUserId, ...classLabelList, schoolId, teacherUserId, ...classLabelList);
+                params.push(
+                    schoolId, teacherUserId, ...classLabelList,
+                    schoolId, teacherUserId, ...classLabelList,
+                    schoolId, teacherUserId, ...classLabelList,
+                );
             } else if (!forAttendance) {
-                query += `
-              AND EXISTS (
-                SELECT 1
-                FROM class_teacher_assignments cta
-                WHERE cta.school_id = ?
-                  AND cta.teacher_user_id = ?
-                  AND (${sqlNormColumnsEqual('cta.class_name', 's.class_name')})
-              )`;
-                params.push(schoolId, teacherUserId);
+                const rosterScope = String(scope || '').trim().toLowerCase();
+                const assignedClasses = rosterScope === 'teaching'
+                    ? await fetchTeacherAssignedClassNames(schoolId, teacherUserId)
+                    : await fetchTeacherClassTeacherClassNames(schoolId, teacherUserId);
+                if (!assignedClasses.length) {
+                    query += ' AND 1=0';
+                } else {
+                    const classOr = assignedClasses.map(() => sqlNormLabelEquals('s.class_name')).join(' OR ');
+                    query += ` AND (${classOr})`;
+                    params.push(...assignedClasses);
+                }
             }
         }
 
@@ -1777,36 +2282,45 @@ router.get('/english-club/resources', requireTeacherRole, (req, res) => {
 router.get('/classes', requireTeacherRole, async (req, res) => {
     try {
         await ensureClassTeacherAssignmentsTable();
+        await ensureTeacherAssignmentsTable();
         const schoolId = resolveSchoolId(req);
         if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
 
         const teacherUserId = resolveUserId(req);
         if (!teacherUserId) return res.status(403).json({ success: false, message: 'Teacher not resolved' });
         const roleCode = String(req.session?.user?.role_code || req.user?.role_code || '').toUpperCase();
-        const restrictToAssignedClasses = roleCode === 'TEACHER';
+        const scope = String(req.query.scope || '').trim().toLowerCase();
+        const wantAllSchool = scope === 'school' || scope === 'all' || roleCode !== 'TEACHER';
 
-        const [rows] = restrictToAssignedClasses
-            ? await promisePool.query(
-                `SELECT DISTINCT cta.class_name
-                 FROM class_teacher_assignments cta
-                 WHERE cta.school_id = ?
-                   AND cta.teacher_user_id = ?
-                   AND cta.class_name IS NOT NULL
-                   AND TRIM(cta.class_name) <> ''
-                 ORDER BY cta.class_name ASC`,
-                [schoolId, teacherUserId]
-              )
-            : await promisePool.query(
-                `SELECT DISTINCT s.class_name
-                 FROM students s
-                 WHERE s.school_id = ?
-                   AND s.class_name IS NOT NULL
-                   AND TRIM(s.class_name) <> ''
-                 ORDER BY s.class_name ASC`,
-                [schoolId]
-              );
+        if (wantAllSchool) {
+            const [registryRows, studentClassRows, timetableClassRows] = await Promise.all([
+                promisePool.query(
+                    'SELECT group_name, stream_name, combination FROM school_classes WHERE school_id = ?',
+                    [schoolId]
+                ).then(([rows]) => rows || []),
+                promisePool.query(
+                    `SELECT DISTINCT class_name FROM students
+                     WHERE school_id = ? AND class_name IS NOT NULL AND TRIM(class_name) <> ''`,
+                    [schoolId]
+                ).then(([rows]) => (rows || []).map((r) => r.class_name)),
+                promisePool.query(
+                    `SELECT DISTINCT class_name FROM academic_timetables
+                     WHERE school_id = ? AND class_name IS NOT NULL AND TRIM(class_name) <> ''`,
+                    [schoolId]
+                ).then(([rows]) => (rows || []).map((r) => r.class_name)),
+            ]);
+            const classes = collectSchoolRegisteredClassNames({
+                registryRows,
+                studentClassNames: studentClassRows,
+                timetableClassNames: timetableClassRows,
+            });
+            return res.json({ success: true, data: classes });
+        }
 
-        const classes = rows.map(r => r.class_name);
+        const classScope = String(req.query.class_scope || scope || '').trim().toLowerCase();
+        const classes = classScope === 'teaching'
+            ? await fetchTeacherAssignedClassNames(schoolId, teacherUserId)
+            : await fetchTeacherClassTeacherClassNames(schoolId, teacherUserId);
         res.json({ success: true, data: classes });
     } catch (err) {
         console.error(err);
@@ -2473,7 +2987,8 @@ router.get('/gradebook-matrix', requireTeacherRole, async (req, res) => {
 
         const [agg] = await promisePool.query(
             `SELECT m.student_id, a.column_slug AS slug,
-                    SUM(m.score_obtained) AS score_sum
+                    SUM(CASE WHEN m.mark_code IS NULL OR TRIM(m.mark_code) = '' THEN m.score_obtained ELSE 0 END) AS score_sum,
+                    SUM(CASE WHEN m.mark_code IS NULL OR TRIM(m.mark_code) = '' THEN a.max_score ELSE 0 END) AS max_sum
              FROM academic_marks m
              INNER JOIN academic_assessments a ON a.id = m.assessment_id AND a.school_id = m.school_id
              WHERE m.school_id = ?
@@ -2485,16 +3000,23 @@ router.get('/gradebook-matrix', requireTeacherRole, async (req, res) => {
         );
 
         const scoreMap = {};
+        const percentMap = {};
         for (const row of agg) {
             const key = `${row.student_id}:${row.slug}`;
             scoreMap[key] = Number(row.score_sum);
+            const maxSum = Number(row.max_sum);
+            percentMap[key] = maxSum > 0 ? (Number(row.score_sum) / maxSum) * 100 : null;
         }
+
+        const typeWeights = await fetchActiveAssessmentTypes(schoolId);
 
         const matrix = students.map((s) => {
             const scores = {};
+            const category_percent = {};
             for (const col of columns) {
                 const k = `${s.id}:${col.slug}`;
                 scores[col.slug] = Object.prototype.hasOwnProperty.call(scoreMap, k) ? scoreMap[k] : null;
+                category_percent[col.slug] = Object.prototype.hasOwnProperty.call(percentMap, k) ? percentMap[k] : null;
             }
             return {
                 student_id: s.id,
@@ -2502,8 +3024,11 @@ router.get('/gradebook-matrix', requireTeacherRole, async (req, res) => {
                 name: `${s.first_name} ${s.last_name}`.trim(),
                 gender: s.gender,
                 scores,
+                category_percent,
             };
         });
+
+        const studentsWithWeights = buildWeightedSummary(matrix, columns, typeWeights);
 
         let student_class_name = null;
         if (students.length > 0) {
@@ -2517,7 +3042,14 @@ router.get('/gradebook-matrix', requireTeacherRole, async (req, res) => {
             success: true,
             data: {
                 columns,
-                students: matrix,
+                assessment_types: typeWeights.map((t) => ({
+                    id: t.id,
+                    name: t.name,
+                    slug: t.slug,
+                    weight_percent: Number(t.weight_percent),
+                    default_max_score: t.default_max_score != null ? Number(t.default_max_score) : null,
+                })),
+                students: studentsWithWeights,
                 class_name,
                 subject_name,
                 student_class_name,
@@ -2626,6 +3158,1022 @@ router.post('/marks', requireTeacherRole, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ success: false, message: 'Failed to record marks' });
+    }
+});
+
+// ============================================================
+// GET /api/teacher-portal/teaching-assignments
+// Cards for Record Marks wizard — class + subject + counts
+// ============================================================
+router.get('/teaching-assignments', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId || !userId) {
+            return res.status(400).json({ success: false, message: 'No school linked' });
+        }
+        const calendar = await loadSchoolAcademicCalendar(schoolId);
+        const academicYear = String(req.query.academic_year || '').trim()
+            || calendar.currentAcademicYear;
+        const yearTerms = calendar.termsByYear[academicYear] || calendar.terms;
+        const term = String(req.query.term || '').trim()
+            || inferTermFromMonth(yearTerms);
+
+        await ensureTeacherAssignmentsTable();
+        let assignments = await fetchTeachingAssignmentsForTeacher(schoolId, userId, { academicYear, term });
+        let syncedFromTimetable = false;
+
+        if (!assignments.length) {
+            await syncTeachingAssignmentsFromTimetable(schoolId).catch(() => {});
+            syncedFromTimetable = true;
+            assignments = await fetchTeachingAssignmentsForTeacher(schoolId, userId, { academicYear, term });
+        }
+
+        if (!assignments.length) {
+            const legacyPairs = await fetchTeacherAssignmentPairsLegacy(schoolId, userId);
+            const [stuResult] = await promisePool.query(
+                `SELECT class_name, COUNT(*) AS student_count
+                 FROM students
+                 WHERE school_id = ? AND class_name IS NOT NULL AND TRIM(class_name) <> ''
+                 GROUP BY class_name`,
+                [schoolId],
+            );
+            const countByClass = {};
+            for (const r of stuResult || []) {
+                const cn = normalizeGradebookLabel(r.class_name);
+                if (cn) countByClass[cn.toLowerCase()] = Number(r.student_count) || 0;
+            }
+            assignments = legacyPairs.map((p) => ({
+                id: `${p.class_name}\0${p.subject_name}`,
+                assignment_id: null,
+                class_name: p.class_name,
+                subject_name: p.subject_name,
+                academic_year: academicYear,
+                term,
+                student_count: countByClass[p.class_name.toLowerCase()] || 0,
+                source: 'timetable_legacy',
+            }));
+        }
+
+        res.json({
+            success: true,
+            data: {
+                assignments,
+                academic_year: academicYear,
+                current_academic_year: calendar.currentAcademicYear,
+                academic_years: calendar.academicYears,
+                term,
+                terms: yearTerms,
+                synced_from_timetable: syncedFromTimetable,
+                source: assignments[0]?.source || 'permanent',
+            },
+        });
+    } catch (err) {
+        console.error('GET /teacher-portal/teaching-assignments:', err);
+        res.status(500).json({ success: false, message: 'Failed to load teaching assignments' });
+    }
+});
+
+// ============================================================
+// GET /api/teacher-portal/assessment-types
+// Read-only DOS assessment framework for teachers
+// ============================================================
+router.get('/assessment-types', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const rows = await fetchActiveAssessmentTypes(schoolId);
+        const totalWeight = rows.reduce((s, r) => s + (Number(r.weight_percent) || 0), 0);
+        res.json({
+            success: true,
+            data: {
+                rows: rows.map((r) => ({
+                    id: r.id,
+                    name: r.name,
+                    slug: r.slug,
+                    weight_percent: Number(r.weight_percent),
+                    sort_order: r.sort_order,
+                    default_max_score: r.default_max_score != null ? Number(r.default_max_score) : null,
+                })),
+                total_weight: totalWeight,
+            },
+        });
+    } catch (err) {
+        console.error('GET /teacher-portal/assessment-types:', err);
+        res.status(500).json({ success: false, message: 'Failed to load assessment types' });
+    }
+});
+
+// ============================================================
+// GET /api/teacher-portal/assessment-context
+// Suggestions, duplicate check, type stats for wizard step 2
+// ============================================================
+router.get('/assessment-context', requireTeacherRole, async (req, res) => {
+    try {
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const class_name = normalizeGradebookLabel(req.query.class_name);
+        const subject_name = normalizeGradebookLabel(req.query.subject_name);
+        const column_slug = req.query.column_slug ? String(req.query.column_slug).trim().toLowerCase() : '';
+        if (!class_name || !subject_name) {
+            return res.status(400).json({ success: false, message: 'class_name and subject_name required' });
+        }
+
+        const [assessments] = await promisePool.query(
+            `SELECT id, assessment_name, max_score, column_slug, status, created_at
+             FROM academic_assessments
+             WHERE school_id = ?
+               AND (${sqlNormLabelEquals('class_name')})
+               AND (${sqlNormLabelEquals('subject_name')})
+             ORDER BY created_at DESC, id DESC`,
+            [schoolId, class_name, subject_name]
+        );
+
+        const typeRows = await fetchActiveAssessmentTypes(schoolId);
+        const typeInfo = column_slug
+            ? typeRows.find((t) => t.slug === column_slug)
+            : null;
+
+        const filtered = column_slug
+            ? assessments.filter((a) => String(a.column_slug || '').toLowerCase() === column_slug)
+            : assessments;
+
+        const typeName = typeInfo?.name || column_slug || 'Assessment';
+        const existingNames = filtered.map((a) => String(a.assessment_name).trim().toLowerCase());
+        const suggestions = [];
+        for (let i = 1; i <= 5; i += 1) {
+            const name = `${typeName} ${i}`;
+            if (!existingNames.includes(name.toLowerCase())) suggestions.push(name);
+        }
+
+        res.json({
+            success: true,
+            data: {
+                assessments: filtered,
+                assessment_count: filtered.length,
+                type_weight_percent: typeInfo ? Number(typeInfo.weight_percent) : null,
+                type_name: typeInfo?.name || null,
+                default_max_score: typeInfo?.default_max_score != null ? Number(typeInfo.default_max_score) : 20,
+                suggestions,
+            },
+        });
+    } catch (err) {
+        console.error('GET /teacher-portal/assessment-context:', err);
+        res.status(500).json({ success: false, message: 'Failed to load assessment context' });
+    }
+});
+
+// ============================================================
+// POST /api/teacher-portal/register-marks
+// Atomic: create/update assessment + bulk marks (draft or published)
+// ============================================================
+router.post('/register-marks', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureAcademicMarksExtras();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId || !userId) {
+            return res.status(400).json({ success: false, message: 'No school linked' });
+        }
+
+        const {
+            assessment_id: existingId,
+            teacher_assignment_id: bodyAssignmentId,
+            class_name: rawClass,
+            subject_name: rawSubj,
+            assessment_name,
+            max_score,
+            column_slug,
+            assessment_date,
+            description,
+            status,
+            marks,
+            term: bodyTerm,
+            academic_year: bodyAcademicYear,
+        } = req.body;
+
+        const class_name = normalizeGradebookLabel(rawClass);
+        const subject_name = normalizeGradebookLabel(rawSubj);
+        const name = String(assessment_name || '').trim();
+        const publishStatus = status === 'draft' ? 'draft' : 'published';
+
+        if (!class_name || !subject_name || !name) {
+            return res.status(400).json({ success: false, message: 'class_name, subject_name, and assessment_name required' });
+        }
+        const hasAssignment = await teacherHasAssignment(
+            schoolId, userId, class_name, subject_name, bodyAssignmentId,
+        );
+        if (!hasAssignment) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not assigned to teach this class and subject. Contact DOS.',
+            });
+        }
+        const teacherAssignmentId = await resolveAssignmentIdForTeacher(
+            schoolId, userId, class_name, subject_name, bodyAssignmentId,
+        );
+        if (!marks || !Array.isArray(marks)) {
+            return res.status(400).json({ success: false, message: 'marks array required' });
+        }
+
+        const slug = column_slug != null && String(column_slug).trim() !== ''
+            ? String(column_slug).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 40)
+            : null;
+
+        const calendar = await getSchoolAcademicCalendarSettings(schoolId);
+        const assessmentTerm = String(bodyTerm || '').trim()
+            || inferTermFromMonth(calendar.active_terms);
+        const assessmentYear = String(bodyAcademicYear || '').trim()
+            || calendar.current_academic_year
+            || await fetchSchoolAcademicYear(schoolId);
+
+        let assessmentId = existingId ? Number(existingId) : null;
+
+        if (!assessmentId) {
+            const [dup] = await promisePool.query(
+                `SELECT id FROM academic_assessments
+                 WHERE school_id = ?
+                   AND (${sqlNormLabelEquals('class_name')})
+                   AND (${sqlNormLabelEquals('subject_name')})
+                   AND LOWER(TRIM(assessment_name)) = LOWER(TRIM(?))
+                 LIMIT 1`,
+                [schoolId, class_name, subject_name, name]
+            );
+            if (dup.length) {
+                return res.status(409).json({
+                    success: false,
+                    message: `"${name}" already exists for this class and subject.`,
+                    duplicate: true,
+                    assessment_id: dup[0].id,
+                });
+            }
+
+            const [r] = await promisePool.query(
+                `INSERT INTO academic_assessments
+                 (school_id, class_name, subject_name, assessment_name, max_score, assessment_type, column_slug,
+                  assessment_date, description, status, created_by_user_id, teacher_assignment_id, term, academic_year)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    schoolId,
+                    class_name,
+                    subject_name,
+                    name,
+                    max_score || 100,
+                    'TEACHER_CUSTOM',
+                    slug,
+                    assessment_date || null,
+                    description || null,
+                    publishStatus,
+                    userId,
+                    teacherAssignmentId,
+                    assessmentTerm || null,
+                    assessmentYear || null,
+                ]
+            );
+            assessmentId = Number(r.insertId);
+            if (!assessmentId) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Failed to create assessment — database id not generated. Contact administrator.',
+                });
+            }
+        } else {
+            await promisePool.query(
+                `UPDATE academic_assessments
+                 SET max_score = ?, assessment_date = ?, description = ?, status = ?, column_slug = COALESCE(?, column_slug)
+                 WHERE id = ? AND school_id = ?`,
+                [max_score || 100, assessment_date || null, description || null, publishStatus, slug, assessmentId, schoolId]
+            );
+        }
+
+        const maxVal = Number(max_score) || 100;
+        let saved = 0;
+        const atRisk = [];
+
+        for (const m of marks) {
+            const studentId = Number(m.student_id);
+            if (!studentId) continue;
+            const code = m.mark_code ? String(m.mark_code).trim().toUpperCase() : null;
+            let score = null;
+
+            if (code && ['A', 'E', 'M'].includes(code)) {
+                await promisePool.query(
+                    `INSERT INTO academic_marks (school_id, assessment_id, student_id, score_obtained, mark_code, recorded_by_user_id)
+                     VALUES (?, ?, ?, NULL, ?, ?)
+                     ON DUPLICATE KEY UPDATE score_obtained = NULL, mark_code = VALUES(mark_code)`,
+                    [schoolId, assessmentId, studentId, code, userId]
+                );
+                saved += 1;
+                continue;
+            }
+
+            if (m.value === '' || m.value == null) continue;
+            score = Number(m.value);
+            if (!Number.isFinite(score)) continue;
+            if (score > maxVal) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Maximum marks is ${maxVal}`,
+                    student_id: studentId,
+                });
+            }
+
+            await promisePool.query(
+                `INSERT INTO academic_marks (school_id, assessment_id, student_id, score_obtained, mark_code, recorded_by_user_id)
+                 VALUES (?, ?, ?, ?, NULL, ?)
+                 ON DUPLICATE KEY UPDATE score_obtained = VALUES(score_obtained), mark_code = NULL`,
+                [schoolId, assessmentId, studentId, score, userId]
+            );
+            saved += 1;
+            const pct = maxVal > 0 ? (score / maxVal) * 100 : 0;
+            if (pct < 40) atRisk.push({ student_id: studentId, percent: Math.round(pct * 10) / 10 });
+        }
+
+        const numericMarks = marks.filter((m) => {
+            const code = m.mark_code ? String(m.mark_code).trim().toUpperCase() : '';
+            if (code && ['A', 'E', 'M'].includes(code)) return false;
+            return m.value !== '' && m.value != null && Number.isFinite(Number(m.value));
+        });
+        const values = numericMarks.map((m) => Number(m.value));
+        const stats = values.length
+            ? {
+                highest: Math.max(...values),
+                lowest: Math.min(...values),
+                average: Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10,
+                pass_rate: Math.round((values.filter((v) => (v / maxVal) * 100 >= 50).length / values.length) * 1000) / 10,
+                filled: values.length,
+            }
+            : { highest: null, lowest: null, average: null, pass_rate: null, filled: 0 };
+
+        res.json({
+            success: true,
+            assessment_id: assessmentId,
+            status: publishStatus,
+            marks_saved: saved,
+            statistics: stats,
+            at_risk: atRisk,
+            message: publishStatus === 'draft' ? 'Draft saved' : 'Marks published successfully',
+        });
+
+        if (publishStatus === 'published' && saved > 0) {
+            setImmediate(async () => {
+                try {
+                    const [[schoolRow]] = await promisePool.query(
+                        'SELECT school_name FROM schools WHERE id = ? LIMIT 1',
+                        [schoolId],
+                    );
+                    const [[teacherRow]] = await promisePool.query(
+                        'SELECT first_name, last_name FROM users WHERE id = ? LIMIT 1',
+                        [userId],
+                    );
+                    const teacherName = `${teacherRow?.first_name || ''} ${teacherRow?.last_name || ''}`.trim() || 'Teacher';
+                    const schoolName = schoolRow?.school_name || 'School';
+                    const notified = new Set();
+                    for (const m of marks) {
+                        const studentId = Number(m.student_id);
+                        if (!studentId || notified.has(studentId)) continue;
+                        const code = m.mark_code ? String(m.mark_code).trim().toUpperCase() : null;
+                        const hasValue = code && ['A', 'E', 'M'].includes(code)
+                            ? true
+                            : m.value !== '' && m.value != null && Number.isFinite(Number(m.value));
+                        if (!hasValue) continue;
+                        notified.add(studentId);
+                        const [[stu]] = await promisePool.query(
+                            'SELECT first_name, last_name, student_uid, student_code FROM students WHERE id = ? LIMIT 1',
+                            [studentId],
+                        );
+                        const studentName = `${stu?.first_name || ''} ${stu?.last_name || ''}`.trim() || 'Student';
+                        const studentRef = stu?.student_code || stu?.student_uid || String(studentId);
+                        await notifyStudentParentsMarks(studentId, {
+                            studentName,
+                            schoolName,
+                            subject: subject_name,
+                            assessmentName: name,
+                            score: code ? null : Number(m.value),
+                            maxScore: maxVal,
+                            markCodeLabel: code ? markCodeLabel(code) : null,
+                            teacherName,
+                            studentRef,
+                            schoolId,
+                            assessmentId,
+                        });
+                    }
+                } catch (notifyErr) {
+                    console.warn('[register-marks/parent-notify]', notifyErr.message);
+                }
+            });
+        }
+    } catch (err) {
+        console.error('POST /teacher-portal/register-marks:', err);
+        res.status(500).json({ success: false, message: 'Failed to register marks' });
+    }
+});
+
+// ============================================================
+// GET /api/teacher-portal/marks-center
+// Gradebook hub — scoped to teacher timetable assignments only
+// ============================================================
+router.get('/marks-center', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureAcademicMarksExtras();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId || !userId) {
+            return res.status(400).json({ success: false, message: 'No school linked' });
+        }
+
+        const pairs = await fetchTeacherAssignmentPairs(schoolId, userId);
+        if (!pairs.length) {
+            return res.json({
+                success: true,
+                data: {
+                    filters: { academic_years: [], terms: [], classes: [], courses: [], assessment_types: [], assessments: [] },
+                    empty_reason: 'No teaching assignments on your timetable. Contact DOS to assign classes.',
+                },
+            });
+        }
+
+        const calendar = await loadSchoolAcademicCalendar(schoolId);
+        const academicYear = String(req.query.academic_year || '').trim()
+            || calendar.currentAcademicYear;
+        const yearTerms = calendar.termsByYear[academicYear] || calendar.terms;
+        const term = String(req.query.term || '').trim()
+            || inferTermFromMonth(yearTerms);
+
+        const class_name = normalizeGradebookLabel(req.query.class_name);
+        const subject_name = normalizeGradebookLabel(req.query.subject_name);
+        const column_slug = req.query.column_slug ? String(req.query.column_slug).trim().toLowerCase() : '';
+        const assessment_id = req.query.assessment_id ? Number(req.query.assessment_id) : null;
+        const student_search = String(req.query.student_search || '').trim().toLowerCase();
+
+        const classes = [...new Set(pairs.map((p) => p.class_name))].sort();
+        const selClass = class_name && classes.some((c) => c.toLowerCase() === class_name.toLowerCase())
+            ? classes.find((c) => c.toLowerCase() === class_name.toLowerCase())
+            : classes[0];
+        const coursesForClass = pairs
+            .filter((p) => p.class_name.toLowerCase() === selClass.toLowerCase())
+            .map((p) => p.subject_name);
+        const selSubject = subject_name && coursesForClass.some((s) => s.toLowerCase() === subject_name.toLowerCase())
+            ? coursesForClass.find((s) => s.toLowerCase() === subject_name.toLowerCase())
+            : coursesForClass[0];
+
+        if (!selClass || !selSubject) {
+            return res.json({ success: true, data: { filters: { classes, courses: [] }, empty_reason: 'Select a class and course.' } });
+        }
+
+        const allowed = await teacherHasAssignment(schoolId, userId, selClass, selSubject);
+        if (!allowed) {
+            return res.status(403).json({ success: false, message: 'You are not assigned to this class and course.' });
+        }
+
+        const typeWeights = await fetchActiveAssessmentTypes(schoolId);
+        const typeMap = Object.fromEntries(typeWeights.map((t) => [String(t.slug).toLowerCase(), t]));
+
+        let assessmentSql = `
+            SELECT id, assessment_name, max_score, column_slug, status, assessment_date, created_at
+            FROM academic_assessments
+            WHERE school_id = ?
+              AND (${sqlNormLabelEquals('class_name')})
+              AND (${sqlNormLabelEquals('subject_name')})
+              AND (status IS NULL OR status = 'published' OR status = 'draft')`;
+        const assessmentParams = [schoolId, selClass, selSubject];
+        if (column_slug) {
+            assessmentSql += ' AND LOWER(TRIM(column_slug)) = ?';
+            assessmentParams.push(column_slug);
+        }
+        if (academicYear) {
+            assessmentSql += ' AND (academic_year IS NULL OR TRIM(academic_year) = ? OR TRIM(academic_year) = \'\')';
+            assessmentParams.push(academicYear);
+        }
+        if (term) {
+            assessmentSql += ' AND (term IS NULL OR TRIM(term) = ? OR TRIM(term) = \'\')';
+            assessmentParams.push(term);
+        }
+        assessmentSql += ' ORDER BY created_at ASC, id ASC';
+        const [assessmentRows] = await promisePool.query(assessmentSql, assessmentParams);
+
+        const slugCounts = {};
+        const assessments = assessmentRows.map((a, i) => {
+            const slugKey = String(a.column_slug || '').toLowerCase();
+            slugCounts[slugKey] = (slugCounts[slugKey] || 0) + 1;
+            return {
+                id: a.id,
+                assessment_name: a.assessment_name,
+                short_label: shortAssessmentLabel(a.assessment_name, slugCounts[slugKey] - 1, a.column_slug),
+                max_score: Number(a.max_score),
+                column_slug: a.column_slug,
+                type_name: typeMap[String(a.column_slug || '').toLowerCase()]?.name || a.column_slug || 'Other',
+                status: a.status || 'published',
+                assessment_date: a.assessment_date,
+                created_at: a.created_at,
+            };
+        });
+
+        const selAssessment = assessment_id
+            ? assessments.find((a) => a.id === assessment_id) || assessments[assessments.length - 1]
+            : assessments[assessments.length - 1] || null;
+
+        const [students] = await promisePool.query(
+            `SELECT id, student_uid, first_name, last_name, gender, class_name
+             FROM students
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')})
+             ORDER BY first_name ASC, last_name ASC`,
+            [schoolId, selClass]
+        );
+
+        const assessmentIds = assessments.map((a) => a.id);
+        let marksRows = [];
+        if (assessmentIds.length) {
+            const [mr] = await promisePool.query(
+                `SELECT m.student_id, m.assessment_id, m.score_obtained, m.mark_code, a.max_score
+                 FROM academic_marks m
+                 INNER JOIN academic_assessments a ON a.id = m.assessment_id
+                 WHERE m.school_id = ? AND m.assessment_id IN (?)`,
+                [schoolId, assessmentIds]
+            );
+            marksRows = mr;
+        }
+
+        const markLookup = {};
+        for (const m of marksRows) {
+            markLookup[`${m.student_id}:${m.assessment_id}`] = m;
+        }
+
+        const classSubjects = pairs.filter((p) => p.class_name.toLowerCase() === selClass.toLowerCase());
+
+        const studentRows = [];
+        for (const s of students) {
+            const name = `${s.first_name} ${s.last_name}`.trim();
+            if (student_search && !name.toLowerCase().includes(student_search) && !String(s.student_uid || '').toLowerCase().includes(student_search)) {
+                continue;
+            }
+            const marks = {};
+            const percents = [];
+            let missing = 0;
+            for (const a of assessments) {
+                const cell = markLookup[`${s.id}:${a.id}`];
+                if (!cell || (cell.score_obtained == null && !cell.mark_code)) {
+                    marks[a.id] = null;
+                    missing += 1;
+                    continue;
+                }
+                if (cell.mark_code) {
+                    marks[a.id] = { value: null, percent: null, mark_code: cell.mark_code, max_score: a.max_score };
+                    continue;
+                }
+                const val = Number(cell.score_obtained);
+                const pct = a.max_score > 0 ? Math.round((val / a.max_score) * 1000) / 10 : null;
+                marks[a.id] = { value: val, percent: pct, mark_code: null, max_score: a.max_score };
+                if (pct != null) percents.push(pct);
+            }
+            const average_percent = percents.length
+                ? Math.round((percents.reduce((x, y) => x + y, 0) / percents.length) * 10) / 10
+                : null;
+
+            studentRows.push({
+                student_id: s.id,
+                student_uid: s.student_uid,
+                name,
+                gender: s.gender,
+                marks,
+                average_percent,
+                grade: letterGradeFromPercent(average_percent),
+                missing_count: missing,
+            });
+        }
+
+        let student_detail = null;
+        const detailStudentId = req.query.student_id ? Number(req.query.student_id) : null;
+        if (detailStudentId) {
+            const base = studentRows.find((r) => r.student_id === detailStudentId);
+            if (base) {
+                const subject_averages = [];
+                for (const sub of classSubjects) {
+                    const avg = await computeStudentSubjectAverage(schoolId, selClass, sub.subject_name, detailStudentId, typeWeights);
+                    if (avg != null) subject_averages.push({ subject_name: sub.subject_name, average_percent: avg });
+                }
+                student_detail = { ...base, subject_averages };
+            }
+        }
+
+        studentRows.sort((a, b) => (b.average_percent ?? -1) - (a.average_percent ?? -1));
+        studentRows.forEach((row, i) => { row.position = row.average_percent != null ? i + 1 : null; });
+
+        const allPercents = [];
+        for (const row of studentRows) {
+            for (const a of assessments) {
+                const m = row.marks[a.id];
+                if (m?.percent != null) allPercents.push(m.percent);
+            }
+        }
+
+        const kpis = {
+            total_students: studentRows.length,
+            average_percent: allPercents.length
+                ? Math.round((allPercents.reduce((x, y) => x + y, 0) / allPercents.length) * 10) / 10
+                : null,
+            highest: allPercents.length ? Math.max(...allPercents) : null,
+            lowest: allPercents.length ? Math.min(...allPercents) : null,
+            pass_rate: allPercents.length
+                ? Math.round((allPercents.filter((p) => p >= 50).length / allPercents.length) * 1000) / 10
+                : null,
+        };
+
+        const grade_distribution = { A: 0, B: 0, C: 0, D: 0, F: 0 };
+        for (const row of studentRows) {
+            const g = row.grade;
+            if (g && grade_distribution[g] != null) grade_distribution[g] += 1;
+        }
+
+        const categoryMap = {};
+        for (const a of assessments) {
+            const slug = String(a.column_slug || 'other').toLowerCase();
+            if (!categoryMap[slug]) {
+                categoryMap[slug] = {
+                    slug,
+                    name: typeMap[slug]?.name || slug,
+                    weight_percent: typeMap[slug] ? Number(typeMap[slug].weight_percent) : 0,
+                    percents: [],
+                };
+            }
+        }
+        for (const row of studentRows) {
+            for (const a of assessments) {
+                const slug = String(a.column_slug || 'other').toLowerCase();
+                const m = row.marks[a.id];
+                if (m?.percent != null && categoryMap[slug]) categoryMap[slug].percents.push(m.percent);
+            }
+        }
+        const category_averages = Object.values(categoryMap).map((c) => ({
+            slug: c.slug,
+            name: c.name,
+            weight_percent: c.weight_percent,
+            average_percent: c.percents.length
+                ? Math.round((c.percents.reduce((x, y) => x + y, 0) / c.percents.length) * 10) / 10
+                : null,
+        }));
+
+        const trend = category_averages
+            .filter((c) => c.average_percent != null)
+            .map((c) => ({ label: c.name, average: c.average_percent }));
+
+        const top_performers = studentRows
+            .filter((r) => r.average_percent != null)
+            .slice(0, 5)
+            .map((r) => ({ student_id: r.student_id, name: r.name, average_percent: r.average_percent }));
+
+        const missing_students = studentRows.filter((r) => r.missing_count > 0);
+        const below50 = studentRows.filter((r) => r.average_percent != null && r.average_percent < 50);
+
+        const insights = [];
+        if (kpis.average_percent != null && kpis.average_percent >= 70) {
+            insights.push({ type: 'success', text: 'Class average is strong for this selection.' });
+        }
+        if (below50.length) {
+            insights.push({ type: 'warning', text: `${below50.length} student${below50.length !== 1 ? 's' : ''} scored below 50%.` });
+        }
+        if (missing_students.length) {
+            insights.push({ type: 'warning', text: `${missing_students.length} student${missing_students.length !== 1 ? 's have' : ' has'} missing marks.` });
+        }
+        const hwCat = category_averages.find((c) => /homework/i.test(c.name));
+        if (hwCat?.average_percent != null && hwCat.average_percent >= 75) {
+            insights.push({ type: 'success', text: 'Homework performance is strong.' });
+        }
+
+        let selected_assessment = null;
+        if (selAssessment) {
+            let submitted = 0;
+            for (const row of studentRows) {
+                const m = row.marks[selAssessment.id];
+                if (m && (m.value != null || m.mark_code)) submitted += 1;
+            }
+            selected_assessment = {
+                ...selAssessment,
+                submitted_count: submitted,
+                total_students: studentRows.length,
+            };
+        }
+
+        res.json({
+            success: true,
+            data: {
+                filters: {
+                    academic_years: calendar.academicYears,
+                    current_academic_year: calendar.currentAcademicYear,
+                    terms: yearTerms,
+                    classes,
+                    courses: coursesForClass,
+                    assessment_types: typeWeights.map((t) => ({
+                        slug: t.slug,
+                        name: t.name,
+                        weight_percent: Number(t.weight_percent),
+                    })),
+                    assessments: assessments.map((a) => ({
+                        id: a.id,
+                        assessment_name: a.assessment_name,
+                        column_slug: a.column_slug,
+                        type_name: a.type_name,
+                    })),
+                },
+                selected: {
+                    academic_year: academicYear,
+                    term,
+                    class_name: selClass,
+                    subject_name: selSubject,
+                    column_slug: column_slug || null,
+                    assessment_id: selAssessment?.id || null,
+                },
+                kpis,
+                assessment_columns: assessments,
+                students: studentRows,
+                category_averages,
+                grade_distribution,
+                trend,
+                top_performers,
+                insights,
+                missing_marks_count: missing_students.reduce((s, r) => s + r.missing_count, 0),
+                missing_students: missing_students.map((r) => ({ student_id: r.student_id, name: r.name, missing_count: r.missing_count })),
+                selected_assessment,
+                student_detail,
+            },
+        });
+    } catch (err) {
+        console.error('GET /teacher-portal/marks-center:', err);
+        res.status(500).json({ success: false, message: 'Failed to load marks center' });
+    }
+});
+
+// GET /api/teacher-portal/marks-analytics — dashboard / class / student / at-risk hub
+router.get('/marks-analytics', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureAcademicMarksExtras();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId || !userId) {
+            return res.status(400).json({ success: false, message: 'No school linked' });
+        }
+
+        const calendar = await loadSchoolAcademicCalendar(schoolId);
+        const academicYear = String(req.query.academic_year || '').trim()
+            || calendar.currentAcademicYear;
+        const yearTerms = calendar.termsByYear[academicYear] || calendar.terms;
+        const term = String(req.query.term || '').trim()
+            || inferTermFromMonth(yearTerms);
+
+        const pairs = await fetchTeacherAssignmentPairs(schoolId, userId, { academicYear, term });
+        if (!pairs.length) {
+            return res.json({
+                success: true,
+                data: {
+                    filters: { academic_years: calendar.academicYears, terms: yearTerms },
+                    selected: { academic_year: academicYear, term },
+                    empty_reason: 'No teaching assignments. Contact DOS.',
+                },
+            });
+        }
+
+        const typeWeights = await fetchActiveAssessmentTypes(schoolId);
+        const classes = [...new Set(pairs.map((p) => p.class_name))].sort();
+        const classPerformance = [];
+        const studentMap = {};
+        const allPercents = [];
+        const terms = ['Term 1', 'Term 2', 'Term 3'];
+        const termTrendMap = {};
+
+        for (const cn of classes) {
+            const classSubjects = [...new Set(
+                pairs.filter((p) => p.class_name === cn).map((p) => p.subject_name),
+            )];
+            const [students] = await promisePool.query(
+                `SELECT id, student_uid, first_name, last_name, gender, class_name
+                 FROM students WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')})
+                 ORDER BY first_name, last_name`,
+                [schoolId, cn],
+            );
+            const classPercents = [];
+            for (const s of students) {
+                const subjectAvgs = [];
+                for (const subj of classSubjects) {
+                    const avg = await computeStudentSubjectAverage(
+                        schoolId, cn, subj, s.id, typeWeights,
+                    );
+                    if (avg != null) subjectAvgs.push(avg);
+                }
+                const average_percent = subjectAvgs.length
+                    ? Math.round((subjectAvgs.reduce((a, b) => a + b, 0) / subjectAvgs.length) * 10) / 10
+                    : null;
+                const name = `${s.first_name || ''} ${s.last_name || ''}`.trim();
+                const key = s.id;
+                if (!studentMap[key]) {
+                    studentMap[key] = {
+                        student_id: s.id,
+                        student_uid: s.student_uid,
+                        name,
+                        class_name: cn,
+                        gender: s.gender,
+                        average_percent,
+                        grade: letterGradeFromPercent(average_percent),
+                        subject_averages: classSubjects.map((subj, i) => ({
+                            subject_name: subj,
+                            average_percent: subjectAvgs[i] ?? null,
+                        })).filter((x) => x.average_percent != null),
+                    };
+                }
+                if (average_percent != null) {
+                    classPercents.push(average_percent);
+                    allPercents.push(average_percent);
+                }
+            }
+            const classAvg = classPercents.length
+                ? Math.round((classPercents.reduce((a, b) => a + b, 0) / classPercents.length) * 10) / 10
+                : null;
+            classPerformance.push({
+                name: cn,
+                class_name: cn,
+                average: classAvg,
+                passRate: classPercents.length
+                    ? Math.round((classPercents.filter((p) => p >= 50).length / classPercents.length) * 1000) / 10
+                    : null,
+                student_count: students.length,
+                subject_count: classSubjects.length,
+                status: classAvg == null ? 'no_data' : classAvg >= 75 ? 'top' : classAvg >= 60 ? 'good' : 'attention',
+            });
+        }
+
+        classPerformance.sort((a, b) => (b.average ?? 0) - (a.average ?? 0));
+        classPerformance.forEach((c, i) => { c.rank = i + 1; });
+
+        const students = Object.values(studentMap)
+            .sort((a, b) => (b.average_percent ?? -1) - (a.average_percent ?? -1));
+        students.forEach((s, i) => { s.rank = s.average_percent != null ? i + 1 : null; });
+
+        const atRiskStudents = students
+            .filter((s) => s.average_percent != null && s.average_percent < 50)
+            .map((s) => ({
+                student_id: s.student_id,
+                name: s.name,
+                class: s.class_name,
+                average: s.average_percent,
+                risk: s.average_percent < 40 ? 'Critical' : 'High',
+                reason: s.average_percent < 40 ? 'Below 40%' : 'Below 50%',
+            }));
+
+        const studentIds = Object.keys(studentMap).map(Number).filter(Boolean);
+        if (studentIds.length) {
+            const [trendRows] = await promisePool.query(
+                `SELECT TRIM(COALESCE(a.term, '')) AS term_label,
+                        AVG(CASE WHEN m.mark_code IS NULL AND m.score_obtained IS NOT NULL AND a.max_score > 0
+                            THEN (m.score_obtained / a.max_score) * 100 ELSE NULL END) AS avg_pct
+                 FROM academic_marks m
+                 INNER JOIN academic_assessments a ON a.id = m.assessment_id AND a.school_id = m.school_id
+                 WHERE m.school_id = ? AND m.student_id IN (?)
+                   AND (a.status IS NULL OR a.status = 'published')
+                 GROUP BY TRIM(COALESCE(a.term, ''))`,
+                [schoolId, studentIds],
+            ).catch(() => [[]]);
+            for (const row of trendRows || []) {
+                const label = String(row.term_label || '').trim();
+                const match = terms.find((t) => label.toLowerCase().includes(t.replace('Term ', '').toLowerCase())
+                  || t.toLowerCase() === label.toLowerCase());
+                if (match && row.avg_pct != null) {
+                    termTrendMap[match] = Math.round(Number(row.avg_pct) * 10) / 10;
+                }
+            }
+        }
+        const termTrend = terms.filter((t) => termTrendMap[t] != null).map((t) => ({
+            term: t,
+            average: termTrendMap[t],
+        }));
+
+        const kpis = {
+            total_classes: classes.length,
+            total_students: students.length,
+            average_percent: allPercents.length
+                ? Math.round((allPercents.reduce((a, b) => a + b, 0) / allPercents.length) * 10) / 10
+                : null,
+            pass_rate: allPercents.length
+                ? Math.round((allPercents.filter((p) => p >= 50).length / allPercents.length) * 1000) / 10
+                : null,
+            at_risk_count: atRiskStudents.length,
+            pending_assessments: 0,
+        };
+
+        const insights = [];
+        if (atRiskStudents.length) {
+            insights.push({
+                type: 'warning',
+                text: `${atRiskStudents.length} student(s) below 50% across your classes`,
+            });
+        }
+        if (kpis.average_percent != null && kpis.average_percent >= 70) {
+            insights.push({ type: 'success', text: `Strong overall average (${kpis.average_percent}%)` });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                filters: {
+                    academic_years: calendar.academicYears,
+                    terms: yearTerms,
+                },
+                selected: { academic_year: academicYear, term },
+                kpis,
+                class_performance: classPerformance,
+                students,
+                at_risk_students: atRiskStudents,
+                term_trend: termTrend,
+                insights,
+            },
+        });
+    } catch (err) {
+        console.error('GET /teacher-portal/marks-analytics:', err);
+        res.status(500).json({ success: false, message: 'Failed to load marks analytics' });
+    }
+});
+
+// PATCH /api/teacher-portal/marks-cell — inline gradebook edit
+router.patch('/marks-cell', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureAcademicMarksExtras();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        if (!schoolId || !userId) {
+            return res.status(400).json({ success: false, message: 'No school linked' });
+        }
+
+        const assessment_id = Number(req.body.assessment_id);
+        const student_id = Number(req.body.student_id);
+        const rawValue = req.body.value;
+        const mark_code = req.body.mark_code ? String(req.body.mark_code).trim().toUpperCase() : null;
+
+        if (!assessment_id || !student_id) {
+            return res.status(400).json({ success: false, message: 'assessment_id and student_id required' });
+        }
+
+        const [[assessment]] = await promisePool.query(
+            `SELECT id, class_name, subject_name, assessment_name, max_score, status
+             FROM academic_assessments
+             WHERE id = ? AND school_id = ? LIMIT 1`,
+            [assessment_id, schoolId]
+        );
+        if (!assessment) {
+            return res.status(404).json({ success: false, message: 'Assessment not found' });
+        }
+
+        const allowed = await teacherHasAssignment(schoolId, userId, assessment.class_name, assessment.subject_name);
+        if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Not assigned to this class and course' });
+        }
+
+        const maxVal = Number(assessment.max_score) || 100;
+
+        if (mark_code && ['A', 'E', 'M'].includes(mark_code)) {
+            await promisePool.query(
+                `INSERT INTO academic_marks (school_id, assessment_id, student_id, score_obtained, mark_code, recorded_by_user_id)
+                 VALUES (?, ?, ?, NULL, ?, ?)
+                 ON DUPLICATE KEY UPDATE score_obtained = NULL, mark_code = VALUES(mark_code)`,
+                [schoolId, assessment_id, student_id, mark_code, userId]
+            );
+            if (assessment.status === 'published') {
+                queueMarksParentNotify({
+                    schoolId, userId, studentId: student_id, assessment,
+                    markCodeLabel: markCodeLabel(mark_code),
+                });
+            }
+            return res.json({ success: true, mark_code, percent: null });
+        }
+
+        if (rawValue === '' || rawValue == null) {
+            await promisePool.query(
+                'DELETE FROM academic_marks WHERE school_id = ? AND assessment_id = ? AND student_id = ?',
+                [schoolId, assessment_id, student_id]
+            );
+            return res.json({ success: true, value: null, percent: null });
+        }
+
+        const score = Number(rawValue);
+        if (!Number.isFinite(score) || score < 0 || score > maxVal) {
+            return res.status(400).json({ success: false, message: `Maximum marks is ${maxVal}` });
+        }
+
+        await promisePool.query(
+            `INSERT INTO academic_marks (school_id, assessment_id, student_id, score_obtained, mark_code, recorded_by_user_id)
+             VALUES (?, ?, ?, ?, NULL, ?)
+             ON DUPLICATE KEY UPDATE score_obtained = VALUES(score_obtained), mark_code = NULL`,
+            [schoolId, assessment_id, student_id, score, userId]
+        );
+
+        const percent = maxVal > 0 ? Math.round((score / maxVal) * 1000) / 10 : null;
+        if (assessment.status === 'published') {
+            queueMarksParentNotify({
+                schoolId, userId, studentId: student_id, assessment,
+                score, maxScore: maxVal,
+            });
+        }
+        res.json({ success: true, value: score, percent });
+    } catch (err) {
+        console.error('PATCH /teacher-portal/marks-cell:', err);
+        res.status(500).json({ success: false, message: 'Failed to update mark' });
     }
 });
 
@@ -3056,6 +4604,338 @@ router.get('/avance/ussd/requests', requireUssdTeacherSession, async (req, res) 
     } catch (err) {
         console.error('[teacher-portal/avance/ussd requests]:', err.message);
         return res.status(500).json({ success: false, message: 'Failed to load requests' });
+    }
+});
+
+const {
+  trimStr: trimStrCls,
+  dayOfWeekName: dayNameCls,
+  timeToMins: timeMinsCls,
+  toDateSql: toDateSqlCls,
+  getTeacherPeriodSettings: getTeacherPeriodSettingsCls,
+  processTeacherClassRoomCheckIn,
+} = require('../lib/classRoomScan');
+
+// GET /api/teacher-portal/class-period/active — current timetable lesson + check-in state
+router.get('/class-period/active', requireTeacherRole, async (req, res) => {
+  try {
+    await ensureTeacherTables();
+    const schoolId = req.session?.user?.school_id || req.session?.school_id;
+    const teacherId = req.session?.userId || req.session?.user?.id;
+    if (!schoolId || !teacherId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const now = new Date();
+    const day = dayNameCls(now);
+    const nowHm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const nowMins = timeMinsCls(nowHm);
+    const date = toDateSqlCls(now);
+
+    const settings = await getTeacherPeriodSettingsCls(promisePool, schoolId);
+
+    const [rows] = await promisePool.query(
+      `SELECT id, class_name, subject_name, start_time, end_time, room
+       FROM academic_timetables
+       WHERE school_id = ? AND staff_id = ? AND LOWER(day_of_week) = LOWER(?)
+         AND TRIM(COALESCE(term,'')) = ? AND TRIM(COALESCE(academic_year,'')) = ?
+         AND (extra_activity_id IS NULL OR extra_activity_id = 0)
+       ORDER BY start_time ASC`,
+      [schoolId, teacherId, day, settings.term, settings.academic_year]
+    );
+
+    const GRACE = 5;
+    const current = (rows || []).find((s) => {
+      const start = timeMinsCls(s.start_time) - GRACE;
+      const end = timeMinsCls(s.end_time) + GRACE;
+      return nowMins >= start && nowMins <= end;
+    });
+    const next = (rows || []).find((s) => timeMinsCls(s.start_time) > nowMins);
+
+    let periodLog = null;
+    if (current) {
+      const [[log]] = await promisePool.query(
+        `SELECT id, entry_time, exit_time, status, scan_source,
+                TIME_FORMAT(entry_time, '%H:%i') AS entry_hm,
+                TIME_FORMAT(exit_time, '%H:%i') AS exit_hm
+         FROM teacher_period_attendance
+         WHERE school_id = ? AND teacher_id = ? AND period_date = ?
+           AND class_name = ? AND start_time = ? AND end_time = ?
+         LIMIT 1`,
+        [schoolId, teacherId, date, current.class_name, current.start_time, current.end_time]
+      );
+      periodLog = log || null;
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        current_lesson: current ? {
+          id: current.id,
+          class_name: current.class_name,
+          subject_name: current.subject_name,
+          start_time: String(current.start_time).slice(0, 5),
+          end_time: String(current.end_time).slice(0, 5),
+          room: current.room,
+        } : null,
+        next_lesson: next ? {
+          class_name: next.class_name,
+          subject_name: next.subject_name,
+          start_time: String(next.start_time).slice(0, 5),
+          end_time: String(next.end_time).slice(0, 5),
+          minutes_until: timeMinsCls(next.start_time) - nowMins,
+        } : null,
+        period_log: periodLog ? {
+          checked_in: Boolean(periodLog.entry_time),
+          checked_out: Boolean(periodLog.exit_time),
+          status: periodLog.status,
+          entry_time: periodLog.entry_hm,
+          exit_time: periodLog.exit_hm,
+          scan_source: periodLog.scan_source,
+        } : null,
+        today_lessons: (rows || []).map((r) => ({
+          class_name: r.class_name,
+          subject_name: r.subject_name,
+          start_time: String(r.start_time).slice(0, 5),
+          end_time: String(r.end_time).slice(0, 5),
+        })),
+      },
+    });
+  } catch (err) {
+    console.error('GET /teacher-portal/class-period/active:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load active lesson' });
+  }
+});
+
+// GET /api/teacher-portal/class-period/history — period attendance logs for teacher
+router.get('/class-period/history', requireTeacherRole, async (req, res) => {
+  try {
+    await ensureTeacherTables();
+    const schoolId = req.session?.user?.school_id || req.session?.school_id;
+    const teacherId = req.session?.userId || req.session?.user?.id;
+    const date = trimStrCls(req.query?.date) || toDateSqlCls(new Date());
+    if (!schoolId || !teacherId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const [rows] = await promisePool.query(
+      `SELECT id, class_name, subject_name, day_of_week, start_time, end_time, status,
+              TIME_FORMAT(entry_time, '%H:%i') AS entry_hm,
+              TIME_FORMAT(exit_time, '%H:%i') AS exit_hm,
+              late_minutes, scan_source, exit_status
+       FROM teacher_period_attendance
+       WHERE school_id = ? AND teacher_id = ? AND period_date = ?
+       ORDER BY start_time ASC`,
+      [schoolId, teacherId, date]
+    );
+    return res.json({ success: true, data: rows || [] });
+  } catch (err) {
+    console.error('GET /teacher-portal/class-period/history:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load period history' });
+  }
+});
+
+// GET /api/teacher-portal/upcoming-lesson — next period + 10-min warning
+router.get('/upcoming-lesson', requireTeacherRole, async (req, res) => {
+  try {
+    await ensureTeacherTables();
+    const schoolId = req.session?.user?.school_id || req.session?.school_id;
+    const teacherId = req.session?.userId || req.session?.user?.id;
+    if (!schoolId || !teacherId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    const now = new Date();
+    const day = dayNameCls(now);
+    const nowMins = timeMinsCls(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+
+    const [rows] = await promisePool.query(
+      `SELECT id, class_name, subject_name, start_time, end_time, room, term, academic_year
+       FROM academic_timetables
+       WHERE school_id = ? AND staff_id = ? AND LOWER(day_of_week) = LOWER(?)
+         AND (extra_activity_id IS NULL OR extra_activity_id = 0)
+       ORDER BY start_time ASC`,
+      [schoolId, teacherId, day]
+    );
+
+    const upcoming = (rows || []).filter((r) => timeMinsCls(r.end_time) > nowMins);
+    const next = upcoming[0] || null;
+    if (!next) {
+      return res.json({ success: true, data: { has_lesson: false, minutes_until: null } });
+    }
+
+    const startMins = timeMinsCls(next.start_time);
+    const minutesUntil = startMins - nowMins;
+    return res.json({
+      success: true,
+      data: {
+        has_lesson: true,
+        minutes_until: minutesUntil,
+        warn_soon: minutesUntil > 0 && minutesUntil <= 10,
+        lesson: {
+          id: next.id,
+          class_name: next.class_name,
+          subject_name: next.subject_name,
+          start_time: String(next.start_time).slice(0, 5),
+          end_time: String(next.end_time).slice(0, 5),
+          room: next.room,
+        },
+      },
+    });
+  } catch (err) {
+    console.error('GET /teacher-portal/upcoming-lesson:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load upcoming lesson' });
+  }
+});
+
+// POST /api/teacher-portal/class-room/scan — QR check-in/out at classroom
+router.post('/class-room/scan', requireTeacherRole, async (req, res) => {
+  try {
+    await ensureTeacherTables();
+    const schoolId = req.session?.user?.school_id || req.session?.school_id;
+    const teacherId = req.session?.userId || req.session?.user?.id;
+    const teacherName = trimStrCls(`${req.session?.user?.first_name || ''} ${req.session?.user?.last_name || ''}`);
+    if (!schoolId || !teacherId) return res.status(400).json({ success: false, message: 'Invalid session' });
+
+    let qrToken = trimStrCls(req.body?.qr_token);
+    const raw = trimStrCls(req.body?.raw);
+    if (!qrToken && raw) {
+      const m = raw.match(/BABYEYICLS:([a-f0-9]+)/i);
+      if (m) qrToken = m[1];
+    }
+    if (!qrToken) return res.status(400).json({ success: false, message: 'qr_token required' });
+
+    const [[qrRow]] = await promisePool.query(
+      'SELECT class_name, school_id FROM class_room_qr_codes WHERE qr_token = ? LIMIT 1',
+      [qrToken]
+    );
+    if (!qrRow || Number(qrRow.school_id) !== Number(schoolId)) {
+      return res.status(404).json({ success: false, message: 'Invalid class QR code' });
+    }
+
+    const result = await processTeacherClassRoomCheckIn(promisePool, {
+      schoolId,
+      teacherId,
+      teacherName,
+      className: qrRow.class_name,
+      scanSource: 'QR_CLASS',
+    });
+
+    if (!result.ok) {
+      return res.status(409).json({ success: false, code: result.code, message: result.message, data: result.data });
+    }
+    return res.json({ success: true, action: result.action, message: result.message, data: result.data });
+  } catch (err) {
+    console.error('POST /teacher-portal/class-room/scan:', err);
+    return res.status(500).json({ success: false, message: 'Scan failed' });
+  }
+});
+
+// ============================================================
+// Competency analysis — class-scoped ratings per DOS categories
+// ============================================================
+router.get('/competency-categories', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureCompetencyTables();
+        const schoolId = resolveSchoolId(req);
+        if (!schoolId) return res.status(400).json({ success: false, message: 'No school linked' });
+        const rows = await listCompetencyCategories(schoolId);
+        res.json({ success: true, data: { categories: rows, rating_levels: RATING_LEVELS } });
+    } catch (err) {
+        console.error('GET /teacher-portal/competency-categories:', err);
+        res.status(500).json({ success: false, message: 'Failed to load competency categories' });
+    }
+});
+
+router.get('/competency-ratings', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureCompetencyTables();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        const className = normalizeGradebookLabel(req.query.class_name);
+        const academicYear = String(req.query.academic_year || '').trim();
+        const term = String(req.query.term || '').trim();
+        if (!schoolId || !className || !academicYear || !term) {
+            return res.status(400).json({ success: false, message: 'class_name, academic_year, term required' });
+        }
+
+        const allowed = await fetchTeacherAssignmentPairs(schoolId, userId);
+        const canAccess = allowed.some((p) => p.class_name.toLowerCase() === className.toLowerCase());
+        if (!canAccess) {
+            return res.status(403).json({ success: false, message: 'You are not assigned to this class.' });
+        }
+
+        const [students] = await promisePool.query(
+            `SELECT id, student_uid, first_name, last_name FROM students
+             WHERE school_id = ? AND (${sqlNormLabelEquals('class_name')})
+             ORDER BY first_name, last_name`,
+            [schoolId, className],
+        );
+        const categories = await listCompetencyCategories(schoolId);
+        const [ratings] = await promisePool.query(
+            `SELECT student_id, category_id, rating FROM student_competency_ratings
+             WHERE school_id = ? AND class_name = ? AND academic_year = ? AND term = ?`,
+            [schoolId, className, academicYear, term],
+        );
+        const ratingMap = {};
+        for (const r of ratings) {
+            if (!ratingMap[r.student_id]) ratingMap[r.student_id] = {};
+            ratingMap[r.student_id][r.category_id] = r.rating;
+        }
+
+        res.json({
+            success: true,
+            data: {
+                students,
+                categories,
+                ratings: ratingMap,
+                academic_year: academicYear,
+                term,
+                class_name: className,
+            },
+        });
+    } catch (err) {
+        console.error('GET /teacher-portal/competency-ratings:', err);
+        res.status(500).json({ success: false, message: 'Failed to load competency ratings' });
+    }
+});
+
+router.post('/competency-ratings', requireTeacherRole, async (req, res) => {
+    try {
+        await ensureCompetencyTables();
+        const schoolId = resolveSchoolId(req);
+        const userId = resolveUserId(req);
+        const className = normalizeGradebookLabel(req.body?.class_name);
+        const academicYear = String(req.body?.academic_year || '').trim();
+        const term = String(req.body?.term || '').trim();
+        const ratings = Array.isArray(req.body?.ratings) ? req.body.ratings : [];
+        if (!schoolId || !className || !academicYear || !term || !ratings.length) {
+            return res.status(400).json({ success: false, message: 'class_name, academic_year, term, ratings[] required' });
+        }
+
+        const allowed = await fetchTeacherAssignmentPairs(schoolId, userId);
+        const canAccess = allowed.some((p) => p.class_name.toLowerCase() === className.toLowerCase());
+        if (!canAccess) {
+            return res.status(403).json({ success: false, message: 'You are not assigned to this class.' });
+        }
+
+        const validLevels = new Set(RATING_LEVELS.map((l) => l.toLowerCase()));
+        let saved = 0;
+        for (const row of ratings) {
+            const studentId = Number(row.student_id);
+            const categoryId = Number(row.category_id);
+            const rating = String(row.rating || '').trim();
+            if (!studentId || !categoryId || !rating) continue;
+            if (!validLevels.has(rating.toLowerCase())) continue;
+            await promisePool.query(
+                `INSERT INTO student_competency_ratings
+                 (school_id, student_id, category_id, academic_year, term, class_name, rating, teacher_user_id, recorded_by_user_id)
+                 VALUES (?,?,?,?,?,?,?,?,?)
+                 ON DUPLICATE KEY UPDATE rating = VALUES(rating), teacher_user_id = VALUES(teacher_user_id),
+                   recorded_by_user_id = VALUES(recorded_by_user_id), updated_at = CURRENT_TIMESTAMP`,
+                [schoolId, studentId, categoryId, academicYear, term, className, rating, userId, userId],
+            );
+            saved += 1;
+        }
+
+        res.json({ success: true, message: `Saved ${saved} competency rating(s).`, data: { saved } });
+    } catch (err) {
+        console.error('POST /teacher-portal/competency-ratings:', err);
+        res.status(500).json({ success: false, message: 'Failed to save competency ratings' });
     }
 });
 

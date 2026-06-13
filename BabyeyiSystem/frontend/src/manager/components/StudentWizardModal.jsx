@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import schoolService from "../services/schoolService";
 import { useAuth } from "../context/AuthContext";
+import { processStudentPortraitFile, revokePortraitPreview } from "../utils/studentPhotoProcess";
 
 // API Resolution pointing strictly to the central backend
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
@@ -221,6 +222,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
   const [error, setError] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
 
   const { districts, sectors, cells, villages, loading: locLoading, errors: locErrors } =
     useLocationCascade(form.province, form.district, form.sector, form.cell);
@@ -228,7 +230,12 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
   useEffect(() => {
     if (!open) return;
     setStep(1); setError(null); setLoading(false);
-    setPhotoFile(null); setPhotoPreview(null);
+    setPhotoFile(null);
+    setPhotoPreview((prev) => {
+      revokePortraitPreview(prev);
+      return null;
+    });
+    setPhotoProcessing(false);
     if (isEdit) {
       setForm({
         ...BLANK_FORM,
@@ -296,15 +303,25 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
 
   const prevStep = () => { setError(null); setStep(s => Math.max(1, s - 1)); };
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) { setError("Only JPG and PNG images are allowed."); return; }
-    if (file.size > 5 * 1024 * 1024) { setError("Image size must be less than 5MB."); return; }
-    setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setPhotoPreview(ev.target.result);
-    reader.readAsDataURL(file);
+
+    setPhotoProcessing(true);
+    setError(null);
+    try {
+      const { file: processed, previewUrl } = await processStudentPortraitFile(file);
+      setPhotoFile(processed);
+      setPhotoPreview((prev) => {
+        revokePortraitPreview(prev);
+        return previewUrl;
+      });
+    } catch (err) {
+      setError(err?.message || "Could not process photo. Try another image.");
+    } finally {
+      setPhotoProcessing(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -525,17 +542,22 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                             {/* Photo Upload Section */}
                             <div className="w-full sm:w-1/3 flex flex-col items-center">
                               <label className="text-[8px] font-semibold text-[#1E3A5F] uppercase tracking-[0.2em] mb-1.5 self-start opacity-80">Profile Portrait (Optional)</label>
-                              <div className="relative group cursor-pointer w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-[#1E3A5F]/20 hover:border-re-gold transition-colors bg-re-bg flex flex-col justify-center items-center">
-                                <input type="file" disabled={loading} accept="image/png, image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
-                                {(photoPreview || editStudent?.student_photo_url) ? (
-                                  <img src={photoPreview || `${API}${editStudent.student_photo_url}`} alt="Student" className="w-full h-full object-cover" />
+                              <div className="relative group cursor-pointer w-36 h-36 rounded-full overflow-hidden border-[3px] border-re-gold/80 shadow-md ring-4 ring-amber-100/50 bg-re-bg flex flex-col justify-center items-center">
+                                <input type="file" disabled={loading || photoProcessing} accept="image/jpeg,image/png,image/webp" capture="user" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handlePhotoChange} />
+                                {photoProcessing ? (
+                                  <Loader2 size={28} className="text-re-gold animate-spin" />
+                                ) : (photoPreview || editStudent?.student_photo_url) ? (
+                                  <img src={photoPreview || `${API}${editStudent.student_photo_url}`} alt="Student" className="w-full h-full object-cover object-[center_18%]" />
                                 ) : (
                                   <>
-                                    <Camera size={20} className="text-[#1E3A5F]/30 group-hover:text-re-gold transition-colors mb-1.5" />
+                                    <Camera size={22} className="text-[#1E3A5F]/30 group-hover:text-re-gold transition-colors mb-1.5" />
                                     <span className="text-[7px] font-bold text-center text-[#1E3A5F]/50 uppercase tracking-widest px-2 group-hover:text-[#1E3A5F] transition-colors">Select Upload</span>
                                   </>
                                 )}
                               </div>
+                              <p className="text-[9px] text-re-text-muted mt-2 max-w-[10rem] leading-snug">
+                                Auto-cropped portrait, optimized for cards &amp; reports.
+                              </p>
                             </div>
 
                             {/* Biometrics Section */}

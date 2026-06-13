@@ -28,6 +28,7 @@ const {
   quoteBabyeyiPayBalance,
   validateBabyeyiPaymentAgainstBalance,
   loadFeesForSelection,
+  buildSelectedFeeLines,
 } = require('./babyeyiPayBalanceCore');
 const { ensureShuleAvanceOrgTables } = require('./shuleAvanceOrgSchema');
 const { requireRole } = require('../middleware/deoAuth');
@@ -1123,9 +1124,14 @@ async function generateInvoicePdfBuffer(bundle) {
             doc.addPage();
             y = M;
           }
-          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(f.name || 'Fee item'), M, y, { width: 360 });
-          doc.font('Helvetica-Bold').text(Number(f.amount || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
-          y += 16;
+          const cat = f.fee_category ? String(f.fee_category) : '';
+          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(f.name || 'Fee item'), M, y, { width: 260 });
+          if (cat) {
+            doc.fillColor(muted).font('Helvetica').fontSize(7).text(cat, 270, y + 1, { width: 140 });
+            doc.fillColor(ink);
+          }
+          doc.font('Helvetica-Bold').fontSize(9).text(Number(f.amount || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
+          y += cat ? 18 : 16;
         });
       }
       y += 10;
@@ -1323,9 +1329,14 @@ async function generatePaymentReceiptPdfBuffer(bundle) {
         y += 16;
       } else {
         (bundle.selected_fees || []).forEach((f) => {
-          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(f.name || 'Fee'), M, y, { width: 360 });
-          doc.font('Helvetica-Bold').text(Number(f.amount || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
-          y += 14;
+          const cat = f.fee_category ? String(f.fee_category) : '';
+          doc.fillColor(ink).font('Helvetica').fontSize(9).text(String(f.name || 'Fee'), M, y, { width: 260 });
+          if (cat) {
+            doc.fillColor(muted).font('Helvetica').fontSize(7).text(cat, 270, y + 1, { width: 140 });
+            doc.fillColor(ink);
+          }
+          doc.font('Helvetica-Bold').fontSize(9).text(Number(f.amount || 0).toLocaleString(), 420, y, { width: M + TABLE_W - 420, align: 'right' });
+          y += cat ? 16 : 14;
         });
       }
       y += 12;
@@ -1775,8 +1786,12 @@ router.post('/intent', async (req, res) => {
       });
     }
 
+    const selectedFeeIds = body.selected_fee_ids || [];
+    const selectedFeeLines = await buildSelectedFeeLines(babyeyiId, selectedFeeIds, schoolId);
+
     const payload = {
-      selected_fee_ids: body.selected_fee_ids || [],
+      selected_fee_ids: selectedFeeIds,
+      selected_fee_lines: selectedFeeLines,
       selected_requirement_ids: body.selected_requirement_ids || [],
       selected_student: body.selected_student || null,
       selected_students: Array.isArray(body.selected_students) ? body.selected_students : (body.selected_student ? [body.selected_student] : []),
@@ -4007,4 +4022,7 @@ router.get('/invoices/export.pdf', requireRole('SUPER_ADMIN', 'FULL_SYSTEM_CONTR
 });
 
 router.__sendShuleAvanceFinancingApplicantEmail = sendShuleAvanceFinancingApplicantEmail;
+
+router.use(require('./publicPaymentCommitments'));
+
 module.exports = router;

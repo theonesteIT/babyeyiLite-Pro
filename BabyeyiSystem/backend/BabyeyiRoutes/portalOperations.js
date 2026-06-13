@@ -343,6 +343,51 @@ function parsePayrollYear(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function monthLabelToCalendarNumber(v) {
+  const raw = String(v || '').trim();
+  const n = Number(raw);
+  if (n >= 1 && n <= 12) return n;
+  const labels = {
+    january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+    july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  };
+  return labels[raw.toLowerCase()] || 0;
+}
+
+function parseAcademicYearBounds(academicYear) {
+  const txt = String(academicYear || '').trim();
+  const range = txt.match(/^(19\d{2}|20\d{2})\s*[-–]\s*(19\d{2}|20\d{2})$/);
+  if (range) {
+    return { startYear: Number(range[1]), endYear: Number(range[2]) };
+  }
+  const single = txt.match(/\b(19\d{2}|20\d{2})\b/);
+  if (single) {
+    const y = Number(single[1]);
+    return { startYear: y, endYear: y };
+  }
+  const n = Number(txt);
+  if (Number.isFinite(n) && n >= 1900) return { startYear: n, endYear: n };
+  const now = new Date().getFullYear();
+  return { startYear: now, endYear: now };
+}
+
+/** Sep–Dec → academic start year; Jan–Aug → academic end year. */
+function resolvePayrollCalendarYear(academicYear, month) {
+  const monthNum = typeof month === 'number' ? month : monthLabelToCalendarNumber(month);
+  const { startYear, endYear } = parseAcademicYearBounds(academicYear);
+  if (!monthNum) return startYear;
+  return monthNum >= 9 ? startYear : endYear;
+}
+
+/** Accept numeric run id including 0 (RUN-0). */
+function parsePayrollRunId(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const n = s.startsWith('RUN-') ? Number(s.slice(4)) : Number(s);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
 function parseDateStart(v) {
   if (!v) return null;
   const d = new Date(v);
@@ -1438,6 +1483,8 @@ async function ensureTables() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  await promisePool.query(`ALTER TABLE school_budget_income_sources ADD COLUMN config_json JSON NULL`).catch(() => {});
+
   await promisePool.query(`ALTER TABLE school_budgets ADD COLUMN manager_reviewed_at DATETIME NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE school_budgets ADD COLUMN manager_reviewed_by_user_id INT UNSIGNED NULL`).catch(() => {});
   await promisePool.query(`ALTER TABLE school_budgets ADD COLUMN manager_review_notes TEXT NULL`).catch(() => {});
@@ -1490,6 +1537,9 @@ async function ensureTables() {
       KEY idx_line_usage_school (school_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
+
+  await promisePool.query(`ALTER TABLE school_budget_line_usage ADD COLUMN payment_bank_name VARCHAR(120) NULL`).catch(() => {});
+  await promisePool.query(`ALTER TABLE school_budget_line_usage ADD COLUMN payment_phone VARCHAR(32) NULL`).catch(() => {});
 
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS teacher_permissions (
@@ -5454,7 +5504,10 @@ router.get('/accountant/payroll/runs', requireRole(ACCOUNTANT_READ_ROLES), async
     const { schoolId } = req.ctx;
     const limit = Math.min(300, Math.max(1, Number(req.query?.limit) || 100));
     const month = monthLabelToNumber(req.query?.month) || Number(req.query?.month) || 0;
-    const year = parsePayrollYear(req.query?.year ?? req.query?.academicYear) || 0;
+    const academicYearQ = String(req.query?.academicYear || req.query?.academic_year || '').trim();
+    const year = Number(req.query?.year) >= 2000
+      ? Number(req.query.year)
+      : (resolvePayrollCalendarYear(academicYearQ, month) || parsePayrollYear(req.query?.year) || 0);
     const academicYear = String(req.query?.academicYear || req.query?.academic_year || '').trim();
     const statusFilter = String(req.query?.status || '').trim().toLowerCase();
     const where = ['school_id = ?'];
@@ -5523,9 +5576,8 @@ router.get('/accountant/payroll/runs', requireRole(ACCOUNTANT_READ_ROLES), async
 router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const raw = String(req.params.id || '');
-    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
-    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    const id = parsePayrollRunId(req.params.id);
+    if (id == null) return res.status(400).json({ success: false, message: 'Invalid run id' });
 
     const [[run]] = await promisePool.query(
       `SELECT id, run_period, status, gross_total_rwf, net_total_rwf, disbursement_total_rwf, staff_count,
@@ -5629,10 +5681,9 @@ router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), a
 router.patch('/accountant/payroll/runs/:id/status', requireRole(ACCOUNTANT_WRITE_ROLES), async (req, res) => {
   try {
     const { schoolId, userId, roleCode } = req.ctx;
-    const raw = String(req.params.id || '');
-    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
+    const id = parsePayrollRunId(req.params.id);
     const nextStatus = String(req.body?.status || '').trim().toLowerCase();
-    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    if (id == null) return res.status(400).json({ success: false, message: 'Invalid run id' });
     if (nextStatus !== 'paid') {
       return res.status(400).json({ success: false, message: 'Only marking payroll as paid is supported.' });
     }
@@ -6275,9 +6326,8 @@ router.post('/accountant/payroll/runs/:id/apply-scheduled-deductions', requireRo
   const conn = await promisePool.getConnection();
   try {
     const { schoolId } = req.ctx;
-    const raw = String(req.params.id || '');
-    const runId = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
-    if (!runId) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    const runId = parsePayrollRunId(req.params.id);
+    if (runId == null) return res.status(400).json({ success: false, message: 'Invalid run id' });
 
     const [[run]] = await conn.query(
       `SELECT id, status, pay_month, pay_year, academic_year_label FROM accountant_payroll_runs WHERE school_id = ? AND id = ? LIMIT 1`,
@@ -6348,9 +6398,8 @@ router.post('/accountant/payroll/runs/:id/disbursement-deductions', requireRole(
   const conn = await promisePool.getConnection();
   try {
     const { schoolId, userId, roleCode } = req.ctx;
-    const raw = String(req.params.id || '');
-    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
-    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    const id = parsePayrollRunId(req.params.id);
+    if (id == null) return res.status(400).json({ success: false, message: 'Invalid run id' });
 
     const b = req.body || {};
     const amount = Number(b.amount || 0);
@@ -6440,9 +6489,8 @@ router.post('/accountant/payroll/runs/:id/disbursement-deductions', requireRole(
 router.get('/accountant/payroll/runs/:id/audit-trail', requireRole(ACCOUNTANT_READ_ROLES), async (req, res) => {
   try {
     const { schoolId } = req.ctx;
-    const raw = String(req.params.id || '');
-    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
-    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    const id = parsePayrollRunId(req.params.id);
+    if (id == null) return res.status(400).json({ success: false, message: 'Invalid run id' });
 
     const [rows] = await promisePool.query(
       `SELECT a.id, a.user_id, a.role_code, a.endpoint, a.action_name, a.after_state_json, a.created_at,
@@ -6501,9 +6549,8 @@ router.delete('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_WRITE_ROLES
   const conn = await promisePool.getConnection();
   try {
     const { schoolId, userId, roleCode } = req.ctx;
-    const raw = String(req.params.id || '');
-    const id = raw.startsWith('RUN-') ? Number(raw.slice(4)) : Number(raw);
-    if (!id) return res.status(400).json({ success: false, message: 'Invalid run id' });
+    const id = parsePayrollRunId(req.params.id);
+    if (id == null) return res.status(400).json({ success: false, message: 'Invalid run id' });
 
     const [[run]] = await conn.query(
       `SELECT id, status, run_period, pay_month, pay_year, academic_year_label
@@ -6562,9 +6609,11 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
     if (!tablesReady) await ensureTables();
     const { schoolId, userId, roleCode } = req.ctx;
     const payMonth = monthLabelToNumber(req.body?.month) || Number(req.body?.month) || new Date().getMonth() + 1;
-    const payYear = parsePayrollYear(req.body?.year ?? req.body?.academicYear) || new Date().getFullYear();
+    const academicYearLabel = String(req.body?.academicYear || req.body?.year || '').trim();
+    const payYear = resolvePayrollCalendarYear(academicYearLabel, payMonth)
+      || parsePayrollYear(req.body?.year)
+      || new Date().getFullYear();
     const payTerm = normalizePayrollTerm(req.body?.term || 'T2') || 'T2';
-    const academicYearLabel = String(req.body?.academicYear || req.body?.year || payYear);
     await conn.beginTransaction();
 
     const [[paidDup]] = await conn.query(
@@ -6692,10 +6741,25 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
       for (const [uid, adj] of Object.entries(rawAdjustments)) pushAdj(uid, adj);
     }
 
+    let terminationStaffIds = new Set();
+    try {
+      const [termIdRows] = await conn.query(
+        `SELECT staff_user_id FROM hr_termination_benefits
+         WHERE school_id = ? AND deleted_at IS NULL
+           AND MONTH(termination_date) = ? AND YEAR(termination_date) = ?
+           AND status NOT IN ('rejected')`,
+        [schoolId, payMonth, payYear]
+      );
+      terminationStaffIds = new Set((termIdRows || []).map((r) => Number(r.staff_user_id)).filter(Boolean));
+    } catch (termIdErr) {
+      console.warn('[payroll/runs/trigger] termination staff lookup skipped:', termIdErr.message);
+    }
+
     const lines = [];
     let grossTotal = 0;
     let netTotal = 0;
     for (const s of active) {
+      if (terminationStaffIds.has(Number(s.id))) continue;
       let hrProfile = {};
       try {
         hrProfile = typeof s.hr_profile_json === 'string'
@@ -6876,16 +6940,38 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
     }
 
     try {
+      const { ensureTerminationPayrollSnapshot } = require('../utils/terminatedMonthPayroll');
       const [termRows] = await conn.query(
         `SELECT tb.*
          FROM hr_termination_benefits tb
          WHERE tb.school_id = ? AND tb.deleted_at IS NULL
-           AND tb.payroll_snapshot_json IS NOT NULL
            AND MONTH(tb.termination_date) = ? AND YEAR(tb.termination_date) = ?
            AND tb.status NOT IN ('rejected')`,
         [schoolId, payMonth, payYear]
       );
       for (const tb of termRows || []) {
+        let snap = parseJsonSafe(tb.payroll_snapshot_json, null);
+        if (!snap?.registerRow || !snap?.calc) {
+          snap = ensureTerminationPayrollSnapshot(
+            {
+              ...tb,
+              staffUserId: tb.staff_user_id,
+              staffName: tb.staff_name,
+              staffCode: tb.staff_code,
+              terminationDate: tb.termination_date,
+              netSalary: tb.net_salary,
+              useDaysWorked: tb.use_days_worked,
+            },
+            payeBrackets
+          );
+          if (snap && tb.status !== 'paid') {
+            await conn.query(
+              'UPDATE hr_termination_benefits SET payroll_snapshot_json = ? WHERE id = ? AND school_id = ?',
+              [JSON.stringify(snap), tb.id, schoolId]
+            ).catch(() => {});
+            tb.payroll_snapshot_json = JSON.stringify(snap);
+          }
+        }
         const termLine = buildPayrollLineFromTerminationSnapshot(tb);
         if (!termLine) continue;
         const uid = Number(termLine.user_id);
@@ -6991,6 +7077,8 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
             gross: Number(l.gross_rwf || 0),
             net: Number(l.net_rwf || 0),
             netPayFinal: Number(reg.netPayFinal ?? l.net_rwf ?? 0),
+            isTerminationPayroll: !!reg.isTerminationPayroll,
+            allowanceSource: reg.allowanceSource || '',
           };
         }),
       },
@@ -9393,6 +9481,16 @@ function budgetStatusToLabel(status) {
   return map[status] || status;
 }
 
+function serializeBudgetIncomeConfig(row) {
+  const cfg = row.config || row.calculationConfig || row.calculation_config;
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return null;
+  try {
+    return JSON.stringify(cfg);
+  } catch (_) {
+    return null;
+  }
+}
+
 async function generateSchoolBudgetCode(schoolId, academicYear) {
   const yearMatch = String(academicYear || '').match(/\d{4}/);
   const year = yearMatch ? yearMatch[0] : String(new Date().getFullYear());
@@ -9407,9 +9505,20 @@ async function generateSchoolBudgetCode(schoolId, academicYear) {
   return `${prefix}${String(seq).padStart(3, '0')}`;
 }
 
+function parseBudgetIncomeConfig(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  try {
+    return JSON.parse(String(raw));
+  } catch (_) {
+    return null;
+  }
+}
+
 function mapBudgetIncomeRow(r) {
   const key = String(r.income_source_key || '');
   const isOther = key.toLowerCase() === 'other';
+  const config = parseBudgetIncomeConfig(r.config_json);
   return {
     id: r.id,
     incomeSource: isOther ? 'Other' : key,
@@ -9420,6 +9529,7 @@ function mapBudgetIncomeRow(r) {
     collectionFrequency: r.collection_frequency || '',
     description: r.description || '',
     sortOrder: Number(r.sort_order || 0),
+    config,
   };
 }
 
@@ -9460,7 +9570,7 @@ async function loadBudgetIncomes(budgetIds, schoolId) {
   const placeholders = budgetIds.map(() => '?').join(',');
   const [rows] = await promisePool.query(
     `SELECT id, budget_id, income_source_key, custom_source_name, income_category,
-            expected_amount_rwf, collection_frequency, description, sort_order
+            expected_amount_rwf, collection_frequency, description, sort_order, config_json
      FROM school_budget_income_sources
      WHERE school_id = ? AND budget_id IN (${placeholders})
      ORDER BY sort_order ASC, id ASC`,
@@ -9711,7 +9821,7 @@ router.get('/accountant/school-budgets/dashboard', requireRole(ACCOUNTANT_READ_R
 
       const [usageRows] = await promisePool.query(
         `SELECT u.id, u.budget_line_id, u.usage_amount_rwf, u.usage_date, u.expense_category,
-                u.payment_method, u.description, u.receipt_name, u.created_at,
+                u.payment_method, u.payment_bank_name, u.payment_phone, u.description, u.receipt_name, u.created_at,
                 l.line_name_key, l.custom_line_name,
                 TRIM(CONCAT(COALESCE(us.first_name,''), ' ', COALESCE(us.last_name,''))) AS recorded_by
          FROM school_budget_line_usage u
@@ -9729,6 +9839,8 @@ router.get('/accountant/school-budgets/dashboard', requireRole(ACCOUNTANT_READ_R
         usageDate: r.usage_date,
         expenseCategory: r.expense_category || '',
         paymentMethod: r.payment_method || '',
+        paymentBankName: r.payment_bank_name || '',
+        paymentPhone: r.payment_phone || '',
         description: r.description || '',
         receiptName: r.receipt_name || '',
         reference: r.receipt_name ? String(r.receipt_name) : `USG-${r.id}`,
@@ -10003,13 +10115,14 @@ router.post('/accountant/school-budgets', requireRole(ACCOUNTANT_WRITE_ROLES), a
       const amount = toMoney(row.expectedAmount ?? row.expected_amount);
       const frequency = String(row.collectionFrequency || row.collection_frequency || '').trim() || null;
       const note = String(row.description || '').trim() || null;
+      const configJson = serializeBudgetIncomeConfig(row);
       if (!sourceLabel && amount <= 0) continue;
       await conn.query(
         `INSERT INTO school_budget_income_sources
          (budget_id, school_id, income_source_key, custom_source_name, income_category,
-          expected_amount_rwf, collection_frequency, description, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [budgetId, schoolId, key, customName, category, amount, frequency, note, i]
+          expected_amount_rwf, collection_frequency, description, sort_order, config_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [budgetId, schoolId, key, customName, category, amount, frequency, note, i, configJson]
       );
     }
 
@@ -10137,13 +10250,14 @@ router.patch('/accountant/school-budgets/:id', requireRole(ACCOUNTANT_WRITE_ROLE
         const amount = toMoney(row.expectedAmount ?? row.expected_amount);
         const frequency = String(row.collectionFrequency || row.collection_frequency || '').trim() || null;
         const note = String(row.description || '').trim() || null;
+        const configJson = serializeBudgetIncomeConfig(row);
         if (!sourceLabel && amount <= 0) continue;
         await conn.query(
           `INSERT INTO school_budget_income_sources
            (budget_id, school_id, income_source_key, custom_source_name, income_category,
-            expected_amount_rwf, collection_frequency, description, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [id, schoolId, key, customName, category, amount, frequency, note, i]
+            expected_amount_rwf, collection_frequency, description, sort_order, config_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [id, schoolId, key, customName, category, amount, frequency, note, i, configJson]
         );
       }
     }
@@ -10494,12 +10608,14 @@ router.post('/accountant/budget-line-usage', requireRole(ACCOUNTANT_WRITE_ROLES)
 
     await promisePool.query(
       `INSERT INTO school_budget_line_usage
-       (school_id, budget_line_id, created_by_user_id, usage_amount_rwf, usage_date, expense_category, payment_method, description, receipt_name)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, budget_line_id, created_by_user_id, usage_amount_rwf, usage_date, expense_category, payment_method, payment_bank_name, payment_phone, description, receipt_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         schoolId, lineId, userId, amount, usageDate,
         String(p.expenseCategory || '').trim() || null,
         String(p.paymentMethod || '').trim() || null,
+        String(p.paymentBankName || p.payment_bank_name || '').trim() || null,
+        String(p.paymentPhone || p.payment_phone || '').trim() || null,
         String(p.description || '').trim() || null,
         String(p.receiptName || p.receipt_name || '').trim() || null,
       ]
@@ -10566,7 +10682,7 @@ router.get('/accountant/budget-line-usage', requireRole(ACCOUNTANT_READ_ROLES), 
     }
     const [rows] = await promisePool.query(
       `SELECT u.id, u.budget_line_id, u.usage_amount_rwf, u.usage_date, u.expense_category, u.payment_method,
-              u.description, u.receipt_name, u.created_at,
+              u.payment_bank_name, u.payment_phone, u.description, u.receipt_name, u.created_at,
               l.line_name_key, l.custom_line_name
        FROM school_budget_line_usage u
        JOIN school_budget_lines l ON l.id = u.budget_line_id
@@ -10584,6 +10700,8 @@ router.get('/accountant/budget-line-usage', requireRole(ACCOUNTANT_READ_ROLES), 
         usageDate: r.usage_date,
         expenseCategory: r.expense_category,
         paymentMethod: r.payment_method,
+        paymentBankName: r.payment_bank_name || '',
+        paymentPhone: r.payment_phone || '',
         description: r.description,
         receiptName: r.receipt_name,
         createdAt: r.created_at,

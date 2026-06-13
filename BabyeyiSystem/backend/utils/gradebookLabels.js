@@ -86,9 +86,33 @@ function resolveTimetableClassLabels(ttClassRaw, studentClassNames, registryRows
     return [tt];
 }
 
+/** Union of school registry, student roster, and timetable class labels. */
+function collectSchoolRegisteredClassNames({
+    registryRows = [],
+    studentClassNames = [],
+    timetableClassNames = [],
+} = {}) {
+    const set = new Set();
+    for (const r of registryRows) {
+        const label = formatSchoolClassRow(r);
+        if (label) set.add(label);
+    }
+    for (const name of studentClassNames) {
+        const label = normalizeGradebookLabel(name);
+        if (label) set.add(label);
+    }
+    for (const name of timetableClassNames) {
+        const label = normalizeGradebookLabel(name);
+        if (label) set.add(label);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+}
+
 module.exports = {
     normalizeGradebookLabel,
     sqlNormLabelEquals,
     sqlNormColumnsEqual,
+    formatSchoolClassRow,
     resolveTimetableClassLabels,
+    collectSchoolRegisteredClassNames,
 };

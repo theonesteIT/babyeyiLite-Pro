@@ -237,7 +237,7 @@ export default function ClassAttendance() {
   useEffect(() => {
     refreshTimerRef.current = setInterval(() => {
       loadData({ silent: true });
-    }, 15000);
+    }, 20000);
     return () => clearInterval(refreshTimerRef.current);
   }, [loadData]);
 

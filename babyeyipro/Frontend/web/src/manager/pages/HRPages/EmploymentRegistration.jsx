@@ -407,7 +407,7 @@ function findDuplicateProblems(rows, existingStaff = []) {
 
 function isExistingRecordConflict(message = '', status) {
   if (Number(status) === 409) return true;
-  return /already in use|already exists/i.test(String(message));
+  return /already in use|already exists|duplicate entry/i.test(String(message));
 }
 
 function extractConflictUserId(err) {

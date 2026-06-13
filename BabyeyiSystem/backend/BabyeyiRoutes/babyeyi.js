@@ -35,6 +35,7 @@ const {
   mergeRwPatchesIntoContentI18nBundle,
 } = require("../utils/babyeyiContentI18n");
 const { getDocStrings } = require("../utils/babyeyiDocI18n");
+const { fetchStudentRequirementsCatalog } = require("../utils/studentRequirementsSchema");
 
 // ── Upload dirs ───────────────────────────────────────────────
 const UPLOAD_DIR = "uploads/babyeyi/";
@@ -1798,20 +1799,8 @@ router.get("/nesa-limit", async (req, res) => {
 // ════════════════════════════════════════════════════════════
 router.get("/student-requirements-catalog", async (req, res) => {
   try {
-    let rows;
-    try {
-      rows = await query(
-        `SELECT id, name, description, quantity FROM student_requirements ORDER BY id ASC`
-      );
-    } catch (e) {
-      if (e.code === "ER_BAD_FIELD_ERROR") {
-        rows = await query(`SELECT id, name FROM student_requirements ORDER BY id ASC`);
-        rows = (rows || []).map((r) => ({ ...r, description: null, quantity: null }));
-      } else {
-        throw e;
-      }
-    }
-    return res.json({ success: true, data: rows || [] });
+    const rows = await fetchStudentRequirementsCatalog();
+    return res.json({ success: true, data: rows });
   } catch (err) {
     console.error("[babyeyi] student-requirements-catalog:", err.message);
     return res.status(500).json({ success: false, message: "Failed to load student requirements" });

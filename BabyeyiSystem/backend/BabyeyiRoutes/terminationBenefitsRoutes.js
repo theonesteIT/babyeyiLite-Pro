@@ -3,6 +3,10 @@
 const express = require('express');
 const { promisePool } = require('../config/database');
 const { calcRwandaPayroll } = require('../utils/rwandaPayrollEngine');
+const {
+  buildTerminatedPayrollSnapshot,
+  ensureTerminationPayrollSnapshot,
+} = require('../utils/terminatedMonthPayroll');
 
 const router = express.Router();
 
@@ -225,6 +229,33 @@ async function ensureTables() {
   `);
 
   tablesReady = true;
+}
+
+async function getActivePayeRates(schoolId) {
+  try {
+    const [rows] = await promisePool.query(
+      `SELECT paye_rates_json FROM accountant_payroll_templates
+       WHERE school_id = ? AND deleted_at IS NULL
+       ORDER BY is_active DESC, version_no DESC, id DESC
+       LIMIT 1`,
+      [schoolId]
+    );
+    const raw = rows?.[0]?.paye_rates_json;
+    const parsed = parseJsonSafe(raw, []);
+    return Array.isArray(parsed) && parsed.length ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function buildAutoPayrollSnapshot(schoolId, recordLike) {
+  const payeRates = await getActivePayeRates(schoolId);
+  return buildTerminatedPayrollSnapshot({
+    record: recordLike,
+    payeRates,
+    useDaysWorked: recordLike?.useDaysWorked ?? recordLike?.use_days_worked,
+    monthlyNetSalary: recordLike?.netSalary ?? recordLike?.net_salary,
+  });
 }
 
 async function getSeveranceRates(schoolId) {
@@ -653,13 +684,30 @@ router.get('/accountant/termination-benefits/for-payroll', requireRole(ACCOUNTAN
        FROM hr_termination_benefits tb
        LEFT JOIN staff st ON st.school_id = tb.school_id AND st.user_id = tb.staff_user_id
        WHERE tb.school_id = ? AND tb.deleted_at IS NULL
-         AND tb.payroll_snapshot_json IS NOT NULL
          AND MONTH(tb.termination_date) = ? AND YEAR(tb.termination_date) = ?
          AND tb.status NOT IN ('rejected')
        ORDER BY tb.termination_date DESC`,
       [schoolId, month, year]
     );
-    res.json({ success: true, data: rows.map(mapTerminationRow) });
+    const payeRates = await getActivePayeRates(schoolId);
+    const data = [];
+    for (const row of rows || []) {
+      const mapped = mapTerminationRow(row);
+      if (!mapped.payrollSnapshot?.registerRow) {
+        const built = ensureTerminationPayrollSnapshot(mapped, payeRates);
+        if (built) {
+          mapped.payrollSnapshot = built;
+          if (row.status !== 'paid') {
+            await promisePool.query(
+              'UPDATE hr_termination_benefits SET payroll_snapshot_json = ? WHERE id = ? AND school_id = ?',
+              [JSON.stringify(built), row.id, schoolId]
+            ).catch(() => {});
+          }
+        }
+      }
+      data.push(mapped);
+    }
+    res.json({ success: true, data });
   } catch (e) {
     console.error('[termination-benefits/for-payroll GET]:', e.message);
     res.status(500).json({ success: false, message: 'Failed to load termination payroll records' });
@@ -709,6 +757,18 @@ router.post('/accountant/termination-benefits', requireRole(ACCOUNTANT_WRITE), a
       rateTable: rates,
     });
 
+    const draftRecord = {
+      staffUserId,
+      staffName: staff.fullName,
+      staffCode: staff.staffCode,
+      terminationDate: toIsoDate(terminationDate),
+      useDaysWorked,
+      netSalary,
+    };
+    const payrollSnapshot = b.payrollSnapshot && typeof b.payrollSnapshot === 'object'
+      ? b.payrollSnapshot
+      : await buildAutoPayrollSnapshot(schoolId, draftRecord);
+
     const [result] = await promisePool.query(
       `INSERT INTO hr_termination_benefits
        (school_id, staff_user_id, staff_code, staff_name, position, department,
@@ -726,7 +786,7 @@ router.post('/accountant/termination-benefits', requireRole(ACCOUNTANT_WRITE), a
         calc.outstandingDeductions, calc.totalPayable,
         String(b.terminationReason || '').slice(0, 2000) || null,
         String(b.notes || '').slice(0, 2000) || null,
-        b.payrollSnapshot ? JSON.stringify(b.payrollSnapshot) : null,
+        payrollSnapshot ? JSON.stringify(payrollSnapshot) : null,
         userId,
       ]
     );
@@ -774,6 +834,19 @@ router.patch('/accountant/termination-benefits/:id', requireRole(ACCOUNTANT_WRIT
       rateTable: rates,
     });
 
+    const draftRecord = {
+      id,
+      staffUserId,
+      staffName: staff.fullName,
+      staffCode: staff.staffCode,
+      terminationDate: toIsoDate(terminationDate),
+      useDaysWorked,
+      netSalary,
+    };
+    const payrollSnapshot = b.payrollSnapshot && typeof b.payrollSnapshot === 'object'
+      ? b.payrollSnapshot
+      : await buildAutoPayrollSnapshot(schoolId, draftRecord);
+
     await promisePool.query(
       `UPDATE hr_termination_benefits SET
         staff_user_id = ?, staff_code = ?, staff_name = ?, position = ?, department = ?,
@@ -782,6 +855,7 @@ router.patch('/accountant/termination-benefits/:id', requireRole(ACCOUNTANT_WRIT
         severance_benefit = ?, final_salary_due = ?, gross_settlement = ?, cbhi_deduction = ?,
         outstanding_deductions = ?, total_payable = ?,
         termination_reason = ?, notes = ?,
+        payroll_snapshot_json = ?,
         status = 'draft', prepared_by_user_id = ?
        WHERE id = ? AND school_id = ?`,
       [
@@ -792,6 +866,7 @@ router.patch('/accountant/termination-benefits/:id', requireRole(ACCOUNTANT_WRIT
         calc.outstandingDeductions, calc.totalPayable,
         b.terminationReason ?? row.termination_reason,
         b.notes ?? row.notes,
+        payrollSnapshot ? JSON.stringify(payrollSnapshot) : null,
         userId, id, schoolId,
       ]
     );

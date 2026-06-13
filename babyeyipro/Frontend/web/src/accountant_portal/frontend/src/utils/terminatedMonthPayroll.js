@@ -2,7 +2,7 @@ import {
   calcProgressivePAYEBreakdown,
   DEFAULT_PAYE_BRACKETS,
 } from './rwandaPayrollEngine';
-import { buildPayrollRegisterRow } from './payrollRegister';
+import { buildPayrollRegisterRow, applyTerminatedMonthRegisterDashes } from './payrollRegister';
 import { calcFinalSalaryDue, daysInMonth } from './terminationBenefitsCalc';
 
 function toMoney(v) {
@@ -221,11 +221,33 @@ export function terminationMatchesPayrollPeriod(terminationDate, monthLabel, yea
 
 export function registerRowFromTerminationSnapshot(snapshot, staffMeta = {}) {
   if (!snapshot?.registerRow) return null;
-  const row = { ...snapshot.registerRow };
+  const row = applyTerminatedMonthRegisterDashes({ ...snapshot.registerRow });
   if (staffMeta.fullName) {
     const parts = String(staffMeta.fullName).trim().split(/\s+/);
     row.firstName = parts[0] || row.firstName;
     row.familyName = parts.slice(1).join(' ') || row.familyName;
   }
   return row;
+}
+
+/** Use saved snapshot or build termination-month payroll on the fly. */
+export function ensureTerminationPayrollSnapshot(term, template = null) {
+  if (term?.payrollSnapshot?.registerRow && term?.payrollSnapshot?.calc) {
+    return term.payrollSnapshot;
+  }
+  return buildTerminatedPayrollSnapshot({
+    record: term,
+    template,
+    useDaysWorked: term?.useDaysWorked,
+    monthlyNetSalary: term?.netSalary,
+  });
+}
+
+export function terminatedStaffIdsForMonth(terminationPayrolls = []) {
+  const ids = new Set();
+  for (const term of terminationPayrolls || []) {
+    const uid = Number(term?.staffUserId);
+    if (uid) ids.add(uid);
+  }
+  return ids;
 }

@@ -1,49 +1,106 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-
 import {
-  Wallet,
-  MessageSquare,
-  BookOpen,
-  Users,
   ArrowRight,
   RefreshCw,
-  ClipboardList,
-  Eye,
   Calendar,
-  GraduationCap,
-  IdCard,
-  LineChart,
-  SlidersHorizontal,
-  FileBarChart,
-  TrendingUp,
   BookMarked,
-  ShoppingBag,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Radio,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
 import api from '../services/api';
 import { h } from '../utils/href';
 import TeacherOrangeHero from '../../shared/components/TeacherOrangeHero';
+import QuickAssessToolsDropdown from '../components/QuickAssessToolsDropdown';
+
+const AMBER = '#c87800';
+const NAVY = '#000435';
+
+const CHART_TOOLTIP = {
+  contentStyle: {
+    borderRadius: 12,
+    border: '1px solid rgba(0,4,53,0.08)',
+    fontSize: 11,
+    fontWeight: 600,
+  },
+};
+
+function ChartEmpty({ message }) {
+  return (
+    <div className="flex items-center justify-center h-[200px] text-[11px] font-medium text-[#000435]/40">
+      {message}
+    </div>
+  );
+}
+
+function AnalyticsPanel({ title, icon: Icon, children }) {
+  return (
+    <div className="bg-white rounded-[20px] border border-black/10 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-black/5 bg-slate-50/80 flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-[#000435]" />}
+        <h4 className="text-[11px] font-semibold text-[#000435] tracking-tight">{title}</h4>
+      </div>
+      <div className="p-3">{children}</div>
+    </div>
+  );
+}
 
 const Dashboard = () => {
   const { teacher, proAccessEffective } = useAuth();
   const [stats, setStats] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [terms, setTerms] = useState([]);
+  const [term, setTerm] = useState('');
+  const [insights, setInsights] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [liveOk, setLiveOk] = useState(false);
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = useCallback(async (termParam) => {
+    if (!termParam) return;
     setRefreshing(true);
     try {
-      const res = await api.get('/teacher-portal/dashboard');
-      if (res.data.success) {
-        setStats(res.data.data.stats || []);
-        setSchedule(res.data.data.schedule || []);
-        setLiveOk(true);
-      } else {
-        setLiveOk(false);
+      const [statsRes, timetableRes, insightsRes] = await Promise.all([
+        api.get('/dos/dashboard/stats'),
+        api.get('/dos/dashboard/today-timetable', { params: { term: termParam } }),
+        api.get('/dos/dashboard/academic-insights', { params: { term: termParam } }),
+      ]);
+
+      if (statsRes.data?.success) {
+        const d = statsRes.data.data;
+        setStats([
+          { label: 'Total Students', value: String(d.totalStudents ?? 0) },
+          { label: 'Teaching Staff', value: String(d.totalTeachingStaff ?? 0) },
+          { label: 'Today Attendance', value: `${d.globalAttendance ?? 0}%` },
+          { label: 'Institutional GPA', value: `${d.institutionalGPA ?? 0}%` },
+        ]);
       }
+
+      if (timetableRes.data?.success) {
+        setSchedule(timetableRes.data.data.schedule || []);
+      }
+
+      if (insightsRes.data?.success) {
+        setInsights(insightsRes.data.data);
+      }
+
+      setLiveOk(Boolean(statsRes.data?.success));
     } catch (e) {
       console.error('Failed to fetch dashboard', e);
       setLiveOk(false);
@@ -51,113 +108,33 @@ const Dashboard = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchDashboard();
   }, []);
 
-  const quickTools = useMemo(() => {
-    const proSuite = proAccessEffective
-      ? [
-          {
-            title: 'Full Student Registry',
-            desc: 'School enrollment toolkit and student identity registration.',
-            icon: <IdCard size={18} />,
-            accent: '#000435',
-            path: '/student-records',
-          },
-          {
-            title: 'Academic Progress',
-            desc: 'Set learner status and marks by year and term.',
-            icon: <LineChart size={18} />,
-            accent: '#059669',
-            path: '/progress',
-          },
-          {
-            title: 'DOS Settings',
-            desc: 'Default total marks for academic progress calculations.',
-            icon: <SlidersHorizontal size={18} />,
-            accent: '#7c3aed',
-            path: '/dos-settings',
-          },
-          {
-            title: 'DOS Reports',
-            desc: 'Summaries by status and class; Excel and PDF exports.',
-            icon: <FileBarChart size={18} />,
-            accent: '#2563eb',
-            path: '/reports',
-          },
-        ]
-      : [];
+  useEffect(() => {
+    api.get('/dos/operations-center/filters')
+      .then((res) => {
+        if (!res.data?.success) return;
+        const fd = res.data.data;
+        setTerms(fd.terms || []);
+        const initial = fd.selected?.term || fd.current?.term || fd.terms?.[0] || '';
+        setTerm(initial);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
-    const base = [
-      {
-        title: 'Staff & Courses',
-        desc: 'Add teachers, subjects, and build the school timetable.',
-        icon: <GraduationCap size={18} />,
-        accent: '#FEBF10',
-        path: '/academic-setup',
-      },
-      {
-        title: 'View Marks',
-        desc: 'Inspect performance by class and subject across the school.',
-        icon: <Eye size={18} />,
-        accent: '#059669',
-        path: '/marks/view',
-      },
-      {
-        title: 'Record Marks',
-        desc: 'Enter or align assessments with gradebook columns.',
-        icon: <ClipboardList size={18} />,
-        accent: '#000435',
-        path: '/marks/record',
-      },
-      {
-        title: 'Timetable',
-        desc: 'See all classes and periods scheduled for today.',
-        icon: <Calendar size={18} />,
-        accent: '#2563eb',
-        path: '/timetable',
-      },
-      {
-        title: 'Student Registry',
-        desc: 'Rosters, codes, and enrollment context.',
-        icon: <Users size={18} />,
-        accent: '#7c3aed',
-        path: '/students',
-      },
-      {
-        title: 'TichaAI',
-        desc: 'Draft letters, summaries, and academic notes.',
-        icon: <MessageSquare size={18} />,
-        accent: '#000435',
-        path: '/ticha-ai',
-      },
-      {
-        title: 'Shule Avance',
-        desc: 'Staff financial services portal.',
-        icon: <Wallet size={18} />,
-        accent: '#FEBF10',
-        path: '/shule-avance',
-      },
-      {
-        title: 'Ticha Deals',
-        desc: 'Browse staff deals and payroll-friendly purchases.',
-        icon: <ShoppingBag size={18} />,
-        accent: '#f59e0b',
-        path: '/ticha-deals',
-      },
-      {
-        title: 'English Club',
-        desc: 'Professional reading and language resources.',
-        icon: <BookOpen size={18} />,
-        accent: '#2563eb',
-        path: '/english-club',
-      },
-    ];
-    return [...proSuite, ...base];
-  }, [proAccessEffective]);
+  useEffect(() => {
+    if (!term) {
+      setLoading(false);
+      return;
+    }
+    fetchDashboard(term);
+  }, [term, fetchDashboard]);
+
+  const bestClasses = insights?.bestPerformingClasses || [];
+  const worstClasses = insights?.worstPerformingClasses || [];
+  const subjectPerf = insights?.subjectPerformance || [];
+  const catTrends = insights?.catTrends || [];
+  const hasMarks = insights?.hasMarksData;
 
   if (loading) {
     return (
@@ -182,7 +159,7 @@ const Dashboard = () => {
             </div>
             <button
               type="button"
-              onClick={fetchDashboard}
+              onClick={() => fetchDashboard(term)}
               disabled={refreshing}
               className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 w-11 h-11 text-white hover:bg-white/20 transition-all active:scale-95 disabled:opacity-60"
               title="Refresh"
@@ -214,50 +191,123 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <QuickAssessToolsDropdown proAccessEffective={proAccessEffective} />
+              {term && (
+                <span className="text-[10px] font-medium text-[#000435]/45 uppercase tracking-wide">
+                  Analytics · {term}
+                </span>
+              )}
+            </div>
+
             <div className="bg-white rounded-[24px] border border-black/10 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-black/5 bg-slate-50 flex items-center gap-2">
-                <TrendingUp size={15} className="text-[#000435]" />
-                <h3 className="text-xs font-semibold text-[#000435] tracking-tight">Quick access tools</h3>
+                <BarChart3 size={15} className="text-[#000435]" />
+                <h3 className="text-xs font-semibold text-[#000435] tracking-tight">Student Performance Analytics</h3>
               </div>
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {quickTools.map((tool, i) => (
-                  <Link
-                    to={h(tool.path)}
-                    key={i}
-                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 border border-black/5 hover:bg-white hover:border-[#000435]/15 hover:shadow-sm transition-all group"
-                  >
-                    <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors"
-                      style={{ background: `${tool.accent}18`, color: tool.accent }}
-                    >
-                      {tool.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-[11px] font-medium text-[#000435] tracking-tight truncate">{tool.title}</h4>
-                      <p className="text-[9px] font-normal text-[#000435]/55 leading-snug mt-0.5 line-clamp-2">{tool.desc}</p>
-                    </div>
-                    <ArrowRight
-                      size={13}
-                      className="text-[#000435]/25 group-hover:text-[#000435] group-hover:translate-x-0.5 transition-all shrink-0"
-                    />
-                  </Link>
-                ))}
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <AnalyticsPanel title="Best Performing Classes" icon={TrendingUp}>
+                  {!hasMarks || bestClasses.length === 0 ? (
+                    <ChartEmpty message="No marks data for this term yet" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={bestClasses} layout="vertical" margin={{ left: 4, right: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9 }} />
+                        <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 9 }} />
+                        <Tooltip {...CHART_TOOLTIP} formatter={(v) => [`${v}%`, 'Average']} />
+                        <Bar dataKey="avg_pct" fill="#059669" radius={[0, 4, 4, 0]} barSize={14} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </AnalyticsPanel>
+
+                <AnalyticsPanel title="Worst Performing Classes" icon={TrendingDown}>
+                  {!hasMarks || worstClasses.length === 0 ? (
+                    <ChartEmpty message="No marks data for this term yet" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={worstClasses} layout="vertical" margin={{ left: 4, right: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                        <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 9 }} />
+                        <YAxis type="category" dataKey="name" width={72} tick={{ fontSize: 9 }} />
+                        <Tooltip {...CHART_TOOLTIP} formatter={(v) => [`${v}%`, 'Average']} />
+                        <Bar dataKey="avg_pct" fill="#dc2626" radius={[0, 4, 4, 0]} barSize={14} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </AnalyticsPanel>
+
+                <AnalyticsPanel title="Subject Performance Analysis" icon={BarChart3}>
+                  {!hasMarks || subjectPerf.length === 0 ? (
+                    <ChartEmpty message="No subject marks for this term yet" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={subjectPerf} margin={{ bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="name" tick={{ fontSize: 8 }} interval={0} angle={-25} textAnchor="end" height={52} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
+                        <Tooltip {...CHART_TOOLTIP} formatter={(v) => [`${v}%`, 'Average']} />
+                        <Bar dataKey="avg_pct" radius={[4, 4, 0, 0]} barSize={18}>
+                          {subjectPerf.map((_, i) => (
+                            <Cell key={i} fill={i % 2 === 0 ? NAVY : AMBER} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </AnalyticsPanel>
+
+                <AnalyticsPanel title="Continuous Assessment Trends" icon={Activity}>
+                  {catTrends.length === 0 ? (
+                    <ChartEmpty message="No assessment trend data yet" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={catTrends}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
+                        <Tooltip {...CHART_TOOLTIP} formatter={(v) => [`${v}%`, 'School avg']} />
+                        <Line
+                          type="monotone"
+                          dataKey="avg_pct"
+                          stroke={NAVY}
+                          strokeWidth={2.5}
+                          dot={{ fill: AMBER, r: 4, strokeWidth: 0 }}
+                          activeDot={{ r: 6, fill: AMBER }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </AnalyticsPanel>
               </div>
             </div>
           </div>
 
           <div className="space-y-5 lg:sticky lg:top-6 h-fit">
             <div className="bg-white rounded-[24px] border border-black/10 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-black/5 bg-slate-50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar size={15} className="text-[#000435]" />
-                  <h3 className="text-xs font-semibold text-[#000435] tracking-tight">Today&apos;s timetable</h3>
+              <div className="px-5 py-4 border-b border-black/5 bg-slate-50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Calendar size={15} className="text-[#000435] shrink-0" />
+                  <h3 className="text-xs font-semibold text-[#000435] tracking-tight truncate">Today&apos;s timetable</h3>
                 </div>
-                <span className="text-[9px] font-medium text-[#000435]/50 uppercase tracking-wide">Live</span>
+                <select
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
+                  className="dos-filter-input text-[10px] font-semibold py-1.5 pl-2 pr-7 max-w-[120px] shrink-0"
+                  aria-label="Select term"
+                >
+                  {terms.length === 0 && <option value="">Term</option>}
+                  {terms.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
               </div>
-              <div className="p-4 space-y-1.5">
+              <div className="p-4 space-y-1.5 max-h-[320px] overflow-y-auto">
                 {schedule.length === 0 ? (
-                  <p className="text-[11px] font-medium text-[#000435]/45 py-4 text-center">No classes today</p>
+                  <p className="text-[11px] font-medium text-[#000435]/45 py-4 text-center">
+                    No classes today{term ? ` for ${term}` : ''}
+                  </p>
                 ) : (
                   schedule.map((item, i) => (
                     <div
@@ -275,10 +325,10 @@ const Dashboard = () => {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-[#000435] text-[11px] leading-tight truncate">
-                          {item.subject || item.title}
+                          {item.subject}
                         </p>
                         <p className="text-[9px] text-[#000435]/45 font-normal mt-0.5 truncate">
-                          {[item.group, item.room].filter(Boolean).join(' · ') || '—'}
+                          {[item.class_name, item.room].filter(Boolean).join(' · ') || '—'}
                         </p>
                       </div>
                       {item.active && <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse mt-1" />}
@@ -288,10 +338,13 @@ const Dashboard = () => {
               </div>
               <div className="px-5 py-3 border-t border-black/5">
                 <Link
-                  to={h('/timetable')}
-                  className="flex items-center justify-center gap-1.5 text-[10px] font-medium text-[#000435]/60 hover:text-[#000435] transition-colors"
+                  to={h('/operations-center')}
+                  className="flex items-center justify-center gap-2 text-[10px] font-semibold text-white rounded-xl py-2.5 transition-all hover:brightness-105"
+                  style={{ background: NAVY }}
                 >
-                  View full timetable <ArrowRight size={11} />
+                  <Radio size={12} style={{ color: AMBER }} />
+                  View live monitoring
+                  <ArrowRight size={11} />
                 </Link>
               </div>
             </div>

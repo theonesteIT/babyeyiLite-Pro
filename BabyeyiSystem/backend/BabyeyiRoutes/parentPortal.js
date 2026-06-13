@@ -43,6 +43,7 @@ const {
   isWebPushConfigured,
   getVapidPublicKey,
 } = require('./parentWebPush');
+const { fetchStudentPublishedMarks, fetchPublishedMarksPeriods } = require('../utils/parentStudentMarks');
 const {
   upsertIncompleteOrder,
   markIncompleteOrderComplete,
@@ -143,23 +144,28 @@ async function ensureTeacherAttendanceTablesForParent() {
   }
 }
 
-async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
-  const explicitYear = trimStr(academicYearRaw);
-  const explicitTerm = trimStr(termRaw);
+async function fetchSchoolAcademicSettings(schoolId) {
+  const fallbackTerms = ['Term 1', 'Term 2', 'Term 3'];
+  const fallbackYear = inferAcademicYearFromDate();
   if (!schoolId) {
-    return { academicYear: explicitYear, term: explicitTerm };
+    return {
+      current_academic_year: fallbackYear,
+      current_term: inferTermFromMonth(fallbackTerms),
+      terms: fallbackTerms,
+      academic_years: [fallbackYear],
+      terms_by_year: { [fallbackYear]: fallbackTerms },
+    };
   }
-  if (explicitYear && explicitTerm) {
-    return { academicYear: explicitYear, term: explicitTerm };
-  }
+
   const [[row]] = await promisePool.query(
     `SELECT current_academic_year, active_terms_json
      FROM school_academic_settings
      WHERE school_id = ?
      LIMIT 1`,
-    [schoolId]
+    [schoolId],
   ).catch(() => [[null]]);
-  let terms = ['Term 1', 'Term 2', 'Term 3'];
+
+  let terms = [...fallbackTerms];
   try {
     if (row?.active_terms_json) {
       const parsed = Array.isArray(row.active_terms_json)
@@ -170,9 +176,83 @@ async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
       }
     }
   } catch (_) {}
+
+  const currentYear = trimStr(row?.current_academic_year) || fallbackYear;
+  const currentTerm = inferTermFromMonth(terms);
+
+  const [registryRows] = await promisePool.query(
+    `SELECT academic_year, active_terms_json
+     FROM school_academic_year_registry
+     WHERE school_id = ?
+     ORDER BY academic_year DESC`,
+    [schoolId],
+  ).catch(() => [[]]);
+
+  const termsByYear = {};
+  const yearSet = new Set([currentYear]);
+  for (const reg of registryRows || []) {
+    const y = trimStr(reg.academic_year);
+    if (!y) continue;
+    yearSet.add(y);
+    let regTerms = [...fallbackTerms];
+    try {
+      if (reg.active_terms_json) {
+        const parsed = Array.isArray(reg.active_terms_json)
+          ? reg.active_terms_json
+          : JSON.parse(reg.active_terms_json);
+        if (Array.isArray(parsed) && parsed.length) {
+          regTerms = parsed.map((x) => String(x || '').trim()).filter(Boolean);
+        }
+      }
+    } catch (_) {}
+    termsByYear[y] = regTerms;
+  }
+  termsByYear[currentYear] = terms;
+
   return {
-    academicYear: explicitYear || trimStr(row?.current_academic_year) || inferAcademicYearFromDate(),
-    term: explicitTerm || inferTermFromMonth(terms),
+    current_academic_year: currentYear,
+    current_term: currentTerm,
+    terms,
+    academic_years: [...yearSet].sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true })),
+    terms_by_year: termsByYear,
+  };
+}
+
+/** Resolve year/term for parent academics — respects explicit query params vs manager defaults. */
+function resolveParentMarksFilters(req, schoolSettings) {
+  const hasYear = Object.prototype.hasOwnProperty.call(req.query || {}, 'academic_year');
+  const hasTerm = Object.prototype.hasOwnProperty.call(req.query || {}, 'term');
+
+  if (!hasYear && !hasTerm) {
+    return {
+      academicYear: schoolSettings.current_academic_year,
+      term: schoolSettings.current_term,
+      strict: false,
+      fromDefaults: true,
+    };
+  }
+
+  return {
+    academicYear: hasYear ? trimStr(req.query.academic_year) : '',
+    term: hasTerm ? trimStr(req.query.term) : '',
+    strict: true,
+    fromDefaults: false,
+  };
+}
+
+async function resolveAcademicContext(schoolId, academicYearRaw, termRaw) {
+  const explicitYear = trimStr(academicYearRaw);
+  const explicitTerm = trimStr(termRaw);
+  if (!schoolId) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  if (explicitYear && explicitTerm) {
+    return { academicYear: explicitYear, term: explicitTerm };
+  }
+  const settings = await fetchSchoolAcademicSettings(schoolId);
+  return {
+    academicYear: explicitYear || settings.current_academic_year,
+    term: explicitTerm || settings.current_term,
   };
 }
 
@@ -768,14 +848,14 @@ async function findStudentRowByCode(raw) {
   const code = String(raw || '').trim();
   if (!code || code.length < 2) return null;
   const upper = code.toUpperCase();
+  const { miniWebsiteSlugSelect } = require('../utils/schoolMiniWebsitesSchema');
+  const slugSql = await miniWebsiteSlugSelect('s.school_id');
   const [rows] = await promisePool.query(
     `SELECT s.id, s.school_id, s.student_uid, s.student_code, s.sdm_code, s.father_phone, s.mother_phone,
             s.first_name, s.last_name, s.class_name, s.academic_year,
             s.province, s.district, s.sector, s.father_email, s.mother_email,
             sc.school_name, sc.school_code,
-            (SELECT m.slug FROM school_mini_websites m
-             WHERE m.school_id = s.school_id AND m.status = 'published'
-             ORDER BY m.id DESC LIMIT 1) AS mini_website_slug
+            ${slugSql}
      FROM students s
      LEFT JOIN schools sc ON sc.id = s.school_id
      WHERE TRIM(UPPER(s.student_uid)) = ?
@@ -2349,6 +2429,28 @@ router.get('/parent-portal/shulecard/students', async (req, res) => {
         },
       });
     }
+    await Promise.all(data.map(async (row) => {
+      try {
+        const schoolSettings = await fetchSchoolAcademicSettings(row.school_id);
+        const summary = await fetchStudentPublishedMarks(row.school_id, row.id, {
+          academicYear: schoolSettings.current_academic_year,
+          term: schoolSettings.current_term,
+          strict: false,
+        });
+        row.academics = {
+          average_percent: summary.overall_gpa_percent,
+          assessment_count: summary.assessment_count,
+          latest: (summary.latest_by_subject || []).slice(0, 3).map((m) => ({
+            subject: m.subject_name,
+            percent: m.percent,
+            assessment_name: m.assessment_name,
+            teacher_name: m.teacher_name,
+          })),
+        };
+      } catch (_) {
+        row.academics = { average_percent: null, assessment_count: 0, latest: [] };
+      }
+    }));
     return res.json({ success: true, data });
   } catch (err) {
     console.error('[parent-portal/shulecard/students]', err);
@@ -3518,6 +3620,9 @@ router.get('/parent-portal/student-details/filters', async (req, res) => {
 
     await ensureTeacherAttendanceTablesForParent();
 
+    const schoolSettings = await fetchSchoolAcademicSettings(st.school_id);
+    const publishedPeriods = await fetchPublishedMarksPeriods(st.school_id, studentId);
+
     const [yearsRows] = await promisePool.query(
       `SELECT DISTINCT academic_year FROM students WHERE id = ? AND academic_year IS NOT NULL AND TRIM(academic_year) <> ''
        UNION DISTINCT
@@ -3571,18 +3676,53 @@ router.get('/parent-portal/student-details/filters', async (req, res) => {
       [studentId, studentId, studentId, studentId, studentId]
     ).catch(() => [[]]);
 
-    const years = Array.from(new Set((yearsRows || []).map((r) => String(r.academic_year || '').trim()).filter(Boolean)));
-    const terms = Array.from(new Set((termsRows || []).map((r) => String(r.term || '').trim()).filter(Boolean)));
+    const years = Array.from(new Set([
+      ...schoolSettings.academic_years,
+      ...publishedPeriods.years,
+      ...(yearsRows || []).map((r) => String(r.academic_year || '').trim()).filter(Boolean),
+    ])).sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
+
+    const terms = Array.from(new Set([
+      ...schoolSettings.terms,
+      ...publishedPeriods.terms,
+      ...(termsRows || []).map((r) => String(r.term || '').trim()).filter(Boolean),
+    ])).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+
+    const termsByYear = { ...schoolSettings.terms_by_year };
+    for (const p of publishedPeriods.pairs) {
+      if (!termsByYear[p.academic_year]) termsByYear[p.academic_year] = [];
+      if (!termsByYear[p.academic_year].includes(p.term)) {
+        termsByYear[p.academic_year].push(p.term);
+      }
+    }
+    for (const y of Object.keys(termsByYear)) {
+      termsByYear[y] = [...new Set(termsByYear[y])].sort(
+        (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }),
+      );
+    }
+
     const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-    return res.json({ success: true, data: { academic_years: years, terms, weekdays } });
+    return res.json({
+      success: true,
+      data: {
+        academic_years: years,
+        terms,
+        terms_by_year: termsByYear,
+        current_academic_year: schoolSettings.current_academic_year,
+        current_term: schoolSettings.current_term,
+        published_years: publishedPeriods.years,
+        published_terms: publishedPeriods.terms,
+        weekdays,
+      },
+    });
   } catch (err) {
     console.error('[parent-portal/student-details/filters]', err);
     return res.status(500).json({ success: false, message: 'Failed to load filters' });
   }
 });
 
-// ── Parent child details academics (mock marks as requested) ─────
+// ── Parent child details academics (live teacher-published marks) ──
 router.get('/parent-portal/student-details/academics', async (req, res) => {
   try {
     const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
@@ -3597,21 +3737,14 @@ router.get('/parent-portal/student-details/academics', async (req, res) => {
     if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
     const studentId = Number(st.id);
 
-    const academicYearQ = String(req.query?.academic_year || '').trim();
-    const termQ = String(req.query?.term || '').trim();
-    const { academicYear, term } = await resolveAcademicContext(st.school_id || null, academicYearQ, termQ);
+    const schoolSettings = await fetchSchoolAcademicSettings(st.school_id);
+    const { academicYear, term, strict } = resolveParentMarksFilters(req, schoolSettings);
 
-    // Mocked data by request (can be replaced later with real gradebook matrix).
-    const mockSubjects = [
-      { subject: 'Mathematics', score: 84, max: 100, remark: 'Good progress' },
-      { subject: 'English', score: 88, max: 100, remark: 'Very good' },
-      { subject: 'Science', score: 82, max: 100, remark: 'Consistent' },
-      { subject: 'Social Studies', score: 86, max: 100, remark: 'Improving' },
-      { subject: 'Kinyarwanda', score: 91, max: 100, remark: 'Excellent' },
-    ];
-    const avg = Math.round((mockSubjects.reduce((s, x) => s + x.score, 0) / mockSubjects.length) * 10) / 10;
-    const classSize = 45;
-    const rank = Math.max(1, Math.round((100 - avg) / 6));
+    const marksData = await fetchStudentPublishedMarks(st.school_id, studentId, {
+      academicYear: academicYear || '',
+      term: term || '',
+      strict,
+    });
 
     return res.json({
       success: true,
@@ -3625,9 +3758,12 @@ router.get('/parent-portal/student-details/academics', async (req, res) => {
         },
         academic_year: academicYear || null,
         term: term || null,
-        overall_gpa_percent: avg,
-        class_rank: `${rank} of ${classSize}`,
-        subjects: mockSubjects,
+        overall_gpa_percent: marksData.overall_gpa_percent,
+        class_rank: marksData.class_rank,
+        subjects: marksData.subjects,
+        assessments: marksData.assessments,
+        latest_by_subject: marksData.latest_by_subject,
+        assessment_count: marksData.assessment_count,
       },
       meta: { academic_year: academicYear, term },
     });
@@ -4370,5 +4506,110 @@ router.delete(
     }
   }
 );
+
+// ── Published student report cards (DOS snapshot system) ───────
+const { ensureReportTables: ensureDosReportTables } = require('./dosStudentReports');
+
+router.get('/parent-portal/student-reports', async (req, res) => {
+  try {
+    await ensureDosReportTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const studentRef = String(req.query?.student_id || req.query?.student_ref || '').trim();
+    if (!studentRef) return res.status(400).json({ success: false, message: 'student_id required' });
+
+    const st = await resolveParentStudentAccessByRef(parentPhone, studentRef);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this student' });
+
+    const [rows] = await promisePool.query(
+      `SELECT id, academic_year, term, report_type, class_name, overall_average, overall_grade,
+              class_position, status, published_at, generated_at
+       FROM dos_student_report_snapshots
+       WHERE school_id = ? AND student_id = ? AND status = 'published'
+       ORDER BY generated_at DESC LIMIT 50`,
+      [st.school_id, st.id],
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        student: {
+          id: st.id,
+          name: `${st.first_name || ''} ${st.last_name || ''}`.trim(),
+          class_name: st.class_name,
+          school_name: st.school_name,
+        },
+        reports: (rows || []).map((r) => ({
+          snapshot_id: r.id,
+          academic_year: r.academic_year,
+          term: r.term,
+          report_type: r.report_type,
+          class_name: r.class_name,
+          average: r.overall_average != null ? Number(r.overall_average) : null,
+          grade: r.overall_grade,
+          position: r.class_position,
+          published_at: r.published_at,
+        })),
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/student-reports]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load reports' });
+  }
+});
+
+router.get('/parent-portal/student-reports/:snapshotId', async (req, res) => {
+  try {
+    await ensureDosReportTables();
+    const role = (req.session?.user?.role?.code || req.session?.roleCode || '').toUpperCase();
+    const parentPhone = normalizePhone(req.session?.user?.parent_phone || '');
+    if (role !== 'PARENT' || !parentPhone) {
+      return res.status(401).json({ success: false, message: 'Not authenticated as parent' });
+    }
+
+    const snapshotId = Number(req.params.snapshotId);
+    if (!snapshotId) return res.status(400).json({ success: false, message: 'Invalid report id' });
+
+    const [rows] = await promisePool.query(
+      `SELECT s.*, st.first_name, st.last_name, st.student_uid, sc.school_name, sc.logo_url, sc.address, sc.phone, sc.email
+       FROM dos_student_report_snapshots s
+       INNER JOIN students st ON st.id = s.student_id
+       LEFT JOIN schools sc ON sc.id = s.school_id
+       WHERE s.id = ? AND s.status = 'published'
+       LIMIT 1`,
+      [snapshotId],
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Report not found' });
+
+    const row = rows[0];
+    const st = await resolveParentStudentAccess(parentPhone, row.student_id);
+    if (!st) return res.status(403).json({ success: false, message: 'No access to this report' });
+
+    const snapshot = JSON.parse(row.snapshot_json);
+    return res.json({
+      success: true,
+      data: {
+        snapshot_id: row.id,
+        status: row.status,
+        published_at: row.published_at,
+        school: {
+          school_name: row.school_name,
+          logo_url: row.logo_url,
+          address: row.address,
+          phone: row.phone,
+          email: row.email,
+        },
+        ...snapshot,
+      },
+    });
+  } catch (err) {
+    console.error('[parent-portal/student-reports/:id]', err);
+    return res.status(500).json({ success: false, message: 'Failed to load report' });
+  }
+});
 
 module.exports = router;

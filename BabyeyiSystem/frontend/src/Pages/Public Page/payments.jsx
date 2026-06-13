@@ -21,12 +21,30 @@ import {
   ChevronRight, Shield, Info, CreditCard, Landmark, UserRound,
   Download, FileText,
 } from 'lucide-react';
+import { feeSelectionKey as normFeeId } from '../../utils/publicFeeSelection';
+import { savePublicPaySuccess, buildPaidReturnHref, loadPublicPaySuccess } from '../../utils/publicPaySuccessSnapshot';
 
 const SERVER = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 
 function completeParentIncompleteResume(draft) {
   const tok = draft?.voucherResumeToken || draft?.classkitResumeToken;
   if (tok) void completeIncompleteOrderOnServer(tok);
+}
+
+async function recordPublicPayCommitment(draft, intentId, amountRwf) {
+  const cid = Number(draft?.paymentCommitmentId || 0);
+  if (!cid) return;
+  try {
+    await fetch(`${SERVER}/api/public/babyeyi-pay/payment-commitment/${cid}/record-payment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount_paid_rwf: amountRwf,
+        payment_intent_id: intentId,
+        parent_phone: String(draft?.payer?.phone || '').trim(),
+      }),
+    });
+  } catch { /* non-blocking */ }
 }
 const API    = `${SERVER}/api`;
 const FONT_FAMILY = '"Montserrat", sans-serif';
@@ -85,12 +103,6 @@ const inputFocusStyle = {
   border: `1.5px solid ${C.focusRing}`,
 };
 
-// ── Helpers ───────────────────────────────────────────────────────
-function normFeeId(id) {
-  if (id != null && String(id).startsWith('pasreq:')) return String(id);
-  const n = Number(id);
-  return Number.isFinite(n) ? n : null;
-}
 function normReqId(id) {
   const n = parseInt(id, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -104,7 +116,7 @@ function computeSelectionTotalFromSnapshot(draft) {
   const reqs = Array.isArray(snap.requirements) ? snap.requirements : [];
   let s = 0;
   for (const f of fees) {
-    const id = normFeeId(f.id);
+    const id = f.selection_key || normFeeId(f.id);
     if (id != null && feeSet.has(id)) s += Number(f.amount || 0);
   }
   for (const r of reqs) { const id = normReqId(r.babyeyi_requirement_id); if (id != null && reqSet.has(id)) s += Number(r.line_total_rwf ?? r.price ?? 0); }
@@ -849,7 +861,12 @@ export default function PaymentsPage() {
     if (draft.standardKitCheckout) return '/services/standard-shulekit';
     if (draft.uniformVoucherCheckout) return '/services/uniform-voucher/request';
     if (draft.fromCustomShuleKit) return '/services/shulekit-pay';
-    if (draft.fromPublicSchoolPay) return '/pay-by-school';
+    if (draft.fromPublicSchoolPay && !draft.fromCustomShuleKit) {
+      const snap = loadPublicPaySuccess();
+      if (snap) return buildPaidReturnHref(snap);
+      const code = String(draft.selectedStudent?.student_code || draft.selectedStudent?.student_uid || '').trim();
+      return code ? `/paid-at-school?code=${encodeURIComponent(code)}&step=4` : '/paid-at-school?step=4';
+    }
     if (draft.fromPublicFinder && draft.publicPayNoLogin) {
       const slug = String(draft.schoolSlug || '').trim();
       if (draft.fromSchoolMiniSite && slug) return `/school/${encodeURIComponent(slug)}`;
@@ -861,12 +878,19 @@ export default function PaymentsPage() {
   /** Return to the wizard’s last step (school pay, uniform voucher, or shoes voucher). */
   const wizardBackTarget = useMemo(() => {
     if (!draft || doneId || showDoneModal) return null;
+    if (draft.fromCustomShuleKit) {
+      const code = String(draft.selectedStudent?.student_code || draft.selectedStudent?.student_uid || '').trim();
+      const q = new URLSearchParams();
+      if (code) q.set('code', code);
+      q.set('resumeStep', '6');
+      return { to: `/services/shulekit-pay?${q.toString()}`, label: t("payments.backToShuleKitCheckout", { defaultValue: "Back to requirements checkout" }) };
+    }
     if (draft.fromPublicSchoolPay) {
       const code = String(draft.selectedStudent?.student_code || draft.selectedStudent?.student_uid || '').trim();
       const q = new URLSearchParams();
       if (code) q.set('code', code);
-      q.set('resumeStep', '5');
-      return { to: `/pay-by-school?${q.toString()}`, label: t("payments.backToSchoolCheckout", { defaultValue: "Back to school checkout" }) };
+      q.set('resumeStep', '6');
+      return { to: `/paid-at-school?${q.toString()}`, label: t("payments.backToSchoolCheckout", { defaultValue: "Back to school checkout" }) };
     }
     if (draft.uniformVoucherCheckout) {
       return { to: '/services/uniform-voucher/request?resumeStep=6', label: t("payments.backToUniformVoucher", { defaultValue: "Back to uniform voucher" }) };
@@ -913,6 +937,7 @@ export default function PaymentsPage() {
         total_rwf:                totalRwfForIntent,
         status:                   extra.status || 'submitted',
         selected_fee_ids:         draft.selectedFeeIds         || [],
+        selected_fee_lines:       draft.selectedFeeLines       || [],
         selected_requirement_ids: draft.selectedReqIds         || [],
         school_counter_credits_rwf: draft.schoolCounterCreditsRwf || {},
         selected_student:         draft.selectedStudent        || null,
@@ -1032,14 +1057,17 @@ export default function PaymentsPage() {
       const json   = await res.json().catch(() => ({}));
       const status = (json.provider_status || '').toUpperCase();
       if (status === 'SUCCESSFUL') {
+        const invSt = String(json.invoice_status || 'PAID').toUpperCase();
         setMomoStatus('SUCCESSFUL');
-        setInvoiceStatus(String(json.invoice_status || 'PAID').toUpperCase());
+        setInvoiceStatus(invSt);
         patchDeviceIntentEntry(intentId, {
           status: String(json.status || 'paid').toUpperCase(),
           providerStatus: String(json.provider_status || 'SUCCESSFUL').toUpperCase(),
-          invoiceStatus: String(json.invoice_status || 'PAID').toUpperCase(),
+          invoiceStatus: invSt,
         });
         completeParentIncompleteResume(draft);
+        void recordPublicPayCommitment(draft, intentId, Number(draft?.grandTotal || 0));
+        savePublicPaySuccess(draft, { intentId, amountRwf: Number(draft?.grandTotal || 0), invoiceStatus: invSt });
         setDoneId(intentId); setSubmitting(false); setDoneMode('momo'); setShowDoneModal(true); return;
       }
       if (status === 'FAILED') {
@@ -3252,6 +3280,8 @@ export default function PaymentsPage() {
             }}>
               {draft?.studentServiceCheckout ? t("payments.backToServices", { defaultValue: "Back to services" })
                 : draft?.uniformVoucherCheckout ? t("payments.backToUniformVoucher", { defaultValue: "Back to uniform voucher" })
+                : draft?.fromPublicSchoolPay && !draft?.fromCustomShuleKit
+                ? t("payments.backToSchoolPay", { defaultValue: "Back to pay fees" })
                 : publicGuestPay ? t("payments.backToBabyeyiFinder", { defaultValue: "Back to Babyeyi Finder" })
                 : t("payments.backToDashboard", { defaultValue: "Back to dashboard" })}
             </button>

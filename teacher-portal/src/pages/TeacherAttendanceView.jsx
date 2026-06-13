@@ -536,7 +536,7 @@ export default function TeacherViewAttendance() {
         ::-webkit-scrollbar { width:3px; height:3px; }
         ::-webkit-scrollbar-thumb { background:#e2e5ef; border-radius:99px; }
 
-        input:focus,select:focus { border-color:${AMBER}!important; box-shadow:0 0 0 3px ${AMBER}22!important; outline:none!important; }
+        input:focus,select:focus { border-color:${NAVY}!important; box-shadow:0 0 0 3px rgba(0,4,53,0.12)!important; outline:none!important; }
 
         .tv-tab { transition:all 0.22s ease; cursor:pointer; font-family:'Sora',sans-serif; position:relative; }
         .tv-tab.active { background:${WHITE}!important; color:${NAVY}!important; box-shadow:0 10px 24px rgba(0,4,53,0.16); }
@@ -548,7 +548,7 @@ export default function TeacherViewAttendance() {
           bottom:0;
           height:2.5px;
           border-radius:99px;
-          background:linear-gradient(90deg, ${AMBER}, #ffd089);
+          background:${NAVY};
         }
         .tv-tab:not(.active):hover { background:rgba(255,255,255,0.16)!important; color:#fff!important; }
 
@@ -605,7 +605,7 @@ export default function TeacherViewAttendance() {
             </button>
             <button
                 type="button"
-                className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-re-grad-orange text-white"
+                className="px-4 h-10 rounded-xl text-[10px] font-black uppercase tracking-widest bg-[#000435] text-white shadow-sm"
             >
                 Teacher attendance
             </button>
@@ -616,16 +616,16 @@ export default function TeacherViewAttendance() {
         {/* ══════════ HEADER ══════════ */}
         <div style={{ background:`linear-gradient(145deg, ${NAVY} 0%, #000b55 55%, #001380 100%)`, position:"relative", overflow:"hidden", paddingBottom:0, borderRadius:"20px 20px 0 0" }}>
           {/* Decorative rings */}
-          <div style={{ position:"absolute",top:-60,right:-60,width:220,height:220,borderRadius:"50%",border:`1.5px solid ${AMBER}14`,pointerEvents:"none" }}/>
-          <div style={{ position:"absolute",top:-20,right:-20,width:130,height:130,borderRadius:"50%",border:`1.5px solid ${AMBER}1f`,pointerEvents:"none" }}/>
-          <div style={{ position:"absolute",bottom:0,left:-40,width:180,height:180,borderRadius:"50%",background:`${AMBER}06`,pointerEvents:"none" }}/>
+          <div style={{ position:"absolute",top:-60,right:-60,width:220,height:220,borderRadius:"50%",border:"1.5px solid rgba(255,255,255,0.08)",pointerEvents:"none" }}/>
+          <div style={{ position:"absolute",top:-20,right:-20,width:130,height:130,borderRadius:"50%",border:"1.5px solid rgba(255,255,255,0.12)",pointerEvents:"none" }}/>
+          <div style={{ position:"absolute",bottom:0,left:-40,width:180,height:180,borderRadius:"50%",background:"rgba(255,255,255,0.04)",pointerEvents:"none" }}/>
 
           <div style={{ position:"relative",zIndex:1,padding:"20px 20px 0" }}>
             {/* Top bar */}
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20 }}>
               <div style={{ display:"flex",alignItems:"center",gap:12 }}>
-                <div style={{ width:42,height:42,borderRadius:14,background:`${AMBER}1c`,border:`1.5px solid ${AMBER}33`,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                  <User size={20} color={AMBER}/>
+                <div style={{ width:42,height:42,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1.5px solid rgba(255,255,255,0.18)",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                  <User size={20} color="#fff"/>
                 </div>
                 <div>
                   <p style={{ color:"rgba(255,255,255,0.45)",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",marginBottom:2 }}>My Attendance</p>
@@ -673,7 +673,7 @@ export default function TeacherViewAttendance() {
                       {fmt12(todayGate?.entry_time)}
                     </p>
                     {todayGate?.late_mins>0&&(
-                      <p style={{ color:AMBER,fontSize:10,fontWeight:700,marginTop:3 }}>+{todayGate.late_mins}m late</p>
+                      <p style={{ color:"#fca5a5",fontSize:10,fontWeight:700,marginTop:3 }}>+{todayGate.late_mins}m late</p>
                     )}
                   </div>
                   <div style={{ background:"rgba(255,255,255,0.07)",borderRadius:14,padding:"12px 14px",border:"1px solid rgba(255,255,255,0.1)" }}>
@@ -697,7 +697,7 @@ export default function TeacherViewAttendance() {
                 <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
                   {[
                     { key:"done", Icon: CheckCircle2, text:`${periodsDone} Done`,    color:"#6ee7b7",  bg:"rgba(16,185,129,0.15)",  border:"rgba(16,185,129,0.3)"  },
-                    { key:"late", Icon: Clock,         text:`${periodsLate} Late`,    color:AMBER,      bg:`rgba(245,158,11,0.14)`,  border:`rgba(245,158,11,0.3)`  },
+                    { key:"late", Icon: Clock,         text:`${periodsLate} Late`,    color:"#fcd34d",  bg:"rgba(255,255,255,0.08)", border:"rgba(255,255,255,0.16)" },
                     { key:"up",   Icon: Hourglass,    text:`${periodsUpcoming} Upcoming`, color:"#93c5fd",  bg:"rgba(96,165,250,0.14)", border:"rgba(96,165,250,0.3)" },
                   ].map(({ key, Icon, text, ...c })=>(
                     <span key={key} style={{ fontSize:11,fontWeight:800,color:c.color,background:c.bg,border:`1.5px solid ${c.border}`,borderRadius:99,padding:"4px 10px",display:"inline-flex",alignItems:"center",gap:5 }}>
@@ -708,10 +708,10 @@ export default function TeacherViewAttendance() {
 
                 {/* Next class teaser */}
                 {nextClass&&(
-                  <div style={{ marginTop:12,background:"rgba(245,158,11,0.12)",border:"1.5px solid rgba(245,158,11,0.25)",borderRadius:14,padding:"10px 14px",display:"flex",alignItems:"center",gap:10 }}>
-                    <Zap size={14} color={AMBER}/>
+                  <div style={{ marginTop:12,background:"rgba(255,255,255,0.08)",border:"1.5px solid rgba(255,255,255,0.14)",borderRadius:14,padding:"10px 14px",display:"flex",alignItems:"center",gap:10 }}>
+                    <Zap size={14} color="#93c5fd"/>
                     <p style={{ fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",margin:0 }}>
-                      <span style={{ color:AMBER,fontWeight:900 }}>Next: </span>
+                      <span style={{ color:"#bfdbfe",fontWeight:900 }}>Next: </span>
                       {nextClass.subject_name} (P{nextClass.period_number})
                       {minsUntil(nextClass.start_time)&&<span style={{ color:"rgba(255,255,255,0.5)" }}> · in {minsUntil(nextClass.start_time)}m</span>}
                     </p>
@@ -727,9 +727,9 @@ export default function TeacherViewAttendance() {
             {/* Weekly consistency strip */}
             {consistency!==null&&!loading&&(
               <div style={{ display:"flex",alignItems:"center",gap:10,margin:"14px 0 0",padding:"10px 16px",background:"rgba(255,255,255,0.06)",borderRadius:14,border:"1px solid rgba(255,255,255,0.1)" }}>
-                <Target size={13} color={AMBER}/>
+                <Target size={13} color="#93c5fd"/>
                 <p style={{ fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.7)",margin:0 }}>
-                  This week: <span style={{ color:consistency>=80?"#6ee7b7":consistency>=60?AMBER:"#f87171",fontWeight:900 }}>{consistency}% on time</span>
+                  This week: <span style={{ color:consistency>=80?"#6ee7b7":consistency>=60?"#fcd34d":"#f87171",fontWeight:900 }}>{consistency}% on time</span>
                 </p>
                 {lateThisWeek>0&&(
                   <span style={{ fontSize:11,color:"rgba(255,255,255,0.4)",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:4 }}>

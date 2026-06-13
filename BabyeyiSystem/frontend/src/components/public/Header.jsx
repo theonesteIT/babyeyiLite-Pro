@@ -12,7 +12,7 @@ import {
 import BabyeyiLogo from '../../assets/1BABYEYI LOGO FINAL.png';
 import { platformContentApi } from '../../utils/platformContentApi';
 import {
-  PUBLIC_LANGS, PUBLIC_COMBINED_PAY_PATH, TEACHER_PORTAL_URL,
+  PUBLIC_LANGS, PUBLIC_PAY_FEES_PATH, PUBLIC_PAY_REQUIREMENTS_PATH, TEACHER_PORTAL_URL,
 } from './publicSiteConstants';
 import { OTHER_PORTAL_LOGIN_PATH } from '../../utils/otherPortalEntry';
 
@@ -389,7 +389,8 @@ function Navbar() {
 
   const links = [
     { label: t('public.homePage'), href: '/' },
-    { label: t('public.payFees'), href: PUBLIC_COMBINED_PAY_PATH },
+    { label: t('public.payFees'), href: PUBLIC_PAY_FEES_PATH },
+    { label: t('public.payRequirements'), href: PUBLIC_PAY_REQUIREMENTS_PATH },
     { label: t('public.services'), href: '/services' },
     { label: t('public.features'), href: '/features' },
     { label: t('public.schools'), href: '/schools' },

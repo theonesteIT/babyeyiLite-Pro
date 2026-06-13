@@ -213,6 +213,13 @@ function requireFullSystemController(req, res) {
   return requireRole(req, res, 'FULL_SYSTEM_CONTROLLER');
 }
 
+/** Route param school id — allows 0 (legacy rows); rejects NaN and negatives. */
+function parseRouteSchoolId(raw) {
+  const id = parseInt(raw, 10);
+  if (Number.isNaN(id) || id < 0) return null;
+  return id;
+}
+
 async function getRoleId(roleCode) {
   const [rows] = await promisePool.query(
     'SELECT id FROM roles WHERE role_code = ? LIMIT 1', [roleCode]
@@ -1136,8 +1143,8 @@ router.get('/schools', async (req, res) => {
 // ============================================================
 router.patch('/schools/:schoolId/subscription', async (req, res) => {
   if (!requireElevatedPlatform(req, res)) return;
-  const schoolId = parseInt(req.params.schoolId, 10);
-  if (!schoolId) {
+  const schoolId = parseRouteSchoolId(req.params.schoolId);
+  if (schoolId == null) {
     return res.status(400).json({ success: false, message: 'Invalid school id' });
   }
   const {
@@ -1199,7 +1206,10 @@ router.patch('/schools/:schoolId/subscription', async (req, res) => {
       [schoolId]
     );
     if (!beforeRow) {
-      return res.status(404).json({ success: false, message: 'School not found' });
+      const hint = schoolId === 0
+        ? 'School id 0 is no longer valid — refresh the Super Admin schools page and try again.'
+        : 'School not found';
+      return res.status(404).json({ success: false, message: hint });
     }
 
     await promisePool.query(
@@ -1249,8 +1259,8 @@ router.patch('/schools/:schoolId/subscription', async (req, res) => {
 // ============================================================
 router.patch('/schools/:schoolId/manager-credentials', async (req, res) => {
   if (!requireElevatedPlatform(req, res)) return;
-  const schoolId = parseInt(req.params.schoolId, 10);
-  if (!schoolId) {
+  const schoolId = parseRouteSchoolId(req.params.schoolId);
+  if (schoolId == null) {
     return res.status(400).json({ success: false, message: 'Invalid school id' });
   }
 
@@ -1363,8 +1373,8 @@ router.patch('/schools/:schoolId/manager-credentials', async (req, res) => {
 // ============================================================
 router.get('/schools/:schoolId/modules', async (req, res) => {
   if (!requireElevatedPlatform(req, res)) return;
-  const schoolId = parseInt(req.params.schoolId, 10);
-  if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid school id' });
+  const schoolId = parseRouteSchoolId(req.params.schoolId);
+  if (schoolId == null) return res.status(400).json({ success: false, message: 'Invalid school id' });
   try {
     const modules = await loadSchoolModules(promisePool, schoolId);
     res.json({ success: true, data: modules });
@@ -1380,8 +1390,8 @@ router.get('/schools/:schoolId/modules', async (req, res) => {
 // ============================================================
 router.put('/schools/:schoolId/modules', async (req, res) => {
   if (!requireElevatedPlatform(req, res)) return;
-  const schoolId = parseInt(req.params.schoolId, 10);
-  if (!schoolId) return res.status(400).json({ success: false, message: 'Invalid school id' });
+  const schoolId = parseRouteSchoolId(req.params.schoolId);
+  if (schoolId == null) return res.status(400).json({ success: false, message: 'Invalid school id' });
   const raw = req.body?.modules && typeof req.body.modules === 'object' ? req.body.modules : req.body;
   if (!raw || typeof raw !== 'object') {
     return res.status(400).json({ success: false, message: 'Expected JSON object of module_key → boolean' });

@@ -19,6 +19,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
 const { promisePool } = require('../config/database');
+const { ensureCoreAuthSchema } = require('../utils/coreAuthSchema');
 const { requireRole } = require('../middleware/deoAuth');
 const { computeProAccessEffective } = require('../utils/schoolSubscription');
 
@@ -414,12 +415,13 @@ async function resolveStaffAssignableRole(conn, rawRoleCode, customRoleName = ''
       }
     }
 
-    const [insertedRole] = await conn.query(
-      `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
-       VALUES (?, ?, ?, ?, 1, 1)`,
-      [roleCodeToName(roleCode), roleCode, 'System staff role auto-created from HR Center', '[]']
-    );
-    return { ok: true, roleRow: { id: insertedRole.insertId, role_code: roleCode } };
+    const roleId = await insertRoleRow(conn, {
+      roleName: roleCodeToName(roleCode),
+      roleCode,
+      description: 'System staff role auto-created from HR Center',
+      isSystemRole: true,
+    });
+    return { ok: true, roleRow: { id: roleId, role_code: roleCode } };
   }
 
   // Do not allow assigning non-creatable system roles via this endpoint.
@@ -447,12 +449,45 @@ async function resolveStaffAssignableRole(conn, rawRoleCode, customRoleName = ''
 
   const roleName = roleCodeToName(roleCode);
 
-  const [inserted] = await conn.query(
-    `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
-     VALUES (?, ?, ?, ?, 1, 0)`,
-    [roleName || 'Custom Role', roleCode, 'Custom role created from HR Center', '[]']
+  const roleId = await insertRoleRow(conn, {
+    roleName: roleName || 'Custom Role',
+    roleCode,
+    description: 'Custom role created from HR Center',
+    isSystemRole: false,
+  });
+  return { ok: true, roleRow: { id: roleId, role_code: roleCode } };
+}
+
+async function lookupRoleIdByCode(conn, roleCode) {
+  const [[row]] = await conn.query(
+    'SELECT id FROM roles WHERE UPPER(role_code) = ? ORDER BY id DESC LIMIT 1',
+    [String(roleCode || '').toUpperCase()],
   );
-  return { ok: true, roleRow: { id: inserted.insertId, role_code: roleCode } };
+  return Number(row?.id) || null;
+}
+
+/** roles.id has no reliable AUTO_INCREMENT (legacy id=0 row + FK) — allocate next id explicitly. */
+async function allocateNextRoleId(conn) {
+  const [[row]] = await conn.query('SELECT COALESCE(MAX(id), 0) AS m FROM roles');
+  return Number(row?.m || 0) + 1;
+}
+
+async function insertRoleRow(conn, { roleName, roleCode, description, isSystemRole }) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const nextId = await allocateNextRoleId(conn);
+    try {
+      await conn.query(
+        `INSERT INTO roles (id, role_name, role_code, description, permissions, is_active, is_system_role)
+         VALUES (?, ?, ?, ?, '[]', 1, ?)`,
+        [nextId, roleName, roleCode, description, isSystemRole ? 1 : 0],
+      );
+      return nextId;
+    } catch (err) {
+      if (err?.code === 'ER_DUP_ENTRY' && attempt < 2) continue;
+      throw err;
+    }
+  }
+  return null;
 }
 
 async function ensureStaffIdentityColumns() {
@@ -992,6 +1027,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
 
   const conn = await promisePool.getConnection();
   try {
+    await ensureCoreAuthSchema();
     await ensureStaffProfessionalColumns();
     const body = req.body || {};
     const firstName = trimStr(body.first_name);
@@ -1077,10 +1113,10 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const roleRow = roleResolution.roleRow;
 
     const [[dupEmail]] = await conn.query(
-      'SELECT id FROM users WHERE LOWER(email) = ? AND deleted_at IS NULL LIMIT 1',
+      'SELECT id, deleted_at FROM users WHERE LOWER(email) = ? LIMIT 1',
       [email]
     );
-    if (dupEmail) {
+    if (dupEmail && !dupEmail.deleted_at) {
       return res.status(409).json({
         success: false,
         code: 'DUPLICATE_EMAIL',
@@ -1089,7 +1125,6 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
         existingUserId: Number(dupEmail.id) || null,
       });
     }
-
     const [[dupUser]] = await conn.query(
       'SELECT id FROM users WHERE LOWER(username) = ? AND deleted_at IS NULL LIMIT 1',
       [resolvedUsername.toLowerCase()]
@@ -1154,6 +1189,11 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
 
     await conn.beginTransaction();
+
+    if (dupEmail?.deleted_at) {
+      await conn.query('DELETE FROM staff WHERE user_id = ?', [dupEmail.id]);
+      await conn.query('DELETE FROM users WHERE id = ?', [dupEmail.id]);
+    }
 
     const [userResult] = await conn.query(
       `INSERT INTO users (
@@ -1275,6 +1315,22 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
         field: 'staff_id',
         message:
           'That staff ID is already used at your school. Please reopen Add Staff to get the next available code, or contact support.',
+      });
+    }
+    if (raw.includes("Duplicate entry '0'") || (raw.includes('Duplicate entry') && raw.includes('PRIMARY'))) {
+      return res.status(409).json({
+        success: false,
+        code: 'ROLE_ID_CONFLICT',
+        message:
+          'Role assignment failed (database roles table needs repair). Restart the API server, then run: cd BabyeyiSystem/backend && npm run ensure:auth-schema',
+      });
+    }
+    if (raw.includes('Duplicate') && raw.toLowerCase().includes('email')) {
+      return res.status(409).json({
+        success: false,
+        code: 'DUPLICATE_EMAIL',
+        field: 'email',
+        message: 'An account with this email already exists.',
       });
     }
     return res.status(500).json({ success: false, message: err.message || 'Failed to create staff' });

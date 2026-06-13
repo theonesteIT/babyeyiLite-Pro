@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Calendar, ClipboardList, Loader2, UserCircle2,
   Home, TrendingUp, BookOpen, AlertTriangle, ChevronDown,
-  Award, Filter, BarChart2, CheckCircle2, XCircle, Clock
+  Award, Filter, BarChart2, CheckCircle2, XCircle, Clock, GraduationCap, User
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
@@ -128,7 +128,10 @@ function formatDisplayDate(v) {
 export default function ParentStudentDetails() {
   const { studentId: studentRef } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState("academic");
+  const initialTab = searchParams.get("tab") === "attendance" || searchParams.get("tab") === "discipline"
+    ? searchParams.get("tab")
+    : "academic";
+  const [tab, setTab] = useState(initialTab);
   const [attendanceType, setAttendanceType] = useState("class");
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ academic_years: [], terms: [], weekdays: [] });
@@ -138,10 +141,17 @@ export default function ParentStudentDetails() {
   const [err, setErr] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const selectedYear    = searchParams.get("academic_year") || "";
-  const selectedTerm    = searchParams.get("term") || "";
+  const hasYearParam    = searchParams.has("academic_year");
+  const hasTermParam    = searchParams.has("term");
+  const selectedYear    = hasYearParam ? (searchParams.get("academic_year") || "") : "";
+  const selectedTerm    = hasTermParam ? (searchParams.get("term") || "") : "";
   const selectedWeekday = searchParams.get("weekday") || "";
   const selectedDate    = searchParams.get("date") || "";
+
+  const termOptions = useMemo(() => {
+    if (!selectedYear) return filters.terms || [];
+    return filters.terms_by_year?.[selectedYear] || filters.terms || [];
+  }, [filters, selectedYear]);
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(searchParams);
@@ -224,20 +234,33 @@ export default function ParentStudentDetails() {
   };
 
   useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "academic" || t === "attendance" || t === "discipline") setTab(t);
+  }, [searchParams]);
+
+  useEffect(() => {
     let ignore = false;
     const run = async () => {
       setLoading(true); setErr("");
       try {
-        const attendanceUrl =
-          attendanceType === "class"
-            ? `${API}/api/parent-portal/student-attendance?student_ref=${encodeURIComponent(studentRef || "")}&type=class&academic_year=${encodeURIComponent(selectedYear)}&term=${encodeURIComponent(selectedTerm)}&weekday=${encodeURIComponent(selectedWeekday)}&date=${encodeURIComponent(selectedDate)}`
-            : `${API}/api/parent-portal/student-attendance?student_ref=${encodeURIComponent(studentRef || "")}&type=entry_exit&academic_year=${encodeURIComponent(selectedYear)}&term=${encodeURIComponent(selectedTerm)}&weekday=${encodeURIComponent(selectedWeekday)}&date=${encodeURIComponent(selectedDate)}`;
+        const buildQuery = (baseParams) => {
+          const q = new URLSearchParams(baseParams);
+          if (hasYearParam) q.set("academic_year", selectedYear);
+          if (hasTermParam) q.set("term", selectedTerm);
+          if (selectedWeekday) q.set("weekday", selectedWeekday);
+          if (selectedDate) q.set("date", selectedDate);
+          return q.toString();
+        };
+
+        const attendanceBase = attendanceType === "class"
+          ? { student_ref: studentRef || "", type: "class" }
+          : { student_ref: studentRef || "", type: "entry_exit" };
 
         const [fRes, aRes, atRes, dRes] = await Promise.all([
           fetch(`${API}/api/parent-portal/student-details/filters?student_ref=${encodeURIComponent(studentRef || "")}`, { credentials: "include" }),
-          fetch(`${API}/api/parent-portal/student-details/academics?student_ref=${encodeURIComponent(studentRef || "")}&academic_year=${encodeURIComponent(selectedYear)}&term=${encodeURIComponent(selectedTerm)}`, { credentials: "include" }),
-          fetch(attendanceUrl, { credentials: "include" }),
-          fetch(`${API}/api/parent-portal/student-discipline?student_ref=${encodeURIComponent(studentRef || "")}&academic_year=${encodeURIComponent(selectedYear)}&term=${encodeURIComponent(selectedTerm)}&weekday=${encodeURIComponent(selectedWeekday)}&date=${encodeURIComponent(selectedDate)}`, { credentials: "include" }),
+          fetch(`${API}/api/parent-portal/student-details/academics?${buildQuery({ student_ref: studentRef || "" })}`, { credentials: "include" }),
+          fetch(`${API}/api/parent-portal/student-attendance?${buildQuery(attendanceBase)}`, { credentials: "include" }),
+          fetch(`${API}/api/parent-portal/student-discipline?${buildQuery({ student_ref: studentRef || "" })}`, { credentials: "include" }),
         ]);
         const [fJson, aJson, atJson, dJson] = await Promise.all([
           fRes.json().catch(() => ({})),
@@ -253,19 +276,20 @@ export default function ParentStudentDetails() {
         const nextFilters = fJson.data || { academic_years: [], terms: [], weekdays: [] };
         setFilters(nextFilters);
 
-        // Auto-default to latest available year/term on first load.
-        if (!selectedYear || !selectedTerm) {
-          const years = Array.isArray(nextFilters.academic_years) ? [...nextFilters.academic_years] : [];
-          const terms = Array.isArray(nextFilters.terms) ? [...nextFilters.terms] : [];
-          years.sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
-          terms.sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }));
-          const y = selectedYear || years[0] || "";
-          const t = selectedTerm || terms[0] || "";
-          if ((y && !selectedYear) || (t && !selectedTerm)) {
+        // Default to manager-configured current year/term on first visit.
+        if (!hasYearParam && !hasTermParam) {
+          const y = nextFilters.current_academic_year
+            || (Array.isArray(nextFilters.academic_years) ? nextFilters.academic_years[0] : "")
+            || "";
+          const t = nextFilters.current_term
+            || (Array.isArray(nextFilters.terms) ? nextFilters.terms[0] : "")
+            || "";
+          if (y || t) {
             const next = new URLSearchParams(searchParams);
             if (y) next.set("academic_year", y);
             if (t) next.set("term", t);
             setSearchParams(next);
+            return;
           }
         }
 
@@ -280,7 +304,7 @@ export default function ParentStudentDetails() {
     };
     run();
     return () => { ignore = true; };
-  }, [studentRef, selectedYear, selectedTerm, selectedWeekday, selectedDate, attendanceType]);
+  }, [studentRef, hasYearParam, hasTermParam, selectedYear, selectedTerm, selectedWeekday, selectedDate, attendanceType]);
 
   const studentName = useMemo(() => {
     const st = academic?.student || {};
@@ -294,9 +318,10 @@ export default function ParentStudentDetails() {
     return `${ordinal(Number(m[1]))} of ${Number(m[2])}`;
   }, [academic?.class_rank]);
 
-  const gpa = Number(academic?.overall_gpa_percent || 0);
-  const gpaColor = gpa >= 75 ? "#10b981" : gpa >= 50 ? AMBER : "#ef4444";
-  const hasActiveFilters = selectedYear || selectedTerm || selectedWeekday || selectedDate;
+  const gpaRaw = academic?.overall_gpa_percent;
+  const gpa = gpaRaw != null && gpaRaw !== '' ? Number(gpaRaw) : null;
+  const gpaColor = gpa == null ? "#9ca3af" : gpa >= 75 ? "#10b981" : gpa >= 50 ? AMBER : "#ef4444";
+  const hasActiveFilters = hasYearParam || hasTermParam || selectedWeekday || selectedDate;
 
   return (
     <>
@@ -527,7 +552,7 @@ export default function ParentStudentDetails() {
               </div>
 
               {/* GPA pill in hero — desktop only */}
-              {gpa > 0 && (
+              {gpa != null && (
                 <div style={{
                   flexShrink: 0,
                   background: `${gpaColor}20`,
@@ -584,7 +609,7 @@ export default function ParentStudentDetails() {
                   </FilterSelect>
                   <FilterSelect value={selectedTerm} onChange={(e) => setFilter("term", e.target.value)}>
                     <option value="">All terms</option>
-                    {(filters.terms || []).map((t) => <option key={t} value={t}>{t}</option>)}
+                    {termOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                   </FilterSelect>
                   <FilterSelect value={selectedWeekday} onChange={(e) => setFilter("weekday", e.target.value)}>
                     <option value="">Any day</option>
@@ -674,7 +699,7 @@ export default function ParentStudentDetails() {
                         style={{ width:"100%", padding:"9px 14px", borderRadius:12, border:"1.5px solid #e5e7eb", background:"#fff", color:"#000435", fontSize:13, fontWeight:700, fontFamily:"'Sora',sans-serif", outline:"none", appearance:"none" }}
                       >
                         <option value="">All terms</option>
-                        {(filters.terms || []).map((t) => <option key={t} value={t}>{t}</option>)}
+                        {termOptions.map((t) => <option key={t} value={t}>{t}</option>)}
                       </select>
                       <ChevronDown size={13} color="#9ca3af" style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", pointerEvents:"none" }} />
                     </div>
@@ -746,7 +771,10 @@ export default function ParentStudentDetails() {
                       {hasActiveFilters && (
                         <div style={{ background:"#fffbeb", border:"1.5px solid #fde68a", borderRadius:14, padding:"10px 16px", fontSize:12, fontWeight:700, color:AMBER_DARK, display:"flex", alignItems:"center", gap:6 }}>
                           <Filter size={13} />
-                          {selectedYear || "All years"} &nbsp;·&nbsp; {selectedTerm || "All terms"}{selectedDate ? ` · ${selectedDate}` : ""}
+                          {hasYearParam ? (selectedYear || "All years") : (filters.current_academic_year || "Current year")}
+                          &nbsp;·&nbsp;
+                          {hasTermParam ? (selectedTerm || "All terms") : (filters.current_term || "Current term")}
+                          {selectedDate ? ` · ${selectedDate}` : ""}
                         </div>
                       )}
 
@@ -756,11 +784,11 @@ export default function ParentStudentDetails() {
                           <span style={{ fontSize:11, fontWeight:700, color:"#9ca3af", textTransform:"uppercase", letterSpacing:"0.08em" }}>Overall GPA</span>
                           <div style={{ display:"flex", alignItems:"center", gap:6, background:`${gpaColor}15`, borderRadius:8, padding:"3px 12px" }}>
                             <TrendingUp size={13} color={gpaColor} />
-                            <span style={{ color:gpaColor, fontSize:12, fontWeight:800 }}>{gpa >= 75 ? "Strong" : gpa >= 50 ? "Average" : "Needs work"}</span>
+                            <span style={{ color:gpaColor, fontSize:12, fontWeight:800 }}>{gpa == null ? "No data" : gpa >= 75 ? "Strong" : gpa >= 50 ? "Average" : "Needs work"}</span>
                           </div>
                         </div>
                         <p style={{ fontSize:52, fontWeight:900, color:NAVY, margin:0, lineHeight:1, fontFamily:"'Sora', sans-serif" }}>
-                          {gpa}<span style={{ fontSize:24, color:"#9ca3af" }}>%</span>
+                          {gpa != null ? <>{gpa}<span style={{ fontSize:24, color:"#9ca3af" }}>%</span></> : '—'}
                         </p>
                         <ProgressBar pct={gpa} color={gpaColor} />
                       </div>
@@ -780,14 +808,19 @@ export default function ParentStudentDetails() {
                           </div>
                           <div className="subject-grid">
                             {(academic?.subjects || []).map((s, i) => {
-                              const pct = (s.score / s.max) * 100;
+                              const pct = s.average_percent ?? ((s.score / s.max) * 100);
                               const col = pct >= 75 ? "#10b981" : pct >= 50 ? AMBER : "#ef4444";
                               return (
                                 <div key={s.subject} style={{ padding:"14px 16px", background:"#f9fafb", borderRadius:14, animation:`fadeSlide 0.3s ease ${i * 0.05}s both` }}>
                                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
                                     <span style={{ fontSize:13, fontWeight:700, color:NAVY }}>{s.subject}</span>
-                                    <span style={{ fontSize:14, fontWeight:800, color:col }}>{s.score}<span style={{ color:"#9ca3af", fontWeight:600 }}>/{s.max}</span></span>
+                                    <span style={{ fontSize:14, fontWeight:800, color:col }}>
+                                      {s.score != null ? <>{s.score}<span style={{ color:"#9ca3af", fontWeight:600 }}>/{s.max}</span></> : `${pct}%`}
+                                    </span>
                                   </div>
+                                  {s.latest_assessment && (
+                                    <p style={{ fontSize:11, color:"#9ca3af", margin:"0 0 6px" }}>{s.latest_assessment} · {s.teacher_name || "Teacher"}</p>
+                                  )}
                                   <ProgressBar pct={pct} color={col} />
                                 </div>
                               );
@@ -795,6 +828,62 @@ export default function ParentStudentDetails() {
                           </div>
                         </div>
                       )}
+
+                      {/* Teacher-registered marks feed */}
+                      <div style={{ background:"#fff", borderRadius:20, padding:"20px 24px", boxShadow:"0 2px 12px rgba(0,4,53,0.06)" }}>
+                        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <GraduationCap size={16} color={AMBER} />
+                            <span style={{ fontWeight:800, fontSize:15, color:NAVY }}>Marks from teachers</span>
+                          </div>
+                          {(academic?.assessment_count ?? 0) > 0 && (
+                            <span style={{ fontSize:11, fontWeight:700, color:AMBER_DARK, background:"#fffbeb", padding:"4px 10px", borderRadius:99 }}>
+                              {academic.assessment_count} recorded
+                            </span>
+                          )}
+                        </div>
+                        {(academic?.assessments || []).length === 0 ? (
+                          <div style={{ textAlign:"center", padding:"28px 0", color:"#9ca3af" }}>
+                            <BookOpen size={32} style={{ margin:"0 auto 10px", display:"block", opacity:0.35 }} />
+                            <p style={{ fontWeight:700, margin:0, fontSize:14 }}>No published marks yet</p>
+                            <p style={{ fontSize:12, margin:"6px 0 0" }}>Scores appear here when teachers publish marks on the portal.</p>
+                          </div>
+                        ) : (
+                          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                            {(academic?.assessments || []).slice(0, 25).map((a, i) => {
+                              const pct = a.percent;
+                              const col = pct == null ? "#6b7280" : pct >= 75 ? "#10b981" : pct >= 50 ? AMBER : "#ef4444";
+                              return (
+                                <div key={`${a.assessment_id}-${a.subject_name}-${i}`} style={{
+                                  display:"flex", alignItems:"center", justifyContent:"space-between", gap:12,
+                                  padding:"14px 16px", borderRadius:14, border:"1.5px solid #f3f4f6",
+                                  background: i === 0 ? "#fffbeb" : "#fafafa",
+                                }}>
+                                  <div style={{ minWidth:0, flex:1 }}>
+                                    <p style={{ margin:0, fontSize:14, fontWeight:800, color:NAVY }}>{a.assessment_name}</p>
+                                    <p style={{ margin:"4px 0 0", fontSize:12, color:"#6b7280" }}>
+                                      {a.subject_name} · {formatDisplayDate(a.assessment_date)}
+                                    </p>
+                                    <p style={{ margin:"6px 0 0", fontSize:11, color:"#9ca3af", display:"flex", alignItems:"center", gap:4 }}>
+                                      <User size={11} /> Registered by {a.teacher_name || "Teacher"}
+                                    </p>
+                                  </div>
+                                  <div style={{ textAlign:"right", flexShrink:0 }}>
+                                    {a.mark_code_label ? (
+                                      <span style={{ fontSize:12, fontWeight:800, color:"#6b7280", background:"#f3f4f6", padding:"6px 10px", borderRadius:8 }}>{a.mark_code_label}</span>
+                                    ) : (
+                                      <>
+                                        <p style={{ margin:0, fontSize:18, fontWeight:900, color:col }}>{a.score}<span style={{ fontSize:12, color:"#9ca3af" }}>/{a.max}</span></p>
+                                        {pct != null && <p style={{ margin:"2px 0 0", fontSize:11, fontWeight:700, color:col }}>{pct}%</p>}
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
 
                       {!academic && (
                         <div style={{ textAlign:"center", padding:"40px 0", color:"#9ca3af", background:"#fff", borderRadius:20 }}>

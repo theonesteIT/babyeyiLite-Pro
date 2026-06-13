@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { CircleAlert, Save, X } from "lucide-react";
 import { COLORS, EXPENSE_CATEGORIES, PAYMENT_METHODS } from "../utils/budgetLineConstants";
@@ -8,7 +8,7 @@ import { useIsMobile } from "../utils/useIsMobile";
 const FLBL = {
   display: "block",
   fontSize: 11,
-  fontWeight: 700,
+  fontWeight: 500,
   color: COLORS.gray600,
   marginBottom: 6,
   textTransform: "uppercase",
@@ -25,17 +25,29 @@ const FINP = {
   background: COLORS.white,
 };
 
+const EMPTY_FORM = {
+  budgetLineId: "",
+  usageAmount: "",
+  usageDate: new Date().toISOString().slice(0, 10),
+  expenseCategory: "",
+  paymentMethod: "",
+  paymentBankName: "",
+  paymentPhone: "",
+  description: "",
+  receiptName: "",
+};
+
+function isBankTransfer(method) {
+  return String(method || "").toLowerCase().includes("bank");
+}
+
+function isMobileMoney(method) {
+  return String(method || "").toLowerCase().includes("mobile");
+}
+
 export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [], onSaved }) {
   const isMobile = useIsMobile();
-  const [form, setForm] = useState({
-    budgetLineId: "",
-    usageAmount: "",
-    usageDate: new Date().toISOString().slice(0, 10),
-    expenseCategory: "",
-    paymentMethod: "",
-    description: "",
-    receiptName: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,18 +55,27 @@ export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [
     if (!open) return;
     setError("");
     setForm({
+      ...EMPTY_FORM,
       budgetLineId: lines[0]?.db_id || lines[0]?.id || "",
-      usageAmount: "",
       usageDate: new Date().toISOString().slice(0, 10),
-      expenseCategory: "",
-      paymentMethod: "",
-      description: "",
-      receiptName: "",
     });
   }, [open, lines]);
 
   const selected = lines.find((l) => String(l.db_id || l.id) === String(form.budgetLineId));
   const remaining = selected ? selected.plannedAmount - selected.usedAmount : 0;
+  const showBankName = isBankTransfer(form.paymentMethod);
+  const showPhone = isMobileMoney(form.paymentMethod);
+
+  const setField = (key, value) => {
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "paymentMethod") {
+        if (!isBankTransfer(value)) next.paymentBankName = "";
+        if (!isMobileMoney(value)) next.paymentPhone = "";
+      }
+      return next;
+    });
+  };
 
   const handleSubmit = async () => {
     const amount = Number(form.usageAmount);
@@ -79,6 +100,8 @@ export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [
         usageDate: form.usageDate,
         expenseCategory: form.expenseCategory,
         paymentMethod: form.paymentMethod,
+        paymentBankName: showBankName ? form.paymentBankName.trim() : "",
+        paymentPhone: showPhone ? form.paymentPhone.trim() : "",
         description: form.description,
         receiptName: form.receiptName,
       });
@@ -127,7 +150,7 @@ export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div style={{ background: COLORS.navy, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.amber }}>Register Budget Usage</div>
+          <div style={{ fontSize: 17, fontWeight: 500, color: COLORS.amber }}>Register Budget Usage</div>
           <button type="button" onClick={onClose} style={{ background: "transparent", border: "none", color: COLORS.white, cursor: "pointer" }}>
             <X size={20} />
           </button>
@@ -141,8 +164,8 @@ export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <label style={FLBL}>Select Budget Line *</label>
-              <select value={form.budgetLineId} onChange={(e) => setForm((p) => ({ ...p, budgetLineId: e.target.value }))} style={FINP}>
+              <label style={FLBL}>Select expense line *</label>
+              <select value={form.budgetLineId} onChange={(e) => setField("budgetLineId", e.target.value)} style={FINP}>
                 <option value="">Select line</option>
                 {lines.map((l) => (
                   <option key={l.db_id || l.id} value={l.db_id || l.id}>
@@ -154,20 +177,20 @@ export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [
             {selected && (
               <div style={{ padding: 12, background: COLORS.gray50, borderRadius: 8, fontSize: 12, color: COLORS.gray600 }}>
                 Allocated: {fmt(selected.plannedAmount)} · Used: {fmt(selected.usedAmount)} · Remaining:{" "}
-                <strong style={{ color: COLORS.navy }}>{fmt(remaining)}</strong>
+                <span style={{ color: COLORS.navy, fontWeight: 500 }}>{fmt(remaining)}</span>
               </div>
             )}
             <div>
-              <label style={FLBL}>Usage Amount (RWF) *</label>
-              <input type="number" min="0" value={form.usageAmount} onChange={(e) => setForm((p) => ({ ...p, usageAmount: e.target.value }))} style={FINP} />
+              <label style={FLBL}>Usage amount (RWF) *</label>
+              <input type="number" min="0" value={form.usageAmount} onChange={(e) => setField("usageAmount", e.target.value)} style={FINP} />
             </div>
             <div>
-              <label style={FLBL}>Usage Date</label>
-              <input type="date" value={form.usageDate} onChange={(e) => setForm((p) => ({ ...p, usageDate: e.target.value }))} style={FINP} />
+              <label style={FLBL}>Usage date</label>
+              <input type="date" value={form.usageDate} onChange={(e) => setField("usageDate", e.target.value)} style={FINP} />
             </div>
             <div>
-              <label style={FLBL}>Expense Category</label>
-              <select value={form.expenseCategory} onChange={(e) => setForm((p) => ({ ...p, expenseCategory: e.target.value }))} style={FINP}>
+              <label style={FLBL}>Expense category</label>
+              <select value={form.expenseCategory} onChange={(e) => setField("expenseCategory", e.target.value)} style={FINP}>
                 <option value="">Select</option>
                 {EXPENSE_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -175,31 +198,55 @@ export default function RegisterBudgetUsageModal({ open, onClose, fmt, lines = [
               </select>
             </div>
             <div>
-              <label style={FLBL}>Payment Method</label>
-              <select value={form.paymentMethod} onChange={(e) => setForm((p) => ({ ...p, paymentMethod: e.target.value }))} style={FINP}>
-                <option value="">Select</option>
+              <label style={FLBL}>Payment method</label>
+              <select value={form.paymentMethod} onChange={(e) => setField("paymentMethod", e.target.value)} style={FINP}>
+                <option value="">Select (optional)</option>
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
               </select>
             </div>
+            {showBankName && (
+              <div>
+                <label style={FLBL}>Bank name (optional)</label>
+                <input
+                  type="text"
+                  value={form.paymentBankName}
+                  onChange={(e) => setField("paymentBankName", e.target.value)}
+                  placeholder="e.g. Bank of Kigali, Equity Bank"
+                  style={FINP}
+                />
+              </div>
+            )}
+            {showPhone && (
+              <div>
+                <label style={FLBL}>Mobile money phone (optional)</label>
+                <input
+                  type="tel"
+                  value={form.paymentPhone}
+                  onChange={(e) => setField("paymentPhone", e.target.value)}
+                  placeholder="e.g. 0781234567"
+                  style={FINP}
+                />
+              </div>
+            )}
             <div>
               <label style={FLBL}>Description</label>
-              <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={2} style={{ ...FINP, resize: "vertical" }} />
+              <textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={2} style={{ ...FINP, resize: "vertical" }} />
             </div>
             <div>
-              <label style={FLBL}>Attachment / Receipt</label>
-              <input type="file" style={{ fontSize: 12 }} onChange={(e) => setForm((p) => ({ ...p, receiptName: e.target.files?.[0]?.name || "" }))} />
+              <label style={FLBL}>Attachment / receipt</label>
+              <input type="file" style={{ fontSize: 12 }} onChange={(e) => setField("receiptName", e.target.files?.[0]?.name || "")} />
             </div>
           </div>
         </div>
         <div style={{ padding: "14px 20px", borderTop: `1px solid ${COLORS.gray200}`, display: "flex", justifyContent: "flex-end", gap: 10, background: COLORS.gray50 }}>
-          <button type="button" onClick={onClose} style={{ padding: "10px 16px", border: `2px solid ${COLORS.navy}`, borderRadius: 8, background: COLORS.white, fontWeight: 700, cursor: "pointer" }}>
+          <button type="button" onClick={onClose} style={{ padding: "10px 16px", border: `2px solid ${COLORS.navy}`, borderRadius: 8, background: COLORS.white, fontWeight: 500, cursor: "pointer" }}>
             Cancel
           </button>
-          <button type="button" disabled={saving} onClick={handleSubmit} style={{ padding: "10px 18px", border: "none", borderRadius: 8, background: COLORS.amber, color: COLORS.navy, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <button type="button" disabled={saving} onClick={handleSubmit} style={{ padding: "10px 18px", border: "none", borderRadius: 8, background: COLORS.amber, color: COLORS.navy, fontWeight: 500, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Save size={16} />
-            Register Usage
+            Register usage
           </button>
         </div>
       </div>

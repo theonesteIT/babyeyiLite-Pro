@@ -29,6 +29,9 @@ const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
 const { computeProAccessEffective, loadSchoolModules } = require('./utils/schoolSubscription');
 const systemSettings = require('./utils/systemSettings');
 const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
+const { ensureCoreAuthSchema } = require('./utils/coreAuthSchema');
+const { ensureSchoolMiniWebsitesSchema } = require('./utils/schoolMiniWebsitesSchema');
+const { ensurePublicPaymentCommitmentsSchema } = require('./utils/publicPaymentCommitmentsSchema');
 const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
 const chatModule = require('./BabyeyiRoutes/chatRoutes');
@@ -220,25 +223,59 @@ app.use((req, _res, next) => {
 // ============================================================
 // RATE LIMITING
 // ============================================================
+const API_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const API_LIMIT_ANON = 300;
+const API_LIMIT_AUTH = 1000;
+
+const apiLimiterSkipPaths = (req) => {
+  const p = (req.originalUrl || req.url || '').split('?')[0];
+  const method = (req.method || 'GET').toUpperCase();
+
+  if (
+    p.endsWith('/session/me') ||
+    p.endsWith('/district/babyeyi/me') ||
+    p.endsWith('/chat/schools') ||
+    p.endsWith('/chat/unread-count') ||
+    p.endsWith('/teacher-portal/timetable') ||
+    p.endsWith('/teacher-portal/timetable-filters') ||
+    p.endsWith('/teacher-portal/attendance-summary/daily') ||
+    p.endsWith('/teacher-portal/attendance-summary/weekly') ||
+    p.endsWith('/dos/operations-center/live') ||
+    p.endsWith('/dos/operations-center/filters') ||
+    p.startsWith('/api/superadmin/audit') ||
+    p.startsWith('/api/superadmin/school-monitor')
+  ) {
+    return true;
+  }
+
+  // Gate attendance live reads (multiple GETs per poll — do not count toward global cap)
+  if (method === 'GET' && (
+    p.includes('/gate/attendance/') ||
+    p.endsWith('/gate/attendance/settings')
+  )) {
+    return true;
+  }
+
+  // Class period attendance dashboard polling
+  if (method === 'GET' && (
+    p.endsWith('/teacher-portal/attendance-module/meta') ||
+    p.endsWith('/teacher-portal/attendance-module/class-period') ||
+    p.endsWith('/attendance-module/meta') ||
+    p.endsWith('/attendance-module/class-period')
+  )) {
+    return true;
+  }
+
+  return false;
+};
+
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, max: 300,
-  standardHeaders: true, legacyHeaders: false,
+  windowMs: API_LIMIT_WINDOW_MS,
+  max: (req) => (req.session?.userId ? API_LIMIT_AUTH : API_LIMIT_ANON),
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many requests — please slow down' },
-  skip: (req) => {
-    const p = (req.originalUrl || req.url || '').split('?')[0];
-    return (
-      p.endsWith('/session/me') ||
-      p.endsWith('/district/babyeyi/me') ||
-      p.endsWith('/chat/schools') ||
-      p.endsWith('/chat/unread-count') ||
-      p.endsWith('/teacher-portal/timetable') ||
-      p.endsWith('/teacher-portal/timetable-filters') ||
-      p.endsWith('/teacher-portal/attendance-summary/daily') ||
-      p.endsWith('/teacher-portal/attendance-summary/weekly') ||
-      p.startsWith('/api/superadmin/audit') ||
-      p.startsWith('/api/superadmin/school-monitor')
-    );
-  },
+  skip: apiLimiterSkipPaths,
 });
 app.use('/api/', apiLimiter);
 
@@ -847,6 +884,10 @@ const disciplineRoutes = require('./BabyeyiRoutes/discipline');
 console.log('  ✅  discipline.js');
 const dosAcademicRoutes = require('./BabyeyiRoutes/dosAcademic');
 console.log('  ✅  dosAcademic.js');
+const dosStudentReportsRoutes = require('./BabyeyiRoutes/dosStudentReports');
+console.log('  ✅  dosStudentReports.js');
+const dosOperationsCenterRoutes = require('./BabyeyiRoutes/dosOperationsCenter');
+console.log('  ✅  dosOperationsCenter.js');
 const teacherPortalRoutes = require('./BabyeyiRoutes/teacherPortal');
 console.log('  ✅  teacherPortal.js');
 const schoolRoleOperationsRoutes = require('./BabyeyiRoutes/schoolRoleOperations');
@@ -930,6 +971,9 @@ console.log('  ✅  /api/uniform-vouchers/*');
 app.use('/api/public/babyeyi-pay', publicBabyeyiPayRoutes);
 console.log('  ✅  /api/public/babyeyi-pay/*');
 
+app.use('/api/public', require('./BabyeyiRoutes/publicGuestWebPush'));
+console.log('  ✅  /api/public/push/* (guest fee reminders)');
+
 const classkitShareRoutes = require('./BabyeyiRoutes/classkitShareRoutes');
 app.use('/api/public/classkit-share', classkitShareRoutes);
 console.log('  ✅  /api/public/classkit-share/* (OTP + guest pricing)');
@@ -978,6 +1022,10 @@ app.use('/api', disciplineRoutes);
 console.log('  ✅  /api/discipline/*');
 app.use('/api', dosAcademicRoutes);
 console.log('  ✅  /api/dos/*');
+app.use('/api', dosStudentReportsRoutes);
+console.log('  ✅  /api/dos/student-reports/*  |  /api/public/student-mark-reports/*');
+app.use('/api', dosOperationsCenterRoutes);
+console.log('  ✅  /api/dos/operations-center/*');
 app.use('/api', schoolClassesRouter);
 console.log('  ✅  /api/schools/:id/classes');
 app.use('/api/teacher-portal', teacherPortalRoutes);
@@ -1045,6 +1093,32 @@ const startServer = async () => {
 
     await ensureFullSystemControllerRole();
     try {
+      await ensureCoreAuthSchema();
+      console.log('  ✅  Core auth schema ready (users, staff)');
+    } catch (schemaErr) {
+      console.error('❌  Core auth schema init failed:', schemaErr.message);
+    }
+    try {
+      await ensureSchoolMiniWebsitesSchema();
+      console.log('  ✅  School mini-websites schema ready');
+    } catch (schemaErr) {
+      console.error('❌  School mini-websites schema init failed:', schemaErr.message);
+    }
+    try {
+      await ensurePublicPaymentCommitmentsSchema();
+      console.log('  ✅  Public payment commitments schema ready');
+    } catch (schemaErr) {
+      console.error('❌  Public payment commitments schema init failed:', schemaErr.message);
+    }
+    try {
+      if (typeof studentRoutes.ensureStudentsTable === 'function') {
+        await studentRoutes.ensureStudentsTable();
+        console.log('  ✅  Students schema ready');
+      }
+    } catch (schemaErr) {
+      console.error('❌  Students schema init failed:', schemaErr.message);
+    }
+    try {
       if (typeof accountantFeesRoutes.ensureAccountantFinanceSchema === 'function') {
         await accountantFeesRoutes.ensureAccountantFinanceSchema();
       }
@@ -1110,6 +1184,14 @@ const startServer = async () => {
       console.log('⏰  Fee reminder auto-rules scheduler active (checks every 60s)');
     } catch (schedErr) {
       console.warn('⚠️  Fee reminder scheduler not started:', schedErr.message);
+    }
+
+    try {
+      const commitmentScheduler = require('./BabyeyiRoutes/publicPayCommitmentReminders');
+      commitmentScheduler.startPublicPayCommitmentReminderScheduler(3_600_000);
+      console.log('⏰  Public payment commitment reminders active (hourly)');
+    } catch (schedErr) {
+      console.warn('⚠️  Public payment commitment scheduler not started:', schedErr.message);
     }
 
     try {

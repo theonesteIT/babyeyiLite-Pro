@@ -19,9 +19,11 @@ import Attendance from './pages/Attendance';
 import RoundRollCall from './pages/RoundRollCall';
 import ExaminationEligibility from './pages/ExaminationEligibility';
 import TeacherAttendanceView from './pages/TeacherAttendanceView';
+import ClassRoomScan from './pages/ClassRoomScan';
 import RecordMarks from './pages/RecordMarks';
 import ViewMarks from './pages/ViewMarks';
 import Requisitions from './pages/Requisitions';
+import MarksRoutes from './pages/StudentsMarksPages/MarksRoutes';
 import PurchaseRequests from './pages/PurchaseRequests';
 import RequisitionsRes from './pages/RequisitionsRes';
 import ChatCenter from './pages/ChatCenter';
@@ -36,8 +38,8 @@ const LoadingScreen = () => (
   <div className="min-h-screen bg-re-bg flex flex-col items-center justify-center gap-4 font-sans">
     <div className="w-12 h-12 rounded-2xl animate-pulse"
       style={{ background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }} />
-    <p className="text-re-text-muted text-sm font-bold uppercase tracking-widest animate-pulse">
-      Loading Shule Teacher...
+    <p className="text-re-text-muted text-sm font-medium animate-pulse">
+      Loading Shule Teacher…
     </p>
   </div>
 );
@@ -81,6 +83,7 @@ function AppContent() {
       <Route path="/students" element={<ProtectedRoute title="Students">          <Students />                                                     </ProtectedRoute>} />
       <Route path="/timetable" element={<ProtectedRoute title="Timetable">         <Timetable />                                                    </ProtectedRoute>} />
       <Route path="/attendance" element={<ProtectedRoute title="Attendance">        <Attendance />                                                   </ProtectedRoute>} />
+      <Route path="/class-room-scan" element={<ProtectedRoute title="Classroom scan"><ClassRoomScan /></ProtectedRoute>} />
       <Route path="/round-roll-call" element={<ProtectedRoute title="Round Roll Call"> <RoundRollCall /> </ProtectedRoute>} />
       <Route path="/teacher-attendance" element={<ProtectedRoute title="Teacher Attendance"> <TeacherAttendanceView /> </ProtectedRoute>} />
       <Route path="/requisitions" element={<ProtectedRoute title="Requisitions">    <Requisitions />                                                 </ProtectedRoute>} />
@@ -89,7 +92,8 @@ function AppContent() {
       <Route path="/chat" element={<ProtectedRoute title="Chat center">            <ChatCenter />                                                   </ProtectedRoute>} />
       <Route path="/payroll" element={<ProtectedRoute title="My Payroll">          <StaffPayroll />                                                 </ProtectedRoute>} />
       <Route path="/marks/view" element={<ProtectedRoute title="View Student Marks"><ViewMarks /></ProtectedRoute>} />
-      <Route path="/marks/record" element={<ProtectedRoute title="Record Marks">      <RecordMarks /></ProtectedRoute>} />
+      <Route path="/marks/record" element={<ProtectedRoute title="Record Marks"><RecordMarks /></ProtectedRoute>} />
+      <Route path="/marks/*" element={<ProtectedRoute title="Marks & Exams"><MarksRoutes /></ProtectedRoute>} />
       <Route
         path="/exam-eligibility"
         element={<ProtectedRoute title="Examination list"><ExaminationEligibility /></ProtectedRoute>}

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/teacherPortalTheme.css";
 
 @theme {
   --font-sans: "Montserrat", system-ui, sans-serif;
@@ -23,6 +24,12 @@
   --color-re-blue: #3B82F6;
   --color-re-emerald: #10B981;
   --color-re-slate: #1E293B;
+
+  /* Marks hub — navy + orange */
+  --color-navy: #000435;
+  --color-navy-600: #0a116b;
+  --color-navy-700: #001380;
+  --color-amber: #FF8C00;
 
   /* Specific Border Colors from Screenshot */
   --color-re-border-gold: #FFB800;

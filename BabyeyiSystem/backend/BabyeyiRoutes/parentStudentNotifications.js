@@ -320,10 +320,61 @@ async function notifyStudentParentsDiscipline(studentId, opts = {}) {
   });
 }
 
+/**
+ * Parent alert when a teacher publishes or updates academic marks.
+ */
+async function notifyStudentParentsMarks(studentId, opts = {}) {
+  const studentName = trimStr(opts.studentName) || 'Your child';
+  const schoolName = trimStr(opts.schoolName) || 'School';
+  const subject = trimStr(opts.subject) || 'Subject';
+  const assessmentName = trimStr(opts.assessmentName) || 'Assessment';
+  const score = opts.score;
+  const maxScore = opts.maxScore;
+  const markCodeLabel = trimStr(opts.markCodeLabel);
+  const teacherName = trimStr(opts.teacherName) || 'Teacher';
+  const studentRef = trimStr(opts.studentRef) || String(studentId);
+
+  const scoreLine = markCodeLabel
+    ? `Status: ${markCodeLabel}`
+    : (score != null && maxScore != null ? `Score: ${score}/${maxScore}` : 'New marks recorded');
+
+  const title = `${schoolName}: New marks — ${subject}`;
+  const body = [
+    `${studentName} — ${assessmentName} (${subject}).`,
+    scoreLine,
+    `Recorded by ${teacherName}.`,
+    'Open Academics in the Parent portal for full details.',
+  ].join('\n');
+
+  const detailsUrl = `/parents/student-details/${encodeURIComponent(studentRef)}?tab=academic`;
+
+  return notifyStudentParentsChannels(studentId, {
+    type: 'MARKS_PUBLISHED',
+    title,
+    body,
+    url: detailsUrl,
+    payload: {
+      student_id: Number(studentId),
+      student_ref: studentRef,
+      school_id: opts.schoolId || null,
+      subject,
+      assessment_name: assessmentName,
+      score: score != null ? Number(score) : null,
+      max_score: maxScore != null ? Number(maxScore) : null,
+      mark_code_label: markCodeLabel || null,
+      teacher_name: teacherName,
+      tab: 'academic',
+    },
+    pushTag: `marks-${studentId}-${opts.assessmentId || 'new'}`,
+    category: 'school_activity',
+  });
+}
+
 module.exports = {
   notifyStudentParentsChannels,
   notifyStudentParentsPermission,
   notifyStudentParentsDiscipline,
+  notifyStudentParentsMarks,
   collectParentEmailsForStudent,
   insertParentPortalNotification,
 };

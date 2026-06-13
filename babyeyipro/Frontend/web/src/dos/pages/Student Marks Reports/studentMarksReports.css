@@ -1,0 +1,199 @@
+.marks-reports-module {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.marks-reports-module .marks-page-body {
+  padding: 1rem 1.25rem 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .marks-reports-module .marks-page-body {
+    padding: 1.25rem 1.75rem 3rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .marks-reports-module .marks-page-body {
+    padding: 1.5rem 2rem 3.5rem;
+  }
+}
+
+.marks-kpi-card {
+  background: #fff;
+  border: 1px solid rgba(0, 4, 53, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 4, 53, 0.05);
+}
+
+.marks-kpi-icon {
+  color: #f59e0b;
+}
+
+.marks-panel {
+  background: #fff;
+  border: 1px solid rgba(0, 4, 53, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 4, 53, 0.05);
+}
+
+/* ── Modern report card: print & PDF capture ───────────────── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body.report-print-active * {
+    visibility: hidden !important;
+  }
+
+  body.report-print-active .report-print-surface,
+  body.report-print-active .report-print-surface * {
+    visibility: visible !important;
+  }
+
+  body.report-print-active .report-print-surface {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    z-index: 99999 !important;
+  }
+
+  body.report-print-active .report-print-chrome,
+  body.report-print-active .report-no-print {
+    display: none !important;
+  }
+
+  body.report-print-active [data-report-card] {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    break-inside: avoid;
+    overflow: visible !important;
+  }
+
+  body.report-print-active [data-report-qr] {
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  body.report-print-active [data-report-bottom-panels] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  body.report-print-active [data-report-profile-row] {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+
+  body.report-print-active [data-report-summary-cards] {
+    flex: 0 0 52% !important;
+    max-width: 52% !important;
+    width: 52% !important;
+  }
+
+  body.report-print-active [data-report-summary-cards] .grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  body.report-print-active [data-report-signatures] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    break-inside: avoid;
+  }
+
+  body.report-print-active .recharts-wrapper,
+  body.report-print-active .recharts-surface {
+    overflow: visible !important;
+  }
+
+  body.report-print-active [data-report-subjects-section] {
+    overflow: visible !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.report-print-active [data-report-table-wrap] {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+  }
+
+  body.report-print-active [data-report-student-photo] {
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    border: 2px solid #cbd5e1 !important;
+  }
+
+  body.report-print-active [data-report-student-photo] img {
+    border-radius: 50% !important;
+  }
+
+  body.report-print-active [data-report-stat-card] {
+    min-height: 58px !important;
+  }
+
+  body.report-print-active [data-report-stat-card] p {
+    overflow: visible !important;
+    white-space: normal !important;
+  }
+
+  body.report-print-active [data-report-subjects-table] {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 8.5px !important;
+  }
+
+  body.report-print-active [data-report-th-fixed],
+  body.report-print-active [data-report-th-assessment] {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.report-print-active [data-report-th-sub] {
+    color: #cbd5e1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.report-print-active [data-report-subjects-table] th,
+  body.report-print-active [data-report-subjects-table] td {
+    padding: 2px 3px !important;
+  }
+
+  body.report-print-active [data-report-grand-total] {
+    background-color: #e2e8f0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.report-print-active [data-report-grand-total] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.report-print-active [data-report-grading-schema] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-top: 0.5rem !important;
+    padding-top: 0.5rem !important;
+  }
+
+  body.report-print-active [data-report-grading-schema] .grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 3px !important;
+  }
+
+  body.report-print-active [data-report-card] .space-y-6 > * + * {
+    margin-top: 0.75rem !important;
+  }
+}

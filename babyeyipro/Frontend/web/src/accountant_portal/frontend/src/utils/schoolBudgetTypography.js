@@ -14,7 +14,7 @@ export const sbBodyClass = 'text-[13px] font-normal text-slate-600';
 
 export const sbCaptionClass = 'text-[11px] font-medium text-slate-500';
 
-export const sbKpiValueClass = 'text-lg sm:text-xl font-semibold text-[#000435] tabular-nums tracking-tight';
+export const sbKpiValueClass = 'text-lg sm:text-xl font-medium text-[#000435] tabular-nums tracking-tight';
 
 export const sbKpiLabelClass =
   'text-[10px] font-medium text-slate-500 uppercase tracking-[0.12em]';
@@ -45,7 +45,7 @@ export const sbSectionTitle = {
 export const sbKpiValue = {
   fontFamily: SB_FONT_FAMILY,
   fontSize: 18,
-  fontWeight: 600,
+  fontWeight: 500,
   color: '#000435',
 };
 

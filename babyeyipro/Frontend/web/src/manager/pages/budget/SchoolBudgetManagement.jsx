@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  AlertTriangle, BarChart3, Bell, CheckCircle2, ChevronDown, ClipboardList, Download,
+  AlertTriangle, BarChart3, Bell, CheckCircle2, ChevronDown, ClipboardList, Eye,
   FileText, Filter, LayoutDashboard, Loader2, MoreVertical, PieChart, RefreshCw, Scale,
-  Search, Shield, SlidersHorizontal, Snowflake, ThumbsDown, TrendingUp, X, XCircle,
+  Shield, Snowflake, ThumbsDown, TrendingUp, X, XCircle,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart as RePieChart,
@@ -15,8 +15,13 @@ import {
 } from '../../services/managerBudgetApi';
 import api from '../../services/api';
 import { exportBudgetReportExcel, exportBudgetReportPdf } from '../../utils/budgetExport';
-import BudgetPushBanner from '../../../shared/BudgetPushBanner';
+import BudgetAlertsModal from '../../../shared/BudgetAlertsModal';
+import BudgetFilterBar from '../../../shared/BudgetFilterBar';
+import BudgetViewModal from '../../../accountant_portal/frontend/src/components/BudgetViewModal';
+import { BudgetCodeBadge } from '../../../accountant_portal/frontend/src/components/IncomeSourceIcon';
 import ManagerOchreHeroShell from '../../components/ManagerOchreHeroShell';
+
+const EMPTY_FILTERS = { search: '', academicYear: '', term: '', status: '', department: '' };
 
 const NAVY = '#1E3A5F';
 const AMBER = '#F59E0B';
@@ -47,6 +52,9 @@ const REVIEW_DECISIONS = [
 
 function money(v) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(Number(v || 0));
+}
+function fmtNum(v) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Number(v || 0));
 }
 function compactMoney(v) {
   const n = Number(v || 0);
@@ -79,21 +87,6 @@ function dateOnly(v) {
 function budgetDbId(b) {
   return b?.db_id ?? (String(b?.id || '').startsWith('BGT-') ? Number(String(b.id).replace('BGT-', '')) : Number(b?.id));
 }
-function csvCell(v) {
-  const s = String(v ?? '');
-  if (s.includes('"') || s.includes(',') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-function downloadCsv(filename, headers, rows) {
-  const lines = [headers.join(','), ...rows.map((row) => headers.map((h) => csvCell(row[h])).join(','))];
-  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 function monthKey(d) {
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return null;
@@ -116,23 +109,41 @@ function StatCard({ label, value, sub, accent = NAVY }) {
   );
 }
 
-function FilterStatCard({ label, value, sub, accent = NAVY, icon: Icon }) {
-  return (
-    <div className="rounded-xl border border-slate-100/90 bg-gradient-to-br from-white to-slate-50/90 p-3 min-w-0 shadow-sm hover:border-[#1E3A5F]/15 transition-colors">
-      <div className="flex items-start justify-between gap-1.5">
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-snug">{label}</p>
-        {Icon ? <Icon size={11} className="shrink-0 opacity-35" style={{ color: accent }} aria-hidden /> : null}
+const MANAGER_STATUS_OPTIONS = BUDGET_STATUSES.filter(Boolean).map((s) => ({
+  value: s,
+  label: statusBadge(s).label,
+}));
+
+function BudgetStatsStrip({ cards, loading }) {
+  const keys = ['remaining', 'pending', 'usage', 'income', 'allocated', 'total'];
+  const visible = keys.map((k) => cards.find((c) => c.key === k)).filter(Boolean);
+  if (loading) {
+    return (
+      <div className="py-8">
+        <Spinner />
       </div>
-      <p className="text-sm sm:text-base font-bold mt-1.5 truncate tabular-nums" style={{ color: accent }}>{value}</p>
-      {sub ? <p className="text-[9px] text-slate-400 mt-0.5 truncate">{sub}</p> : null}
+    );
+  }
+  return (
+    <div className="flex gap-2.5 overflow-x-auto pb-1 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] [scrollbar-width:thin]">
+      {visible.map((c) => {
+        const Icon = c.icon;
+        return (
+          <div
+            key={c.key}
+            className="snap-start shrink-0 min-w-[9.5rem] sm:min-w-[11rem] rounded-xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/80 p-3.5 shadow-sm"
+          >
+            <div className="flex items-center justify-between gap-1 mb-1.5">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider leading-snug">{c.label}</p>
+              {Icon ? <Icon size={12} className="opacity-35 shrink-0" style={{ color: c.accent || NAVY }} /> : null}
+            </div>
+            <p className="text-base sm:text-lg font-bold tabular-nums truncate" style={{ color: c.accent || NAVY }}>{c.value}</p>
+            {c.sub ? <p className="text-[9px] text-slate-400 mt-0.5 truncate">{c.sub}</p> : null}
+          </div>
+        );
+      })}
     </div>
   );
-}
-
-const EMPTY_FILTERS = { search: '', academicYear: '', term: '', status: '', department: '' };
-
-function countActiveFilters(filters) {
-  return Object.values(filters).filter(Boolean).length;
 }
 
 function Badge({ status }) {
@@ -299,264 +310,6 @@ function ApprovalModal({ budget, onClose, onSubmit, busy, initialDecision = 'app
   );
 }
 
-function BudgetDetailModal({ budgetId, onClose }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const row = await fetchManagerBudget(budgetId);
-        if (!cancelled) setData(row);
-      } catch (e) {
-        if (!cancelled) setErr(e.message || 'Failed to load budget');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [budgetId]);
-
-  return (
-    <Modal title="Budget details" onClose={onClose} wide>
-      {loading && <Spinner />}
-      {err && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-[11px] text-red-600 font-bold">
-          <AlertTriangle size={14} /> {err}
-        </div>
-      )}
-      {!loading && !err && data && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><p className="text-[9px] font-bold text-slate-400 uppercase">Code</p><p className="text-sm font-bold text-slate-800">{data.budgetCode || data.id}</p></div>
-            <div><p className="text-[9px] font-bold text-slate-400 uppercase">Status</p><Badge status={data.status} /></div>
-            <div className="sm:col-span-2"><p className="text-[9px] font-bold text-slate-400 uppercase">Title</p><p className="text-sm font-bold text-slate-800">{data.title}</p></div>
-            <div><p className="text-[9px] font-bold text-slate-400 uppercase">Academic year</p><p className="text-sm font-semibold text-slate-700">{data.academicYear}</p></div>
-            <div><p className="text-[9px] font-bold text-slate-400 uppercase">Term</p><p className="text-sm font-semibold text-slate-700">{data.term}</p></div>
-            <div><p className="text-[9px] font-bold text-slate-400 uppercase">Type</p><p className="text-sm font-semibold text-slate-700">{data.budgetType}</p></div>
-            <div><p className="text-[9px] font-bold text-slate-400 uppercase">Period</p><p className="text-sm font-semibold text-slate-700">{dateOnly(data.startDate)} — {dateOnly(data.endDate)}</p></div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <StatCard label="Expected income" value={money(data.totalExpectedIncome)} accent={NAVY} />
-            <StatCard label="Allocated" value={money(data.totalAllocated)} accent={AMBER} />
-            <StatCard label="Remaining" value={money(data.remainingBalance)} />
-            <StatCard label="Usage" value={`${data.budgetUsagePct || 0}%`} sub="of expected income" />
-          </div>
-          {data.description && (
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">Description</p>
-              <p className="text-[11px] text-slate-600">{data.description}</p>
-            </div>
-          )}
-          {Array.isArray(data.incomeSources) && data.incomeSources.length > 0 && (
-            <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase mb-2">Income sources</p>
-              <ul className="space-y-1.5">
-                {data.incomeSources.map((inc) => (
-                  <li key={inc.id} className="flex justify-between text-[11px] font-semibold text-slate-700 border-b border-slate-50 pb-1">
-                    <span>{inc.incomeSource || inc.incomeSourceKey}</span>
-                    <span style={{ color: NAVY }}>{money(inc.expectedAmount)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </Modal>
-  );
-}
-
-function FilterPanel({ filters, setFilters, years, departments, statCards, loading, open, onToggle }) {
-  const [statsOpen, setStatsOpen] = useState(true);
-  const activeCount = countActiveFilters(filters);
-  const fieldClass = 'w-full px-3 py-2.5 text-[11px] font-semibold border border-slate-200/90 rounded-xl bg-white text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/15 focus:border-[#1E3A5F]/30';
-
-  return (
-    <aside className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden flex flex-col max-h-none lg:max-h-[calc(100vh-8rem)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="w-full flex items-center justify-between gap-2 p-4 text-left border-b border-slate-100 bg-gradient-to-r from-slate-50/90 to-white hover:bg-slate-50/80 transition-colors"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-[#1E3A5F]/8 flex items-center justify-center shrink-0">
-            <SlidersHorizontal size={14} style={{ color: NAVY }} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Filters & insights</p>
-            <p className="text-[9px] text-slate-400 font-semibold truncate">
-              {open
-                ? (activeCount ? `${activeCount} active · stats update live` : 'All records · adjust to refine')
-                : (activeCount ? `${activeCount} filter${activeCount !== 1 ? 's' : ''} applied · tap to open` : 'Tap to open filters & statistics')}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {activeCount > 0 && (
-            <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#1E3A5F] text-white text-[9px] font-bold flex items-center justify-center">
-              {activeCount}
-            </span>
-          )}
-          <ChevronDown
-            size={16}
-            className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-            aria-hidden
-          />
-        </div>
-      </button>
-
-      {open && (
-        <>
-      <div className="p-4 border-b border-slate-100 bg-white space-y-3">
-        <div className="flex items-center justify-end">
-          {activeCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setFilters(EMPTY_FILTERS)}
-              className="text-[9px] font-bold uppercase tracking-wider text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50"
-            >
-              Clear all
-            </button>
-          )}
-        </div>
-
-        <div className="relative">
-          <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={filters.search}
-            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            placeholder="Search budgets, lines, usage…"
-            className={`${fieldClass} pl-8`}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <select value={filters.academicYear} onChange={(e) => setFilters((f) => ({ ...f, academicYear: e.target.value }))} className={fieldClass}>
-            <option value="">All years</option>
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <select value={filters.term} onChange={(e) => setFilters((f) => ({ ...f, term: e.target.value }))} className={fieldClass}>
-            <option value="">All terms</option>
-            <option value="Term 1">Term 1</option>
-            <option value="Term 2">Term 2</option>
-            <option value="Term 3">Term 3</option>
-          </select>
-          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={fieldClass}>
-            <option value="">All statuses</option>
-            {BUDGET_STATUSES.filter(Boolean).map((s) => (
-              <option key={s} value={s}>{statusBadge(s).label}</option>
-            ))}
-          </select>
-          <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className={fieldClass}>
-            <option value="">All departments</option>
-            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-
-        {activeCount > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {filters.academicYear && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1E3A5F]/8 text-[9px] font-bold text-[#1E3A5F] uppercase">
-                {filters.academicYear}
-                <button type="button" onClick={() => setFilters((f) => ({ ...f, academicYear: '' }))} className="hover:text-red-600"><X size={10} /></button>
-              </span>
-            )}
-            {filters.term && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1E3A5F]/8 text-[9px] font-bold text-[#1E3A5F] uppercase">
-                {filters.term}
-                <button type="button" onClick={() => setFilters((f) => ({ ...f, term: '' }))} className="hover:text-red-600"><X size={10} /></button>
-              </span>
-            )}
-            {filters.status && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-[9px] font-bold text-amber-900 uppercase">
-                {statusBadge(filters.status).label}
-                <button type="button" onClick={() => setFilters((f) => ({ ...f, status: '' }))} className="hover:text-red-600"><X size={10} /></button>
-              </span>
-            )}
-            {filters.department && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-bold text-slate-600 uppercase">
-                {filters.department}
-                <button type="button" onClick={() => setFilters((f) => ({ ...f, department: '' }))} className="hover:text-red-600"><X size={10} /></button>
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="border-b border-slate-100">
-        <button
-          type="button"
-          onClick={() => setStatsOpen((o) => !o)}
-          className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50/80 transition-colors"
-        >
-          <span className="flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-            <BarChart3 size={12} style={{ color: '#FEBF10' }} />
-            Budget statistics
-            {activeCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-md bg-[#1E3A5F] text-white text-[8px]">Filtered</span>
-            )}
-          </span>
-          <ChevronDown size={14} className={`text-slate-400 transition-transform ${statsOpen ? 'rotate-180' : ''}`} />
-        </button>
-        {statsOpen && (
-          <div className="px-3 pb-4 lg:overflow-y-auto lg:max-h-[min(28rem,calc(100vh-20rem))]">
-            {loading ? (
-              <div className="py-8"><Spinner /></div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {statCards.map((c) => (
-                  <FilterStatCard key={c.key} label={c.label} value={c.value} sub={c.sub} accent={c.accent} icon={c.icon} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-        </>
-      )}
-    </aside>
-  );
-}
-
-function NotificationsPanel({ alerts }) {
-  const list = Array.isArray(alerts) ? alerts : [];
-  return (
-    <aside className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
-      <BudgetPushBanner api={api} />
-      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-        <Bell size={12} style={{ color: AMBER }} /> Alerts
-      </div>
-      {list.length === 0 ? (
-        <p className="text-[10px] text-slate-400 font-bold">No alerts</p>
-      ) : (
-        <ul className="space-y-2 max-h-[320px] overflow-y-auto">
-          {list.map((a) => {
-            const isDanger = a.type === 'danger';
-            const isWarn = a.type === 'warning';
-            return (
-              <li
-                key={a.id}
-                className={`flex gap-2 p-2.5 rounded-xl text-[10px] font-semibold border ${
-                  isDanger ? 'bg-red-50 border-red-100 text-red-700' : isWarn ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-blue-50 border-blue-100 text-blue-800'
-                }`}
-              >
-                {isDanger ? <XCircle size={14} className="shrink-0" /> : isWarn ? <AlertTriangle size={14} className="shrink-0" /> : <Bell size={14} className="shrink-0" />}
-                <span>{a.message}</span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </aside>
-  );
-}
-
 export default function SchoolBudgetManagement() {
   const [tab, setTab] = useState('budgets');
   const [overview, setOverview] = useState(null);
@@ -568,8 +321,10 @@ export default function SchoolBudgetManagement() {
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
-  const [filters, setFilters] = useState({ search: '', academicYear: '', term: '', status: '', department: '' });
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [statsOpen, setStatsOpen] = useState(true);
+  const [alertsModalOpen, setAlertsModalOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [openMenuId, setOpenMenuId] = useState(null);
   const [approvalBudget, setApprovalBudget] = useState(null);
@@ -628,6 +383,12 @@ export default function SchoolBudgetManagement() {
   }, [loadOverview, loadBudgets, loadLines, loadUsage]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     if (tab === 'audit') {
@@ -817,22 +578,6 @@ export default function SchoolBudgetManagement() {
     }
   };
 
-  const exportBudgetsCsv = () => {
-    const headers = ['id', 'title', 'academicYear', 'term', 'status', 'expectedIncome', 'allocated', 'remaining'];
-    const rows = filteredBudgets.map((b) => ({
-      id: b.budgetCode || b.id,
-      title: b.title,
-      academicYear: b.academicYear,
-      term: b.term,
-      status: b.status,
-      expectedIncome: b.totalExpectedIncome,
-      allocated: b.totalAllocated,
-      remaining: b.remainingBalance,
-    }));
-    downloadCsv(`school-budgets-${Date.now()}.csv`, headers, rows);
-    showToast('CSV exported');
-  };
-
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -931,11 +676,12 @@ export default function SchoolBudgetManagement() {
       </button>
       <button
         type="button"
-        onClick={exportBudgetsCsv}
-        className={`${compact ? 'flex-1 min-w-[10rem]' : 'w-full'} h-11 flex items-center justify-center gap-2 bg-white border border-black/5 text-re-text font-medium text-[9px] uppercase tracking-widest rounded-xl hover:bg-re-bg transition-all`}
+        onClick={() => setAlertsModalOpen(true)}
+        className={`${compact ? 'flex-1 min-w-[10rem]' : 'w-full'} h-11 flex items-center justify-center gap-2 rounded-xl font-medium text-[9px] uppercase tracking-widest border transition-all hover:opacity-95 active:scale-[0.98]`}
+        style={{ background: '#FFFBEB', borderColor: `${AMBER}66`, color: NAVY }}
       >
-        <Download size={14} style={{ color: '#FEBF10' }} />
-        <span>Export CSV</span>
+        <Bell size={14} style={{ color: AMBER }} />
+        <span>Budget alerts</span>
       </button>
       <button
         type="button"
@@ -952,35 +698,39 @@ export default function SchoolBudgetManagement() {
   const renderBudgetRowActions = (b) => {
     const id = budgetDbId(b);
     const isPending = String(b.status).toLowerCase() === 'pending_approval';
-    if (isPending) {
-      return (
-        <div className="flex items-center justify-end gap-1.5 flex-wrap">
-          <button
-            type="button"
-            disabled={reviewBusy}
-            onClick={() => quickApprove(b)}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-          >
-            <CheckCircle2 size={12} /> Approve
-          </button>
-          <button
-            type="button"
-            disabled={reviewBusy}
-            onClick={() => openReview(b, 'reject')}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
-          >
-            <XCircle size={12} /> Reject
-          </button>
-          <button type="button" onClick={() => openReview(b, 'approve')} className="p-1.5 rounded-lg hover:bg-slate-100" title="More options">
-            <MoreVertical size={14} className="text-slate-500" />
-          </button>
-        </div>
-      );
-    }
     return (
-      <button type="button" onClick={() => setDetailBudgetId(id)} className="text-[10px] font-bold uppercase text-[#1E3A5F] hover:underline">
-        View
-      </button>
+      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setDetailBudgetId(id)}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase border border-slate-200 text-[#1E3A5F] hover:bg-slate-50"
+        >
+          <Eye size={12} /> View
+        </button>
+        {isPending && (
+          <>
+            <button
+              type="button"
+              disabled={reviewBusy}
+              onClick={() => quickApprove(b)}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+            >
+              <CheckCircle2 size={12} /> Approve
+            </button>
+            <button
+              type="button"
+              disabled={reviewBusy}
+              onClick={() => openReview(b, 'reject')}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+            >
+              <XCircle size={12} /> Reject
+            </button>
+            <button type="button" onClick={() => openReview(b, 'approve')} className="p-1.5 rounded-lg hover:bg-slate-100" title="More options">
+              <MoreVertical size={14} className="text-slate-500" />
+            </button>
+          </>
+        )}
+      </div>
     );
   };
 
@@ -1013,6 +763,13 @@ export default function SchoolBudgetManagement() {
               </div>
               <p className="text-lg font-bold mt-2" style={{ color: NAVY }}>{money(b.totalExpectedIncome)}</p>
               <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setDetailBudgetId(budgetDbId(b))}
+                  className="py-2.5 px-3 rounded-xl border border-slate-200 text-[10px] font-bold uppercase text-[#1E3A5F] hover:bg-slate-50 inline-flex items-center justify-center gap-1"
+                >
+                  <Eye size={14} /> View
+                </button>
                 <button
                   type="button"
                   disabled={reviewBusy}
@@ -1065,7 +822,7 @@ export default function SchoolBudgetManagement() {
                       <input type="checkbox" checked={selectedIds.has(id)} onChange={() => toggleSelect(id)} className="rounded" />
                     )}
                   </td>
-                  <td className="px-3 py-3 text-[11px] font-bold text-slate-700">{b.budgetCode || b.id}</td>
+                  <td className="px-3 py-3"><BudgetCodeBadge code={b.budgetCode || b.id} compact /></td>
                   <td className="px-3 py-3 text-[11px] font-semibold text-slate-700 max-w-[140px] truncate">{b.title}</td>
                   <td className="px-3 py-3 text-[11px] text-slate-600">{b.academicYear}</td>
                   <td className="px-3 py-3 text-[11px] text-slate-600">{b.term}</td>
@@ -1087,7 +844,7 @@ export default function SchoolBudgetManagement() {
               <div className="flex justify-between items-start gap-2">
                 <div>
                   <p className="text-[11px] font-bold text-slate-800">{b.title}</p>
-                  <p className="text-[10px] text-slate-400 font-bold">{b.budgetCode || b.id}</p>
+                  <p className="text-[10px] text-slate-400 font-bold mt-0.5"><BudgetCodeBadge code={b.budgetCode || b.id} compact /></p>
                 </div>
                 <Badge status={b.status} />
               </div>
@@ -1225,7 +982,6 @@ export default function SchoolBudgetManagement() {
 
   const ReportsTab = () => (
     <div className="space-y-6">
-      <BudgetPushBanner api={api} />
       {REPORT_ITEMS.map((grp) => (
         <div key={grp.group}>
           <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">{grp.group}</h3>
@@ -1333,9 +1089,6 @@ export default function SchoolBudgetManagement() {
 
   const DashboardTab = () => (
     <div className="space-y-4">
-      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-        Adjust filters in the left panel to refine statistics across all tabs.
-      </p>
       <div>
         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Recent budgets</h3>
         <BudgetsTab />
@@ -1444,34 +1197,46 @@ export default function SchoolBudgetManagement() {
             {loading && tab === 'dashboard' ? (
               <div className="py-20"><Spinner /></div>
             ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                <div className={`order-1 ${filtersOpen ? 'xl:col-span-4' : 'xl:col-span-12'}`}>
-                  <FilterPanel
-                    filters={filters}
-                    setFilters={setFilters}
-                    years={years}
-                    departments={departments}
-                    statCards={filteredStatCards}
-                    loading={loading}
-                    open={filtersOpen}
-                    onToggle={() => setFiltersOpen((o) => !o)}
-                  />
+              <div className="space-y-4">
+                <BudgetFilterBar
+                  filters={filters}
+                  setFilters={setFilters}
+                  years={years}
+                  terms={['Term 1', 'Term 2', 'Term 3']}
+                  statuses={MANAGER_STATUS_OPTIONS}
+                  departments={departments}
+                  onClear={() => setFilters(EMPTY_FILTERS)}
+                  navy={NAVY}
+                  amber={AMBER}
+                />
+
+                <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setStatsOpen((o) => !o)}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left border-b border-slate-100 hover:bg-slate-50/80 transition-colors"
+                  >
+                    <span className="flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                      <BarChart3 size={12} style={{ color: AMBER }} />
+                      Budget statistics
+                    </span>
+                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${statsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {statsOpen && (
+                    <div className="px-4 py-4">
+                      <BudgetStatsStrip cards={filteredStatCards} loading={loading} />
+                    </div>
+                  )}
                 </div>
 
-                <div className={`order-2 ${filtersOpen ? 'xl:col-span-6' : 'xl:col-span-8'}`}>
-                  <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden p-4 md:p-6">
-                    {tab === 'dashboard' && <DashboardTab />}
-                    {tab === 'budgets' && <BudgetsTab />}
-                    {tab === 'lines' && <LinesTab />}
-                    {tab === 'tracking' && <TrackingTab />}
-                    {tab === 'reports' && <ReportsTab />}
-                    {tab === 'analytics' && <AnalyticsTab />}
-                    {tab === 'audit' && <AuditTab />}
-                  </div>
-                </div>
-
-                <div className={`order-3 ${filtersOpen ? 'xl:col-span-2' : 'xl:col-span-4'}`}>
-                  <NotificationsPanel alerts={ov.alerts} />
+                <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden p-4 md:p-6 w-full">
+                  {tab === 'dashboard' && <DashboardTab />}
+                  {tab === 'budgets' && <BudgetsTab />}
+                  {tab === 'lines' && <LinesTab />}
+                  {tab === 'tracking' && <TrackingTab />}
+                  {tab === 'reports' && <ReportsTab />}
+                  {tab === 'analytics' && <AnalyticsTab />}
+                  {tab === 'audit' && <AuditTab />}
                 </div>
               </div>
             )}
@@ -1495,7 +1260,26 @@ export default function SchoolBudgetManagement() {
           busy={reviewBusy}
         />
       )}
-      {detailBudgetId && <BudgetDetailModal budgetId={detailBudgetId} onClose={() => setDetailBudgetId(null)} />}
+      {detailBudgetId && (
+        <BudgetViewModal
+          open={Boolean(detailBudgetId)}
+          budgetId={detailBudgetId}
+          onClose={() => setDetailBudgetId(null)}
+          fmt={fmtNum}
+          isMobile={isMobile}
+          fetchBudget={fetchManagerBudget}
+          showEdit={false}
+        />
+      )}
+
+      <BudgetAlertsModal
+        open={alertsModalOpen}
+        onClose={() => setAlertsModalOpen(false)}
+        api={api}
+        alerts={ov.alerts}
+        navy={NAVY}
+        amber={AMBER}
+      />
     </div>
   );
 }

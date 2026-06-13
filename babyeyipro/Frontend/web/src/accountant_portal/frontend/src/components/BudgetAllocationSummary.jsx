@@ -9,8 +9,33 @@ function pct(part, total) {
   return Math.round((part / total) * 1000) / 10;
 }
 
+function pctBadge(value, variant = "amber") {
+  const colors = {
+    amber: { bg: "#FEF3C7", color: "#92400E" },
+    green: { bg: "#D1FAE5", color: "#065F46" },
+    navy: { bg: "#EFF6FF", color: "#1E40AF" },
+  };
+  const c = colors[variant] || colors.amber;
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "3px 10px",
+        borderRadius: 20,
+        fontSize: 11,
+        fontWeight: 500,
+        background: c.bg,
+        color: c.color,
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      {value}%
+    </span>
+  );
+}
+
 /**
- * Shows school budget envelope vs lines allocated (e.g. budget 38M, lines 20M, remain 18M).
+ * School budget envelope vs expenses allocated (no usage bars — allocation % only).
  */
 export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesProp }) {
   const isMobile = useIsMobile();
@@ -67,19 +92,21 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
         amount: totalExpected,
         percent: 100,
         highlight: true,
+        pctVariant: "navy",
       },
       {
         key: "lines-total",
-        label: "Allocated to budget lines",
+        label: "Allocated to expenses",
         amount: linesPlanned,
         percent: allocatedPct,
+        pctVariant: "amber",
       },
       {
         key: "remain",
         label: "Remaining to allocate",
         amount: unallocated,
         percent: unallocatedPct,
-        warn: unallocated < 0,
+        pctVariant: "green",
       },
     ];
     const lineRows = lines.map((l) => ({
@@ -89,6 +116,7 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
       amount: l.plannedAmount,
       percent: pct(l.plannedAmount, totalExpected),
       isLine: true,
+      pctVariant: "amber",
     }));
     return [...base, ...lineRows];
   }, [lines, totalExpected, linesPlanned, unallocated, allocatedPct, unallocatedPct]);
@@ -107,7 +135,7 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
     <div style={{ marginBottom: 20 }}>
       <div
         style={{
-          fontWeight: 800,
+          fontWeight: 500,
           color: COLORS.navy,
           fontSize: 15,
           marginBottom: 10,
@@ -115,7 +143,7 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
       >
         Budget allocation — {budget?.title || "Selected budget"}
         {budget?.budgetCode && (
-          <span style={{ fontWeight: 600, fontSize: 12, color: COLORS.gray600, marginLeft: 8 }}>
+          <span style={{ fontWeight: 500, fontSize: 12, color: COLORS.gray600, marginLeft: 8 }}>
             ({budget.budgetCode})
           </span>
         )}
@@ -142,13 +170,13 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
                   background: r.highlight ? "#FFFBEB" : r.isLine ? COLORS.gray50 : COLORS.white,
                 }}
               >
-                <div style={{ fontWeight: r.highlight ? 800 : 600, fontSize: 13, color: COLORS.navy }}>
+                <div style={{ fontWeight: r.highlight ? 500 : 500, fontSize: 13, color: COLORS.navy }}>
                   {r.label}
                 </div>
                 {r.sub && <div style={{ fontSize: 11, color: COLORS.gray500 }}>{r.sub}</div>}
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-                  <span style={{ fontWeight: 800, color: COLORS.navy }}>{fmt(r.amount)}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: COLORS.amber }}>{r.percent}%</span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                  <span style={{ fontWeight: 500, color: COLORS.navy }}>{fmt(r.amount)}</span>
+                  {pctBadge(r.percent, r.pctVariant)}
                 </div>
               </div>
             ))}
@@ -158,7 +186,7 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
             <thead>
               <tr style={{ background: COLORS.navy }}>
                 {["Item", "Amount (RWF)", "% of school budget"].map((h) => (
-                  <th key={h} style={{ padding: "11px 14px", color: COLORS.white, textAlign: "left", fontSize: 12 }}>
+                  <th key={h} style={{ padding: "11px 14px", color: COLORS.white, textAlign: "left", fontSize: 12, fontWeight: 500 }}>
                     {h}
                   </th>
                 ))}
@@ -171,7 +199,7 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
                   style={{
                     borderBottom: `1px solid ${COLORS.gray100}`,
                     background: r.highlight ? "#FFFBEB" : i % 2 ? COLORS.gray50 : COLORS.white,
-                    fontWeight: r.highlight ? 700 : r.isLine ? 400 : 600,
+                    fontWeight: r.highlight ? 500 : r.isLine ? 400 : 500,
                   }}
                 >
                   <td style={{ padding: "10px 14px", color: COLORS.navy }}>
@@ -182,22 +210,8 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: "10px 14px", fontWeight: 700 }}>{fmt(r.amount)}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, maxWidth: 120, background: COLORS.gray200, borderRadius: 99, height: 6 }}>
-                        <div
-                          style={{
-                            width: `${Math.min(r.percent, 100)}%`,
-                            height: "100%",
-                            background: r.key === "remain" ? COLORS.green : COLORS.amber,
-                            borderRadius: 99,
-                          }}
-                        />
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 700 }}>{r.percent}%</span>
-                    </div>
-                  </td>
+                  <td style={{ padding: "10px 14px", fontWeight: 500 }}>{fmt(r.amount)}</td>
+                  <td style={{ padding: "10px 14px" }}>{pctBadge(r.percent, r.pctVariant)}</td>
                 </tr>
               ))}
             </tbody>
@@ -207,3 +221,5 @@ export default function BudgetAllocationSummary({ budgetId, fmt, lines: linesPro
     </div>
   );
 }
+
+export { pct as allocationPct };

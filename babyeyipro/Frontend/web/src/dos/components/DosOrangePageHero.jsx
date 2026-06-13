@@ -28,14 +28,17 @@ export default function DosOrangePageHero({
   return (
     <section className={`dos-page-hero relative ${className}`}>
       <div className="dos-hero-orange relative flex min-h-[220px] items-center overflow-hidden text-white sm:min-h-[260px] md:min-h-[280px]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
         <div className="absolute left-4 top-4 z-10 sm:left-6 sm:top-6 md:left-8">
-          <div className="inline-flex items-center rounded-full border border-white/25 bg-black/25 px-4 py-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/95 backdrop-blur-md">
-            {badgeLabel}
+          <div className="inline-flex items-center gap-2">
+            <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
+            <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/90">{badgeLabel}</span>
           </div>
         </div>
 
         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-6 sm:top-6 md:right-8">
-          <div className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-black/25 px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-normal uppercase tracking-widest text-white/90">
             {refreshing ? 'Updating…' : liveOk ? 'Live data' : 'Offline'}
           </div>
           {onRefresh ? (
@@ -57,9 +60,9 @@ export default function DosOrangePageHero({
             hasStats ? 'pb-16 pt-14 sm:pb-20 sm:pt-16' : 'pb-12 pt-14 sm:pt-16'
           }`}
         >
-          <h1 className="mb-2 font-sans text-2xl font-extrabold tracking-tight md:text-3xl">{title}</h1>
+          <h1 className="mb-2 font-sans text-xl sm:text-2xl md:text-[1.65rem] font-medium tracking-tight text-white">{title}</h1>
           {subtitle ? (
-            <p className="max-w-2xl text-sm font-semibold text-white/90 md:text-base">{subtitle}</p>
+            <p className="max-w-2xl text-xs sm:text-sm font-normal text-white/80 leading-relaxed">{subtitle}</p>
           ) : null}
           {children ? <div className="mt-4 flex flex-wrap gap-2.5">{children}</div> : null}
         </div>
@@ -75,12 +78,12 @@ export default function DosOrangePageHero({
                   className="flex min-h-[6.5rem] flex-col items-center justify-center p-5 text-center transition-colors hover:bg-slate-50"
                 >
                   <span
-                    className="text-xl font-semibold tabular-nums tracking-tight sm:text-2xl"
+                    className="text-lg sm:text-xl font-medium tabular-nums tracking-tight"
                     style={{ color: NAVY }}
                   >
                     {stat.value}
                   </span>
-                  <p className="mt-1 text-[8px] font-medium uppercase tracking-wider text-re-text-muted opacity-70 sm:text-[9px]">
+                  <p className="mt-1 text-[8px] font-normal uppercase tracking-wider text-re-text-muted opacity-70 sm:text-[9px]">
                     {stat.label}
                   </p>
                 </div>

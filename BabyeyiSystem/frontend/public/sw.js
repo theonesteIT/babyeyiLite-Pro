@@ -32,8 +32,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title;
   const options = {
     body: payload.body,
-    icon: payload.icon || '/babyeyiLogo.png',
-    badge: payload.badge || '/babyeyiLogo.png',
+    icon: payload.icon || '/babyeyi-icon.png',
+    badge: payload.badge || '/babyeyi-icon.png',
     tag: payload.tag,
     renotify: true,
     data: { url: payload.url || '/lite/shule-avance' },

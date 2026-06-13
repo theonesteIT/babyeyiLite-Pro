@@ -1,4 +1,5 @@
 import React from 'react'
+import './index.css'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import SmartSchoolHardwarePage from '../manager/pages/SmartSchoolHardwarePage'
@@ -16,6 +17,9 @@ import TichaAI from './pages/TichaAI'
 import EnglishClub from './pages/EnglishClub'
 import Students from './pages/Students'
 import Timetable from './pages/Timetable'
+import TeacherAssignment from './pages/TeacherAssignment'
+import SchoolOperationsCenter from './pages/SchoolOperationsCenter'
+import ClassRoomQrCodesPage from './pages/ClassRoomQrCodesPage'
 import Attendance from './pages/Attendance'
 import TeacherClassPeriodEntryExit from './pages/AttendanceModule/TeacherClassPeriodEntryExit'
 import RecordMarks from './pages/RecordMarks'
@@ -38,6 +42,7 @@ import ClassTeachers from './pages/ClassTeachers'
 import StaffPayroll from './pages/StaffPayroll'
 import ChatCenter from '../shared/pages/ChatCenter'
 import StudentPromotionRoutes from './pages/Student Promotion/StudentPromotionRoutes'
+import StudentMarksRoutes from './pages/Student Marks Reports/StudentMarksRoutes'
 import { PORTAL } from './config/portal'
 import { h } from './utils/href'
 
@@ -62,6 +67,14 @@ const ProtectedRoute = ({ children, title }) => {
 
 /** Student Promotion uses its own sidebar/header shell (no main DOS layout). */
 const PromotionProtectedRoute = ({ children }) => {
+  const { teacher, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!teacher) return <Navigate to="/" replace />
+  return children
+}
+
+/** Student Marks & Reports — dedicated module shell. */
+const MarksReportsProtectedRoute = ({ children }) => {
   const { teacher, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!teacher) return <Navigate to="/" replace />
@@ -106,6 +119,14 @@ function DosRoutesInner() {
       />
       <Route path="timetable" element={<ProtectedRoute title="Timetable"><Timetable /></ProtectedRoute>} />
       <Route
+        path="teacher-assignments"
+        element={
+          <ProtectedRoute title="Teacher Assignments">
+            <TeacherAssignment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="class-teachers"
         element={
           <ProtectedRoute title="Class Teachers">
@@ -119,6 +140,22 @@ function DosRoutesInner() {
         element={
           <ProtectedRoute title="TeacherPeriod Attendance">
             <TeacherClassPeriodEntryExit />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="operations-center"
+        element={
+          <ProtectedRoute title="School Operations Command Center">
+            <SchoolOperationsCenter />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="operations-center/class-qr-codes"
+        element={
+          <ProtectedRoute title="Class QR Codes">
+            <ClassRoomQrCodesPage />
           </ProtectedRoute>
         }
       />
@@ -231,6 +268,15 @@ function DosRoutesInner() {
           <PromotionProtectedRoute>
             <StudentPromotionRoutes />
           </PromotionProtectedRoute>
+        }
+      />
+
+      <Route
+        path="student-marks-reports/*"
+        element={
+          <MarksReportsProtectedRoute>
+            <StudentMarksRoutes />
+          </MarksReportsProtectedRoute>
         }
       />
 

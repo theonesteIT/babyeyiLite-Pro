@@ -692,14 +692,14 @@ export default function App({ session }) {
     }
   }, [schoolKind, form?.feeTargetStudents, form?.category, step]);
 
-  useEffect(() => {
-    if (!schoolId) return;
+  const loadStudentReqCatalog = useCallback(() => {
+    if (!schoolId) return undefined;
     let cancelled = false;
     setStudentReqCatalogLoading(true);
     setStudentReqCatalogError(null);
     fetch(`${API_BASE}/babyeyi/student-requirements-catalog`, { credentials: "include" })
-      .then(r => r.json().catch(() => ({})))
-      .then(json => {
+      .then((r) => r.json().catch(() => ({})))
+      .then((json) => {
         if (cancelled) return;
         if (!json.success || !Array.isArray(json.data)) {
           setStudentReqCatalogError(json.message || "Could not load requirements catalog");
@@ -708,7 +708,7 @@ export default function App({ session }) {
         }
         setStudentReqCatalog(json.data);
       })
-      .catch(e => {
+      .catch((e) => {
         if (!cancelled) {
           setStudentReqCatalogError(e.message || "Network error");
           setStudentReqCatalog([]);
@@ -719,6 +719,11 @@ export default function App({ session }) {
       });
     return () => { cancelled = true; };
   }, [schoolId]);
+
+  useEffect(() => {
+    const cleanup = loadStudentReqCatalog();
+    return cleanup;
+  }, [loadStudentReqCatalog]);
 
   const up = useCallback((k, v) => setForm(f => ({ ...f, [k]: v })), []);
 
@@ -1701,8 +1706,16 @@ export default function App({ session }) {
                 <div className="text-center py-6 text-[11px] font-semibold" style={{ color: C.goldDark }}>Loading requirements…</div>
               )}
               {studentReqCatalogError && !studentReqCatalogLoading && (
-                <div className="rounded-xl border px-3 py-2 text-[11px] font-semibold mb-2" style={{ borderColor: C.redBorder, color: C.red700, background: C.red50 }}>
-                  {studentReqCatalogError}
+                <div className="rounded-xl border px-3 py-2 text-[11px] font-semibold mb-2 flex flex-wrap items-center justify-between gap-2" style={{ borderColor: C.redBorder, color: C.red700, background: C.red50 }}>
+                  <span>{studentReqCatalogError}</span>
+                  <button
+                    type="button"
+                    onClick={() => loadStudentReqCatalog()}
+                    className="text-[10px] font-bold px-2 py-1 rounded-lg border shrink-0"
+                    style={{ borderColor: C.redBorder, color: C.red700, background: '#fff' }}
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
               {!studentReqCatalogLoading && !studentReqCatalog.length && !studentReqCatalogError && (

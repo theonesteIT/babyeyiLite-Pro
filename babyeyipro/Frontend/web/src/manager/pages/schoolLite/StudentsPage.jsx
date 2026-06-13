@@ -5,6 +5,7 @@ import {
   X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter, Download, Camera,
 } from "lucide-react";
 import { downloadStudentImportTemplate } from "../../utils/studentImportTemplate";
+import { processStudentPortraitFile, revokePortraitPreview } from "../../utils/studentPhotoProcess";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -288,9 +289,9 @@ function StudentDetailModal({ student, onClose, onEdit }) {
         <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
             <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 bg-white shrink-0 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-amber-200/70 bg-white shrink-0 flex items-center justify-center">
                 {resolveMediaUrl(student.student_photo_url) ? (
-                  <img src={resolveMediaUrl(student.student_photo_url)} alt="Student" className="w-full h-full object-cover" />
+                  <img src={resolveMediaUrl(student.student_photo_url)} alt="Student" className="w-full h-full object-cover object-[center_18%]" />
                 ) : (
                   <User className="w-7 h-7 text-slate-300" />
                 )}
@@ -462,6 +463,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
   const [error,   setError]   = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoProcessing, setPhotoProcessing] = useState(false);
 
   // Location cascade
   const { districts, sectors, cells, villages, loading: locLoading, errors: locErrors } =
@@ -474,7 +476,11 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     setError(null);
     setLoading(false);
     setPhotoFile(null);
-    setPhotoPreview(null);
+    setPhotoPreview((prev) => {
+      revokePortraitPreview(prev);
+      return null;
+    });
+    setPhotoProcessing(false);
 
     if (isEdit) {
       setForm({
@@ -592,21 +598,25 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
 
   const prevStep = () => { setError(null); setStep(s => Math.max(1, s - 1)); };
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) {
-      setError("Only JPG and PNG images are allowed.");
-      return;
+
+    setPhotoProcessing(true);
+    setError(null);
+    try {
+      const { file: processed, previewUrl } = await processStudentPortraitFile(file);
+      setPhotoFile(processed);
+      setPhotoPreview((prev) => {
+        revokePortraitPreview(prev);
+        return previewUrl;
+      });
+    } catch (err) {
+      setError(err?.message || "Could not process photo. Try another image.");
+    } finally {
+      setPhotoProcessing(false);
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Image size must be less than 5MB.");
-      return;
-    }
-    setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setPhotoPreview(ev.target?.result || null);
-    reader.readAsDataURL(file);
   };
 
   const existingPhotoUrl = editStudent?.student_photo_url
@@ -801,31 +811,35 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
               <div className="flex flex-col sm:flex-row gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4">
                 <div className="flex flex-col items-center sm:items-start shrink-0">
                   <label className={labelCls}>Profile photo (optional)</label>
-                  <div className="relative mt-1 w-28 h-28 rounded-2xl overflow-hidden border-2 border-dashed border-slate-200 hover:border-amber-400 bg-slate-50 flex flex-col items-center justify-center transition-colors">
+                  <div className="relative mt-1 w-36 h-36 rounded-full overflow-hidden border-[3px] border-amber-400/80 bg-slate-50 shadow-md ring-4 ring-amber-100/60 flex flex-col items-center justify-center transition-colors">
                     <input
                       type="file"
-                      accept="image/png,image/jpeg"
-                      disabled={loading}
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="user"
+                      disabled={loading || photoProcessing}
                       className="absolute inset-0 opacity-0 cursor-pointer z-10"
                       onChange={handlePhotoChange}
                     />
-                    {(photoPreview || existingPhotoUrl) ? (
+                    {photoProcessing ? (
+                      <Loader2 className="w-7 h-7 text-amber-600 animate-spin" />
+                    ) : (photoPreview || existingPhotoUrl) ? (
                       <img
                         src={photoPreview || existingPhotoUrl}
                         alt="Student"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover object-[center_18%]"
+                        style={{ imageRendering: 'auto' }}
                       />
                     ) : (
                       <>
-                        <Camera className="w-6 h-6 text-slate-300 mb-1" />
+                        <Camera className="w-7 h-7 text-slate-300 mb-1" />
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest px-2 text-center">
                           Upload
                         </span>
                       </>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-2 max-w-[9rem] text-center sm:text-left">
-                    JPG or PNG, max 5MB. Used on student cards and class lists.
+                  <p className="text-[10px] text-slate-500 mt-2 max-w-[10rem] text-center sm:text-left leading-snug">
+                    Auto-cropped portrait, optimized for cards &amp; reports (960px).
                   </p>
                 </div>
                 <div className="flex-1 min-w-0 flex items-center">
@@ -1138,10 +1152,12 @@ function ImportCard({ toast, onImported }) {
   const [importClass, setImportClass] = useState("");
   const [importYear, setImportYear] = useState("");
   const [file,       setFile]       = useState(null);
+  const [photosZip,  setPhotosZip]  = useState(null);
   const [busy,       setBusy]       = useState(false);
   const [result,     setResult]     = useState(null);
   const [errors,     setErrors]     = useState([]);
   const fileRef = useRef();
+  const zipRef = useRef();
 
   const handleImport = async () => {
     const cls = importClass.trim();
@@ -1157,6 +1173,7 @@ function ImportCard({ toast, onImported }) {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (photosZip) fd.append("photos_zip", photosZip);
       fd.append("importMode", "insert_only");
       fd.append("class_name", cls);
       fd.append("academic_year", yr);
@@ -1172,7 +1189,9 @@ function ImportCard({ toast, onImported }) {
         toast?.(`Imported ${json.inserted} students successfully.`, "success");
         onImported?.();
         setFile(null);
+        setPhotosZip(null);
         if (fileRef.current) fileRef.current.value = "";
+        if (zipRef.current) zipRef.current.value = "";
       }
     } catch {
       setResult({ ok: false, message: "Cannot connect to server." });
@@ -1195,7 +1214,8 @@ function ImportCard({ toast, onImported }) {
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
             <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
             <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
-            <span className="font-semibold text-amber-700">3.</span> Upload &amp; import. Urubuto exports also work.
+            <span className="font-semibold text-amber-700">3.</span> Optional photos ZIP (named like Code / Student ID) ·{" "}
+            <span className="font-semibold text-amber-700">4.</span> Upload &amp; import.
           </p>
         </div>
       </div>
@@ -1254,6 +1274,20 @@ function ImportCard({ toast, onImported }) {
           />
         </label>
 
+        <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-all min-h-[44px] touch-manipulation flex-1 sm:flex-initial sm:min-w-[200px]">
+          <Upload className="w-4 h-4 text-sky-600 shrink-0" />
+          <span className="text-[11px] font-bold text-slate-700 truncate flex-1 min-w-0">
+            {photosZip ? photosZip.name : "Photos ZIP (optional)"}
+          </span>
+          <input
+            ref={zipRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={e => { setPhotosZip(e.target.files?.[0] || null); setResult(null); }}
+          />
+        </label>
+
         <button
           type="button"
           onClick={handleImport}
@@ -1273,6 +1307,7 @@ function ImportCard({ toast, onImported }) {
           {result.ok && result.meta && (
             <span className="ml-2 text-[10px] opacity-75">
               · Inserted: {result.meta.inserted} · Updated: {result.meta.updated} · Skipped: {result.meta.skipped}
+              {result.meta.photosAttached > 0 ? ` · Photos: ${result.meta.photosAttached}` : ""}
               {result.meta.phoneWarnings > 0 ? ` · ⚠ ${result.meta.phoneWarnings} phone(s) skipped` : ""}
             </span>
           )}
@@ -1448,12 +1483,12 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
           className="mt-1 w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-amber-400 shrink-0 touch-manipulation"
           aria-label={`Select ${s.first_name} ${s.last_name}`}
         />
-        <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 shrink-0 flex items-center justify-center shadow-inner">
+        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-200/70 bg-slate-50 shrink-0 flex items-center justify-center shadow-sm">
           {photoUrl ? (
             <img
               src={photoUrl}
               alt={`${s.first_name} ${s.last_name}`}
-              className="w-full h-full object-cover [transform:translateZ(0)]"
+              className="w-full h-full object-cover object-[center_18%] [transform:translateZ(0)]"
               decoding="async"
               loading="lazy"
             />
@@ -2185,12 +2220,12 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                           />
                         </td>
                         <td className="px-3 sm:px-4 py-3">
-                          <div className="w-11 h-11 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center shadow-inner">
+                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-200/70 bg-slate-50 flex items-center justify-center shadow-sm">
                             {resolveMediaUrl(s.student_photo_url) ? (
                               <img
                                 src={resolveMediaUrl(s.student_photo_url)}
                                 alt={`${s.first_name} ${s.last_name}`}
-                                className="w-full h-full object-cover [transform:translateZ(0)]"
+                                className="w-full h-full object-cover object-[center_18%] [transform:translateZ(0)]"
                                 decoding="async"
                                 loading="lazy"
                               />

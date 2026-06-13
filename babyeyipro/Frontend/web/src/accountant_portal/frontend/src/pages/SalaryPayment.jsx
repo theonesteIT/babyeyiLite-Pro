@@ -25,6 +25,7 @@ import {
   termsForRegistryYear,
   inferCurrentTerm,
   yearOptionLabel,
+  resolvePayrollCalendarYear,
 } from '../utils/academicCalendarFilters';
 import api from '../services/api';
 
@@ -33,12 +34,8 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-function toPayrollYear(y) {
-  const txt = String(y || '').trim();
-  const m = txt.match(/\b(20\d{2}|19\d{2})\b/);
-  if (m) return Number(m[1]);
-  const n = Number(txt);
-  return Number.isFinite(n) ? n : new Date().getFullYear();
+function toPayrollYear(academicYear, month) {
+  return resolvePayrollCalendarYear(academicYear, month);
 }
 
 function monthToNumber(label) {
@@ -91,10 +88,11 @@ export default function SalaryPayment() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState('');
   const [actionError, setActionError] = useState('');
+  const [detailError, setDetailError] = useState('');
   const [actionBusy, setActionBusy] = useState(false);
   const [notice, setNotice] = useState('');
 
-  const payrollYear = useMemo(() => toPayrollYear(academicYear), [academicYear]);
+  const payrollYear = useMemo(() => toPayrollYear(academicYear, month), [academicYear, month]);
   const payMonthNum = useMemo(() => monthToNumber(month), [month]);
 
   const schoolName = useMemo(() => {
@@ -147,7 +145,7 @@ export default function SalaryPayment() {
       });
       setRuns(data);
       setSelectedRunId((prev) => {
-        if (prev && data.some((r) => r.db_id === prev)) return prev;
+        if (prev != null && data.some((r) => Number(r.db_id) === Number(prev))) return prev;
         return data[0]?.db_id ?? null;
       });
     } catch {
@@ -163,23 +161,26 @@ export default function SalaryPayment() {
   }, [academicLoaded, loadRuns]);
 
   const loadRunDetail = useCallback(async (id) => {
-    if (!id) {
+    if (id == null) {
       setRunDetail(null);
       return;
     }
     setLoadingDetail(true);
+    setDetailError('');
     try {
       const data = await getPayrollRun(id);
       setRunDetail(data);
-    } catch {
+      if (!data) setDetailError('Payroll run details could not be loaded.');
+    } catch (e) {
       setRunDetail(null);
+      setDetailError(e?.response?.data?.message || e?.message || 'Failed to load payroll register.');
     } finally {
       setLoadingDetail(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedRunId) loadRunDetail(selectedRunId);
+    if (selectedRunId != null) loadRunDetail(selectedRunId);
     else setRunDetail(null);
   }, [selectedRunId, loadRunDetail]);
 
@@ -208,13 +209,13 @@ export default function SalaryPayment() {
     return `PAYROLL FOR ${String(m).toUpperCase()} ${y}`;
   }, [runDetail, month, payrollYear]);
 
-  const selectedRun = runs.find((r) => r.db_id === selectedRunId);
+  const selectedRun = runs.find((r) => Number(r.db_id) === Number(selectedRunId));
   const badge = selectedRun ? statusBadge(selectedRun.status) : statusBadge(runDetail?.status);
   const canDelete = selectedRun && isPayrollRunDeletable(selectedRun.status);
   const canMarkPaid = selectedRun && isPayrollRunDeletable(selectedRun.status);
 
   const handleDeleteRun = async () => {
-    if (!selectedRunId || !canDelete) return;
+    if (selectedRunId == null || !canDelete) return;
     const ok = window.confirm(
       `Delete payroll for ${month} ${payrollYear} (${academicYear})?\n\n`
       + 'This permanently removes the run and all staff lines from the database.\n\nContinue?'
@@ -238,7 +239,7 @@ export default function SalaryPayment() {
   };
 
   const handleMarkPaid = async () => {
-    if (!selectedRunId || !canMarkPaid) return;
+    if (selectedRunId == null || !canMarkPaid) return;
     const ok = window.confirm(
       `Mark this payroll as Paid?\n\n`
       + `${month} ${payrollYear} · Net ${(runDetail?.netTotal ?? selectedRun?.netTotal ?? 0).toLocaleString()} RWF\n\n`
@@ -298,10 +299,7 @@ export default function SalaryPayment() {
           <div className="mt-4 flex justify-end">
             <button
               type="button"
-              onClick={() => {
-                setSelectedRunId(null);
-                loadRuns();
-              }}
+              onClick={() => loadRuns()}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
             >
               <RefreshCw size={14} className={loadingRuns ? 'animate-spin' : ''} /> Refresh
@@ -309,6 +307,12 @@ export default function SalaryPayment() {
           </div>
         </div>
 
+        {detailError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-2.5 text-red-800 text-sm">
+            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+            <span>{detailError}</span>
+          </div>
+        ) : null}
         {actionError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-2.5 text-red-800 text-sm">
             <AlertCircle size={18} className="shrink-0 mt-0.5" />
@@ -343,7 +347,7 @@ export default function SalaryPayment() {
               <div className="flex flex-wrap gap-3">
                 {runs.map((r) => {
                   const b = statusBadge(r.status);
-                  const active = selectedRunId === r.db_id;
+                  const active = Number(selectedRunId) === Number(r.db_id);
                   return (
                     <button
                       key={r.db_id}
@@ -468,8 +472,16 @@ export default function SalaryPayment() {
                 <Loader2 size={22} className="animate-spin mx-auto mb-2 text-[#F59E0B]" />
                 Loading register…
               </div>
-            ) : !selectedRunId ? (
+            ) : selectedRunId == null ? (
               <p className="py-16 text-center text-sm text-slate-500 font-normal">Select a payroll run above to view the register.</p>
+            ) : registerRows.length === 0 ? (
+              <p className="py-16 text-center text-sm text-slate-500 font-normal">
+                No staff lines found for this run
+                {(runDetail?.staffCount ?? selectedRun?.staffCount)
+                  ? ` (expected ${runDetail?.staffCount ?? selectedRun?.staffCount})`
+                  : ''}
+                . Try refresh or re-run payroll from Payroll Run.
+              </p>
             ) : (
               <PayrollRegisterTable rows={registerRows} totalRow={registerTotals} maxHeight={640} />
             )}

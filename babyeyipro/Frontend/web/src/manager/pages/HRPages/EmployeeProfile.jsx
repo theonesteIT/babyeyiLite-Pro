@@ -15,6 +15,7 @@ import {
 } from './hrConstants';
 import hrService from '../../services/hrService';
 import staffService from '../../services/staffService';
+import SalaryCertificateView from '../../../shared/components/SalaryCertificateView';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -27,6 +28,7 @@ const TABS = [
   { id: 'attendance', label: 'Attendance' },
   { id: 'leave', label: 'Leave' },
   { id: 'payroll', label: 'Payroll' },
+  { id: 'salary-certificate', label: 'Salary Certificate' },
   { id: 'performance', label: 'Performance' },
   { id: 'more', label: 'More' },
 ];
@@ -345,8 +347,16 @@ export default function EmployeeProfile() {
               </p>
               <button
                 type="button"
+                onClick={() => setActiveTab('salary-certificate')}
+                className="mt-2 w-full py-2.5 border border-[#000435]/15 text-[#000435] rounded-xl text-xs hover:bg-[#000435]/5 transition-colors flex items-center justify-center gap-2"
+                style={{ fontWeight: 500 }}
+              >
+                <FileText size={14} className="text-[#FFC107]" /> Salary certificate
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('payroll')}
-                className="mt-4 w-full py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                className="mt-2 w-full py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
                 style={{ fontWeight: 500 }}
               >
                 <BarChart3 size={14} /> View payroll details
@@ -679,15 +689,29 @@ export default function EmployeeProfile() {
         );
       case 'payroll':
         return (
-          <SectionCard title="Payroll & payment" icon={Banknote}>
-            <InfoRow label="Basic salary" value={gross ? `${gross.toLocaleString()} RWF` : null} />
-            <InfoRow label="Payment method" value={val(emp.payroll_payment_method)} />
-            <InfoRow label="Bank name" value={val(emp.payroll_bank_name)} />
-            <InfoRow label="Account number" value={val(emp.payroll_account_number)} />
-            <InfoRow label="Account holder" value={val(emp.payroll_account_holder)} />
-            <InfoRow label="Mobile money phone" value={val(emp.payroll_mobile_money_phone)} />
-            <InfoRow label="Mobile provider" value={val(hr.mobile_provider)} />
-          </SectionCard>
+          <div className="space-y-5 max-w-3xl">
+            <SectionCard title="Payroll & payment" icon={Banknote}>
+              <InfoRow label="Basic salary" value={gross ? `${gross.toLocaleString()} RWF` : null} />
+              <InfoRow label="Payment method" value={val(emp.payroll_payment_method)} />
+              <InfoRow label="Bank name" value={val(emp.payroll_bank_name)} />
+              <InfoRow label="Account number" value={val(emp.payroll_account_number)} />
+              <InfoRow label="Account holder" value={val(emp.payroll_account_holder)} />
+              <InfoRow label="Mobile money phone" value={val(emp.payroll_mobile_money_phone)} />
+              <InfoRow label="Mobile provider" value={val(hr.mobile_provider)} />
+            </SectionCard>
+            <SectionCard title="Salary certificate preview" icon={FileText}>
+              <p className="text-xs text-slate-500 mb-4">
+                Official salary certificate generated from payroll records. Download PDF or print for the employee.
+              </p>
+              <SalaryCertificateView employee={emp} compact showActions />
+            </SectionCard>
+          </div>
+        );
+      case 'salary-certificate':
+        return (
+          <div className="max-w-5xl">
+            <SalaryCertificateView employee={emp} showActions />
+          </div>
         );
       case 'performance':
         return (

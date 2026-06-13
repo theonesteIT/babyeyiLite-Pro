@@ -15,6 +15,7 @@ const xlsx = require('xlsx');
 const PDFDocument = require('pdfkit');
 const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
+const { ensureStudentsTable } = require('./students');
 
 const router = express.Router();
 const ACCOUNTANT_ONLY = ['ACCOUNTANT'];
@@ -479,6 +480,7 @@ function normalizeReportStatusFilter(v) {
  */
 async function buildAccountantPaymentReport(schoolId, academicYear, term, classFilter, statusFilterRaw, options = {}) {
   const includeOnlineInvoicePayments = options.includeOnlineInvoicePayments !== false;
+  await ensureStudentsTable();
   await ensureCollectionsTable();
   await ensureAccountantFeeTotalsTableAcct();
 
@@ -793,8 +795,8 @@ router.get('/accountant/overview', requireRole(ACCOUNTANT_OR_MANAGER_READ), asyn
       return res.status(400).json({ success: false, message: 'School not found in session.' });
     }
 
+    await ensureStudentsTable();
     await ensureCollectionsTable();
-    await promisePool.query('ALTER TABLE students ADD COLUMN class_name VARCHAR(120) NULL').catch(() => {});
 
     const [[{ cnt }]] = await promisePool.query(
       'SELECT COUNT(*) AS cnt FROM students WHERE school_id = ?',
@@ -2616,6 +2618,13 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
             st.status === 'paid' && invoiceNo
               ? `${base}/receipt/${intentId}.pdf?invoice_no=${encodeURIComponent(invoiceNo)}`
               : null;
+          const feeLines = Array.isArray(payload?.selected_fee_lines) ? payload.selected_fee_lines : [];
+          const feeCategories = [...new Set(
+            feeLines.map((l) => trimStr(l.fee_category)).filter(Boolean)
+          )];
+          const categoryLabel = feeCategories.length
+            ? feeCategories.join(', ')
+            : 'School fees';
           return {
             key: `online-${intentId}`,
             source: 'online',
@@ -2628,6 +2637,9 @@ router.get('/accountant/students/:studentId/payment-history', requireRole(ACCOUN
             status_label: st.status_label,
             payment_method: describeOnlineChannel(row, payload),
             channel: describeOnlineChannel(row, payload),
+            category: categoryLabel,
+            fee_lines: feeLines,
+            fee_categories: feeCategories,
             date: row.invoice_paid_at || row.created_at,
             reference: invoiceNo || `INV-${intentId}`,
             transaction_ref: trimStr(row.provider_reference) || invoiceNo || null,

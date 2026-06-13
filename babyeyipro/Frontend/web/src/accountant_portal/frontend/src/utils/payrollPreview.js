@@ -1,5 +1,9 @@
 import { calcRwandaPayroll, shouldUseSchoolAutoAllowances } from './rwandaPayrollEngine';
-import { buildPayrollRegisterRow } from './payrollRegister';
+import { buildPayrollRegisterRow, applyTerminatedMonthRegisterDashes } from './payrollRegister';
+import {
+  ensureTerminationPayrollSnapshot,
+  terminatedStaffIdsForMonth,
+} from './terminatedMonthPayroll';
 import {
   customAllowancesToEngineItems,
   getStaffAllowanceSplit,
@@ -98,10 +102,13 @@ export function buildPayrollPreviewRows(
     dedByStaff.get(id).push(d);
   }
 
+  const terminatedStaffIds = terminatedStaffIdsForMonth(terminationPayrolls);
+
   const rows = [];
   const missingBasicStaff = [];
   for (const s of staffList) {
     const staffUserId = Number(s.staffUserId || s.id);
+    if (terminatedStaffIds.has(staffUserId)) continue;
     const adj = employeeAdjustments[staffUserId] || employeeAdjustments[String(staffUserId)] || {};
     const basicOverride = Number(adj.basicSalaryOverride ?? adj.basicSalary ?? 0);
     const basic = basicOverride > 0
@@ -176,14 +183,14 @@ export function buildPayrollPreviewRows(
   }
 
   for (const term of terminationPayrolls || []) {
-    const snap = term?.payrollSnapshot;
+    const snap = ensureTerminationPayrollSnapshot(term, template);
     if (!snap?.registerRow || !snap?.calc) continue;
     const staffUserId = Number(term.staffUserId);
     const existingIdx = rows.findIndex((r) => Number(r.staffUserId) === staffUserId);
     if (existingIdx >= 0) rows.splice(existingIdx, 1);
 
     rows.push({
-      ...snap.registerRow,
+      ...applyTerminatedMonthRegisterDashes(snap.registerRow),
       staffUserId,
       fullName: term.staffName || snap.registerRow.firstName || '',
       basicSalaryRaw: toMoney(snap.registerRow.basicSalary ?? snap.calc.grossSalary),

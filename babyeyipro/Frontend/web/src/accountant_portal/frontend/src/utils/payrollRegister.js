@@ -91,9 +91,39 @@ function parseName(fullName = '') {
   return { firstName: parts[0], familyName: parts.slice(1).join(' ') };
 }
 
+export const TERMINATED_REGISTER_DASH = '-';
+
 function dashIfZero(n, hasRama) {
-  if (!hasRama && toNum(n) === 0) return '-';
+  if (!hasRama && toNum(n) === 0) return TERMINATED_REGISTER_DASH;
   return toNum(n);
+}
+
+export function isTerminatedMonthPayroll(source = {}) {
+  return source.mode === 'terminated_month'
+    || source.isTerminationPayroll === true
+    || source.allowanceSource === 'terminated_month';
+}
+
+/** Terminated-month rows skip basic/allowances/RAMA/maternity — show dash in register columns. */
+export function applyTerminatedMonthRegisterDashes(row = {}) {
+  return {
+    ...row,
+    basicSalary: TERMINATED_REGISTER_DASH,
+    totalAllowances: TERMINATED_REGISTER_DASH,
+    othersAllowance: TERMINATED_REGISTER_DASH,
+    housingAllowance: TERMINATED_REGISTER_DASH,
+    transportAllowance: TERMINATED_REGISTER_DASH,
+    maternityEmployee: TERMINATED_REGISTER_DASH,
+    maternityEmployer: TERMINATED_REGISTER_DASH,
+    maternityTotal: TERMINATED_REGISTER_DASH,
+    ramaEmployee: TERMINATED_REGISTER_DASH,
+    ramaEmployer: TERMINATED_REGISTER_DASH,
+    ramaTotal: TERMINATED_REGISTER_DASH,
+  };
+}
+
+function isSummableRegisterValue(v) {
+  return v !== TERMINATED_REGISTER_DASH && v !== '—';
 }
 
 /**
@@ -112,7 +142,7 @@ export function buildPayrollRegisterRow(staff = {}, calcInput = {}) {
   const { firstName, familyName } = parseName(staff.fullName || staff.staff || staff.name);
   const hasRama = toNum(calc.ramaEmployee) > 0 || toNum(calc.ramaEmployer) > 0;
 
-  return {
+  const row = {
     rssbNumber: staff.rssbNumber || staff.rssb || '',
     nationalId: staff.nationalId || staff.idNumber || staff.staffCode || '',
     firstName: staff.firstName || firstName,
@@ -136,12 +166,13 @@ export function buildPayrollRegisterRow(staff = {}, calcInput = {}) {
     totalCsr14: calc.totalCsr14,
     ramaEmployee: dashIfZero(calc.ramaEmployee, hasRama),
     ramaEmployer: dashIfZero(calc.ramaEmployer, hasRama),
-    ramaTotal: hasRama ? calc.ramaTotal : '-',
+    ramaTotal: hasRama ? calc.ramaTotal : TERMINATED_REGISTER_DASH,
     netPay: calc.netPay,
     netPayDuplicate: calc.netPay,
     mutuel: toNum(calc.cbhi),
     netPayFinal: calc.netPayAfterMutuel,
   };
+  return isTerminatedMonthPayroll(calcInput) ? applyTerminatedMonthRegisterDashes(row) : row;
 }
 
 export function registerRowToValues(row) {
@@ -190,14 +221,16 @@ export function sumPayrollRegisterRows(rows = []) {
   let ramaEmpl = 0;
   let ramaTot = 0;
   for (const row of rows) {
-    for (const key of sumKeys) totals[key] += toNum(row[key]);
-    if (row.ramaEmployee !== '-') ramaEmp += toNum(row.ramaEmployee);
-    if (row.ramaEmployer !== '-') ramaEmpl += toNum(row.ramaEmployer);
-    if (row.ramaTotal !== '-') ramaTot += toNum(row.ramaTotal);
+    for (const key of sumKeys) {
+      if (isSummableRegisterValue(row[key])) totals[key] += toNum(row[key]);
+    }
+    if (isSummableRegisterValue(row.ramaEmployee)) ramaEmp += toNum(row.ramaEmployee);
+    if (isSummableRegisterValue(row.ramaEmployer)) ramaEmpl += toNum(row.ramaEmployer);
+    if (isSummableRegisterValue(row.ramaTotal)) ramaTot += toNum(row.ramaTotal);
   }
-  totals.ramaEmployee = ramaEmp || '-';
-  totals.ramaEmployer = ramaEmpl || '-';
-  totals.ramaTotal = ramaTot || '-';
+  totals.ramaEmployee = ramaEmp || TERMINATED_REGISTER_DASH;
+  totals.ramaEmployer = ramaEmpl || TERMINATED_REGISTER_DASH;
+  totals.ramaTotal = ramaTot || TERMINATED_REGISTER_DASH;
   totals.firstName = '';
   totals.familyName = 'TOTAL';
   totals.rssbNumber = '';
@@ -262,7 +295,7 @@ export function mapApiLineToRegisterRow(line = {}) {
     familyName = parts.length > 1 ? parts.slice(1).join(' ') : '';
   }
 
-  return {
+  const row = {
     rssbNumber: line.rssbNumber || line.rssb || '',
     nationalId: line.nationalId || line.staffCode || '',
     sex: line.sex || line.gender || '',
@@ -284,12 +317,15 @@ export function mapApiLineToRegisterRow(line = {}) {
     csrOccupational2,
     csrEmployer8,
     totalCsr14,
-    ramaEmployee: hasRama ? toNum(line.ramaEmployee ?? line.rama) : '-',
-    ramaEmployer: hasRama ? toNum(line.ramaEmployer) : '-',
-    ramaTotal: hasRama ? toNum(line.ramaTotal ?? (toNum(line.ramaEmployee ?? line.rama) + toNum(line.ramaEmployer))) : '-',
+    ramaEmployee: hasRama ? toNum(line.ramaEmployee ?? line.rama) : TERMINATED_REGISTER_DASH,
+    ramaEmployer: hasRama ? toNum(line.ramaEmployer) : TERMINATED_REGISTER_DASH,
+    ramaTotal: hasRama
+      ? toNum(line.ramaTotal ?? (toNum(line.ramaEmployee ?? line.rama) + toNum(line.ramaEmployer)))
+      : TERMINATED_REGISTER_DASH,
     netPay: toNum(line.netPay ?? line.netBeforeCbhi ?? line.net),
     netPayDuplicate: toNum(line.netPay ?? line.netBeforeCbhi ?? line.net),
     mutuel: toNum(line.mutuel ?? line.cbhi),
     netPayFinal: toNum(line.netPayFinal ?? line.net),
   };
+  return isTerminatedMonthPayroll(line) ? applyTerminatedMonthRegisterDashes(row) : row;
 }

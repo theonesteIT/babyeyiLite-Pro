@@ -1,0 +1,88 @@
+.marks-hub .text-navy,
+.marks-layout-root .text-navy {
+  color: #000435 !important;
+}
+
+.marks-hub .bg-navy,
+.marks-layout-root .bg-navy {
+  background-color: #000435 !important;
+}
+
+.marks-hub .hover\:bg-navy-600:hover {
+  background-color: #0a116b !important;
+}
+
+.marks-hub .text-amber,
+.marks-layout-root .text-amber {
+  color: #ff8c00 !important;
+}
+
+.marks-hub .bg-amber {
+  background-color: #ff8c00 !important;
+}
+
+.marks-hub .bg-amber\/10 {
+  background-color: rgba(255, 140, 0, 0.1) !important;
+}
+
+.marks-hub .from-navy {
+  --tw-gradient-from: #000435;
+}
+
+.marks-hub .to-navy-700 {
+  --tw-gradient-to: #0a116b;
+}
+
+.marks-hub .bg-white.rounded-xl,
+.marks-hub .bg-white.rounded-2xl {
+  border-color: rgba(0, 4, 53, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 4, 53, 0.05);
+}
+
+.marks-hub h1.text-2xl.font-bold.text-navy {
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.marks-hub .space-y-6 > .flex.items-center.justify-between:first-child {
+  display: none;
+}
+
+.marks-layout-root {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+@media (min-width: 768px) {
+  .marks-layout-root {
+    padding: 1.25rem 1.75rem 2.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .marks-layout-root {
+    padding: 1.5rem 2rem 3rem 2.25rem;
+  }
+}
+
+.marks-kpi-icon {
+  color: #ff8c00 !important;
+  flex-shrink: 0;
+}
+
+.marks-intel-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 4, 53, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 4, 53, 0.05);
+}
+
+.marks-intel-card .intel-value {
+  color: #000435;
+}
+
+.marks-intel-card .intel-value.accent-amber { color: #ff8c00; }
+.marks-intel-card .intel-value.accent-green { color: #16a34a; }
+.marks-intel-card .intel-value.accent-red { color: #dc2626; }
+.marks-intel-card .intel-value.accent-blue { color: #2563eb; }
+.marks-intel-card .intel-value.accent-purple { color: #7c3aed; }

@@ -13,6 +13,13 @@ import {
   Wallet, ArrowRight, School, Banknote, Check,
   AlertCircle, ChevronDown, Calendar,
 } from "lucide-react";
+import PublicPayAmountCard from "../../components/public/PublicPayAmountCard";
+import PartialPayPromisePicker from "../../components/public/PartialPayPromisePicker";
+import { FEE_REMINDER_PAY_PATH, isFeeReminderEntry, parseRemainAmount } from "../../utils/publicPayDeepLink";
+import { resolvePublicPayTotals } from "../../utils/publicPayTotals";
+import { feeSelectionKey, feeCategoryLabel } from "../../utils/publicFeeSelection";
+import { loadPublicPaySuccess, clearPublicPaySuccess } from "../../utils/publicPaySuccessSnapshot";
+import { linkPublicGuestPushToStudent } from "../../utils/webPushPublicGuest";
 
 const SERVER = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const API = `${SERVER}/api`;
@@ -33,12 +40,19 @@ const FontLoader = () => (
 
 /* ── helpers ─────────────────────────────────────────────────── */
 function normFeeId(id) {
-  if (id != null && String(id).startsWith("pasreq:")) return String(id);
-  if (id != null && String(id).startsWith("paspay:")) return String(id);
-  const n = Number(id);
-  return Number.isFinite(n) ? n : id;
+  return feeSelectionKey(id);
 }
-function normReqId(id) { const n = parseInt(id, 10); return Number.isFinite(n) && n > 0 ? n : null; }
+function normReqId(id) {
+  if (id === null || id === undefined || id === "") return null;
+  const n = parseInt(id, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+/** Legacy DBs may use babyeyi id 0 — only null/undefined means missing. */
+function hasBabyeyiId(id) {
+  if (id === null || id === undefined || id === "") return false;
+  const n = Number(id);
+  return Number.isFinite(n) && n >= 0;
+}
 function comboLabel(c) {
   const cls = c.class_name || "—";
   const te = c.term != null && String(c.term).trim() !== "" ? String(c.term).trim() : "—";
@@ -52,7 +66,8 @@ const STEPS = [
   { id: 2, label: "Term & Year", short: "Period", icon: Calendar },
   { id: 3, label: "Select Fees", short: "Fees", icon: Wallet },
   { id: 4, label: "Amount", short: "Amount", icon: Banknote },
-  { id: 5, label: "Checkout", short: "Pay", icon: CreditCard },
+  { id: 5, label: "Review", short: "Review", icon: ShieldCheck },
+  { id: 6, label: "Checkout", short: "Pay", icon: CreditCard },
 ];
 
 function StepIndicator({ current }) {
@@ -182,12 +197,25 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const classkitIntent = searchParams.get("intent") === "classkit" || String(searchParams.get("service") || "").toLowerCase() === "shulekit";
+
+  useEffect(() => {
+    if (searchParams.get("paidSuccess") === "1" || searchParams.get("resumeStep")) return;
+    if (!isFeeReminderEntry(searchParams)) return;
+    const p = new URLSearchParams(searchParams);
+    p.delete("step");
+    p.delete("reminder");
+    navigate(`${FEE_REMINDER_PAY_PATH}?${p.toString()}`, { replace: true });
+  }, [searchParams, navigate]);
+
   const urlStudentLoadDone = useRef(false);
   const autoCheckoutTriggered = useRef(false);
   const resumeHandledRef = useRef(false);
+  const paidSuccessHandledRef = useRef(false);
+  const step4AmountPrefilled = useRef(false);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
 
   // Wizard state
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => (isFeeReminderEntry(new URLSearchParams(window.location.search)) ? 4 : 1));
   const [stepKey, setStepKey] = useState(0);
 
   const goStep = useCallback((n) => { setStep(n); setStepKey(k => k + 1); }, []);
@@ -212,6 +240,8 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
   // Amount
   const [amountInput, setAmountInput] = useState("");
+  const [promiseDate, setPromiseDate] = useState("");
+  const [promiseDateErr, setPromiseDateErr] = useState("");
   /** This flow only pays tuition & paid-at-school items. */
   const [payScope, setPayScope] = useState("tuition_school");
 
@@ -257,6 +287,11 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
   const studentPrefill = useMemo(() => (
     (searchParams.get("student_uid") || searchParams.get("student_code") || searchParams.get("code") || "").trim()
   ), [searchParams]);
+
+  const isReminderEntry = useMemo(() => isFeeReminderEntry(searchParams), [searchParams]);
+  const reminderBootstrapping = isReminderEntry && (
+    catalogLoading || pricingLoading || !catalog || !pricingData || !student
+  );
 
   useEffect(() => {
     if (!matchingComboIndices.length) return;
@@ -306,9 +341,67 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
     void loadStudentCatalog(c);
   }, [studentPrefill]);
 
+  useEffect(() => {
+    if (!catalog) return;
+    const y = searchParams.get("year") || searchParams.get("academic_year");
+    const t = searchParams.get("term");
+    if (y) setYearPick(String(y));
+    if (t) setTermPick(String(t));
+  }, [catalog, searchParams]);
+
+  useEffect(() => {
+    const bid = searchParams.get("babyeyi_id");
+    if (bid == null || bid === "" || !combinations.length) return;
+    const idx = combinations.findIndex((c) => String(c.babyeyi_id) === String(bid));
+    if (idx >= 0) setComboIndex(idx);
+  }, [combinations, searchParams]);
+
+  const remainDeepLinkDone = useRef(false);
+  useEffect(() => {
+    if (remainDeepLinkDone.current || !catalog || !pricingData || !student) return;
+    const remain = parseRemainAmount(searchParams);
+    const targetStep = parseInt(searchParams.get("step"), 10);
+    const paidSuccess = searchParams.get("paidSuccess") === "1";
+    const reminder = isReminderEntry;
+    if (!remain && targetStep !== 4 && !paidSuccess && !reminder) return;
+    remainDeepLinkDone.current = true;
+    if (remain && !reminder) {
+      setAmountInput(String(remain));
+      step4AmountPrefilled.current = true;
+    }
+    if (paidSuccess) {
+      const snap = loadPublicPaySuccess();
+      if (snap?.selectedFeeIds?.length) {
+        setFeeSel(new Set(snap.selectedFeeIds.map((x) => feeSelectionKey(x)).filter((x) => x != null && x !== "")));
+      }
+      setBalanceRefreshKey((k) => k + 1);
+      step4AmountPrefilled.current = false;
+      setAmountInput("");
+    }
+    if (targetStep === 4 || paidSuccess || reminder) goStep(4);
+    if (paidSuccess) {
+      setSearchParams((prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete("paidSuccess");
+        return n;
+      }, { replace: true });
+    }
+  }, [catalog, pricingData, student, searchParams, goStep, setSearchParams, isReminderEntry]);
+
+  useEffect(() => {
+    if (!balanceQuote || paidSuccessHandledRef.current) return;
+    const snap = loadPublicPaySuccess();
+    if (!snap) return;
+    const apiPaid = Number(balanceQuote.selection_paid_rwf ?? 0);
+    if (apiPaid + 0.5 >= Number(snap.amountRwf || 0)) {
+      paidSuccessHandledRef.current = true;
+      clearPublicPaySuccess();
+    }
+  }, [balanceQuote]);
+
   // Load pricing when combo changes
   useEffect(() => {
-    if (!school?.id || !selectedCombo?.babyeyi_id) { setPricingData(null); return; }
+    if (!school?.id || !hasBabyeyiId(selectedCombo?.babyeyi_id)) { setPricingData(null); return; }
     let cancelled = false;
     setPricingLoading(true); setPricingErr(""); setPricingData(null);
     setAmountInput(""); setBalanceQuote(null);
@@ -318,10 +411,10 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
         if (!j.success) throw new Error(j.message || "Could not load pricing");
         setPricingData(j.data);
         setSchoolCounterPaidByFeeId({});
-        setFeeSel(new Set(j.data.school_fees?.map(f => normFeeId(f.id)).filter(x => x !== "" && x != null) || []));
+        setFeeSel(new Set(j.data.school_fees?.map((f) => feeSelectionKey(f)).filter((x) => x != null && x !== "") || []));
         setReqSel(
           includeRequirements
-            ? new Set((j.data.requirements || []).map((r) => normReqId(r.babyeyi_requirement_id)).filter(Boolean))
+            ? new Set((j.data.requirements || []).map((r) => normReqId(r.babyeyi_requirement_id)).filter((x) => x != null))
             : new Set()
         );
         
@@ -341,7 +434,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
     if (!pricingData?.school_fees) return out;
     for (const f of pricingData.school_fees) {
       if (f.pay_source !== "requirement_paid_at_school" && f.pay_source !== "payment_paid_at_school") continue;
-      const fid = normFeeId(f.id);
+      const fid = feeSelectionKey(f);
       if (!feeSel.has(fid)) continue;
       const key = String(fid);
       const raw = schoolCounterPaidByFeeId[key] ?? "";
@@ -361,9 +454,9 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
   // Totals (school-counter lines: subtract "already paid at school" toward online remainder)
   const feeTotal = useMemo(() => {
     if (!pricingData?.school_fees) return 0;
-    return pricingData.school_fees.filter(f => feeSel.has(normFeeId(f.id))).reduce((s, f) => {
+    return pricingData.school_fees.filter((f) => feeSel.has(feeSelectionKey(f))).reduce((s, f) => {
       const owed = Math.round(Number(f.amount || 0) * 100) / 100;
-      const key = String(normFeeId(f.id));
+      const key = String(feeSelectionKey(f));
       const cred =
         f.pay_source === "requirement_paid_at_school" || f.pay_source === "payment_paid_at_school"
           ? (schoolCounterCreditsRwf[key] || 0)
@@ -380,28 +473,27 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
   const grand = Math.round((feeTotal + reqTotal) * 100) / 100;
 
   const effectiveFeeIds = useMemo(() => {
-    return Array.from(feeSel).map((x) => normFeeId(x)).filter((x) => x !== "" && x != null);
+    return Array.from(feeSel).map((x) => feeSelectionKey(x)).filter((x) => x !== "" && x != null);
   }, [feeSel]);
 
+  const selectedFeeLines = useMemo(() => {
+    if (!pricingData?.school_fees) return [];
+    return pricingData.school_fees
+      .filter((f) => feeSel.has(feeSelectionKey(f)))
+      .map((f) => ({
+        selection_key: feeSelectionKey(f),
+        id: f.id,
+        name: f.name || "Fee item",
+        amount_rwf: Math.round(Number(f.amount || 0) * 100) / 100,
+        fee_category: feeCategoryLabel(f),
+      }));
+  }, [pricingData, feeSel]);
+
   const effectiveReqIds = includeRequirements
-    ? Array.from(reqSel).map((x) => normReqId(x)).filter(Boolean)
+    ? Array.from(reqSel).map((x) => normReqId(x)).filter((x) => x != null)
     : [];
 
   const enteredAmount = parseFloat(String(amountInput).replace(/,/g, "")) || 0;
-  const amountOverSel = enteredAmount > grand + 1.5;
-  const minPayAmount = useMemo(() => {
-    if (payScope === "requirements_only") return Math.round(reqTotal * 100) / 100;
-    if (payScope === "both") return Math.round(grand * 100) / 100;
-    return Math.round(feeTotal * 100) / 100;
-  }, [payScope, feeTotal, reqTotal, grand]);
-
-  const allocationNote = useMemo(() => {
-    if (payScope !== "requirements_only") return null;
-    if (enteredAmount <= reqTotal + 1e-6) return null;
-    return "You pay this for requirement selected and others Goes to school fees";
-  }, [payScope, enteredAmount, reqTotal]);
-
-  const amountValid = enteredAmount + 1e-6 >= minPayAmount && !amountOverSel && enteredAmount <= grand + 1.5;
 
   // Student lookup
   const selectedStudentForQuote = useMemo(() => {
@@ -411,7 +503,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
   // Balance quote (matches intended payment scope on step 4+)
   useEffect(() => {
-    if (!school?.id || !selectedCombo?.babyeyi_id || !selectedStudentForQuote) { setBalanceQuote(null); setBalanceErr(""); return; }
+    if (!school?.id || !hasBabyeyiId(selectedCombo?.babyeyi_id) || !selectedStudentForQuote) { setBalanceQuote(null); setBalanceErr(""); return; }
     const feeIds = effectiveFeeIds;
     const reqIds = effectiveReqIds;
     let cancelled = false;
@@ -433,16 +525,58 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
     }).catch(e => { if (!cancelled) { setBalanceQuote(null); setBalanceErr(e.message || "Balance check failed"); } })
     .finally(() => { if (!cancelled) setBalanceLoading(false); });
     return () => { cancelled = true; };
-  }, [school?.id, selectedCombo?.babyeyi_id, selectedStudentForQuote, payScope, JSON.stringify(effectiveFeeIds), JSON.stringify(effectiveReqIds), JSON.stringify(schoolCounterCreditsRwf)]);
+  }, [school?.id, selectedCombo?.babyeyi_id, selectedStudentForQuote, payScope, JSON.stringify(effectiveFeeIds), JSON.stringify(effectiveReqIds), JSON.stringify(schoolCounterCreditsRwf), balanceRefreshKey]);
 
-  const remainingOwed = balanceQuote != null ? Number(balanceQuote.remaining_rwf ?? 0) : null;
+  const optimisticPaidRwF = useMemo(() => {
+    const snap = loadPublicPaySuccess();
+    if (!snap || !school?.id || !hasBabyeyiId(selectedCombo?.babyeyi_id)) return 0;
+    if (Number(snap.schoolId) !== Number(school.id)) return 0;
+    if (Number(snap.babyeyiId) !== Number(selectedCombo.babyeyi_id)) return 0;
+    const code = String(student?.student_code || student?.student_uid || "").trim();
+    if (code && snap.studentCode && code !== snap.studentCode) return 0;
+    return Number(snap.amountRwf || 0);
+  }, [school?.id, selectedCombo?.babyeyi_id, student?.student_code, student?.student_uid, balanceRefreshKey, balanceQuote]);
+
+  const { totalDue: selectionDueRwF, remainingBalance: remainingOwedDisplay, alreadyPaid: alreadyPaidRwF, payCap } =
+    resolvePublicPayTotals({ grand, balanceQuote, optimisticPaidRwF });
+  const remainingOwed = balanceQuote != null ? remainingOwedDisplay : null;
   const remainingFullDocument = balanceQuote != null ? Number(balanceQuote.remaining_full_document_rwf ?? balanceQuote.remaining_rwf ?? 0) : null;
-  const remainingAfterCurrentPayment = remainingOwed != null
-    ? Math.max(0, Math.round((remainingOwed - enteredAmount) * 100) / 100)
-    : null;
+  const remainingAfterCurrentPayment = Math.max(0, Math.round((remainingOwedDisplay - enteredAmount) * 100) / 100);
   const remainingFullDocumentAfterCurrentPayment = remainingFullDocument != null
     ? Math.max(0, Math.round((remainingFullDocument - enteredAmount) * 100) / 100)
     : null;
+
+  const amountOverSel = enteredAmount > payCap + 1.5;
+  const minPayAmount = 100;
+  const isPartialPayment = enteredAmount >= minPayAmount && remainingAfterCurrentPayment > 0.5;
+  const promiseDateValid = !isPartialPayment || (promiseDate && promiseDate >= new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+
+  const allocationNote = useMemo(() => {
+    if (payScope !== "requirements_only") return null;
+    if (enteredAmount <= reqTotal + 1e-6) return null;
+    return "You pay this for requirement selected and others Goes to school fees";
+  }, [payScope, enteredAmount, reqTotal]);
+
+  const amountValid = enteredAmount + 1e-6 >= minPayAmount && !amountOverSel && enteredAmount <= payCap + 1.5 && promiseDateValid;
+  const amountStepError = amountOverSel
+    ? `Cannot exceed ${payCap.toLocaleString()} RWF remaining balance.`
+    : "";
+
+  useEffect(() => {
+    if (step !== 4) {
+      step4AmountPrefilled.current = false;
+      return;
+    }
+    if (step4AmountPrefilled.current || !pricingData || balanceLoading) return;
+    const urlRemain = parseRemainAmount(searchParams);
+    const fill = payCap > 0
+      ? payCap
+      : (urlRemain > 0 ? urlRemain : grand);
+    if (fill > 0) {
+      setAmountInput(String(fill));
+      step4AmountPrefilled.current = true;
+    }
+  }, [step, pricingData, payCap, grand, balanceLoading, searchParams]);
 
   const classMismatch = useMemo(() => {
     if (!student?.class_name || !pricingData?.babyeyi?.class_name) return false;
@@ -451,7 +585,16 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
     return a && b && a !== b;
   }, [student, pricingData]);
 
-  const toggleFee = (id) => { const fid = normFeeId(id); setFeeSel(prev => { const n = new Set(prev); n.has(fid) ? n.delete(fid) : n.add(fid); return n; }); };
+  const toggleFee = (fee) => {
+    const fid = feeSelectionKey(fee);
+    if (fid == null || fid === "") return;
+    setFeeSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(fid)) n.delete(fid);
+      else n.add(fid);
+      return n;
+    });
+  };
   const toggleReq = (id) => {
     const rid = normReqId(id);
     if (!rid) return;
@@ -463,12 +606,17 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
     });
   };
 
-  const continueToPayment = () => {
+  const continueToPayment = async () => {
     setPayErr("");
-    if (!school || !selectedCombo?.babyeyi_id || !pricingData) { setPayErr("Load term, year, and fees first."); return; }
+    setPromiseDateErr("");
+    if (!school || !hasBabyeyiId(selectedCombo?.babyeyi_id) || !pricingData) { setPayErr("Load term, year, and fees first."); return; }
+    if (isPartialPayment && !promiseDate) {
+      setPromiseDateErr("Choose when you will pay the remaining balance.");
+      return;
+    }
     if (!amountValid) {
-      if (enteredAmount + 1e-6 < minPayAmount) {
-        setPayErr("The amount entered is less than the total for the selected requirements. Please pay the full required amount.");
+      if (amountStepError) {
+        setPayErr(amountStepError);
       } else {
         setPayErr(`Enter at least ${minPayAmount.toLocaleString()} RWF.`);
       }
@@ -478,6 +626,36 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
     if (!student) { setPayErr("Student could not be confirmed. Go back to step 1."); return; }
     if (balanceLoading) { setPayErr("Please wait — confirming balance."); return; }
     const selectedStudent = { student_id: student.id, student_uid: student.student_uid || null, student_code: student.student_code || null, sdm_code: student.sdm_code || null, student_name: `${student.first_name || ""} ${student.last_name || ""}`.trim(), first_name: student.first_name || null, last_name: student.last_name || null, class_name: student.class_name || null, academic_year: student.academic_year || null, school_name: school.school_name || null };
+    let paymentCommitmentId = null;
+    if (isPartialPayment && promiseDate) {
+      const stCode = student.student_code || student.student_uid || student.sdm_code;
+      await linkPublicGuestPushToStudent(stCode);
+      try {
+        const cRes = await fetch(`${API}/public/babyeyi-pay/payment-commitment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            school_id: school.id,
+            babyeyi_id: selectedCombo.babyeyi_id,
+            student_id: student.id,
+            student_code: student.student_code || student.student_uid,
+            student_name: selectedStudent.student_name,
+            class_name: student.class_name || selectedCombo?.class_name,
+            academic_year: selectedCombo?.academic_year || yearPick,
+            term: selectedCombo?.term || termPick,
+            pay_path: "/remainder-student-pay-fees",
+            total_due_rwf: selectionDueRwF,
+            amount_pay_now_rwf: enteredAmount,
+            remaining_rwf: remainingAfterCurrentPayment,
+            promise_date: promiseDate,
+            selected_fee_ids: effectiveFeeIds,
+            selected_requirement_ids: effectiveReqIds,
+          }),
+        });
+        const cJson = await cRes.json().catch(() => ({}));
+        if (cRes.ok && cJson.success) paymentCommitmentId = cJson.data?.commitment_id;
+      } catch { /* non-blocking */ }
+    }
     const fullDraft = {
       schoolId: school.id,
       babyeyiId: selectedCombo.babyeyi_id,
@@ -485,6 +663,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
       docLabel: comboLabel(selectedCombo),
       grandTotal: enteredAmount,
       selectedFeeIds: effectiveFeeIds,
+      selectedFeeLines,
       selectedReqIds: effectiveReqIds,
       payScope,
       schoolCounterCreditsRwf,
@@ -494,19 +673,23 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
       fromPublicFinder: true,
       publicPayNoLogin: true,
       fromPublicSchoolPay: true,
+      promiseDate: isPartialPayment ? promiseDate : null,
+      paymentCommitmentId,
+      totalDueRwF: selectionDueRwF,
+      remainingAfterPayRwF: remainingAfterCurrentPayment,
     };
     try { sessionStorage.setItem("babyeyi_pay_draft", JSON.stringify(fullDraft)); } catch (_) {}
     navigate("/payments", { state: fullDraft });
   };
 
   useEffect(() => {
-    if (step !== 5) autoCheckoutTriggered.current = false;
+    if (step !== 6) autoCheckoutTriggered.current = false;
   }, [step]);
 
   // Restore checkout step from /payments “Back to school checkout” (session draft).
   useEffect(() => {
     if (resumeHandledRef.current) return;
-    if (searchParams.get("resumeStep") !== "5") return;
+    if (searchParams.get("resumeStep") !== "6") return;
     let d = null;
     try {
       d = JSON.parse(sessionStorage.getItem("babyeyi_pay_draft") || "null");
@@ -525,24 +708,25 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
   useEffect(() => {
     if (resumeHandledRef.current) return;
-    if (searchParams.get("resumeStep") !== "5") return;
+    if (searchParams.get("resumeStep") !== "6") return;
     let d = null;
     try {
       d = JSON.parse(sessionStorage.getItem("babyeyi_pay_draft") || "null");
     } catch {
       return;
     }
-    if (!d?.fromPublicSchoolPay || !pricingData || !selectedCombo) return;
+    if (!d?.fromPublicSchoolPay || d.fromCustomShuleKit || !pricingData || !selectedCombo) return;
     if (Number(d.babyeyiId) !== Number(selectedCombo.babyeyi_id)) return;
     if (Number(d.schoolId) !== Number(school?.id)) return;
-    setFeeSel(new Set((d.selectedFeeIds || []).map(normFeeId).filter((x) => x != null && x !== "")));
+    setFeeSel(new Set((d.selectedFeeIds || []).map((x) => feeSelectionKey(x)).filter((x) => x != null && x !== "")));
     setPayScope("tuition_school");
     setAmountInput(String(d.grandTotal ?? ""));
+    if (d.promiseDate) setPromiseDate(String(d.promiseDate));
     if (d.schoolCounterCreditsRwf && typeof d.schoolCounterCreditsRwf === "object") {
       setSchoolCounterPaidByFeeId({ ...d.schoolCounterCreditsRwf });
     }
     autoCheckoutTriggered.current = true;
-    setStep(5);
+    setStep(6);
     resumeHandledRef.current = true;
     setSearchParams(
       (prev) => {
@@ -556,10 +740,10 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
   // Auto-open payment page once the checkout form is fully valid.
   useEffect(() => {
-    if (step !== 5 || autoCheckoutTriggered.current) return;
+    if (step !== 6 || autoCheckoutTriggered.current) return;
     const ready =
       !!school &&
-      !!selectedCombo?.babyeyi_id &&
+      hasBabyeyiId(selectedCombo?.babyeyi_id) &&
       !!pricingData &&
       amountValid &&
       !!student &&
@@ -734,8 +918,10 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 )}
 
                 {yearPick && termPick && matchingComboIndices.length === 0 && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-[12px] text-red-600 font-semibold">
-                    No Babyeyi for this class with the selected term and year. Try another combination.
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] text-amber-900 font-semibold leading-relaxed">
+                    {t("publicPay.noBabyeyiForPeriod", {
+                      defaultValue: "The school has not published a Babyeyi fee document for this class, term, and year yet. Please contact the school office or try another term/year.",
+                    })}
                   </div>
                 )}
 
@@ -787,6 +973,25 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                   </div>
                 )}
 
+                {!pricingLoading && !pricingErr && !hasBabyeyiId(selectedCombo?.babyeyi_id) && (
+                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-[13px] font-semibold leading-relaxed">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0"/>
+                    {t("publicPay.noBabyeyiForStudent", {
+                      defaultValue: "No Babyeyi fee document is available for this student's class and selected term. Please contact the school office.",
+                    })}
+                  </div>
+                )}
+
+                {!pricingLoading && !pricingErr && pricingData && !(pricingData.school_fees || []).length && !(includeRequirements && (pricingData.requirements || []).length) && (
+                  <div className="flex items-start gap-2.5 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-[13px] font-semibold leading-relaxed">
+                    <AlertCircle size={15} className="mt-0.5 shrink-0"/>
+                    {t("publicPay.noFeeLinesOnBabyeyi", {
+                      classTerm: selectedCombo ? comboLabel(selectedCombo) : "",
+                      defaultValue: "The school's Babyeyi for {{classTerm}} has no fee lines published yet. Please contact the school office.",
+                    })}
+                  </div>
+                )}
+
                 {!pricingLoading && !pricingErr && pricingData && (
                   <>
                     {/* School fees */}
@@ -796,16 +1001,17 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                           <Wallet size={12}/> Tuition &amp; Paid at School Items
                         </p>
                         <div className="space-y-2">
-                          {pricingData.school_fees.map(f => {
-                            const fid = normFeeId(f.id);
+                          {pricingData.school_fees.map((f, feeIdx) => {
+                            const fid = feeSelectionKey(f);
                             const selected = feeSel.has(fid);
+                            const feeCat = feeCategoryLabel(f);
                             const isPas =
                               f.pay_source === "requirement_paid_at_school" ||
                               f.pay_source === "payment_paid_at_school";
                             const owedLine = Math.round(Number(f.amount || 0) * 100) / 100;
                             return (
                               <div
-                                key={String(f.id)}
+                                key={fid ?? `${String(f.id)}-${feeIdx}`}
                                 className={`rounded-xl border transition-all ${
                                   selected ? "border-amber-300 bg-amber-50" : "border-gray-100 bg-gray-50 hover:border-gray-200"
                                 }`}
@@ -813,8 +1019,8 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                                 <div
                                   role="button"
                                   tabIndex={0}
-                                  onClick={() => toggleFee(f.id)}
-                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFee(f.id); } }}
+                                  onClick={() => toggleFee(f)}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFee(f); } }}
                                   className="flex items-center gap-3 p-3.5 cursor-pointer"
                                 >
                                   <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border-2 transition-all ${
@@ -825,6 +1031,7 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="font-semibold text-[#000435] text-[13px]">{f.name || "Fee item"}</span>
+                                      <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-[#000435]/8 text-[#000435]/70 border border-[#000435]/10">{feeCat}</span>
                                       {isPas ? (
                                         <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200">Paid at school</span>
                                       ) : null}
@@ -917,114 +1124,127 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
 
                 <NavBtns
                   onBack={() => goStep(2)}
-                  onNext={() => { if (pricingData && grand > 0) goStep(4); }}
+                  onNext={() => {
+                    if (pricingData && (grand > 0 || feeSel.size > 0)) {
+                      const fill = payCap > 0 ? payCap : grand;
+                      if (fill > 0) setAmountInput(String(fill));
+                      goStep(4);
+                    }
+                  }}
                   nextLabel="Continue"
-                  nextDisabled={!pricingData || pricingLoading || !!pricingErr || grand === 0}
+                  nextDisabled={!pricingData || pricingLoading || !!pricingErr || (grand === 0 && feeSel.size === 0)}
                 />
               </div>
             )}
 
-            {/* ── STEP 4: Amount ───────────────────────────────── */}
-            {step === 4 && pricingData && (
+            {/* ── STEP 4: Amount (fee reminder deep link lands here) ─ */}
+            {step === 4 && reminderBootstrapping && (
+              <div key={stepKey} className="step-in">
+                <div className="flex flex-col items-center justify-center py-14 gap-3">
+                  <Loader2 size={28} className="text-amber-500 spin-anim" />
+                  <p className="text-[14px] font-black text-[#000435]">
+                    {t("publicPay.loadingReminder", { defaultValue: "Loading your fee reminder…" })}
+                  </p>
+                  <p className="text-[12px] text-gray-400 font-semibold text-center max-w-[280px]">
+                    {t("publicPay.loadingReminderSub", { defaultValue: "Fetching student, school, and balance details." })}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && !reminderBootstrapping && catalogErr && isReminderEntry && (
+              <div key={stepKey} className="step-in">
+                <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-200 bg-red-50 text-red-600 text-[13px] font-semibold">
+                  <AlertCircle size={15} className="mt-0.5 shrink-0" />{catalogErr}
+                </div>
+                <NavBtns onBack={() => goStep(1)} nextLabel={t("publicPay.tryAgain", { defaultValue: "Try Again" })} onNext={() => loadStudentCatalog(studentPrefill)} />
+              </div>
+            )}
+
+            {step === 4 && !reminderBootstrapping && pricingData && (
               <div key={stepKey} className="step-in">
                 <div className="mb-5">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">Payment amount</h2>
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">
+                    {isReminderEntry
+                      ? t("publicPay.feeReminderTitle", { defaultValue: "Fee Reminder — Continue Paying" })
+                      : t("publicPay.paymentAmount", { defaultValue: "Payment amount" })}
+                  </h2>
+                  <p className="text-gray-400 text-[13px]">
+                    {isReminderEntry
+                      ? t("publicPay.feeReminderSub", { defaultValue: "Your student details and balance are below. Confirm the amount and continue to payment." })
+                      : t("publicPay.paymentAmountSub", { defaultValue: "Pay any amount you have — your remaining balance updates automatically." })}
+                  </p>
                 </div>
 
-                <div className="grid gap-2.5 mb-5">
-                  {feeTotal > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPayScope("tuition_school");
-                        setAmountInput(String(Math.round(feeTotal * 100) / 100));
-                      }}
-                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "tuition_school" ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Tuition + Paid at school</p>
-                      <p className="text-[15px] font-black text-amber-500 font-mono mt-0.5">{Math.round(feeTotal * 100) / 100} RWF</p>
-                    </button>
-                  )}
-                  {includeRequirements && reqTotal > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPayScope("requirements_only");
-                        setAmountInput(String(Math.round(reqTotal * 100) / 100));
-                      }}
-                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "requirements_only" ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Requirements only</p>
-                      <p className="text-[15px] font-black text-amber-500 font-mono mt-0.5">{Math.round(reqTotal * 100) / 100} RWF</p>
-                    </button>
-                  )}
-                  {includeRequirements && grand > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPayScope("both");
-                        setAmountInput(String(Math.round(grand * 100) / 100));
-                      }}
-                      className={`text-left rounded-xl border px-4 py-3 transition-all ${
-                        payScope === "both" ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      <p className="text-[11px] font-black uppercase tracking-[.08em] text-gray-400">Tuition + Paid at school + Requirements</p>
-                      <p className="text-[15px] font-black text-amber-500 font-mono mt-0.5">{Math.round(grand * 100) / 100} RWF</p>
-                    </button>
-                  )}
-                </div>
+                <PublicPayAmountCard
+                  student={student}
+                  school={school}
+                  selectedCombo={selectedCombo}
+                  comboLabel={comboLabel}
+                  totalDue={selectionDueRwF}
+                  alreadyPaid={alreadyPaidRwF}
+                  remainingBalance={remainingOwedDisplay}
+                  enteredAmount={enteredAmount}
+                  amountInput={amountInput}
+                  setAmountInput={(v) => { setAmountInput(v); setPromiseDateErr(""); }}
+                  amountValid={amountValid}
+                  amountError={amountStepError}
+                  balanceLoading={balanceLoading}
+                  payCap={payCap}
+                  onPayFullRemaining={() => setAmountInput(String(payCap > 0 ? payCap : grand))}
+                  cardTitle={isReminderEntry ? t("publicPay.feeReminderCard", { defaultValue: "School Fees Reminder" }) : undefined}
+                  showPushOptIn={!isReminderEntry}
+                />
 
-                <Field label="Amount (RWF)" required error={amountOverSel ? `Cannot exceed ${grand.toLocaleString()} RWF (selected items total).` : enteredAmount > 0 && enteredAmount + 1e-6 < minPayAmount ? `Enter at least ${minPayAmount.toLocaleString()} RWF for selected option.` : ""}>
-                  <div className={`flex items-center gap-2.5 rounded-xl border transition-all h-14 px-4 ${
-                    amountOverSel ? "border-red-300 bg-red-50"
-                    : amountValid && enteredAmount > 0 ? "border-emerald-300 bg-emerald-50"
-                    : "border-gray-200 bg-white"
-                  }`}>
-                    <span className="text-gray-400 font-bold text-[12px] shrink-0">RWF</span>
-                    <input
-                      type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)}
-                      placeholder="0" min="0"
-                      className="flex-1 bg-transparent text-[#000435] text-[20px] font-black font-mono placeholder:text-gray-300 outline-none"
-                    />
-                    {amountValid && enteredAmount > 0 && <Check size={18} className="text-emerald-500 shrink-0" strokeWidth={2.5}/>}
-                  </div>
-                </Field>
+                {!isReminderEntry ? (
+                  <PartialPayPromisePicker
+                    remainingAfterPay={remainingAfterCurrentPayment}
+                    promiseDate={promiseDate}
+                    setPromiseDate={(v) => { setPromiseDate(v); setPromiseDateErr(""); }}
+                    error={promiseDateErr}
+                  />
+                ) : null}
 
-                {allocationNote && enteredAmount >= 100 && (
+                {allocationNote && enteredAmount >= minPayAmount ? (
                   <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-[12px] text-amber-800 font-semibold leading-snug">
                     {allocationNote}
                   </div>
-                )}
+                ) : null}
 
-                {enteredAmount >= 100 && (
-                  <div className="mt-4 grid grid-cols-1 gap-3 fade-in">
-                    <SummaryCard label="You pay now" value={`${enteredAmount.toLocaleString()} RWF`} highlight />
+                {balanceErr ? (
+                  <div className="mt-3 text-[12px] text-red-500 font-semibold">{balanceErr}</div>
+                ) : null}
+
+                {payErr ? (
+                  <div className="mt-3 flex items-start gap-2.5 p-3 rounded-xl border border-red-200 bg-red-50 text-red-600 text-[12px] font-semibold">
+                    <AlertCircle size={14} className="mt-0.5 shrink-0" />{payErr}
                   </div>
-                )}
+                ) : null}
 
                 <NavBtns
-                  onBack={() => goStep(3)}
-                  onNext={() => { if (amountValid) goStep(5); }}
-                  nextLabel="Review & Pay"
-                  nextDisabled={!amountValid}
+                  onBack={isReminderEntry ? undefined : () => goStep(3)}
+                  onNext={() => {
+                    if (!amountValid) return;
+                    if (isReminderEntry) void continueToPayment();
+                    else goStep(5);
+                  }}
+                  nextLabel={isReminderEntry
+                    ? t("publicPay.continueToPayment", { defaultValue: "Continue to Payment" })
+                    : t("publicPay.reviewStep", { defaultValue: "Review" })}
+                  nextDisabled={!amountValid || balanceLoading}
+                  nextLoading={isReminderEntry && balanceLoading}
                 />
               </div>
             )}
 
-            {/* ── STEP 5: Payer & Checkout ──────────────────────── */}
+            {/* ── STEP 5: Review ───────────────────────────────── */}
             {step === 5 && pricingData && amountValid && student && !classMismatch && (
               <div key={stepKey} className="step-in">
                 <div className="mb-6">
-                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">{t("publicPay.confirmAndContinue", { defaultValue: "Confirm and continue" })}</h2>
-                  <p className="text-gray-400 text-[13px]">Review this payment and continue to choose your payment method.</p>
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">{t("publicPay.reviewPayment", { defaultValue: "Review your payment" })}</h2>
+                  <p className="text-gray-400 text-[13px]">{t("publicPay.reviewPaymentSub", { defaultValue: "Check the details below before you continue to checkout." })}</p>
                 </div>
 
-                {/* Payment summary */}
                 <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[11px] font-black uppercase tracking-[.1em] text-amber-600">{t("publicPay.paymentSummary", { defaultValue: "Payment Summary" })}</p>
@@ -1061,7 +1281,27 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                         </span>
                       </div>
                     )}
+                    {isPartialPayment && promiseDate && (
+                      <div className="flex items-center justify-between pt-2 border-t border-amber-200">
+                        <span className="text-gray-400 font-semibold">Promise to pay remainder by</span>
+                        <span className="text-[#000435] font-bold">{promiseDate}</span>
+                      </div>
+                    )}
                   </div>
+                  {selectedFeeLines.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-amber-200 space-y-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-[.1em] text-amber-600 mb-1">Selected fee items</p>
+                      {selectedFeeLines.map((line) => (
+                        <div key={line.selection_key} className="flex items-center justify-between text-[12px] gap-2">
+                          <div className="min-w-0">
+                            <span className="text-[#000435] font-semibold">{line.name}</span>
+                            <span className="text-[10px] text-gray-400 ml-1.5">({line.fee_category})</span>
+                          </div>
+                          <span className="text-[#000435] font-bold font-mono shrink-0">{line.amount_rwf.toLocaleString()} RWF</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {!classMismatch && (balanceLoading || balanceErr || balanceQuote) && (
@@ -1091,6 +1331,32 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                   </div>
                 )}
 
+                <NavBtns
+                  onBack={() => goStep(4)}
+                  onNext={() => goStep(6)}
+                  nextLabel={t("publicPay.continueToPayment", { defaultValue: "Continue to Payment" })}
+                  nextDisabled={balanceLoading}
+                />
+              </div>
+            )}
+
+            {/* ── STEP 6: Checkout ─────────────────────────────── */}
+            {step === 6 && pricingData && amountValid && student && !classMismatch && (
+              <div key={stepKey} className="step-in">
+                <div className="mb-6">
+                  <h2 className="font-black text-[#000435] text-[18px] sm:text-[20px] mb-1.5">{t("publicPay.confirmAndContinue", { defaultValue: "Confirm and continue" })}</h2>
+                  <p className="text-gray-400 text-[13px]">{t("publicPay.checkoutSub", { defaultValue: "Choose your payment method on the next screen." })}</p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-gray-100 bg-white mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-[.1em] text-gray-400 mb-1">Paying now</p>
+                    <p className="text-[#000435] font-bold text-[14px]">{student.first_name} {student.last_name}</p>
+                    <p className="text-[12px] text-gray-400">{comboLabel(selectedCombo)}</p>
+                  </div>
+                  <p className="text-amber-500 font-black text-[22px] font-mono">{enteredAmount.toLocaleString()} RWF</p>
+                </div>
+
                 {payErr && (
                   <div className="flex items-start gap-2.5 p-4 rounded-xl border border-red-200 bg-red-50 text-red-600 text-[13px] font-semibold mb-4 fade-in">
                     <AlertCircle size={15} className="mt-0.5 shrink-0"/>{payErr}
@@ -1113,8 +1379,8 @@ export default function PublicPayBySchool({ includeRequirements = false }) {
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-gray-100">
-                  <button type="button" onClick={() => goStep(4)} className="text-[12px] text-gray-400 hover:text-[#000435] font-bold transition-colors flex items-center gap-1.5">
-                    <ArrowLeft size={13}/> {t("publicPay.backToAmount", { defaultValue: "Back to amount" })}
+                  <button type="button" onClick={() => goStep(5)} className="text-[12px] text-gray-400 hover:text-[#000435] font-bold transition-colors flex items-center gap-1.5">
+                    <ArrowLeft size={13}/> {t("publicPay.backToReview", { defaultValue: "Back to review" })}
                   </button>
                 </div>
               </div>

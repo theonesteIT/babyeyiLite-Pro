@@ -320,7 +320,7 @@ const Sidebar = ({ onClose }) => {
       </nav>
 
       <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
-        <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
+        {/* <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-gold/15 ring-1 ring-re-gold/25">
               <Headphones className="text-re-gold" size={20} strokeWidth={1.75} aria-hidden />
@@ -345,7 +345,7 @@ const Sidebar = ({ onClose }) => {
               Open chat
             </button>
           </div>
-        </div>
+        </div> */}
 
         <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 p-3 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10">

@@ -8,18 +8,11 @@ import {
   Wallet,
   MessageSquare,
   ClipboardList,
-  Eye,
-  PenLine,
   User,
-  Wifi,
-  WifiOff,
-  RefreshCw,
   ChevronDown,
-  School,
   Radio,
   UserCheck,
   GraduationCap,
-  LineChart,
   IdCard,
   DollarSign,
   Sparkles,
@@ -32,37 +25,19 @@ import {
   FileBarChart,
   ShieldCheck,
   FileText,
-  Headphones,
   ShoppingCart,
   ShoppingBag,
   ArrowUpCircle,
+  QrCode,
+  Activity,
+  LogOut,
 } from 'lucide-react';
 import { PORTAL } from '../config/portal';
 import { h } from '../utils/href';
 import useChatUnread from '../../shared/hooks/useChatUnread';
+import StudentMarksReportsSidebarNav from './StudentMarksReportsSidebarNav';
+import { resolveUserPhotoUrl } from '../../shared/utils/userPhotoUrl';
 const babyeyiIcon = `${import.meta.env.BASE_URL || '/'}babyeyi-icon.png`;
-
-const statusConfig = {
-  online: { label: 'Online', dot: 'bg-green-400', text: 'text-green-400', Icon: Wifi },
-  offline: { label: 'Offline', dot: 'bg-red-400', text: 'text-red-400', Icon: WifiOff },
-  syncing: { label: 'Syncing', dot: 'bg-amber-400', text: 'text-amber-400', Icon: RefreshCw },
-};
-
-const AppStatusBadge = ({ status = 'online' }) => {
-  const s = statusConfig[status];
-  return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 ring-1 ring-white/10">
-      <span className="relative flex h-1.5 w-1.5">
-        {status !== 'offline' && (
-          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${s.dot} opacity-60`} />
-        )}
-        <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${s.dot}`} />
-      </span>
-      <s.Icon size={10} className={`${s.text} ${status === 'syncing' ? 'animate-spin' : ''}`} />
-      <span className="text-[9px] font-medium text-white/70">{s.label}</span>
-    </div>
-  );
-};
 
 const NavItem = ({ icon, name, path, exact, onClose, badgeCount = 0 }) => (
   <NavLink
@@ -164,9 +139,9 @@ const SectionLabel = ({ label }) => (
 );
 
 const Sidebar = ({ onClose }) => {
-  const navigate = useNavigate();
-  const { teacher, canAccessSchoolConsole, proAccessEffective } = useAuth();
+  const { teacher, logout } = useAuth();
   const unreadCount = useChatUnread();
+  const avatarPhoto = teacher?.photo ? resolveUserPhotoUrl(teacher.photo) : null;
 
   return (
     <div
@@ -206,10 +181,20 @@ const Sidebar = ({ onClose }) => {
           subItems={[
             { name: 'Staff Management', path: '/timetable?tab=teachers', icon: UserCog },
             { name: 'Courses & Subjects', path: '/timetable?tab=courses', icon: BookMarked },
+            { name: 'Teacher Assignments', path: '/teacher-assignments', icon: ClipboardCheck },
             { name: 'Time Settings', path: '/timetable?tab=schedule', icon: Clock },
-            { name: 'Assignments', path: '/timetable?tab=assignments', icon: ClipboardCheck },
             { name: 'Timetable Generator', path: '/timetable?tab=generator', icon: Sparkles },
             { name: 'View Timetable', path: '/timetable?tab=timetable', icon: CalendarClock },
+          ]}
+        />
+        <ExpandableNavItem
+          icon={Radio}
+          name="Live  Center"
+          onClose={onClose}
+          subItems={[
+            { name: 'Timetable Live Center', path: '/operations-center', icon: Activity },
+            { name: 'Class QR Codes', path: '/operations-center/class-qr-codes', icon: QrCode },
+            { name: 'Teacher Period Attendance', path: '/teacher-period-attendance', icon: Clock },
           ]}
         />
         <ExpandableNavItem
@@ -229,19 +214,9 @@ const Sidebar = ({ onClose }) => {
           onClose={onClose}
           subItems={[
             { name: 'General Attendance', path: '/attendance', icon: ClipboardCheck },
-            { name: 'Teacher Period Attendance', path: '/teacher-period-attendance', icon: Clock },
           ]}
         />
-        <ExpandableNavItem
-          icon={ClipboardList}
-          name="Marks"
-          onClose={onClose}
-          subItems={[
-            { name: 'View marks', path: '/marks/view', icon: Eye },
-            { name: 'Record marks', path: '/marks/record', icon: PenLine },
-            ...(proAccessEffective ? [{ name: 'Academic progress', path: '/progress', icon: LineChart }] : []),
-          ]}
-        />
+        <StudentMarksReportsSidebarNav onClose={onClose} />
         <ExpandableNavItem
           icon={FileBarChart}
           name="Teachers reports"
@@ -276,36 +251,11 @@ const Sidebar = ({ onClose }) => {
         <NavItem icon={MessageSquare} name="Chat Center" path="/chat" onClose={onClose} badgeCount={unreadCount} />
       </nav>
 
-      <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-3">
-        <div className="rounded-2xl bg-[#060d1f]/90 ring-1 ring-white/10 p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-re-gold/15 ring-1 ring-re-gold/25">
-              <Headphones className="text-re-gold" size={20} strokeWidth={1.75} aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white">Help &amp; support</p>
-              <p className="text-[12px] text-white/55 mt-1 leading-snug">Reach academics ops from chat or your school admin.</p>
-            </div>
-          </div>
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <AppStatusBadge status="online" />
-            <button
-              type="button"
-              onClick={() => {
-                navigate(h('/chat'));
-                onClose?.();
-              }}
-              className="inline-flex items-center justify-center rounded-xl bg-re-gold px-4 py-2.5 text-[13px] font-medium text-[#0b1530] border border-black/10 shadow-sm hover:bg-re-gold-light active:scale-[0.98] transition-all"
-            >
-              Open chat
-            </button>
-          </div>
-        </div>
-
+      <div className="p-4 pt-2 shrink-0 border-t border-white/[0.06] space-y-2">
         <div className="rounded-2xl bg-white/[0.06] ring-1 ring-white/10 p-3 flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center shrink-0 ring-1 ring-white/10">
-            {teacher?.photo ? (
-              <img src={teacher.photo} alt="" className="w-full h-full object-cover" />
+            {avatarPhoto ? (
+              <img src={avatarPhoto} alt="" className="w-full h-full object-cover" />
             ) : (
               <User size={16} className="text-white/70" aria-hidden />
             )}
@@ -315,6 +265,14 @@ const Sidebar = ({ onClose }) => {
             <p className="text-[10px] text-white/45 truncate">{teacher?.school?.name ? `${teacher.school.name}` : PORTAL.profileFallback}</p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-[12px] font-medium text-red-300 hover:text-red-200 hover:bg-red-500/10 ring-1 ring-white/10 transition-all"
+        >
+          <LogOut size={15} strokeWidth={1.75} />
+          Sign out
+        </button>
       </div>
     </div>
   );

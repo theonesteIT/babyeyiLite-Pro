@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { processStudentPortraitFile, revokePortraitPreview } from "../../manager/utils/studentPhotoProcess";
 import {
   Search,
   Upload,
@@ -165,6 +166,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
 
   // Step 2
   const [photoTab, setPhotoTab] = useState("upload");
+  const [photoProcessing, setPhotoProcessing] = useState(false);
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState(null);
   const [approvedBlob, setApprovedBlob] = useState(null);
@@ -339,15 +341,27 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     ctx.drawImage(video, 0, 0, w, h);
     ctx.filter = "none";
     canvas.toBlob(
-      (blob) => {
+      async (blob) => {
         if (!blob) return;
-        setApprovedBlob(blob);
-        const url = URL.createObjectURL(blob);
-        setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
-        setPhotoSaved(false);
-        setCapturedFromCamera(true);
-        setCameraOpen(false);
-        stopCamera();
+        setPhotoProcessing(true);
+        setSearchError(null);
+        try {
+          const captureFile = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
+          const { file: processed, previewUrl } = await processStudentPortraitFile(captureFile);
+          setApprovedBlob(processed);
+          setApprovedPreviewUrl((prev) => {
+            revokePortraitPreview(prev);
+            return previewUrl;
+          });
+          setPhotoSaved(false);
+          setCapturedFromCamera(true);
+          setCameraOpen(false);
+          stopCamera();
+        } catch (err) {
+          setSearchError(err?.message || "Could not process photo. Try again.");
+        } finally {
+          setPhotoProcessing(false);
+        }
       },
       "image/jpeg",
       0.97
@@ -463,18 +477,30 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     return () => { cancelled = true; };
   }, [open, step, classFilterStep3, API]);
 
-  const handleUploadSelect = useCallback((file) => {
+  const handleUploadSelect = useCallback(async (file) => {
     if (!file) return;
-    if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type || "")) return;
-    setUploadFile(file);
-    // ✅ FIX: Create blob URL from ORIGINAL file — no re-compression ever
-    const url = URL.createObjectURL(file);
-    setUploadPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
-    // approvedBlob = original File, sent as-is to server
-    setApprovedBlob(file);
-    setApprovedPreviewUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
-    setPhotoSaved(false);
-    setCapturedFromCamera(false);
+    if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type || "")) return;
+    setPhotoProcessing(true);
+    setSearchError(null);
+    try {
+      const { file: processed, previewUrl } = await processStudentPortraitFile(file);
+      setUploadFile(processed);
+      setUploadPreviewUrl((prev) => {
+        revokePortraitPreview(prev);
+        return previewUrl;
+      });
+      setApprovedBlob(processed);
+      setApprovedPreviewUrl((prev) => {
+        revokePortraitPreview(prev);
+        return previewUrl;
+      });
+      setPhotoSaved(false);
+      setCapturedFromCamera(false);
+    } catch (err) {
+      setSearchError(err?.message || "Could not process photo. Try another image.");
+    } finally {
+      setPhotoProcessing(false);
+    }
   }, []);
 
   const savePhotoToProfile = useCallback(async ({ goToStep3 }) => {
@@ -578,7 +604,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     <div className="rounded-2xl border border-slate-200 bg-white p-3">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Preview</p>
-        <p className="text-[10px] text-emerald-600 font-semibold">✓ Original quality — no compression on save</p>
+        <p className="text-[10px] text-emerald-600 font-semibold">✓ Optimized portrait — sharp on cards &amp; reports</p>
       </div>
       {/* ✅ FIX: Full-width large preview, object-contain, high-quality rendering */}
       <div className="relative group">
@@ -620,7 +646,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
     <div className="rounded-2xl border border-slate-200 bg-white p-3">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Captured photo</p>
-        <p className="text-[10px] text-slate-400">JPEG 97% quality · {capturedFromCamera && "from camera"}</p>
+        <p className="text-[10px] text-slate-400">960px portrait · {capturedFromCamera ? "from camera" : "ready to save"}</p>
       </div>
       {/* ✅ FIX: Full-width large preview for captured photo */}
       <div className="relative group mb-3">
@@ -989,7 +1015,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                       <div className="flex items-start gap-3">
                         <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
                           {studentPhotoUrl
-                            ? <img src={studentPhotoUrl} alt="Current" className="w-full h-full object-cover" style={{ imageRendering: "high-quality" }} />
+                            ? <img src={studentPhotoUrl} alt="Current" className="w-full h-full object-cover object-[center_18%]" style={{ imageRendering: "auto" }} />
                             : <div className="w-7 h-7 rounded-full bg-slate-200" />
                           }
                         </div>
@@ -1013,13 +1039,19 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                             <span className="text-sm font-black text-slate-800">Choose file</span>
                             <input
                               type="file"
-                              accept="image/png,image/jpeg"
+                              accept="image/png,image/jpeg,image/webp"
+                              disabled={photoProcessing}
                               className="hidden"
                               onChange={(e) => handleUploadSelect(e.target.files?.[0] || null)}
                             />
                           </label>
                         </Field>
-                        {/* ✅ FIXED: Large upload preview */}
+                        {photoProcessing && (
+                          <div className="flex items-center justify-center gap-2 py-3 text-sm font-semibold text-slate-600">
+                            <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                            Optimizing portrait…
+                          </div>
+                        )}
                         {UploadPreview}
                       </div>
                     )}
@@ -1158,7 +1190,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                         <button
                           type="button"
                           onClick={doSavePhotoAndContinue}
-                          disabled={savingPhoto}
+                          disabled={savingPhoto || photoProcessing}
                           className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation shrink-0"
                         >
                           {savingPhoto
@@ -1183,7 +1215,7 @@ export default function StudentIdentityRegistrationModal({ open, onClose, sessio
                         <button
                           type="button"
                           onClick={savePhotoStayOnStep3}
-                          disabled={savingPhoto}
+                          disabled={savingPhoto || photoProcessing}
                           className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-500 disabled:opacity-60 transition-all touch-manipulation shrink-0"
                         >
                           {savingPhoto

@@ -101,7 +101,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                         </button>
                     )
                 )}
-                <h1 className={`text-sm font-bold transition-all duration-300 ${titleThemeCls}`}>
+                <h1 className={`text-sm font-medium transition-all duration-300 ${titleThemeCls}`}>
                     {(() => {
                         if (location.pathname === '/ticha-ai') return 'Ticha AI - Assistant Engine';
                         if (location.pathname === '/shule-avance') return 'Ticha Avance';
@@ -135,7 +135,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-re-bg border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-bold outline-none shadow-inner focus:ring-2 transition-all text-re-text"
+                        className="w-full bg-re-bg border border-black/5 rounded-2xl py-2 pl-10 pr-4 text-xs font-normal outline-none shadow-inner focus:ring-2 transition-all text-re-text"
                         style={{ '--tw-ring-color': 'rgba(255,140,0,0.2)' }}
                         placeholder="Search tools, classes..."
                     />
@@ -147,7 +147,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                 <button
                     type="button"
                     onClick={logout}
-                    className={`lg:hidden inline-flex items-center gap-1 rounded-full border px-2 py-1.5 text-[11px] font-bold tracking-tight transition-all active:scale-[0.98] shrink-0 ${
+                    className={`lg:hidden inline-flex items-center gap-1 rounded-full border px-2 py-1.5 text-[11px] font-medium tracking-tight transition-all active:scale-[0.98] shrink-0 ${
                         isHome && !scrolled
                             ? 'border-white/30 bg-white/15 text-white hover:bg-white/25'
                             : 'border-slate-200/90 bg-white text-slate-700 shadow-sm hover:border-red-200 hover:bg-red-50 hover:text-red-600'
@@ -175,7 +175,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                     >
                         <div className="relative">
                             <div
-                                className="w-8 h-8 rounded-full overflow-hidden text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:scale-105 transition-transform"
+                                className="w-8 h-8 rounded-full overflow-hidden text-white flex items-center justify-center font-medium text-xs shadow-sm group-hover:scale-105 transition-transform"
                                 style={showPhoto ? undefined : { background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
                             >
                                 {showPhoto ? (
@@ -192,7 +192,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
                         </div>
                         <div className="hidden sm:block text-left max-w-[9rem]">
-                            <p className={`text-xs font-bold leading-tight truncate group-hover:text-re-orange transition-colors ${isHome && !scrolled ? 'text-white md:text-re-text' : 'text-re-text'}`}>
+                            <p className={`text-xs font-medium leading-tight truncate group-hover:text-re-orange transition-colors ${isHome && !scrolled ? 'text-white md:text-re-text' : 'text-re-text'}`}>
                                 {displayName}
                             </p>
                         </div>
@@ -208,7 +208,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                             <div className="px-4 py-3 border-b border-black/5">
                                 <div className="flex items-center gap-3">
                                     <div
-                                        className="w-9 h-9 rounded-full overflow-hidden text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0"
+                                        className="w-9 h-9 rounded-full overflow-hidden text-white flex items-center justify-center font-medium text-sm shadow-sm shrink-0"
                                         style={showPhoto ? undefined : { background: 'linear-gradient(135deg,#FF8C00,#FF5E00)' }}
                                     >
                                         {showPhoto ? (
@@ -223,7 +223,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                                         )}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-xs font-bold text-re-text truncate">
+                                        <p className="text-xs font-medium text-re-text truncate">
                                             {displayName}
                                         </p>
                                         <p className="text-[10px] text-re-text-muted/60 truncate max-w-[120px]">
@@ -237,13 +237,13 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                             <div className="py-1">
                                 <button
                                     onClick={() => { navigate('/profile'); setUserOpen(false); }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-orange-50 hover:text-re-orange transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-orange-50 hover:text-re-orange transition-all"
                                 >
                                     <User size={13} /> My Profile
                                 </button>
                                 <button
                                     onClick={() => { navigate('/settings'); setUserOpen(false); }}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-re-text-muted hover:bg-orange-50 hover:text-re-orange transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-re-text-muted hover:bg-orange-50 hover:text-re-orange transition-all"
                                 >
                                     <Settings size={13} /> Settings
                                 </button>
@@ -252,7 +252,7 @@ const TopNav = ({ title, onMenuClick, showMenuButton = true }) => {
                             <div className="border-t border-black/5 py-1">
                                 <button
                                     onClick={logout}
-                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-red-500 hover:bg-red-50 transition-all"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
                                 >
                                     <LogOut size={13} /> Sign out
                                 </button>

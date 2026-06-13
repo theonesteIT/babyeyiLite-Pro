@@ -123,7 +123,7 @@ export default function BudgetSelectorPanel({ budgetId, onBudgetIdChange, fmt })
         border: `1px solid ${COLORS.gray200}`,
       }}
     >
-      <label style={{ fontSize: 11, fontWeight: 700, color: COLORS.gray600, textTransform: "uppercase", display: "block" }}>
+      <label style={{ fontSize: 11, fontWeight: 500, color: COLORS.gray600, textTransform: "uppercase", display: "block" }}>
         Active school budget
       </label>
       <select
@@ -137,7 +137,7 @@ export default function BudgetSelectorPanel({ budgetId, onBudgetIdChange, fmt })
           borderRadius: 8,
           border: `1px solid ${COLORS.gray200}`,
           fontSize: 13,
-          fontWeight: 600,
+          fontWeight: 500,
           color: COLORS.navy,
         }}
       >

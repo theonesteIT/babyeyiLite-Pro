@@ -246,7 +246,7 @@ export default function GateAttendance() {
     // While on Settings, do not poll — the burst of GETs every few seconds hits API rate limits
     // and blocks PUT /gate/attendance/settings ("Too many requests — please slow down").
     if (page === 'settings') return undefined;
-    const intervalMs = page === 'gate' ? 2500 : 5000;
+    const intervalMs = page === 'gate' ? 8000 : 12000;
     const timer = setInterval(() => {
       loadGateData({ silent: true });
     }, intervalMs);

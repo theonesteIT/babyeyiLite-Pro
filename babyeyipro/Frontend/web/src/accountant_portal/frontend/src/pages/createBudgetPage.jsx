@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Plus,
+  PlusCircle,
   ChevronDown,
   Search,
   CircleAlert,
@@ -9,16 +9,14 @@ import {
   Eye,
   Save,
   Send,
-  Wallet,
   FileText,
   CalendarDays,
   X,
   RefreshCw,
   Pencil,
-  PlusCircle,
   TriangleAlert,
   Info,
-  ExternalLink,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -29,11 +27,22 @@ import {
   fetchSchoolBudgets,
   updateSchoolBudget,
 } from "../services/schoolBudgetApi";
-import TuitionFeesBudgetPanel from "../components/TuitionFeesBudgetPanel";
-import { asMoney } from "../utils/babyeyiFeesBudget";
+import BudgetIncomeSourcesSection from "../components/BudgetIncomeSourcesSection";
+import BudgetViewModal from "../components/BudgetViewModal";
+import { BudgetCodeBadge } from "../components/IncomeSourceIcon";
+import {
+  computeBudgetIncomeSummary,
+  computeIncomeSource,
+  incomeSourceDisplayName,
+  mapIncomeFromApi,
+  mapIncomeToPayload,
+} from "../utils/budgetIncomeConfig";
 import { useIsMobile } from "../utils/useIsMobile";
 import api from "../services/api";
-import BudgetPushBanner from "@/shared/BudgetPushBanner";
+import BudgetAlertsModal from "@/shared/BudgetAlertsModal";
+import BudgetFilterBar from "@/shared/BudgetFilterBar";
+import { fetchBudgetLines } from "../services/budgetLineApi";
+import { DEPARTMENTS } from "../utils/budgetLineConstants";
 import { setSelectedBudgetId } from "../utils/selectedSchoolBudget";
 import SchoolBudgetPageShell from "../components/SchoolBudgetPageShell";
 import {
@@ -58,6 +67,16 @@ const COLORS = {
   red: "#EF4444",
 };
 
+const EMPTY_LIST_FILTERS = { search: "", academicYear: "", term: "", status: "", department: "" };
+
+const ACCOUNTANT_STATUS_OPTIONS = [
+  { value: "draft", label: "Draft" },
+  { value: "pending_approval", label: "Pending Approval" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+  { value: "closed", label: "Closed" },
+];
+
 const FLBL = {
   display: "block",
   ...sbLabel,
@@ -74,448 +93,13 @@ const FINP = {
   background: COLORS.white,
 };
 
-function parseAmt(v) {
-  const n = Number(String(v || "").replace(/,/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
 
-function emptyIncome() {
-  return {
-    incomeSource: "",
-    customSourceName: "",
-    incomeCategory: "",
-    expectedAmount: "",
-    collectionFrequency: "",
-    description: "",
-    tuitionAutoFilled: false,
-  };
-}
-
-function isTuitionFeesSource(source) {
-  return String(source || "").trim().toLowerCase() === "tuition fees";
-}
 
 function formatDateInput(val) {
   if (!val) return "";
   const d = new Date(val);
   if (Number.isNaN(d.getTime())) return String(val).slice(0, 10);
   return d.toISOString().slice(0, 10);
-}
-
-function formatDateDisplay(val) {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return String(val).slice(0, 10);
-  return d.toLocaleDateString("en-RW", { year: "numeric", month: "short", day: "numeric" });
-}
-
-function formatDateTimeDisplay(val) {
-  if (!val) return "—";
-  const d = new Date(val);
-  if (Number.isNaN(d.getTime())) return String(val);
-  return d.toLocaleString("en-RW", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function DetailRow({ label, value, highlight }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-        padding: "10px 0",
-        borderBottom: `1px solid ${COLORS.gray100}`,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 500,
-          color: COLORS.gray400,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontSize: 14,
-          fontWeight: highlight ? 600 : 500,
-          color: highlight ? COLORS.amber : COLORS.navy,
-          wordBreak: "break-word",
-        }}
-      >
-        {value ?? "—"}
-      </span>
-    </div>
-  );
-}
-
-function BudgetViewModal({ open, onClose, budgetId, fmt, onEdit, isMobile }) {
-  const [budget, setBudget] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open || !budgetId) return undefined;
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    setBudget(null);
-    fetchSchoolBudget(budgetId)
-      .then((data) => {
-        if (!cancelled) setBudget(data);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message || "Failed to load budget details");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, budgetId]);
-
-  if (!open) return null;
-
-  const badge = budget ? statusBadgeStyle(budget.status) : null;
-  const statusKey = String(budget?.status || "").toLowerCase();
-  const canEdit = ["draft", "rejected"].includes(statusKey);
-  const incomes = budget?.incomeSources || [];
-  const usagePct = budget?.budgetUsagePct ?? (budget?.totalExpectedIncome > 0
-    ? Math.round((Number(budget?.totalAllocated || 0) / Number(budget.totalExpectedIncome)) * 100)
-    : 0);
-
-  return createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 10000,
-        background: "rgba(0,4,53,0.55)",
-        display: "flex",
-        alignItems: isMobile ? "stretch" : "center",
-        justifyContent: "center",
-        padding: isMobile ? 0 : 16,
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          background: COLORS.white,
-          borderRadius: isMobile ? 0 : 16,
-          width: isMobile ? "100%" : "min(900px, 96vw)",
-          maxHeight: isMobile ? "100dvh" : "92vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: isMobile ? "none" : "0 24px 64px rgba(0,4,53,0.25)",
-          overflow: "hidden",
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div
-          style={{
-            background: COLORS.navy,
-            padding: isMobile ? "14px 16px" : "18px 24px",
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 12,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 500, color: COLORS.amber }}>
-              Budget Details
-            </div>
-            <div style={{ fontSize: 12, color: COLORS.amberLight, marginTop: 4 }}>
-              {budget?.budgetCode || "—"}
-              {budget?.title ? ` · ${budget.title}` : ""}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              border: "none",
-              borderRadius: 8,
-              padding: 8,
-              cursor: "pointer",
-              color: COLORS.white,
-              flexShrink: 0,
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px" : "20px 24px" }}>
-          {loading && (
-            <div style={{ textAlign: "center", padding: 32, color: COLORS.gray400, fontSize: 14 }}>
-              Loading budget details…
-            </div>
-          )}
-          {error && (
-            <div
-              style={{
-                padding: "12px 14px",
-                background: "#FEE2E2",
-                borderRadius: 8,
-                display: "flex",
-                gap: 8,
-                alignItems: "center",
-                marginBottom: 14,
-              }}
-            >
-              <CircleAlert size={18} color={COLORS.red} />
-              <span style={{ fontSize: 13, color: "#991B1B" }}>{error}</span>
-            </div>
-          )}
-          {budget && !loading && (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  alignItems: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <span
-                  style={{
-                    background: badge.bg,
-                    color: badge.color,
-                    borderRadius: 20,
-                    padding: "4px 12px",
-                    fontSize: 12,
-                    fontWeight: 500,
-                  }}
-                >
-                  {budget.statusLabel || budget.status}
-                </span>
-                <span style={{ fontSize: 12, color: COLORS.gray400 }}>{budget.budgetType}</span>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                  gap: isMobile ? 0 : "0 24px",
-                  marginBottom: 20,
-                }}
-              >
-                <div>
-                  <DetailRow label="Budget Code" value={budget.budgetCode} highlight />
-                  <DetailRow label="Title" value={budget.title} />
-                  <DetailRow label="Academic Year" value={budget.academicYear} />
-                  <DetailRow label="Term" value={budget.term} />
-                  <DetailRow label="Period" value={`${formatDateDisplay(budget.startDate)} → ${formatDateDisplay(budget.endDate)}`} />
-                </div>
-                <div>
-                  <DetailRow label="Prepared By" value={budget.preparedByName} />
-                  <DetailRow label="Submitted" value={formatDateTimeDisplay(budget.submittedAt)} />
-                  <DetailRow label="Created" value={formatDateTimeDisplay(budget.createdAt)} />
-                  <DetailRow label="Last Updated" value={formatDateTimeDisplay(budget.updatedAt)} />
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
-                  gap: 10,
-                  marginBottom: 20,
-                }}
-              >
-                {[
-                  { label: "Expected Income", value: fmt(budget.totalExpectedIncome || 0), color: COLORS.amber },
-                  { label: "Allocated", value: fmt(budget.totalAllocated || 0), color: COLORS.navy },
-                  { label: "Remaining", value: fmt(budget.remainingBalance ?? (budget.totalExpectedIncome - budget.totalAllocated)), color: COLORS.green },
-                  { label: "Usage", value: `${usagePct}%`, color: usagePct > 100 ? COLORS.red : COLORS.navy },
-                ].map((kpi) => (
-                  <div
-                    key={kpi.label}
-                    style={{
-                      background: COLORS.gray50,
-                      borderRadius: 10,
-                      padding: "12px 14px",
-                      border: `1px solid ${COLORS.gray200}`,
-                    }}
-                  >
-                    <div style={{ fontSize: 10, color: COLORS.gray400, fontWeight: 500, textTransform: "uppercase" }}>
-                      {kpi.label}
-                    </div>
-                    <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 500, color: kpi.color, marginTop: 4 }}>
-                      {kpi.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {budget.description && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>
-                    Description
-                  </div>
-                  <p style={{ fontSize: 13, color: COLORS.gray600, margin: 0, lineHeight: 1.5 }}>{budget.description}</p>
-                </div>
-              )}
-
-              {budget.approvalNotes && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>Approval Notes</div>
-                  <p style={{ fontSize: 13, color: COLORS.gray600, margin: 0, lineHeight: 1.5 }}>{budget.approvalNotes}</p>
-                </div>
-              )}
-
-              <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 14, marginBottom: 10 }}>
-                Income Sources ({incomes.length})
-              </div>
-              {incomes.length === 0 ? (
-                <div style={{ fontSize: 13, color: COLORS.gray400, padding: "12px 0" }}>No income sources recorded.</div>
-              ) : isMobile ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {incomes.map((row, i) => (
-                    <div
-                      key={row.id || i}
-                      style={{
-                        border: `1px solid ${COLORS.gray200}`,
-                        borderRadius: 10,
-                        padding: "12px 14px",
-                        background: COLORS.gray50,
-                      }}
-                    >
-                      <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 13, marginBottom: 6 }}>
-                        {row.incomeSource === "Other" ? row.customSourceName || "Other" : row.incomeSource}
-                      </div>
-                      <div style={{ fontSize: 15, fontWeight: 500, color: COLORS.amber }}>{fmt(row.expectedAmount || 0)}</div>
-                      <div style={{ fontSize: 11, color: COLORS.gray400, marginTop: 6 }}>
-                        {row.collectionFrequency || "No frequency"}
-                        {row.incomeCategory ? ` · ${row.incomeCategory}` : ""}
-                      </div>
-                      {row.description && (
-                        <div style={{ fontSize: 12, color: COLORS.gray600, marginTop: 6 }}>{row.description}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ overflowX: "auto", borderRadius: 10, border: `1px solid ${COLORS.gray200}` }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: COLORS.navy }}>
-                        {["Source", "Category", "Amount", "Frequency", "Notes"].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              padding: "10px 12px",
-                              color: COLORS.white,
-                              textAlign: "left",
-                              fontWeight: 500,
-                              fontSize: 11,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {incomes.map((row, i) => (
-                        <tr key={row.id || i} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
-                          <td style={{ padding: "10px 12px", fontWeight: 500, color: COLORS.navy }}>
-                            {row.incomeSource === "Other" ? row.customSourceName || "Other" : row.incomeSource}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: COLORS.gray600 }}>{row.incomeCategory || "—"}</td>
-                          <td style={{ padding: "10px 12px", fontWeight: 500, color: COLORS.amber }}>
-                            {fmt(row.expectedAmount || 0)}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: COLORS.gray600 }}>{row.collectionFrequency || "—"}</td>
-                          <td style={{ padding: "10px 12px", color: COLORS.gray600, maxWidth: 200 }}>{row.description || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        <div
-          style={{
-            borderTop: `1px solid ${COLORS.gray200}`,
-            padding: isMobile ? "12px 16px" : "14px 24px",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-            flexWrap: "wrap",
-            flexShrink: 0,
-            background: COLORS.gray50,
-          }}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              padding: "10px 18px",
-              border: `2px solid ${COLORS.navy}`,
-              borderRadius: 8,
-              background: COLORS.white,
-              color: COLORS.navy,
-              fontWeight: 500,
-              fontSize: 13,
-              cursor: "pointer",
-              flex: isMobile ? "1 1 100%" : undefined,
-            }}
-          >
-            Close
-          </button>
-          {canEdit && budget && onEdit && (
-            <button
-              type="button"
-              onClick={() => {
-                onEdit(budget);
-                onClose();
-              }}
-              style={{
-                padding: "10px 18px",
-                border: "none",
-                borderRadius: 8,
-                background: COLORS.amber,
-                color: COLORS.navy,
-                fontWeight: 500,
-                fontSize: 13,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                flex: isMobile ? "1 1 100%" : undefined,
-              }}
-            >
-              <Pencil size={16} />
-              {statusKey === "draft" ? "Continue draft" : "Continue editing"}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
 }
 
 function staffDisplayName(staff) {
@@ -648,29 +232,35 @@ function SearchableSelect({ label, value, onChange, options = [], placeholder, r
   );
 }
 
-function BudgetSummaryPanel({ fmt, totalIncome, totalAllocated, overAllocated }) {
+function BudgetSummaryPanel({ fmt, incomeSummary, totalAllocated, overAllocated }) {
+  const totalIncome = incomeSummary?.netIncome ?? 0;
+  const grossIncome = incomeSummary?.grossIncome ?? 0;
+  const totalDeductions = incomeSummary?.totalDeductionsImpact ?? 0;
   const remaining = totalIncome - totalAllocated;
   const usagePct = totalIncome > 0 ? Math.round((totalAllocated / totalIncome) * 100) : 0;
   return (
     <div
       style={{
         position: "sticky",
-        top: 0,
+        top: 16,
         background: COLORS.navy,
-        borderRadius: 12,
+        borderRadius: 14,
         padding: 20,
         color: COLORS.white,
         alignSelf: "flex-start",
+        border: `1px solid ${COLORS.navy}`,
       }}
     >
       <div style={{ fontWeight: 500, fontSize: 14, color: COLORS.amber, marginBottom: 16 }}>
         Budget Summary
       </div>
       {[
-        { label: "Total Expected Income", value: fmt(totalIncome), color: COLORS.amber },
-        { label: "Total Allocated", value: fmt(totalAllocated), color: COLORS.white },
-        { label: "Remaining Balance", value: fmt(remaining), color: remaining >= 0 ? COLORS.green : COLORS.red },
-        { label: "Budget Usage", value: `${usagePct}%`, color: usagePct > 100 ? COLORS.red : COLORS.amberLight },
+        { label: "Total gross income", value: fmt(grossIncome), color: COLORS.amberLight },
+        { label: "Total deductions", value: fmt(totalDeductions), color: "#FCA5A5" },
+        { label: "Total net budget income", value: fmt(totalIncome), color: COLORS.amber },
+        { label: "Total allocated", value: fmt(totalAllocated), color: COLORS.white },
+        { label: "Remaining balance", value: fmt(remaining), color: remaining >= 0 ? COLORS.green : COLORS.red },
+        { label: "Budget usage", value: `${usagePct}%`, color: usagePct > 100 ? COLORS.red : COLORS.amberLight },
       ].map((row) => (
         <div
           key={row.label}
@@ -729,15 +319,8 @@ function BudgetSummaryPanel({ fmt, totalIncome, totalAllocated, overAllocated })
 function buildFormFromBudget(budget, preparedByFallback) {
   const incomes =
     budget?.incomeSources?.length > 0
-      ? budget.incomeSources.map((row) => ({
-          incomeSource: row.incomeSource || row.incomeSourceKey || "",
-          customSourceName: row.customSourceName || "",
-          incomeCategory: row.incomeCategory || "",
-          expectedAmount: row.expectedAmount != null ? String(row.expectedAmount) : "",
-          collectionFrequency: row.collectionFrequency || "",
-          description: row.description || "",
-        }))
-      : [emptyIncome()];
+      ? budget.incomeSources.map((row) => mapIncomeFromApi(row))
+      : [];
   return {
     title: budget?.title || "",
     budgetCode: budget?.budgetCode || "",
@@ -772,8 +355,10 @@ function BudgetCard({ budget, fmt, onView, onEdit, isMobile }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 500, color: COLORS.amber, fontSize: 13 }}>{budget.budgetCode}</div>
-          <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 14, marginTop: 4, wordBreak: "break-word" }}>
+          <div style={{ marginBottom: 8 }}>
+            <BudgetCodeBadge code={budget.budgetCode} compact />
+          </div>
+          <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 14, wordBreak: "break-word" }}>
             {budget.title}
           </div>
         </div>
@@ -939,10 +524,8 @@ function BudgetModal({
 
   const setField = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
 
-  const totalIncome = useMemo(
-    () => form.incomes.reduce((s, row) => s + parseAmt(row.expectedAmount), 0),
-    [form.incomes]
-  );
+  const incomeSummary = useMemo(() => computeBudgetIncomeSummary(form.incomes), [form.incomes]);
+  const totalIncome = incomeSummary.netIncome;
   const totalAllocated = 0;
   const overAllocated = totalAllocated > totalIncome && totalIncome > 0;
 
@@ -977,16 +560,21 @@ function BudgetModal({
     const draftMsg = validateDraft();
     if (draftMsg) return draftMsg;
     if (overAllocated) return "Allocated amount cannot exceed expected income";
-    const validRows = form.incomes.filter(
-      (r) => r.incomeSource.trim() || parseAmt(r.expectedAmount) > 0
-    );
-    if (!validRows.length) return "Add at least one income source with an amount";
+    const validRows = form.incomes.filter((r) => r.incomeSource?.trim() || r.customSourceName?.trim());
+    if (!validRows.length) return "Add at least one income source";
     for (const row of validRows) {
-      if (!row.incomeSource.trim()) return "Each income row needs a source";
-      if (parseAmt(row.expectedAmount) <= 0) return "Each income row needs an expected amount";
-      if (row.incomeSource.toLowerCase() === "other") {
-        if (!row.customSourceName.trim()) return "Custom source name is required for Other";
-        if (!row.incomeCategory.trim()) return "Income category is required for Other";
+      const calc = computeIncomeSource(row);
+      if (calc.grossAmount <= 0) {
+        return `${incomeSourceDisplayName(row)} requires an expected gross amount`;
+      }
+      if (calc.netAmount <= 0) {
+        return `${incomeSourceDisplayName(row)} must have a positive net expected income`;
+      }
+      if (!row.collectionFrequency?.trim()) {
+        return `${incomeSourceDisplayName(row)} requires a collection frequency`;
+      }
+      if (!row.incomeSource?.trim() && !row.customSourceName?.trim()) {
+        return "Custom source name is required";
       }
     }
     return "";
@@ -1003,18 +591,11 @@ function BudgetModal({
       startDate: form.startDate || null,
       endDate: form.endDate || null,
       description: form.description.trim(),
-      approvalNotes: form.approvalNotes.trim(),
-      preparedByName: form.preparedByName.trim() || preparedFallback,
+      approvalNotes: "",
+      preparedByName: preparedFallback,
       incomeSources: form.incomes
-        .filter((r) => r.incomeSource.trim() || parseAmt(r.expectedAmount) > 0)
-        .map((r) => ({
-          incomeSource: r.incomeSource,
-          customSourceName: r.incomeSource.toLowerCase() === "other" ? r.customSourceName.trim() : "",
-          incomeCategory: r.incomeSource.toLowerCase() === "other" ? r.incomeCategory : "",
-          expectedAmount: parseAmt(r.expectedAmount),
-          collectionFrequency: r.collectionFrequency || "",
-          description: r.description.trim(),
-        })),
+        .filter((r) => r.incomeSource?.trim() || r.customSourceName?.trim())
+        .map((r) => mapIncomeToPayload(r)),
       submit,
       totalAllocated: 0,
     }),
@@ -1054,28 +635,11 @@ function BudgetModal({
     }
   };
 
-  const updateIncome = (idx, patch) => {
-    setForm((prev) => {
-      const incomes = [...prev.incomes];
-      incomes[idx] = { ...incomes[idx], ...patch };
-      return { ...prev, incomes };
-    });
-  };
-
-  const addIncomeRow = () => setForm((prev) => ({ ...prev, incomes: [...prev.incomes, emptyIncome()] }));
-
-  const removeIncomeRow = (idx) => {
-    setForm((prev) => {
-      const incomes = prev.incomes.filter((_, i) => i !== idx);
-      return { ...prev, incomes: incomes.length ? incomes : [emptyIncome()] };
-    });
-  };
-
   if (!open) return null;
 
-  const incomeSourceList = options?.incomeSources || [];
   const frequencyList = options?.collectionFrequencies || [];
   const categoryList = options?.incomeCategories || [];
+  const incomeSourceList = options?.incomeSources || [];
   const yearList = options?.academicYears || [];
   const termList = options?.terms || [];
   const typeList = options?.budgetTypes || [];
@@ -1086,25 +650,18 @@ function BudgetModal({
         position: "fixed",
         inset: 0,
         zIndex: 9999,
-        background: "rgba(0,4,53,0.55)",
+        background: COLORS.gray50,
         display: "flex",
-        alignItems: isMobile ? "stretch" : "center",
-        justifyContent: "center",
-        padding: isMobile ? 0 : 16,
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        flexDirection: "column",
       }}
     >
       <div
         style={{
           background: COLORS.white,
-          borderRadius: isMobile ? 0 : 16,
-          width: isMobile ? "100%" : "min(1200px, 96vw)",
-          maxHeight: isMobile ? "100dvh" : "92vh",
+          width: "100%",
+          height: "100dvh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: isMobile ? "none" : "0 24px 64px rgba(0,4,53,0.25)",
           overflow: "hidden",
         }}
         onMouseDown={(e) => e.stopPropagation()}
@@ -1113,18 +670,19 @@ function BudgetModal({
         <div
           style={{
             background: COLORS.navy,
-            padding: isMobile ? "14px 16px" : "18px 24px",
+            padding: isMobile ? "12px 16px" : "14px 28px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             flexShrink: 0,
+            borderBottom: `3px solid ${COLORS.amber}`,
           }}
         >
           <div>
-            <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.amber }}>
+            <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 500, color: COLORS.amber }}>
               {isEdit ? "Edit School Budget" : "Create New School Budget"}
             </div>
-            <div style={{ fontSize: 12, color: COLORS.amberLight, marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: COLORS.amberLight, marginTop: 2 }}>
               {options?.schoolName || "School"} · {form.budgetCode || "—"}
             </div>
           </div>
@@ -1140,12 +698,13 @@ function BudgetModal({
               color: COLORS.white,
             }}
           >
-            <X size={20} />
+            <X size={22} />
           </button>
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflow: "auto", padding: isMobile ? "16px" : "20px 24px" }}>
+        <div style={{ flex: 1, overflow: "auto", background: COLORS.gray50 }}>
+          <div style={{ maxWidth: 1600, margin: "0 auto", padding: isMobile ? "16px" : "24px 28px" }}>
           {loadingOptions && (
             <div style={{ fontSize: 13, color: COLORS.gray400, marginBottom: 12 }}>Loading options…</div>
           )}
@@ -1186,7 +745,7 @@ function BudgetModal({
                   Preview mode — review details before submitting for approval.
                 </span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 280px", gap: 20 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 300px", gap: 24 }}>
                 <div>
                   <div style={{ fontWeight: 500, color: COLORS.navy, fontSize: 16, marginBottom: 12 }}>
                     {form.title || "Untitled Budget"}
@@ -1200,7 +759,6 @@ function BudgetModal({
                         ["Budget Type", form.budgetType],
                         ["Status", statusOptions.find((s) => s.value === form.status)?.label || form.status],
                         ["Period", `${form.startDate || "—"} → ${form.endDate || "—"}`],
-                        ["Prepared By", form.preparedByName],
                       ].map(([k, v]) => (
                         <tr key={k} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
                           <td style={{ padding: "8px 0", color: COLORS.gray400, width: "40%" }}>{k}</td>
@@ -1213,7 +771,7 @@ function BudgetModal({
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                     <thead>
                       <tr style={{ background: COLORS.navy }}>
-                        {["Source", "Amount", "Frequency"].map((h) => (
+                        {["Income source", "Gross amount", "Deductions", "Net amount", "Frequency"].map((h) => (
                           <th key={h} style={{ padding: "8px 12px", color: COLORS.white, textAlign: "left" }}>
                             {h}
                           </th>
@@ -1221,19 +779,17 @@ function BudgetModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {form.incomes
-                        .filter((r) => r.incomeSource || parseAmt(r.expectedAmount) > 0)
-                        .map((row, i) => (
-                          <tr key={i} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
-                            <td style={{ padding: "8px 12px", color: COLORS.navy }}>
-                              {row.incomeSource === "Other"
-                                ? row.customSourceName || "Other"
-                                : row.incomeSource}
-                            </td>
-                            <td style={{ padding: "8px 12px", fontWeight: 500 }}>{fmt(parseAmt(row.expectedAmount))}</td>
-                            <td style={{ padding: "8px 12px", color: COLORS.gray600 }}>{row.collectionFrequency || "—"}</td>
-                          </tr>
-                        ))}
+                      {incomeSummary.rows.map((row, i) => (
+                        <tr key={i} style={{ borderBottom: `1px solid ${COLORS.gray100}` }}>
+                          <td style={{ padding: "8px 12px", color: COLORS.navy, fontWeight: 500 }}>
+                            {row.name || incomeSourceDisplayName(row.source)}
+                          </td>
+                          <td style={{ padding: "8px 12px", color: COLORS.gray600 }}>{fmt(row.grossAmount)}</td>
+                          <td style={{ padding: "8px 12px", color: COLORS.red }}>{fmt(row.totalDeductions)}</td>
+                          <td style={{ padding: "8px 12px", fontWeight: 500, color: COLORS.amber }}>{fmt(row.netAmount)}</td>
+                          <td style={{ padding: "8px 12px", color: COLORS.gray600 }}>{row.source.collectionFrequency || "—"}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                   {form.description && (
@@ -1245,14 +801,14 @@ function BudgetModal({
                 </div>
                 <BudgetSummaryPanel
                   fmt={fmt}
-                  totalIncome={totalIncome}
+                  incomeSummary={incomeSummary}
                   totalAllocated={totalAllocated}
                   overAllocated={overAllocated}
                 />
               </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 280px", gap: 20, alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 300px", gap: 24, alignItems: "start" }}>
               <div>
                 {/* Section 1 */}
                 <div
@@ -1366,7 +922,7 @@ function BudgetModal({
                   </div>
                 </div>
 
-                {/* Section 2 */}
+                {/* Section 2 — Income sources */}
                 <div
                   style={{
                     background: COLORS.white,
@@ -1376,214 +932,19 @@ function BudgetModal({
                     marginBottom: 16,
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 14,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 500,
-                        color: COLORS.navy,
-                        fontSize: 14,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <Wallet size={18} color={COLORS.navy} />
-                      Expected Income Sources
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addIncomeRow}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        background: COLORS.amber,
-                        color: COLORS.navy,
-                        border: "none",
-                        borderRadius: 8,
-                        fontWeight: 500,
-                        fontSize: 12,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Plus size={14} />
-                      Add Row
-                    </button>
-                  </div>
-
-                  {form.incomes.map((row, idx) => {
-                    const isOther = row.incomeSource.toLowerCase() === "other";
-                    const isTuition = isTuitionFeesSource(row.incomeSource);
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          border: `1px solid ${COLORS.gray200}`,
-                          borderRadius: 10,
-                          padding: 14,
-                          marginBottom: 10,
-                          background: idx % 2 === 0 ? COLORS.white : COLORS.gray50,
-                          borderColor: isTuition ? COLORS.amber : COLORS.gray200,
-                          boxShadow: isTuition ? "0 0 0 1px rgba(245,158,11,0.25)" : "none",
-                        }}
-                      >
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                          <div style={{ gridColumn: "1 / -1" }}>
-                            <SearchableSelect
-                              label="Income Source"
-                              required
-                              value={row.incomeSource}
-                              onChange={(v) =>
-                                updateIncome(idx, {
-                                  incomeSource: v,
-                                  customSourceName: v.toLowerCase() === "other" ? row.customSourceName : "",
-                                  incomeCategory: v.toLowerCase() === "other" ? row.incomeCategory : "",
-                                  tuitionAutoFilled: false,
-                                })
-                              }
-                              options={incomeSourceList}
-                              placeholder="Select income source"
-                            />
-                          </div>
-                          {isTuition && (
-                            <div style={{ gridColumn: "1 / -1" }}>
-                              <TuitionFeesBudgetPanel
-                                academicYear={form.academicYear}
-                                term={form.term}
-                                budgetType={form.budgetType}
-                                expectedAmount={row.expectedAmount}
-                                disabled={previewMode || saving}
-                                onApplyAmount={(amount) =>
-                                  updateIncome(idx, {
-                                    expectedAmount: String(Math.round(asMoney(amount))),
-                                    tuitionAutoFilled: true,
-                                    collectionFrequency: row.collectionFrequency || "Per Term",
-                                  })
-                                }
-                              />
-                            </div>
-                          )}
-                          {isOther && (
-                            <>
-                              <div>
-                                <label style={FLBL}>Custom Source Name *</label>
-                                <input
-                                  value={row.customSourceName}
-                                  onChange={(e) => updateIncome(idx, { customSourceName: e.target.value })}
-                                  placeholder="Describe the income source"
-                                  style={FINP}
-                                />
-                              </div>
-                              <div>
-                                <label style={FLBL}>Income Category *</label>
-                                <select
-                                  value={row.incomeCategory}
-                                  onChange={(e) => updateIncome(idx, { incomeCategory: e.target.value })}
-                                  style={FINP}
-                                >
-                                  <option value="">Select category</option>
-                                  {categoryList.map((c) => (
-                                    <option key={c} value={c}>
-                                      {c}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </>
-                          )}
-                          <div>
-                            <label style={FLBL}>
-                              Expected Amount (RWF) *
-                              {isTuition && (
-                                <span style={{ fontWeight: 500, color: COLORS.amber, textTransform: "none", letterSpacing: 0, marginLeft: 6 }}>
-                                  — editable
-                                </span>
-                              )}
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="1000"
-                              value={row.expectedAmount}
-                              onChange={(e) =>
-                                updateIncome(idx, {
-                                  expectedAmount: e.target.value,
-                                  tuitionAutoFilled: false,
-                                })
-                              }
-                              placeholder={isTuition ? "Adjust after Babyeyi analysis" : "0"}
-                              style={{
-                                ...FINP,
-                                borderColor: isTuition && row.tuitionAutoFilled ? COLORS.green : isTuition ? COLORS.amber : COLORS.gray200,
-                                fontWeight: isTuition ? 700 : 400,
-                              }}
-                            />
-                            {isTuition && parseAmt(row.expectedAmount) > 0 && (
-                              <p style={{ fontSize: 10, color: COLORS.gray400, marginTop: 4 }}>
-                                {new Intl.NumberFormat("en-RW", { maximumFractionDigits: 0 }).format(parseAmt(row.expectedAmount))} RWF
-                                {row.tuitionAutoFilled ? " · from fee cards" : " · custom amount"}
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <label style={FLBL}>Collection Frequency</label>
-                            <select
-                              value={row.collectionFrequency}
-                              onChange={(e) => updateIncome(idx, { collectionFrequency: e.target.value })}
-                              style={FINP}
-                            >
-                              <option value="">Select frequency</option>
-                              {frequencyList.map((f) => (
-                                <option key={f} value={f}>
-                                  {f}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={FLBL}>Description</label>
-                            <textarea
-                              value={row.description}
-                              onChange={(e) => updateIncome(idx, { description: e.target.value })}
-                              placeholder="Optional notes for this income source"
-                              rows={2}
-                              style={{ ...FINP, resize: "vertical" }}
-                            />
-                          </div>
-                        </div>
-                        {form.incomes.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeIncomeRow(idx)}
-                            style={{
-                              marginTop: 10,
-                              background: "transparent",
-                              border: `1px solid ${COLORS.red}`,
-                              color: COLORS.red,
-                              borderRadius: 6,
-                              padding: "4px 10px",
-                              fontSize: 11,
-                              fontWeight: 500,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Remove Row
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <div style={{ textAlign: "right", fontWeight: 500, color: COLORS.green, fontSize: 14 }}>
-                    Total Income: {fmt(totalIncome)}
-                  </div>
+                  <BudgetIncomeSourcesSection
+                    incomes={form.incomes}
+                    onIncomesChange={(incomes) => setField("incomes", incomes)}
+                    academicYear={form.academicYear}
+                    term={form.term}
+                    budgetType={form.budgetType}
+                    frequencyList={frequencyList}
+                    categoryList={categoryList}
+                    incomeSourceOptions={incomeSourceList}
+                    disabled={previewMode || saving}
+                    isMobile={isMobile}
+                    fmt={fmt}
+                  />
                 </div>
 
                 {/* Section 4 - Notes */}
@@ -1609,7 +970,7 @@ function BudgetModal({
                     <FileText size={18} color={COLORS.navy} />
                     Notes
                   </div>
-                  <div style={{ marginBottom: 12 }}>
+                  <div>
                     <label style={FLBL}>Description</label>
                     <textarea
                       value={form.description}
@@ -1619,49 +980,32 @@ function BudgetModal({
                       style={{ ...FINP, resize: "vertical" }}
                     />
                   </div>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={FLBL}>Prepared By</label>
-                    <input
-                      value={form.preparedByName}
-                      onChange={(e) => setField("preparedByName", e.target.value)}
-                      style={{ ...FINP, background: COLORS.gray100 }}
-                      readOnly
-                    />
-                  </div>
-                  <div>
-                    <label style={FLBL}>Approval Notes</label>
-                    <textarea
-                      value={form.approvalNotes}
-                      onChange={(e) => setField("approvalNotes", e.target.value)}
-                      placeholder="Notes for approvers (optional)"
-                      rows={2}
-                      style={{ ...FINP, resize: "vertical" }}
-                    />
-                  </div>
                 </div>
               </div>
 
               {/* Section 3 - Sticky summary */}
               <BudgetSummaryPanel
                 fmt={fmt}
-                totalIncome={totalIncome}
+                incomeSummary={incomeSummary}
                 totalAllocated={totalAllocated}
                 overAllocated={overAllocated}
               />
             </div>
           )}
+          </div>
         </div>
 
         {/* Footer */}
         <div
           style={{
             borderTop: `1px solid ${COLORS.gray200}`,
-            padding: "14px 24px",
+            padding: isMobile ? "12px 16px" : "14px 28px",
             display: "flex",
             flexDirection: "column",
             gap: 10,
             flexShrink: 0,
-            background: COLORS.gray50,
+            background: COLORS.white,
+            boxShadow: "0 -4px 20px rgba(0,4,53,0.06)",
           }}
         >
           {error && (
@@ -1807,7 +1151,10 @@ export function CreateBudgetPage({ fmt }) {
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [listFilters, setListFilters] = useState(EMPTY_LIST_FILTERS);
+  const [filterOptions, setFilterOptions] = useState({ academicYears: [], terms: [] });
+  const [budgetLines, setBudgetLines] = useState([]);
+  const [alertsModalOpen, setAlertsModalOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editBudget, setEditBudget] = useState(null);
   const [viewBudgetId, setViewBudgetId] = useState(null);
@@ -1816,8 +1163,17 @@ export function CreateBudgetPage({ fmt }) {
     setLoading(true);
     setListError("");
     try {
-      const data = await fetchSchoolBudgets();
+      const [data, options, lines] = await Promise.all([
+        fetchSchoolBudgets(),
+        fetchSchoolBudgetOptions().catch(() => ({ academicYears: [], terms: [] })),
+        fetchBudgetLines().catch(() => []),
+      ]);
       setBudgets(Array.isArray(data) ? data : []);
+      setFilterOptions({
+        academicYears: options?.academicYears || [],
+        terms: options?.terms?.length ? options.terms : ["Term 1", "Term 2", "Term 3"],
+      });
+      setBudgetLines(Array.isArray(lines) ? lines : []);
     } catch (e) {
       setListError(e.message || "Failed to load budgets");
       setBudgets([]);
@@ -1861,24 +1217,47 @@ export function CreateBudgetPage({ fmt }) {
     return () => clearTimeout(t);
   }, [successMsg]);
 
+  const budgetIdsForDepartment = useMemo(() => {
+    if (!listFilters.department) return null;
+    const ids = new Set();
+    budgetLines.forEach((line) => {
+      if (line.department === listFilters.department) {
+        const bid = line.budgetId ?? line.budget_id;
+        if (bid != null) ids.add(Number(bid));
+      }
+    });
+    return ids;
+  }, [budgetLines, listFilters.department]);
+
+  const yearOptions = useMemo(() => {
+    const set = new Set(filterOptions.academicYears || []);
+    budgets.forEach((b) => { if (b.academicYear) set.add(b.academicYear); });
+    return [...set].sort().reverse();
+  }, [filterOptions.academicYears, budgets]);
+
+  const termOptions = useMemo(() => {
+    const set = new Set(filterOptions.terms || []);
+    budgets.forEach((b) => { if (b.term) set.add(b.term); });
+    return [...set];
+  }, [filterOptions.terms, budgets]);
+
   const filteredBudgets = useMemo(() => {
-    if (statusFilter === "all") return budgets;
-    if (statusFilter === "draft") {
-      return budgets.filter((b) => String(b.status || "").toLowerCase() === "draft");
-    }
-    if (statusFilter === "submitted") {
-      return budgets.filter((b) =>
-        ["pending_approval", "approved", "rejected", "closed"].includes(String(b.status || "").toLowerCase())
-      );
-    }
-    return budgets;
-  }, [budgets, statusFilter]);
+    const q = listFilters.search.trim().toLowerCase();
+    return budgets.filter((b) => {
+      if (listFilters.academicYear && b.academicYear !== listFilters.academicYear) return false;
+      if (listFilters.term && b.term !== listFilters.term) return false;
+      if (listFilters.status && String(b.status || "").toLowerCase() !== listFilters.status) return false;
+      if (budgetIdsForDepartment && !budgetIdsForDepartment.has(Number(b.db_id ?? b.id))) return false;
+      if (q) {
+        const hay = `${b.title} ${b.budgetCode} ${b.id} ${b.academicYear} ${b.term} ${b.budgetType}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [budgets, listFilters, budgetIdsForDepartment]);
 
   return (
     <SchoolBudgetPageShell>
-      <div className="mb-4">
-        <BudgetPushBanner api={api} />
-      </div>
       <div
         className="sb-page-header"
         style={{
@@ -1895,7 +1274,26 @@ export function CreateBudgetPage({ fmt }) {
           <p className={sbPageSubtitleClass}>Create and manage school budgets for each academic period</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          
+          <button
+            type="button"
+            onClick={() => setAlertsModalOpen(true)}
+            style={{
+              padding: "10px 16px",
+              border: `1px solid ${COLORS.amber}66`,
+              borderRadius: 8,
+              background: "#FFFBEB",
+              color: COLORS.navy,
+              fontWeight: 500,
+              fontSize: 13,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Bell size={16} color={COLORS.amber} />
+            {isMobile ? "" : "Budget alerts"}
+          </button>
           <button
             type="button"
             onClick={loadBudgets}
@@ -1977,30 +1375,19 @@ export function CreateBudgetPage({ fmt }) {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        {[
-          { id: "all", label: "All budgets" },
-          { id: "draft", label: "Drafts" },
-          { id: "submitted", label: "Submitted & other" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setStatusFilter(tab.id)}
-            style={{
-              padding: "6px 14px",
-              borderRadius: 20,
-              border: `2px solid ${statusFilter === tab.id ? COLORS.amber : COLORS.gray200}`,
-              background: statusFilter === tab.id ? COLORS.amber : COLORS.white,
-              color: COLORS.navy,
-              fontWeight: statusFilter === tab.id ? 700 : 500,
-              fontSize: 12,
-              cursor: "pointer",
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div style={{ marginBottom: 16 }}>
+        <BudgetFilterBar
+          filters={listFilters}
+          setFilters={setListFilters}
+          years={yearOptions}
+          terms={termOptions}
+          statuses={ACCOUNTANT_STATUS_OPTIONS}
+          departments={DEPARTMENTS}
+          onClear={() => setListFilters(EMPTY_LIST_FILTERS)}
+          searchPlaceholder="Search budgets by title, code, year…"
+          navy={COLORS.navy}
+          amber={COLORS.amber}
+        />
       </div>
 
       <div
@@ -2122,7 +1509,9 @@ export function CreateBudgetPage({ fmt }) {
                       background: i % 2 === 0 ? COLORS.white : COLORS.gray50,
                     }}
                   >
-                    <td style={{ padding: "11px 14px", fontWeight: 500, color: COLORS.amber }}>{b.budgetCode}</td>
+                    <td style={{ padding: "11px 14px" }}>
+                      <BudgetCodeBadge code={b.budgetCode} compact />
+                    </td>
                     <td style={{ padding: "11px 14px", fontWeight: 500, color: COLORS.navy }}>{b.title}</td>
                     <td style={{ padding: "11px 14px", color: COLORS.gray600 }}>{b.academicYear}</td>
                     <td style={{ padding: "11px 14px", color: COLORS.gray600 }}>{b.term}</td>
@@ -2211,9 +1600,18 @@ export function CreateBudgetPage({ fmt }) {
           }}
         >
           <CircleCheck size={14} color={COLORS.green} />
-          {budgets.length} budget{budgets.length !== 1 ? "s" : ""} loaded
+          {filteredBudgets.length} of {budgets.length} budget{budgets.length !== 1 ? "s" : ""} shown
         </div>
       )}
+
+      <BudgetAlertsModal
+        open={alertsModalOpen}
+        onClose={() => setAlertsModalOpen(false)}
+        api={api}
+        alerts={[]}
+        navy={COLORS.navy}
+        amber={COLORS.amber}
+      />
 
       <BudgetModal
         open={modalOpen}

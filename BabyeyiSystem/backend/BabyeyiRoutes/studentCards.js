@@ -7,6 +7,7 @@ const { promisePool } = require('../config/database');
 const { requireRole } = require('../middleware/deoAuth');
 const { loadApprovedBabyeyiPricing } = require('./babyeyiPublicPricingCore');
 const { getConductBoundsForSchool } = require('./conductMarksSettings');
+const { fetchStudentPublishedMarks } = require('../utils/parentStudentMarks');
 
 const router = express.Router();
 
@@ -316,7 +317,8 @@ router.get('/students/public/:id/school-insights', async (req, res) => {
     const selectedAcademicYear = normStr(
       req.query?.academic_year || req.query?.year || settingsRows[0]?.current_academic_year || row.academic_year || ''
     );
-    const selectedTerm = normStr(req.query?.term || defaultTerm);
+    const explicitTerm = normStr(req.query?.term);
+    const selectedTerm = explicitTerm || defaultTerm;
     const today = todayDateStr();
     const className = normStr(row.class_name);
 
@@ -391,34 +393,26 @@ router.get('/students/public/:id/school-insights', async (req, res) => {
       new_marks: Number(r.new_marks || 0),
     }));
 
-    const markRows = await safeInsightQuery(
-      `SELECT a.subject_name, a.assessment_name, a.max_score, a.created_at AS assessment_date, m.score_obtained
-       FROM academic_marks m
-       INNER JOIN academic_assessments a ON a.id = m.assessment_id
-       WHERE m.student_id = ? AND m.school_id = ?
-       ORDER BY a.created_at DESC, m.id DESC
-       LIMIT 120`,
-      [studentId, schoolId]
+    const marksData = await fetchStudentPublishedMarks(schoolId, studentId, {
+      academicYear: selectedAcademicYear,
+      term: explicitTerm,
+      strict: Boolean(explicitTerm),
+    });
+    const marks = (marksData.assessments || []).slice(0, 60).map((a) => ({
+      subject_name: a.subject_name,
+      assessment_name: a.assessment_name,
+      score_obtained: a.score_obtained,
+      max_score: a.max_score,
+      percent: a.percent,
+      mark_code: a.mark_code,
+      mark_code_label: a.mark_code_label,
+      teacher_name: a.teacher_name,
+      assessment_date: a.assessment_date,
+    }));
+    const averageGrade = marksData.average_grade ?? 0;
+    const latestBySubject = Object.fromEntries(
+      (marksData.latest_by_subject || []).map((m) => [m.subject_name, m]),
     );
-    const marks = markRows.map((r) => {
-      const max = Number(r.max_score || 100);
-      const score = Number(r.score_obtained || 0);
-      return {
-        subject_name: r.subject_name || 'Subject',
-        assessment_name: r.assessment_name || 'Assessment',
-        score_obtained: score,
-        max_score: max,
-        percent: max > 0 ? Math.round((score / max) * 100) : 0,
-        assessment_date: r.assessment_date || null,
-      };
-    });
-    const averageGrade = marks.length
-      ? Math.round(marks.reduce((sum, r) => sum + Number(r.percent || 0), 0) / marks.length)
-      : 0;
-    const latestBySubject = {};
-    marks.forEach((m) => {
-      if (!latestBySubject[m.subject_name]) latestBySubject[m.subject_name] = m;
-    });
 
     const gateRows = await safeInsightQuery(
       `SELECT attendance_date, morning_check_in, morning_status, evening_check_out, evening_status, term, academic_year

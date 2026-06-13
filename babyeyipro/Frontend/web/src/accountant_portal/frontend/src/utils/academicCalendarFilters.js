@@ -75,3 +75,45 @@ export function yearOptionLabel(row) {
   const y = row.academic_year || '';
   return row.is_current ? `${y} (current)` : y;
 }
+
+const MONTH_LABELS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+export function monthNameToNumber(month) {
+  if (typeof month === 'number' && month >= 1 && month <= 12) return month;
+  const raw = String(month || '').trim();
+  const n = Number(raw);
+  if (n >= 1 && n <= 12) return n;
+  const idx = MONTH_LABELS.findIndex((m) => m.toLowerCase() === raw.toLowerCase());
+  return idx >= 0 ? idx + 1 : 0;
+}
+
+export function parseAcademicYearBounds(academicYear) {
+  const txt = String(academicYear || '').trim();
+  const range = txt.match(/^(19\d{2}|20\d{2})\s*[-–]\s*(19\d{2}|20\d{2})$/);
+  if (range) {
+    return { startYear: Number(range[1]), endYear: Number(range[2]) };
+  }
+  const single = txt.match(/\b(19\d{2}|20\d{2})\b/);
+  if (single) {
+    const y = Number(single[1]);
+    return { startYear: y, endYear: y };
+  }
+  const n = Number(txt);
+  if (Number.isFinite(n) && n >= 1900) return { startYear: n, endYear: n };
+  const now = new Date().getFullYear();
+  return { startYear: now, endYear: now };
+}
+
+/**
+ * Calendar year for payroll month within an academic year.
+ * Typical Sep–Jun cycle: Sep–Dec → start year (e.g. 2025), Jan–Aug → end year (e.g. 2026).
+ */
+export function resolvePayrollCalendarYear(academicYear, month) {
+  const monthNum = monthNameToNumber(month);
+  const { startYear, endYear } = parseAcademicYearBounds(academicYear);
+  if (!monthNum) return startYear;
+  return monthNum >= 9 ? startYear : endYear;
+}

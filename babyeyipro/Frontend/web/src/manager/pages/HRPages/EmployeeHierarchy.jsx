@@ -13,9 +13,9 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   Network, Users, Building2, Briefcase, UserCheck, GraduationCap,
-  Plus, Upload, Download, FileText, Image, Search, Filter, X,
+  Download, FileText, Image, Search, Filter, X,
   Loader2, Wallet, AlertTriangle, Clock, ChevronRight, TrendingUp,
-  ArrowRightLeft, Eye, Crown, Maximize2, ChevronDown,
+  ArrowRightLeft, Eye, Crown, ChevronDown,
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -783,18 +783,8 @@ export default function EmployeeHierarchy() {
   }, []);
 
   const heroFooter = (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 sm:gap-2.5">
-        <HeroPill icon={Plus} onClick={() => navigate(h('/hr/departments'))}>Add Department</HeroPill>
-        <HeroPill icon={Plus} onClick={() => navigate(h('/hr/registration'))}>Add Position</HeroPill>
-        <HeroPill icon={UserCheck} onClick={() => navigate(h('/hr/registration'))}>Assign Staff</HeroPill>
-        <HeroPill icon={Upload}>Import Structure</HeroPill>
-        <HeroPill icon={Maximize2} onClick={openExpandAll} highlight>Expand All</HeroPill>
-      </div>
-      <div className="flex flex-wrap gap-2 sm:gap-2.5">
-        <HeroPill icon={FileText} onClick={exportPdf}>Export PDF</HeroPill>
-        <HeroPill icon={Image} onClick={exportPng}>Export PNG</HeroPill>
-      </div>
+    <div className="flex flex-wrap gap-2 sm:gap-2.5">
+      <HeroPill icon={Image} onClick={exportPng}>Download Image</HeroPill>
     </div>
   );
 

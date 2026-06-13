@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Activity, AlertTriangle, BarChart2, Bell, BookOpen, Calendar,
   CheckCircle2, CheckSquare, ChevronDown, Clock, Filter, Home, Loader2,
@@ -27,6 +28,30 @@ function getToday() {
 function timeToMins(t) {
   const [h, m] = (t || "00:00").split(":").map(Number);
   return h * 60 + m;
+}
+
+function buildDaySummary(timetable, logs) {
+  const nowMins = timeToMins(getNow());
+  let on_time = 0;
+  let late = 0;
+  let missed = 0;
+  let early_exit = 0;
+  const slotKey = (teacherId, className, startTime) => `${teacherId}|${className}|${startTime}`;
+  const logMap = new Map(logs.map((l) => [slotKey(l.teacher_id, l.class, l.start_time), l]));
+
+  for (const slot of timetable) {
+    const log = logMap.get(slotKey(slot.teacher_id, slot.class, slot.start_time));
+    const endM = timeToMins(slot.end_time);
+    if (log) {
+      if (log.status === "late") late += 1;
+      else if (log.status === "on_time") on_time += 1;
+      if (log.exit_status === "before") early_exit += 1;
+    } else if (nowMins > endM) {
+      missed += 1;
+    }
+  }
+
+  return { on_time, late, missed, early_exit, total: timetable.length };
 }
 
 function fmt12(t) {
@@ -341,7 +366,8 @@ function ReportDetailDrawer({ report, onClose }) {
    MAIN PAGE
 ══════════════════════════════════════════ */
 export default function TeacherClassPeriodEntryExit() {
-  const [activeTab, setActiveTab] = useState("scan");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "scan");
   const [scanInput, setScanInput] = useState("");
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState(null);
@@ -492,6 +518,32 @@ export default function TeacherClassPeriodEntryExit() {
 
   useEffect(() => { loadPageData(); }, [loadPageData]);
 
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && ["scan", "live", "reports", "analytics", "alerts", "settings"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const saveLateThreshold = useCallback(async (value) => {
+    const next = Math.max(0, Math.min(120, Number(value || 0)));
+    setLateThreshold(next);
+    try {
+      await api.put("/dos/teacher-period/settings", {
+        academic_year: academicYear,
+        term,
+        late_threshold_minutes: next,
+      });
+    } catch (err) {
+      pushAlert({
+        type: "missed",
+        title: "Save Failed",
+        message: err?.response?.data?.message || "Could not save late threshold",
+      });
+      await loadPageData();
+    }
+  }, [academicYear, term, pushAlert, loadPageData]);
+
   const loadReports = useCallback(async () => {
     try {
       setLoadingReports(true);
@@ -572,12 +624,13 @@ export default function TeacherClassPeriodEntryExit() {
     return true;
   });
 
-  const totalPeriods = logs.length;
-  const onTimeCount  = logs.filter((l)=>l.status==="on_time").length;
-  const lateCount    = logs.filter((l)=>l.status==="late").length;
-  const beforeCount  = logs.filter((l)=>l.exit_status==="before").length;
-  const missedCount  = logs.filter((l)=>l.status==="missed").length;
-  const attendancePct= totalPeriods>0?Math.round(((onTimeCount+lateCount)/totalPeriods)*100):0;
+  const daySummary = useMemo(() => buildDaySummary(timetable, logs), [timetable, logs]);
+  const onTimeCount = daySummary.on_time;
+  const lateCount = daySummary.late;
+  const beforeCount = daySummary.early_exit;
+  const missedCount = daySummary.missed;
+  const totalPeriods = daySummary.total || logs.length;
+  const attendancePct = totalPeriods > 0 ? Math.round(((onTimeCount + lateCount) / totalPeriods) * 100) : 0;
 
   const teacherStats = teachers.map((t) => {
     const tL = logs.filter((l)=>l.teacher_id===t.id);
@@ -794,13 +847,15 @@ export default function TeacherClassPeriodEntryExit() {
 
                 <div style={{ marginTop:14,padding:"14px 16px",background:"#f8f9fc",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12 }}>
                   <div>
-                    <p style={{ fontSize:12,fontWeight:700,color:NAVY,margin:0 }}>Limit Minutes</p>
-                    <p style={{ fontSize:11,color:"#9ca3af",margin:"2px 0 0" }}>Late after this many minutes</p>
+                    <p style={{ fontSize:12,fontWeight:700,color:NAVY,margin:0 }}>Late threshold</p>
+                    <p style={{ fontSize:11,color:"#9ca3af",margin:"2px 0 0" }}>
+                      Marked late if entry is more than {lateThreshold} min after period start
+                    </p>
                   </div>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                    <button type="button" onClick={()=>setLateThreshold((p)=>Math.max(1,p-1))} style={{ width:30,height:30,borderRadius:9,border:"1.5px solid #e5e7eb",background:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:NAVY }}>−</button>
+                    <button type="button" onClick={()=>saveLateThreshold(lateThreshold - 1)} style={{ width:30,height:30,borderRadius:9,border:"1.5px solid #e5e7eb",background:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:NAVY }}>−</button>
                     <span style={{ fontWeight:900,fontSize:18,color:NAVY,minWidth:32,textAlign:"center",fontFamily:"'DM Mono',monospace" }}>{lateThreshold}</span>
-                    <button type="button" onClick={()=>setLateThreshold((p)=>Math.min(30,p+1))} style={{ width:30,height:30,borderRadius:9,border:"1.5px solid #e5e7eb",background:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:NAVY }}>+</button>
+                    <button type="button" onClick={()=>saveLateThreshold(lateThreshold + 1)} style={{ width:30,height:30,borderRadius:9,border:"1.5px solid #e5e7eb",background:"#fff",cursor:"pointer",fontWeight:900,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:NAVY }}>+</button>
                     <span style={{ fontSize:12,color:"#9ca3af",fontWeight:600 }}>min</span>
                   </div>
                 </div>
@@ -1069,7 +1124,7 @@ export default function TeacherClassPeriodEntryExit() {
               <div className="tp-stats-grid" style={{ display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16 }}>
                 <StatCard icon={Activity}     label="Total Periods"  value={totalPeriods} sub="Today's logged"           accent={NAVY}    animate idx={0}/>
                 <StatCard icon={CheckCircle2} label="On Time"        value={onTimeCount}  sub={`${attendancePct}% rate`} accent="#10b981" animate idx={1}/>
-                <StatCard icon={Clock}        label="Late Entries"   value={lateCount}    sub="With Limit Minutes"        accent={AMBER}   animate idx={2}/>
+                <StatCard icon={Clock}        label="Late Entries"   value={lateCount}    sub={`After ${lateThreshold} min grace`} accent={AMBER}   animate idx={2}/>
                 <StatCard icon={XCircle}      label="Missed Periods" value={missedCount}  sub="No entry recorded"        accent="#ef4444" animate idx={3}/>
               </div>
 
@@ -1300,6 +1355,10 @@ export default function TeacherClassPeriodEntryExit() {
                   <div>
                     <label style={{ display:"block",fontSize:10,fontWeight:800,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.09em",marginBottom:6 }}>Late Threshold (min)</label>
                     <input type="number" min="0" max="120" value={lateThreshold} onChange={(e)=>setLateThreshold(Number(e.target.value||0))} style={{ width:"100%",padding:"11px 14px",border:"2px solid #e5e7eb",borderRadius:12,fontSize:13,fontWeight:600,color:NAVY,background:"#fafafa",fontFamily:"'DM Mono',monospace" }}/>
+                    <p style={{ fontSize:11,color:"#9ca3af",margin:"8px 0 0",lineHeight:1.45 }}>
+                      Teachers are marked <strong style={{ color:NAVY }}>Late</strong> when they scan in more than this many minutes after the lesson start time.
+                      Example: threshold <strong style={{ color:NAVY }}>5</strong> means a scan at 6 minutes late counts as late; 5 minutes or less is on time.
+                    </p>
                   </div>
                 </div>
 

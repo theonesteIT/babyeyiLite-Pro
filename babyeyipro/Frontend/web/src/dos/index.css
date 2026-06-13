@@ -138,4 +138,247 @@
   .dos-sidebar-scroll::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, rgba(254, 191, 16, 0.55), rgba(254, 191, 16, 0.35));
   }
+
+  /* Clean tables across DOS */
+  .dos-data-table {
+    @apply w-full text-left text-xs text-re-text;
+  }
+
+  .dos-data-table tbody tr {
+    @apply border-b border-black/[0.04] transition-colors;
+  }
+
+  .dos-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-[11px] uppercase tracking-wider text-white shadow-sm transition-all active:scale-[0.98];
+    background-color: #000435;
+  }
+
+  .dos-btn-primary:hover {
+    background-color: #0a1860;
+    box-shadow: 0 4px 14px rgba(0, 4, 53, 0.25);
+  }
+
+  .dos-btn-accent {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-[11px] uppercase tracking-wider shadow-sm transition-all active:scale-[0.98];
+    background-color: #febf10;
+    color: #000435;
+  }
+
+  .dos-btn-accent:hover {
+    background-color: #fcd34d;
+    box-shadow: 0 4px 14px rgba(254, 191, 16, 0.35);
+  }
+
+  .dos-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl border border-black/10 text-[11px] uppercase tracking-wider text-re-text bg-white shadow-sm transition-all hover:bg-[#f8fafc] hover:border-black/15 active:scale-[0.98];
+  }
+
+  /* Hero buttons on amber background — high contrast */
+  .dos-btn-hero-outline {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-[11px] uppercase tracking-wider shadow-md transition-all active:scale-[0.98];
+    background-color: #ffffff;
+    color: #000435;
+    border: 1px solid rgba(255, 255, 255, 0.9);
+  }
+
+  .dos-btn-hero-outline:hover {
+    background-color: #f8fafc;
+    box-shadow: 0 6px 20px rgba(0, 4, 53, 0.15);
+  }
+
+  .dos-btn-hero-solid {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-[11px] uppercase tracking-wider text-white shadow-md transition-all active:scale-[0.98];
+    background-color: #000435;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .dos-btn-hero-solid:hover {
+    background-color: #0a1860;
+    box-shadow: 0 6px 20px rgba(0, 4, 53, 0.35);
+  }
+
+  .dos-btn-hero-close {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl text-[11px] uppercase tracking-wider shadow-lg transition-all active:scale-[0.98] shrink-0;
+    background-color: #ffffff;
+    color: #000435;
+    border: 2px solid rgba(255, 255, 255, 0.95);
+  }
+
+  .dos-btn-hero-close:hover {
+    background-color: #000435;
+    color: #ffffff;
+    border-color: #000435;
+  }
+
+  .dos-table-wrap {
+    @apply overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-sm;
+  }
+
+  .dos-data-table thead tr {
+    @apply border-b border-black/[0.06] text-[10px] uppercase tracking-wider text-re-text-muted;
+    background: linear-gradient(180deg, #fafbfc 0%, #f4f6f8 100%);
+  }
+
+  .dos-data-table thead th {
+    @apply py-3.5 px-4 font-medium whitespace-nowrap;
+  }
+
+  .dos-data-table tbody tr:nth-child(even) {
+    @apply bg-[#fafbfc]/60;
+  }
+
+  .dos-data-table tbody tr:hover {
+    @apply bg-[#fff8eb]/50;
+  }
+
+  .dos-data-table tbody td {
+    @apply py-4 px-4 font-normal text-re-text align-middle;
+  }
+
+  .dos-table-action {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-lg border border-black/[0.08] bg-white text-re-text-muted shadow-sm transition-all hover:shadow-md active:scale-95;
+  }
+
+  .dos-table-action:hover {
+    @apply border-black/12 text-re-text;
+  }
+
+  .dos-table-action--amber:hover {
+    @apply border-amber-300/50 bg-amber-50 text-amber-800;
+  }
+
+  .dos-table-action--danger:hover {
+    @apply border-red-200 bg-red-50 text-red-600;
+  }
+
+  .dos-filter-input {
+    @apply h-10 rounded-xl border border-black/10 bg-[#fafbfc] px-3 text-xs font-normal text-re-text shadow-sm transition-all;
+    @apply hover:border-black/15 hover:bg-white;
+    @apply focus:outline-none focus:bg-white focus:border-[#000435]/20 focus:ring-2 focus:ring-[#000435]/8;
+  }
+
+  .dos-search-wrap {
+    @apply relative flex-1 min-w-[220px];
+  }
+
+  .dos-search-input {
+    @apply w-full h-10 rounded-xl border border-black/10 bg-[#fafbfc] pl-10 pr-9 text-sm font-normal text-re-text shadow-sm transition-all;
+    @apply placeholder:text-re-text-muted/60;
+    @apply hover:border-black/15 hover:bg-white;
+    @apply focus:outline-none focus:bg-white focus:border-[#000435]/25 focus:ring-2 focus:ring-[#000435]/10;
+  }
+
+  .dos-search-input:not(:placeholder-shown) {
+    @apply bg-white border-[#c87800]/25 ring-1 ring-[#c87800]/10;
+  }
+
+  .dos-search-clear {
+    @apply absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-re-text-muted hover:text-[#000435] hover:bg-black/5 transition-colors;
+  }
+
+  .dos-pagination {
+    @apply flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-3 border-t border-black/[0.05] bg-[#fafbfc];
+  }
+
+  .dos-pagination-btn {
+    @apply inline-flex items-center justify-center gap-1 h-8 min-w-[2rem] px-2.5 rounded-lg border border-black/10 bg-white text-[11px] font-semibold text-re-text shadow-sm transition-all;
+    @apply hover:border-black/15 hover:bg-white disabled:opacity-40 disabled:pointer-events-none;
+  }
+
+  .dos-pagination-btn--active {
+    background-color: #000435;
+    color: #ffffff;
+    border-color: #000435;
+  }
+
+  .dos-tab-pill {
+    @apply inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-medium uppercase tracking-widest transition-all;
+  }
+
+  .dos-tab-pill--active {
+    @apply bg-white shadow-md;
+    color: #000435;
+  }
+
+  .dos-tab-pill--idle {
+    @apply text-re-text-muted hover:text-re-text hover:bg-white/60;
+  }
+
+  .dos-assign-panel {
+    @apply rounded-[24px] border border-black/[0.08] bg-white shadow-sm overflow-hidden;
+  }
+
+  .dos-assign-tabs {
+    @apply flex border-b border-black/[0.06] bg-[#f8fafc]/80 p-1.5 gap-1;
+  }
+
+  .dos-assign-tab {
+    @apply flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-semibold uppercase tracking-widest transition-all;
+  }
+
+  .dos-assign-tab--active {
+    @apply bg-white shadow-sm;
+    color: #000435;
+  }
+
+  .dos-assign-tab--idle {
+    @apply text-re-text-muted hover:text-re-text hover:bg-white/70;
+  }
+
+  .dos-assign-toolbar {
+    @apply flex flex-col xl:flex-row xl:items-center gap-3 p-4 border-b border-black/[0.05] bg-white;
+  }
+
+  .dos-badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold tracking-tight whitespace-nowrap;
+  }
+
+  .dos-badge--course {
+    background: rgba(200, 120, 0, 0.1);
+    color: #9a5c00;
+    border: 1px solid rgba(200, 120, 0, 0.2);
+  }
+
+  .dos-badge--class {
+    background: rgba(0, 4, 53, 0.06);
+    color: #000435;
+    border: 1px solid rgba(0, 4, 53, 0.1);
+  }
+
+  .dos-badge--period {
+    @apply tabular-nums;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .dos-badge--status-active {
+    @apply bg-emerald-50 text-emerald-800 border border-emerald-200;
+  }
+
+  .dos-badge--status-archived {
+    @apply bg-slate-100 text-slate-600 border border-slate-200;
+  }
+
+  .dos-teacher-cell {
+    @apply flex items-center gap-3 min-w-[160px];
+  }
+
+  .dos-teacher-avatar {
+    @apply w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-bold shrink-0;
+    background: linear-gradient(135deg, rgba(200, 120, 0, 0.15), rgba(0, 4, 53, 0.08));
+    color: #000435;
+  }
+
+  .dos-row-menu {
+    @apply absolute right-0 top-[calc(100%+4px)] z-30 min-w-[168px] rounded-xl border border-black/10 bg-white shadow-xl shadow-black/10 py-1 overflow-hidden;
+  }
+
+  .dos-row-menu-item {
+    @apply w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-medium text-re-text hover:bg-[#f8fafc] transition-colors;
+  }
+
+  .dos-row-menu-item--danger {
+    @apply text-red-600 hover:bg-red-50;
+  }
 }

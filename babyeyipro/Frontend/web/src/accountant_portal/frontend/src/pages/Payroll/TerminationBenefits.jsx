@@ -27,6 +27,8 @@ import {
 
 import TerminationDetailDrawer from '../../components/TerminationDetailDrawer';
 import TerminationPayrollWizard from '../../components/TerminationPayrollWizard';
+import { buildTerminatedPayrollSnapshot } from '../../utils/terminatedMonthPayroll';
+import api from '../../services/api';
 import { StatusBadge as TermStatusBadge, fmtRwf as termFmtRwf } from '../../components/TerminationDetailPanel';
 import TerminationFiltersBar from '../../../../../shared/components/TerminationFiltersBar';
 import TablePagination from '../../../../../shared/components/TablePagination';
@@ -108,9 +110,13 @@ function TerminationModal({
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [payrollTemplate, setPayrollTemplate] = useState(null);
 
   useEffect(() => {
     if (!open) return;
+    api.get('/accountant/payroll/templates/active')
+      .then((res) => setPayrollTemplate(res?.data?.data || null))
+      .catch(() => setPayrollTemplate(null));
     if (editRecord) {
       setSelected({
         staffUserId: editRecord.staffUserId,
@@ -181,6 +187,21 @@ function TerminationModal({
     setSaving(true);
     setError('');
     try {
+      const draftRecord = {
+        id: editRecord?.id,
+        staffUserId: selected.staffUserId,
+        staffName: selected.fullName,
+        staffCode: selected.staffCode,
+        terminationDate,
+        useDaysWorked,
+        netSalary: selected.netSalary,
+      };
+      const payrollSnapshot = buildTerminatedPayrollSnapshot({
+        record: draftRecord,
+        template: payrollTemplate,
+        useDaysWorked,
+        monthlyNetSalary: selected.netSalary,
+      });
       const payload = {
         staffUserId: selected.staffUserId,
         terminationDate,
@@ -189,6 +210,7 @@ function TerminationModal({
         terminationReason,
         notes,
         netSalary: selected.netSalary,
+        payrollSnapshot,
       };
       let record;
       if (editRecord?.id) {

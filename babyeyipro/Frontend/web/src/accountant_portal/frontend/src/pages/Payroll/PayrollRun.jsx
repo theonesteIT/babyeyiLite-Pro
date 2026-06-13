@@ -21,11 +21,13 @@ import {
 } from "../../utils/payrollRegister";
 import api from "../../services/api";
 import AccountantOchreHero from "../../components/AccountantOchreHero";
+import StaffToProcessModal from "../../components/payroll/StaffToProcessModal";
 import {
   parseManagerAcademicSettings,
   termsForRegistryYear,
   inferCurrentTerm,
   yearOptionLabel,
+  resolvePayrollCalendarYear,
 } from "../../utils/academicCalendarFilters";
 
 const MONTHS = [
@@ -33,12 +35,8 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function toPayrollYear(y) {
-  const txt = String(y || "").trim();
-  const m = txt.match(/\b(20\d{2}|19\d{2})\b/);
-  if (m) return Number(m[1]);
-  const n = Number(txt);
-  return Number.isFinite(n) ? n : new Date().getFullYear();
+function toPayrollYear(academicYear, month) {
+  return resolvePayrollCalendarYear(academicYear, month);
 }
 
 function emptyAdj() {
@@ -622,6 +620,8 @@ export default function PayrollRun() {
   const [runAllowances, setRunAllowances] = useState([]);
   const [runDeductions, setRunDeductions] = useState([]);
   const [editEmployee, setEditEmployee] = useState(null);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [showRunAdjustments, setShowRunAdjustments] = useState(false);
   const [employees, setEmployees] = useState([]);
   const [error, setError] = useState("");
   const [loadingStaff, setLoadingStaff] = useState(true);
@@ -629,7 +629,7 @@ export default function PayrollRun() {
   const [checkingPaidRun, setCheckingPaidRun] = useState(false);
   const [terminationPayrolls, setTerminationPayrolls] = useState([]);
 
-  const payrollYear = useMemo(() => toPayrollYear(academicYear), [academicYear]);
+  const payrollYear = useMemo(() => toPayrollYear(academicYear, month), [academicYear, month]);
   const payrollMonthNum = useMemo(() => MONTHS.indexOf(month) + 1, [month]);
   const periodIsPaid = !!existingPaidRun;
 
@@ -744,7 +744,7 @@ export default function PayrollRun() {
     let cancelled = false;
     listTerminationsForPayrollMonth(payrollMonthNum, payrollYear)
       .then((data) => {
-        if (!cancelled) setTerminationPayrolls(data.filter((t) => t.payrollSnapshot?.registerRow));
+        if (!cancelled) setTerminationPayrolls(Array.isArray(data) ? data : []);
       })
       .catch(() => {
         if (!cancelled) setTerminationPayrolls([]);
@@ -1150,7 +1150,7 @@ export default function PayrollRun() {
           </div>
         ) : null}
 
-        {status === "idle" && !periodIsPaid ? (
+        {status === "idle" && !periodIsPaid && showRunAdjustments ? (
           <RunLevelAdjustments
             allowances={runAllowances}
             setAllowances={setRunAllowances}
@@ -1159,66 +1159,50 @@ export default function PayrollRun() {
           />
         ) : null}
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Users size={18} className="text-[#000435]" />
-              <div>
-                <p className="text-sm font-bold text-[#000435]">Staff to process ({employees.length})</p>
-                <p className="text-[10px] text-slate-400">Pencil = per-employee extras · register Edit column = same</p>
+        {status === "idle" && !periodIsPaid ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setShowStaffModal(true)}
+              className="flex items-center justify-between gap-3 p-4 rounded-2xl border border-slate-100 bg-white shadow-sm hover:border-[#FFC107]/50 hover:shadow-md transition-all text-left"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-[#000435] flex items-center justify-center shrink-0">
+                  <Users size={18} className="text-[#FFC107]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#000435]">View staff to process</p>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {employees.length} staff
+                    {terminationPayrolls.length ? ` · +${terminationPayrolls.length} termination` : ''}
+                    {Object.keys(employeeAdjustments).length ? ` · ${Object.keys(employeeAdjustments).length} adjusted` : ''}
+                  </p>
+                </div>
               </div>
-            </div>
-            <button type="button" onClick={loadStaffAndTemplate} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-              <RefreshCw size={13} /> Refresh
+              <ChevronDown size={18} className="text-slate-400 shrink-0 -rotate-90" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowRunAdjustments((v) => !v)}
+              className={`flex items-center justify-between gap-3 p-4 rounded-2xl border shadow-sm transition-all text-left ${
+                showRunAdjustments ? 'border-[#FFC107] bg-amber-50/40' : 'border-slate-100 bg-white hover:border-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                  <Settings size={18} className="text-[#000435]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-[#000435]">Run allowances &amp; deductions</p>
+                  <p className="text-[11px] text-slate-500">
+                    {showRunAdjustments ? 'Panel open — month-only overrides' : 'Optional — tap to expand'}
+                  </p>
+                </div>
+              </div>
+              <ChevronDown size={18} className={`text-slate-400 shrink-0 transition-transform ${showRunAdjustments ? 'rotate-180' : ''}`} />
             </button>
           </div>
-
-          {loadingStaff ? (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              <Loader2 size={22} className="animate-spin mx-auto mb-2 text-[#F59E0B]" />
-              Loading staff…
-            </div>
-          ) : employees.length === 0 ? (
-            <p className="text-sm text-slate-500 py-8 text-center">No active staff found for payroll.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {employees.map((e) => {
-                const row = previewRowByStaffId.get(e.id);
-                const hasAdj = !!employeeAdjustments[e.id];
-                return (
-                  <div key={e.id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${e.missingBasic ? "bg-red-50 border-red-100" : "bg-slate-50 border-slate-100"}`}>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold truncate ${e.missingBasic ? "text-red-700" : "text-[#000435]"}`}>{e.name}</p>
-                      <p className="text-[10px] text-slate-400">
-                        {e.dept} · Basic {e.basic > 0 ? `${e.basic.toLocaleString()} RWF` : "—"}
-                        {row ? ` · Gross ${Number(row.gross || 0).toLocaleString()}` : ""}
-                        {hasAdj ? " · adjusted" : ""}
-                      </p>
-                    </div>
-                    {!e.missingBasic ? (
-                      <button
-                        type="button"
-                        title="Edit basic, allowances & deductions for this employee"
-                        onClick={() => setEditEmployee(e)}
-                        className={`p-1.5 rounded-lg border shrink-0 ${
-                          hasAdj
-                            ? "border-[#F59E0B] bg-amber-50 text-[#000435]"
-                            : "border-slate-200 text-slate-600 hover:bg-white hover:border-[#F59E0B]/50"
-                        }`}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    ) : e.missingBasic ? (
-                      <AlertCircle size={14} className="text-red-500 shrink-0" />
-                    ) : (
-                      <CheckCircle size={14} className="text-emerald-500 shrink-0" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        ) : null}
 
         {status === "idle" && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -1264,8 +1248,8 @@ export default function PayrollRun() {
                 <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   <p className="font-semibold">Termination month payroll included</p>
                   <p className="text-xs mt-1 text-amber-800/90">
-                    {terminationPayrolls.length} terminated employee{terminationPayrolls.length !== 1 ? 's' : ''} with configured payroll
-                    for {month} {payrollYear} — using final-month rules (base = gross, no RAMA/maternity, CBHI deducted for total payable).
+                    {terminationPayrolls.length} employee{terminationPayrolls.length !== 1 ? 's' : ''} terminated in {month} {payrollYear}
+                    — final-month rules apply (no basic salary split, no allowances, no RAMA/maternity; CBHI deducted for total payable).
                   </p>
                 </div>
               )}
@@ -1416,6 +1400,21 @@ export default function PayrollRun() {
           onClose={() => setEditEmployee(null)}
         />
       ) : null}
+
+      <StaffToProcessModal
+        open={showStaffModal}
+        onClose={() => setShowStaffModal(false)}
+        employees={employees}
+        loadingStaff={loadingStaff}
+        previewRowByStaffId={previewRowByStaffId}
+        employeeAdjustments={employeeAdjustments}
+        terminationPayrolls={terminationPayrolls}
+        onRefresh={loadStaffAndTemplate}
+        onEditEmployee={(e) => {
+          setShowStaffModal(false);
+          setEditEmployee(e);
+        }}
+      />
     </div>
   );
 }

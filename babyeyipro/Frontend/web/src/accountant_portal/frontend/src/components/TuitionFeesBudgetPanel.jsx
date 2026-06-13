@@ -41,7 +41,7 @@ function classLabel(card) {
   return '—';
 }
 
-function KpiCard({ label, value, sub, accent }) {
+function KpiCard({ label, value, sub }) {
   return (
     <div
       style={{
@@ -49,7 +49,6 @@ function KpiCard({ label, value, sub, accent }) {
         borderRadius: 12,
         padding: '12px 14px',
         border: `1px solid ${C.gray200}`,
-        borderTop: `3px solid ${accent || C.amber}`,
       }}
     >
       <div
@@ -318,13 +317,11 @@ export default function TuitionFeesBudgetPanel({
                 label="Projected tuition"
                 value={`${fmtN(summary.projectedTuitionTotal)} RWF`}
                 sub="All students"
-                accent={C.green}
               />
               <KpiCard
                 label="Projected total"
                 value={`${fmtN(summary.projectedTotalDue)} RWF`}
                 sub="All students"
-                accent={C.green}
               />
             </div>
 
@@ -542,7 +539,7 @@ export default function TuitionFeesBudgetPanel({
                 <button
                   type="button"
                   disabled={disabled}
-                  onClick={() => onApplyAmount?.(projectedTotal)}
+                  onClick={() => onApplyAmount?.(projectedTotal, summary)}
                   style={{
                     ...applyBtn,
                     background: C.green,
@@ -556,7 +553,7 @@ export default function TuitionFeesBudgetPanel({
                 <button
                   type="button"
                   disabled={disabled}
-                  onClick={() => onApplyAmount?.(projectedTuition)}
+                  onClick={() => onApplyAmount?.(projectedTuition, summary)}
                   style={{
                     ...applyBtn,
                     background: C.gray100,
