@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shirt, TrendingUp, AlertTriangle, Box, Layers, Scale, DollarSign,
-  Package, ArrowUpFromLine, BarChart3, FileSpreadsheet, Scissors,
+  Package, ArrowUpFromLine, BarChart3, FileSpreadsheet, FileText, Scissors,
 } from 'lucide-react'
-import { exportFabricStockExcel } from '../utils/uniformInventoryExport'
+import { exportFabricStockExcel, exportFabricStockPdf } from '../utils/uniformInventoryExport'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
 import FabricStockInPanel from '../components/uniform/FabricStockInPanel'
 import FabricStockOutPanel from '../components/uniform/FabricStockOutPanel'
@@ -237,6 +237,20 @@ export default function UniformInventory() {
                           {totalFabricStock} meters total
                         </span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => exportFabricStockPdf(fabrics.map((f) => ({
+                          type: f.type,
+                          color: f.color,
+                          meters: f.meters,
+                          remaining: f.remaining,
+                          unitCost: f.unitCost,
+                        })))}
+                        disabled={!fabrics.length}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
+                      >
+                        <FileText size={14} /> Export PDF
+                      </button>
                       <button
                         type="button"
                         onClick={() => exportFabricStockExcel(fabrics.map((f) => ({

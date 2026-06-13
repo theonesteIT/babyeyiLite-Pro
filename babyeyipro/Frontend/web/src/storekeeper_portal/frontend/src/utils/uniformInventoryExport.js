@@ -446,6 +446,69 @@ export function exportFabricStockExcel(rows) {
   downloadWorkbook(wb, `fabric-stock-${stamp()}.xlsx`)
 }
 
+export function exportFabricStockPdf(rows) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  let y = pdfHeader(doc, 'Uniform Inventory — Fabric Stock', `${rows.length} fabric batch(es)`, true)
+
+  const body = (rows || []).map((f) => {
+    const received = Number(f.meters) || 0
+    const remaining = Number(f.remaining ?? f.remaining_meters) || 0
+    const used = Math.max(0, received - remaining)
+    const usagePct = received > 0 ? (used / received) * 100 : 0
+    const unitCost = Number(f.unitCost ?? f.unit_cost) || 0
+    return [
+      f.type ?? f.fabric_type ?? '',
+      f.color || '—',
+      `${received} m`,
+      `${used} m`,
+      `${remaining} m`,
+      `${usagePct.toFixed(0)}%`,
+      fmtRwf(unitCost),
+      fmtRwf(remaining * unitCost),
+      usagePct > 70 ? 'High usage' : usagePct > 40 ? 'Moderate' : 'Healthy',
+    ]
+  })
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: 14, right: 14 },
+    head: [['Fabric', 'Color', 'Received', 'Used', 'Remaining', 'Usage', 'Unit cost', 'Stock value', 'Status']],
+    body,
+    styles: { fontSize: 8, textColor: NAVY },
+    headStyles: { fillColor: NAVY, textColor: AMBER, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [255, 251, 235] },
+    theme: 'grid',
+  })
+
+  const totalReceived = rows.reduce((s, f) => s + (Number(f.meters) || 0), 0)
+  const totalRemaining = rows.reduce((s, f) => s + (Number(f.remaining ?? f.remaining_meters) || 0), 0)
+  const totalUsed = Math.max(0, totalReceived - totalRemaining)
+  const totalValue = rows.reduce((s, f) => {
+    const remaining = Number(f.remaining ?? f.remaining_meters) || 0
+    const unitCost = Number(f.unitCost ?? f.unit_cost) || 0
+    return s + remaining * unitCost
+  }, 0)
+
+  y = doc.lastAutoTable.finalY + 6
+  autoTable(doc, {
+    startY: y,
+    margin: { left: 14, right: 14 },
+    head: [['Total received', 'Total used', 'Total remaining', 'Stock value', 'Batches']],
+    body: [[
+      `${totalReceived} m`,
+      `${totalUsed} m`,
+      `${totalRemaining} m`,
+      fmtRwf(totalValue),
+      String(rows.length),
+    ]],
+    styles: { fontSize: 9, textColor: NAVY, fontStyle: 'bold' },
+    headStyles: { fillColor: AMBER, textColor: NAVY },
+    theme: 'grid',
+  })
+
+  doc.save(`fabric-stock-${stamp()}.pdf`)
+}
+
 function finishedGoodsProfitSummary(rows) {
   return (rows || []).reduce(
     (acc, g) => {

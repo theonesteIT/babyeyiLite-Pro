@@ -420,6 +420,14 @@ async function reloadStaffSnapshotForImport() {
   return staffRes?.success ? enrichStaffForImportMatch(staffRes.data || []) : [];
 }
 
+function formatImportErrorMessage(err) {
+  const msg = err?.response?.data?.message || err?.message || 'Import failed';
+  if (/route not found/i.test(String(msg))) {
+    return 'Server API is out of date — deploy the latest backend (staff update routes), then retry import.';
+  }
+  return msg;
+}
+
 async function fetchStaffForImportLookup(row) {
   try {
     const res = await staffService.lookupStaffForImport({
@@ -714,6 +722,7 @@ function buildEmployeeImportPayload(row, existingStaff) {
     payroll_mobile_money_phone: row.mobile_money_number || null,
     account_enabled: false,
     is_active: true,
+    import_upsert: true,
     hr_profile_json: {
       middle_name: row.middle_name || '',
       marital_status: row.marital_status || '',
@@ -1331,7 +1340,12 @@ export default function EmployeeRegistration() {
               }
               throw new Error(msg);
             }
-            createdCount += 1;
+            const wasUpdated = res?.data?.action === 'updated' || /updated/i.test(String(res?.message || ''));
+            if (wasUpdated) {
+              updatedCount += 1;
+            } else {
+              createdCount += 1;
+            }
             staffSnapshot.push({
               id: res.data?.user_id || res.data?.id,
               national_id: row.id_document_number,
@@ -1357,7 +1371,7 @@ export default function EmployeeRegistration() {
       } catch (err) {
         errors.push({
           rowNo: row.rowNo,
-          message: err?.response?.data?.message || err?.message || 'Import failed',
+          message: formatImportErrorMessage(err),
         });
       }
     }

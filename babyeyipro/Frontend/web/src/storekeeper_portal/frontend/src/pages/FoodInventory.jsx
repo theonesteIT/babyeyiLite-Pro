@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import * as XLSX from 'xlsx'
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
@@ -9,9 +8,10 @@ import {
   Plus, Apple, AlertTriangle, Loader2, RefreshCw, Search, X, Building2, Calendar,
   GraduationCap, Package, Ruler, DollarSign, Hash, BadgeCheck, Trash2, Pencil,
   UtensilsCrossed, AlertCircle, MapPin, CalendarClock, ChevronDown,
-  TrendingDown, BarChart3, Layers, FileSpreadsheet, Download, TrendingUp,
+  TrendingDown, BarChart3, Layers, FileSpreadsheet, FileText, Download, TrendingUp,
   ShoppingCart, Boxes, AlertOctagon, ArrowDownRight, ArrowUpRight,
 } from 'lucide-react'
+import { exportFoodInventoryExcel, exportFoodInventoryPdf } from '../utils/foodInventoryExport'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
 import StorekeeperToast from '../components/StorekeeperToast'
 import { fetchSuppliers } from '../services/suppliersService'
@@ -156,8 +156,9 @@ function DateRange({ from, to, onFrom, onTo }) {
 /* ══════════════════════════════════════════════════════════════════
    REPORTS TAB — full standalone component
 ══════════════════════════════════════════════════════════════════ */
-function ReportsTab({ stockRows, consumptions, levels }) {
+function ReportsTab({ stockRows, consumptions, levels, filters = {} }) {
   const [chartView, setChartView] = useState('spend') // spend | consumption | allocation | levels
+  const exportPayload = { stockRows, consumptions, levels, filters }
 
   /* ── Derived data ── */
   const kpi = useMemo(() => ({
@@ -198,64 +199,6 @@ function ReportsTab({ stockRows, consumptions, levels }) {
     levels.map(l => ({ name: l.item_name, remaining: l.remaining, min: l.min_level || 0, unit: l.unit_type }))
   , [levels])
 
-  /* ── Excel export ── */
-  const exportExcel = () => {
-    const wb = XLSX.utils.book_new()
-
-    // Sheet 1 — Stock In
-    const stockData = stockRows.map(r => ({
-      'Date': fmtDate(r.receive_date),
-      'Item': r.item_name,
-      'Supplier': r.supplier_name || '',
-      'Location': r.store_location || '',
-      'Academic Year': r.academic_year,
-      'Term': r.term,
-      'Quantity': r.quantity,
-      'Unit': r.unit_type,
-      'Unit Cost': r.unit_cost || 0,
-      'Total Cost': r.total_cost || 0,
-      'Remaining': r.remaining_quantity,
-      'Expiry Date': fmtDate(r.expiry_date),
-      'Invoice': r.invoice_number || '',
-    }))
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(stockData), 'Stock In')
-
-    // Sheet 2 — Consumption
-    const conData = consumptions.map(c => ({
-      'Date': fmtDate(c.consumption_date),
-      'Item': c.item_name,
-      'Allocated To': c.allocated_to,
-      'Quantity': c.quantity,
-      'Unit': c.unit_type,
-      'Academic Year': c.academic_year,
-      'Term': c.term,
-    }))
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(conData), 'Consumption')
-
-    // Sheet 3 — Levels
-    const levData = levels.map(l => ({
-      'Item': l.item_name,
-      'Unit': l.unit_type,
-      'Remaining': l.remaining,
-      'Min Level': l.min_level || 0,
-      'Status': l.status,
-    }))
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(levData), 'Stock Levels')
-
-    // Sheet 4 — Summary
-    const summary = [
-      { Metric: 'Total Purchase Value', Value: kpi.purchased },
-      { Metric: 'Total Consumed (units)', Value: kpi.consumedQty },
-      { Metric: 'Stock Batches', Value: kpi.batches },
-      { Metric: 'Low / Out of Stock Items', Value: kpi.low },
-      { Metric: 'Expired Batches', Value: kpi.expired },
-      { Metric: 'Expiring Soon', Value: kpi.expirySoon },
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), 'Summary')
-
-    XLSX.writeFile(wb, `food-inventory-report-${new Date().toISOString().slice(0,10)}.xlsx`)
-  }
-
   const CHART_TABS = [
     { id: 'spend', label: 'Spend' },
     { id: 'consumption', label: 'Usage' },
@@ -276,14 +219,26 @@ function ReportsTab({ stockRows, consumptions, levels }) {
         <KpiCard icon={AlertTriangle} label="Expiring soon" value={String(kpi.expirySoon)} sub="batches" color={kpi.expirySoon > 0 ? 'amber' : 'default'} />
       </div>
 
-      {/* ── Download Excel ── */}
-      <div className="flex justify-end">
-        <button type="button" onClick={exportExcel}
-          className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-[#0B1340] text-white text-xs font-bold uppercase hover:bg-[#1C2A6E] active:scale-95 transition-all shadow-sm">
-          <FileSpreadsheet size={15} className="text-emerald-400" />
-          Download Excel
-          <Download size={13} className="text-white/50" />
-        </button>
+      {/* ── Export ── */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => exportFoodInventoryPdf(exportPayload)}
+            disabled={!stockRows.length && !consumptions.length}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
+          >
+            <FileText size={14} /> Download PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => exportFoodInventoryExcel(exportPayload)}
+            disabled={!stockRows.length && !consumptions.length}
+            className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-[#0B1340] text-white text-xs font-bold uppercase hover:bg-[#1C2A6E] active:scale-95 transition-all shadow-sm disabled:opacity-40"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-400" />
+            Download Excel
+            <Download size={13} className="text-white/50" />
+          </button>
       </div>
 
       {/* ── Chart navigator ── */}
@@ -487,6 +442,13 @@ export default function FoodInventory() {
   const [filtersOpen, setFiltersOpen] = useState(false)
 
   const showToast = (msg, type = 'success') => setToast({ message: msg, type })
+
+  const reportFilters = useMemo(() => ({
+    academicYear: filterYear,
+    term: filterTerm,
+    dateFrom: stockDateFrom || consumeDateFrom || '',
+    dateTo: stockDateTo || consumeDateTo || '',
+  }), [filterYear, filterTerm, stockDateFrom, stockDateTo, consumeDateFrom, consumeDateTo])
 
   const loadAll = useCallback(async ({ silent = false, year, term: termVal, stockFrom, stockTo, consumeFrom, consumeTo } = {}) => {
     if (!silent) setLoading(true)
@@ -851,7 +813,14 @@ export default function FoodInventory() {
                 )}
 
                 {/* REPORTS */}
-                {activeTab === 'reports' && <ReportsTab stockRows={stockRows} consumptions={consumptions} levels={levels} />}
+                {activeTab === 'reports' && (
+                  <ReportsTab
+                    stockRows={stockRows}
+                    consumptions={consumptions}
+                    levels={levels}
+                    filters={reportFilters}
+                  />
+                )}
 
               </motion.div>
             </AnimatePresence>

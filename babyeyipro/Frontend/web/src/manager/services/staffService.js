@@ -158,8 +158,17 @@ const staffService = {
 
     /** Resolve existing staff for spreadsheet import (National ID / RSSB). */
     lookupStaffForImport: async (params = {}) => {
-        const response = await api.get('/school/staff/import-lookup', { params });
-        return response.data;
+        try {
+            const response = await api.get('/school/staff/import-lookup', { params });
+            return response.data;
+        } catch (error) {
+            const status = error?.response?.status;
+            const message = error?.response?.data?.message || '';
+            if (status === 404) {
+                return { success: false, message: message || 'Not found' };
+            }
+            throw error;
+        }
     },
 
     updateShuleAvancePolicy: async (maxPercent) => {

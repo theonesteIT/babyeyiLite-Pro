@@ -4,6 +4,7 @@
 //   GET    /api/school/staff
 //   POST   /api/school/staff          — auto password + email when password omitted
 //   PATCH  /api/school/staff/:userId
+//   PUT    /api/school/staff/:userId      — same as PATCH (proxy / legacy clients)
 //   DELETE /api/school/staff/:userId
 //   PUT    /api/school/staff/:userId/identity
 //   POST   /api/school/staff/:userId/photo
@@ -264,6 +265,25 @@ async function loadStaffRowForImport(poolOrConn, schoolId, userId) {
     [schoolId, userId, schoolId]
   );
   return row || null;
+}
+
+function wantsImportUpsert(body) {
+  return body?.import_upsert === true
+    || body?.import_upsert === 1
+    || String(body?.import_upsert || '') === '1';
+}
+
+/** Spreadsheet import: update existing staff instead of 409 when import_upsert is set. */
+async function redirectImportUpsertToUpdate(req, res, conn, schoolId, existingUserId, releaseState) {
+  const userId = Number(existingUserId);
+  if (!Number.isFinite(userId)) return false;
+  const row = await getStaffRowForSchool(schoolId, userId);
+  if (!row) return false;
+  if (releaseState) releaseState.connReleased = true;
+  conn.release();
+  req.params.userId = String(userId);
+  await handleStaffProfileUpdate(req, res);
+  return true;
 }
 
 function normalizeRfidUid(value) {
@@ -1026,6 +1046,7 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
   const { schoolId, schoolName } = ctx;
 
   const conn = await promisePool.getConnection();
+  const connReleaseState = { connReleased: false };
   try {
     await ensureCoreAuthSchema();
     await ensureStaffProfessionalColumns();
@@ -1158,6 +1179,10 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     if (nationalId) {
       const existingUserId = await findStaffUserIdForImport(conn, schoolId, { nationalId });
       if (existingUserId) {
+        if (wantsImportUpsert(body)) {
+          const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, existingUserId, connReleaseState);
+          if (redirected) return;
+        }
         return res.status(409).json({
           success: false,
           code: 'DUPLICATE_NATIONAL_ID',
@@ -1174,12 +1199,17 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
         [phone]
       );
       if (dupPhone) {
+        const phoneUserId = Number(dupPhone.id) || null;
+        if (phoneUserId && wantsImportUpsert(body)) {
+          const redirected = await redirectImportUpsertToUpdate(req, res, conn, schoolId, phoneUserId, connReleaseState);
+          if (redirected) return;
+        }
         return res.status(409).json({
           success: false,
           code: 'DUPLICATE_PHONE',
           field: 'phone',
           message: 'An account with this phone number already exists.',
-          existingUserId: Number(dupPhone.id) || null,
+          existingUserId: phoneUserId,
         });
       }
     }
@@ -1335,14 +1365,14 @@ router.post('/school/staff', requireRole(CREATOR_ROLES), async (req, res) => {
     }
     return res.status(500).json({ success: false, message: err.message || 'Failed to create staff' });
   } finally {
-    conn.release();
+    if (!connReleaseState.connReleased) conn.release();
   }
 });
 
 // ════════════════════════════════════════════════════════════════
-// PATCH /api/school/staff/:userId
+// PATCH / PUT /api/school/staff/:userId — profile + payroll fields
 // ════════════════════════════════════════════════════════════════
-router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, res) => {
+async function handleStaffProfileUpdate(req, res) {
   try {
     await ensureStaffIdentityColumns();
     await ensureStaffProfessionalColumns();
@@ -1540,13 +1570,16 @@ router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), async (req, re
     return res.json({
       success: true,
       message: emailSent ? 'Updated. New login credentials were sent by email.' : 'Updated.',
-      data: { password_sent_by_email: emailSent },
+      data: { action: 'updated', password_sent_by_email: emailSent },
     });
   } catch (err) {
-    console.error('PATCH /api/school/staff/:userId', err);
+    console.error('PATCH/PUT /api/school/staff/:userId', err);
     return res.status(500).json({ success: false, message: err.message || 'Update failed' });
   }
-});
+}
+
+router.patch('/school/staff/:userId', requireRole(CREATOR_ROLES), handleStaffProfileUpdate);
+router.put('/school/staff/:userId', requireRole(CREATOR_ROLES), handleStaffProfileUpdate);
 
 // ════════════════════════════════════════════════════════════════
 // DELETE /api/school/staff/:userId — soft-delete user
