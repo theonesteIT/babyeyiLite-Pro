@@ -36,6 +36,7 @@ const {
 } = require("../utils/babyeyiContentI18n");
 const { getDocStrings } = require("../utils/babyeyiDocI18n");
 const { fetchStudentRequirementsCatalog } = require("../utils/studentRequirementsSchema");
+const { normalizeSchoolId } = require("../utils/normalizeSchoolId");
 
 // ── Upload dirs ───────────────────────────────────────────────
 const UPLOAD_DIR = "uploads/babyeyi/";
@@ -557,25 +558,52 @@ const parseJSONField = (val) => {
 };
 
 const classToLevel = (cls) => {
-  if (["N1","N2","N3"].includes(cls))                    return "Nursery";
-  if (["P1","P2","P3","P4","P5","P6"].includes(cls))    return "Primary";
-  if (["S1","S2","S3","S4","S5","S6"].includes(cls))    return "Secondary";
-  if (["L1","L2","L3"].includes(cls))                    return "University";
+  const raw = String(cls || "").trim();
+  if (!raw) return "Primary";
+  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-3])\b/i);
+  if (code) {
+    const c = code[1].toUpperCase();
+    if (/^N[123]$/.test(c)) return "Nursery";
+    if (/^P[1-6]$/.test(c)) return "Primary";
+    if (/^S[1-6]$/.test(c)) return "Secondary";
+    if (/^L[1-3]$/.test(c)) return "University";
+  }
+  if (["N1", "N2", "N3"].includes(raw)) return "Nursery";
+  if (["P1", "P2", "P3", "P4", "P5", "P6"].includes(raw)) return "Primary";
+  if (["S1", "S2", "S3", "S4", "S5", "S6"].includes(raw)) return "Secondary";
+  if (["L1", "L2", "L3"].includes(raw)) return "University";
   return "Primary";
 };
 
 /** Match fee_limits row: exact term first; Term 1/2/3 also match a stored "Full Year" cap. */
 async function queryActiveNesaFeeLimit(category, level, term, academicYear) {
+  const cat = String(category || "").trim();
+  const lvl = String(level || "").trim();
   const t = String(term || "").trim();
   const year = String(academicYear || "").trim();
-  if (!category || !level || !t || !year) return null;
-  const rows = await query(
-    `SELECT id, max_amount, regulation_ref, notes, term FROM fee_limits
-     WHERE category=? AND level=? AND academic_year=? AND is_active=1
-       AND (term=? OR (? <> 'Full Year' AND term='Full Year'))
-     ORDER BY CASE WHEN term=? THEN 0 WHEN term='Full Year' THEN 1 ELSE 2 END
+  if (!cat || !lvl || !t || !year) return null;
+
+  const termSql = `(term=? OR (? <> 'Full Year' AND term='Full Year'))`;
+  const termOrder = `CASE WHEN term=? THEN 0 WHEN term='Full Year' THEN 1 ELSE 2 END`;
+
+  let rows = await query(
+    `SELECT id, max_amount, regulation_ref, notes, term, academic_year FROM fee_limits
+     WHERE category=? AND LOWER(TRIM(level))=LOWER(?) AND academic_year=? AND is_active=1
+       AND ${termSql}
+     ORDER BY ${termOrder}
      LIMIT 1`,
-    [category, level, year, t, t, t]
+    [cat, lvl, year, t, t, t]
+  );
+  if (rows[0]) return rows[0];
+
+  // School year row missing — use latest active national cap for same category/level/term
+  rows = await query(
+    `SELECT id, max_amount, regulation_ref, notes, term, academic_year FROM fee_limits
+     WHERE category=? AND LOWER(TRIM(level))=LOWER(?) AND is_active=1
+       AND ${termSql}
+     ORDER BY academic_year DESC, ${termOrder}
+     LIMIT 1`,
+    [cat, lvl, t, t, t]
   );
   return rows[0] || null;
 }
@@ -600,13 +628,13 @@ const normaliseClassReq = (r) => ({
 });
 
 const resolveSchoolId = (req) => {
-  const fromBody        = req.body?.school_id            ? Number(req.body.school_id)           : null;
-  const fromUser        = req.user?.school_id            ? Number(req.user.school_id)           : null;
-  const fromSchool      = req.user?.school?.id           ? Number(req.user.school.id)           : null;
-  const fromSessionUser = req.session?.user?.school?.id  ? Number(req.session.user.school.id)  : null;
-  const fromSessionFlat = req.session?.user?.school_id   ? Number(req.session.user.school_id)  : null;
-  const fromSessionTop  = req.session?.school_id         ? Number(req.session.school_id)        : null;
-  const resolved = fromBody || fromUser || fromSchool || fromSessionUser || fromSessionFlat || fromSessionTop || null;
+  const fromBody        = normalizeSchoolId(req.body?.school_id);
+  const fromUser        = normalizeSchoolId(req.user?.school_id);
+  const fromSchool      = normalizeSchoolId(req.user?.school?.id);
+  const fromSessionUser = normalizeSchoolId(req.session?.user?.school?.id);
+  const fromSessionFlat = normalizeSchoolId(req.session?.user?.school_id);
+  const fromSessionTop  = normalizeSchoolId(req.session?.school_id);
+  const resolved = fromBody ?? fromUser ?? fromSchool ?? fromSessionUser ?? fromSessionFlat ?? fromSessionTop ?? null;
   if (!resolved) {
     console.warn(`[babyeyi] ⚠️  school_id is NULL — user ${req.user?.id || "unknown"}`);
   }
@@ -1631,12 +1659,12 @@ router.use((req, res, next) => {
     return res.status(401).json({ success: false, message: "Not authenticated" });
   }
   if (!req.user && req.session?.user) req.user = req.session.user;
-  if (req.user && !req.user.school_id) {
+  if (req.user && normalizeSchoolId(req.user.school_id) == null) {
     req.user.school_id =
-      req.user?.school?.id          ||
-      req.session?.user?.school?.id ||
-      req.session?.user?.school_id  ||
-      req.session?.school_id        ||
+      normalizeSchoolId(req.user?.school?.id) ??
+      normalizeSchoolId(req.session?.user?.school?.id) ??
+      normalizeSchoolId(req.session?.user?.school_id) ??
+      normalizeSchoolId(req.session?.school_id) ??
       null;
   }
   next();
@@ -2062,6 +2090,185 @@ router.get("/stats", async (req, res) => {
   } catch (err) {
     console.error("❌ /stats:", err.message);
     res.status(500).json({ success: false, message: "Failed to fetch stats" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/analytics — school financial analytics (live)
+// ════════════════════════════════════════════════════════════
+router.get("/analytics", async (req, res) => {
+  try {
+    const schoolId = req.query.school_id || resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: "School not found in session." });
+    }
+
+    const babyeyiRows = await query(
+      `SELECT b.id, b.class_name, b.term, b.academic_year, b.status,
+              COALESCE(b.total_fee, b.total_amount, 0) AS total_fee,
+              COALESCE(b.nesa_limit, 0) AS nesa_limit,
+              COALESCE(b.exceeds_limit, 0) AS exceeds_limit,
+              b.created_at, b.education_level, b.school_category, b.doc_id
+       FROM school_babyeyi b
+       WHERE b.school_id=? AND b.is_active=1
+       ORDER BY b.academic_year DESC, b.term ASC, b.class_name ASC`,
+      [schoolId]
+    );
+
+    const ids = (babyeyiRows || []).map((r) => r.id).filter(Boolean);
+    let paymentRows = [];
+    if (ids.length) {
+      paymentRows = await query(
+        `SELECT name, SUM(amount) AS amount
+         FROM babyeyi_payments
+         WHERE babyeyi_id IN (${ids.map(() => "?").join(",")})
+         GROUP BY name`,
+        ids
+      );
+    }
+
+    const catMap = new Map();
+    for (const p of paymentRows || []) {
+      const name = String(p.name || "Other").trim() || "Other";
+      catMap.set(name, (catMap.get(name) || 0) + Number(p.amount || 0));
+    }
+    const totalPaymentCat = [...catMap.values()].reduce((s, v) => s + v, 0);
+    const paymentBreakdown = [...catMap.entries()]
+      .map(([label, amount]) => ({
+        label,
+        amount: Math.round(amount),
+        value: totalPaymentCat > 0 ? Math.round((amount / totalPaymentCat) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
+
+    const totalIncome = (babyeyiRows || []).reduce((s, b) => s + Number(b.total_fee || 0), 0);
+    const exceedsCount = (babyeyiRows || []).filter((b) => Number(b.exceeds_limit) === 1).length;
+    const withLimit = (babyeyiRows || []).filter((b) => Number(b.nesa_limit) > 0);
+    const compliant = withLimit.filter((b) => Number(b.exceeds_limit) !== 1).length;
+    const complianceRate = withLimit.length > 0 ? Math.round((compliant / withLimit.length) * 100) : 100;
+
+    const exceedRows = withLimit.filter(
+      (b) => Number(b.exceeds_limit) === 1 && Number(b.nesa_limit) > 0
+    );
+    const avgFeeIncrease = exceedRows.length
+      ? exceedRows.reduce(
+          (s, b) =>
+            s + ((Number(b.total_fee) - Number(b.nesa_limit)) / Number(b.nesa_limit)) * 100,
+          0
+        ) / exceedRows.length
+      : 0;
+
+    const termMap = new Map();
+    for (const b of babyeyiRows || []) {
+      const yr = String(b.academic_year || "").trim();
+      const label = `${b.term || "?"}${yr ? ` · ${yr.slice(-7)}` : ""}`.trim();
+      const prev = termMap.get(label) || { feeSum: 0, limitSum: 0, count: 0 };
+      prev.feeSum += Number(b.total_fee || 0);
+      prev.limitSum += Number(b.nesa_limit || 0);
+      prev.count += 1;
+      termMap.set(label, prev);
+    }
+    const termTrend = [...termMap.entries()].map(([label, v]) => ({
+      label,
+      value: Math.round(v.feeSum / Math.max(1, v.count) / 1000),
+      limit: Math.round(v.limitSum / Math.max(1, v.count) / 1000),
+    }));
+
+    const classMap = new Map();
+    for (const b of babyeyiRows || []) {
+      const cls = String(b.class_name || "").trim();
+      if (!cls) continue;
+      classMap.set(cls, (classMap.get(cls) || 0) + Number(b.total_fee || 0));
+    }
+    const classBreakdown = [...classMap.entries()]
+      .map(([label, totalFee]) => ({ label, value: Math.round(totalFee / 1000) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+
+    const statusCounts = { approved: 0, pending: 0, rejected: 0, draft: 0 };
+    for (const b of babyeyiRows || []) {
+      const st = String(b.status || "draft").toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(statusCounts, st)) statusCounts[st]++;
+      else statusCounts.draft++;
+    }
+
+    const complianceHistory = (babyeyiRows || []).map((b) => {
+      const fee = Number(b.total_fee || 0);
+      const limit = Number(b.nesa_limit || 0);
+      const exceedsLimit = Number(b.exceeds_limit) === 1;
+      const rate = limit > 0 ? Math.min(150, Math.round((fee / limit) * 100)) : 100;
+      let status = String(b.status || "draft").toLowerCase();
+      if (exceedsLimit) status = "exceeded";
+      else if (limit > 0 && fee <= limit) status = "compliant";
+      return {
+        year: b.academic_year || "—",
+        term: b.term || "—",
+        class: b.class_name || "—",
+        fee,
+        limit,
+        status,
+        rate,
+        docId: b.doc_id || null,
+      };
+    });
+
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const monthRows = await query(
+      `SELECT MONTH(created_at) AS month_num, COUNT(*) AS count
+       FROM school_babyeyi
+       WHERE school_id=? AND is_active=1 AND YEAR(created_at)=?
+       GROUP BY MONTH(created_at)`,
+      [schoolId, year]
+    );
+    const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const byMonth = Object.fromEntries(
+      (monthRows || []).map((r) => [Number(r.month_num), Number(r.count || 0)])
+    );
+    const monthlyActivity = MONTH_LABELS.map((label, i) => ({
+      label,
+      value: byMonth[i + 1] || 0,
+    }));
+
+    let studentCount = 0;
+    try {
+      const [sr] = await query(`SELECT COUNT(*) AS c FROM students WHERE school_id=?`, [schoolId]);
+      studentCount = Number(sr?.c || 0);
+    } catch (_) {
+      /* optional */
+    }
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalIncome,
+          complianceRate,
+          avgFeeIncrease: Math.round(avgFeeIncrease * 10) / 10,
+          exceedsCount,
+          babyeyiCount: babyeyiRows.length,
+          studentCount,
+          approved: statusCounts.approved,
+          pending: statusCounts.pending,
+          rejected: statusCounts.rejected,
+          draft: statusCounts.draft,
+        },
+        termTrend,
+        classBreakdown,
+        paymentBreakdown,
+        statusOverview: [
+          { label: "Approved", value: statusCounts.approved, color: "#000435" },
+          { label: "Pending", value: statusCounts.pending, color: "#fbbf24" },
+          { label: "Rejected", value: statusCounts.rejected, color: "#64748b" },
+          { label: "Draft", value: statusCounts.draft, color: "#cbd5e1" },
+        ],
+        complianceHistory,
+        monthlyActivity,
+      },
+    });
+  } catch (err) {
+    console.error("❌ /analytics:", err.message);
+    res.status(500).json({ success: false, message: "Failed to fetch analytics" });
   }
 });
 

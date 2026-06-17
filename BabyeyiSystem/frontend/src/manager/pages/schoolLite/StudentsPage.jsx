@@ -5,6 +5,7 @@ import {
   X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter, Download,
 } from "lucide-react";
 import { downloadStudentImportTemplate } from "../../utils/studentImportTemplate";
+import { formatClassWithStream, parseClassNameToParts } from "../../../utils/classStreamGroups";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -438,7 +439,8 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     gender:           "",
     birth_year:       "",
     nationality:      "Rwandan",
-    class_name:       "",
+    class_base:       "",
+    stream:           "",
     academic_year:    "",
     sdm_code:         "",
     province:         "",
@@ -473,6 +475,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     setLoading(false);
 
     if (isEdit) {
+      const { classBase, stream } = parseClassNameToParts(editStudent.class_name);
       setForm({
         student_uid:      editStudent.student_uid      || "",
         autoId:           false,
@@ -495,7 +498,8 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
         mother_phone:     editStudent.mother_phone     || "",
         mother_email:     editStudent.mother_email     || "",
         mother_national_id: editStudent.mother_national_id || "",
-        class_name:       editStudent.class_name       || "",
+        class_base:       classBase,
+        stream:           stream,
         academic_year:    editStudent.academic_year    ? String(editStudent.academic_year) : "",
         sdm_code:         editStudent.sdm_code         || "",
       });
@@ -628,7 +632,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
       sector:           form.sector,
       cell:             form.cell,
       village:          form.village.trim(),
-      class_name:       form.class_name.trim()       || undefined,
+      class_name:       formatClassWithStream(form.class_base, form.stream) || undefined,
       academic_year:    form.academic_year.trim()    || undefined,
       sdm_code:         form.sdm_code.trim()         || undefined,
       father_full_name: form.father_full_name.trim() || undefined,
@@ -804,13 +808,22 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                     onChange={e => set("nationality", e.target.value)}
                   />
                 </FormField>
-                <FormField label="Class / stream">
+                <FormField label="Class">
                   <input
                     type="text"
                     className={inputCls}
-                    placeholder="e.g. S3 Science A"
-                    value={form.class_name}
-                    onChange={e => set("class_name", e.target.value)}
+                    placeholder="e.g. P1"
+                    value={form.class_base}
+                    onChange={e => set("class_base", e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Stream (optional)">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. A — leave empty for whole class"
+                    value={form.stream}
+                    onChange={e => set("stream", e.target.value)}
                   />
                 </FormField>
                 <FormField label="Academic year">
@@ -1057,6 +1070,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
 // ════════════════════════════════════════════════════════════════
 function ImportCard({ toast, onImported }) {
   const [importClass, setImportClass] = useState("");
+  const [importStream, setImportStream] = useState("");
   const [importYear, setImportYear] = useState("");
   const [file,       setFile]       = useState(null);
   const [photosZip,  setPhotosZip]  = useState(null);
@@ -1067,7 +1081,7 @@ function ImportCard({ toast, onImported }) {
   const zipRef = useRef();
 
   const handleImport = async () => {
-    const cls = importClass.trim();
+    const cls = formatClassWithStream(importClass, importStream);
     const yr = importYear.trim();
     if (!cls || !yr) {
       toast?.("Enter class and academic year before importing.", "error");
@@ -1082,7 +1096,8 @@ function ImportCard({ toast, onImported }) {
       fd.append("file", file);
       if (photosZip) fd.append("photos_zip", photosZip);
       fd.append("importMode", "insert_only");
-      fd.append("class_name", cls);
+      fd.append("class_name", importClass.trim());
+      if (importStream.trim()) fd.append("stream", importStream.trim());
       fd.append("academic_year", yr);
       const res  = await fetch(`${API}/api/students/import`, { method: "POST", credentials: "include", body: fd });
       const json = await res.json().catch(() => ({}));
@@ -1119,7 +1134,7 @@ function ImportCard({ toast, onImported }) {
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-800">Bulk import from Excel</p>
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-            <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
+            <span className="font-semibold text-amber-700">1.</span> Class &amp; optional stream for this batch ·{" "}
             <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
             <span className="font-semibold text-amber-700">3.</span> Optional photos ZIP (named like Code / Student ID) ·{" "}
             <span className="font-semibold text-amber-700">4.</span> Upload &amp; import.
@@ -1127,14 +1142,24 @@ function ImportCard({ toast, onImported }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div>
-          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Class / stream <span className="text-red-500">*</span></label>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Class <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={importClass}
             onChange={e => { setImportClass(e.target.value); setResult(null); }}
-            placeholder="e.g. S3 Science A"
+            placeholder="e.g. P1"
+            className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Stream <span className="text-slate-400 font-semibold normal-case">(optional)</span></label>
+          <input
+            type="text"
+            value={importStream}
+            onChange={e => { setImportStream(e.target.value); setResult(null); }}
+            placeholder="e.g. A"
             className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
           />
         </div>

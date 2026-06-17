@@ -22,6 +22,7 @@ import {
   renderBabyeyiPdfFromRoot,
   buildBabyeyiAuthBlockHtml,
 } from './babyeyiPdfExport';
+import SmStatCard from "./SmStatCard";
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
 import qrcodeLib from "qrcode";
@@ -1817,17 +1818,10 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
             </div>
             {/* Stats row */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 xl:gap-3">
-              {[
-                { label: T.total || "Total", value: stats.total, color: "text-[#000435]" },
-                { label: T.approved || "Approved", value: stats.approved, color: "text-[#000435]" },
-                { label: T.pending || "Pending", value: stats.pending, color: "text-[#000435]" },
-                { label: T.rejected || "Rejected", value: stats.rejected, color: "text-[#000435]" },
-              ].map(s => (
-                <div key={s.label} className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
-                  <p className={`text-xl xl:text-2xl font-semibold ${s.color}`}>{s.value}</p>
-                  <p className="text-[10px] text-slate-500 font-medium">{s.label}</p>
-                </div>
-              ))}
+              <SmStatCard label={T.total || "Total"} value={stats.total} />
+              <SmStatCard label={T.approved || "Approved"} value={stats.approved} />
+              <SmStatCard label={T.pending || "Pending"} value={stats.pending} />
+              <SmStatCard label={T.rejected || "Rejected"} value={stats.rejected} />
             </div>
           </div>
         </div>

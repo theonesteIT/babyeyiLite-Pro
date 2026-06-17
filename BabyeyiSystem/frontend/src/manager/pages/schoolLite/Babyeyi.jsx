@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import BabyeyiList from "./BabyeyiList";
+import ClassStreamPicker from "../../../Pages/School Manager/components/ClassStreamPicker";
+import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
@@ -539,7 +541,13 @@ export default function App({ session }) {
   const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
+  const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
+
+  const classGroups = useMemo(
+    () => buildClassGroupsFromRows(registeredClassRows, registeredClassOptions),
+    [registeredClassRows, registeredClassOptions],
+  );
 
   useEffect(() => {
     setForm(buildBlankForm({
@@ -630,7 +638,9 @@ export default function App({ session }) {
       .then((json) => {
         if (cancelled) return;
         const opts = Array.isArray(json.class_name_options) ? json.class_name_options : [];
+        const rows = Array.isArray(json.data) ? json.data : [];
         setRegisteredClassOptions(opts);
+        setRegisteredClassRows(rows);
         if (!opts.length) return;
         setForm((prev) => {
           if (!prev) return prev;
@@ -713,7 +723,7 @@ export default function App({ session }) {
       return;
     }
     const { category, term, academicYear } = form;
-    const level = inferEducationLevelFromClassLabel(form.classes?.[0] || "");
+    const level = form.nesaFeeLimitLevel || inferEducationLevelFromClassLabel(form.classes?.[0] || "");
     if (!category || !term || !academicYear) return;
     setNesaLimit(null);
     setNesaLimitSource("loading");
@@ -727,11 +737,41 @@ export default function App({ session }) {
       .then(json => {
         if (ac.signal.aborted) return;
         if (json.success && json.data?.max_amount != null) { applyLimit(json.data.max_amount, "backend"); return; }
-        return fetch(`${API_BASE}/fee-limits?${qp}&limit=1&active=1`, { credentials:"include", signal:ac.signal })
+        return fetch(
+          `${API_BASE}/fee-limits?category=${encodeURIComponent(category)}&level=${encodeURIComponent(level)}&academic_year=${encodeURIComponent(academicYear)}&active=1&limit=50`,
+          { credentials: "include", signal: ac.signal }
+        )
           .then(r2 => r2.json())
           .then(j2 => {
             if (ac.signal.aborted) return;
-            const m = j2?.data?.find(row => row.category===category && row.level===level && row.term===term && row.academic_year===academicYear);
+            const rows = Array.isArray(j2?.data) ? j2.data : [];
+            const normLevel = String(level).toLowerCase();
+            const normTerm = String(term).trim();
+            const normYear = String(academicYear).trim();
+            const termMatches = (row) =>
+              row.term === normTerm || (normTerm !== "Full Year" && row.term === "Full Year");
+            const levelMatches = (row) =>
+              String(row.level || "").toLowerCase() === normLevel;
+            const categoryMatches = (row) => row.category === category;
+
+            let matches = rows.filter(
+              (row) =>
+                categoryMatches(row) &&
+                levelMatches(row) &&
+                row.academic_year === normYear &&
+                termMatches(row)
+            );
+            if (!matches.length) {
+              matches = rows.filter(
+                (row) => categoryMatches(row) && levelMatches(row) && termMatches(row)
+              );
+              matches.sort((a, b) =>
+                String(b.academic_year || "").localeCompare(String(a.academic_year || ""))
+              );
+            }
+            const m =
+              matches.find((row) => row.term === normTerm) ||
+              matches.find((row) => row.term === "Full Year");
             if (m?.max_amount != null) applyLimit(m.max_amount, "backend");
             else applyNotFound();
           });
@@ -739,7 +779,7 @@ export default function App({ session }) {
       .catch(err => { if (err?.name !== "AbortError") applyNotFound(); })
       .finally(() => { if (!ac.signal.aborted) setNesaLimitLoading(false); });
     return () => ac.abort();
-  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, schoolFeeScope]);
+  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, form?.nesaFeeLimitLevel, schoolFeeScope]);
 
   if (!form) {
     return (
@@ -1338,7 +1378,7 @@ export default function App({ session }) {
               <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
                 Select classes
                 <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — tick all that apply (registered at your school)
+                  — choose a grade (e.g. P1) for all streams, or expand to pick P1 A, P1 B…
                 </span>
               </label>
               {registeredClassesLoading ? (
@@ -1356,39 +1396,18 @@ export default function App({ session }) {
                 </p>
               ) : (
                 <>
-                  {(() => {
-                    const selectedSet = new Set(form.classes || []);
-                    return (
-                  <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-0.5"
-                    style={{ borderColor: C.goldBorder, background: C.goldBg }}>
-                    {registeredClassOptions.map((c) => {
-                      const checked = selectedSet.has(c);
-                      return (
-                        <label
-                          key={c}
-                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer text-sm font-semibold transition-colors hover:bg-white/80"
-                          style={{ color: C.dark }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const cur = Array.isArray(form.classes) ? [...form.classes] : [];
-                              if (checked) {
-                                if (cur.length <= 1) return;
-                                up("classes", sortSelectedClassesByCatalog(cur.filter((x) => x !== c), registeredClassOptions));
-                              } else {
-                                up("classes", sortSelectedClassesByCatalog([...cur, c], registeredClassOptions));
-                              }
-                            }}
-                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                          />
-                          <span className="min-w-0 break-words">{c}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                    );
-                  })()}
+                  <ClassStreamPicker
+                    groups={classGroups}
+                    selected={form.classes || []}
+                    onChange={(next) => {
+                      up("classes", next);
+                      if (next[0]) up("nesaFeeLimitLevel", inferEducationLevelFromClassLabel(next[0]));
+                    }}
+                    sortSelected={sortSelectedClassesByCatalog}
+                    catalogOrder={registeredClassOptions}
+                    minSelected={1}
+                    colors={C}
+                  />
                   {form.classes.length > 1 && (
                     <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
                       style={{ background: C.goldBg, color: C.goldDark }}>

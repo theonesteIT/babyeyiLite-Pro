@@ -1,0 +1,96 @@
+import { RefreshCw } from 'lucide-react';
+import './liteOrangePageHero.css';
+
+const NAVY = '#000435';
+
+/**
+ * Orange hero band — matches Babyeyi Pro DOS / teacher Ticha Deals header.
+ */
+export default function LiteOrangePageHero({
+  title,
+  subtitle,
+  heroStats = [],
+  onRefresh,
+  refreshing = false,
+  liveOk = true,
+  badgeLabel = 'Babyeyi · Secure',
+  children = null,
+  className = '',
+}) {
+  const hasStats = heroStats.length > 0;
+
+  return (
+    <section className={`lite-orange-page-hero relative ${className}`}>
+      <div className="lite-hero-orange relative flex min-h-[220px] items-center overflow-hidden text-white sm:min-h-[260px] md:min-h-[280px]">
+        <div className="absolute -top-28 -right-28 w-[22rem] h-[22rem] rounded-full border border-white/[0.07] pointer-events-none" aria-hidden />
+        <div className="absolute -top-14 -right-14 w-[15rem] h-[15rem] rounded-full border border-white/[0.06] pointer-events-none" aria-hidden />
+        <div className="absolute left-4 top-4 z-10 sm:left-6 sm:top-6 md:left-8">
+          <div className="inline-flex items-center gap-2">
+            <span className="w-5 h-1 rounded-full bg-[#FEBF10]" aria-hidden />
+            <span className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/90">{badgeLabel}</span>
+          </div>
+        </div>
+
+        <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-6 sm:top-6 md:right-8">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-[10px] font-normal uppercase tracking-widest text-white/90">
+            {refreshing ? 'Updating…' : liveOk ? 'Live data' : 'Offline'}
+          </div>
+          {onRefresh ? (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/20 active:scale-95 disabled:opacity-60"
+              title="Refresh"
+              aria-label="Refresh data"
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+          ) : null}
+        </div>
+
+        <div
+          className={`relative z-10 w-full max-w-4xl px-7 md:px-10 ${
+            hasStats ? 'pb-16 pt-14 sm:pb-20 sm:pt-16' : 'pb-12 pt-14 sm:pt-16'
+          }`}
+        >
+          <h1 className="mb-2 font-sans text-xl sm:text-2xl md:text-[1.65rem] font-medium tracking-tight text-white">{title}</h1>
+          {subtitle ? (
+            <p className="max-w-2xl text-xs sm:text-sm font-normal text-white/80 leading-relaxed">{subtitle}</p>
+          ) : null}
+          {children ? <div className="mt-4 flex flex-wrap gap-2.5">{children}</div> : null}
+        </div>
+      </div>
+
+      {hasStats ? (
+        <div className="relative z-20 mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8 -mt-10 pt-2 pb-8">
+          <div className="lite-hero-stats-panel rounded-t-[32px] bg-white">
+            <div className="grid grid-cols-2 divide-x divide-y divide-black/5 sm:grid-cols-4 sm:divide-y-0">
+              {heroStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="flex min-h-[6.5rem] flex-col items-center justify-center p-5 text-center transition-colors hover:bg-slate-50"
+                >
+                  <span className="text-lg sm:text-xl font-medium tabular-nums tracking-tight" style={{ color: NAVY }}>
+                    {stat.value}
+                  </span>
+                  <p className="mt-1 text-[8px] font-normal uppercase tracking-wider text-re-text-muted opacity-70 sm:text-[9px]">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+export function LiteOrangePageBody({ children, className = '', maxWidth = 'max-w-[1600px]' }) {
+  return (
+    <div className={`relative z-10 mx-auto w-full space-y-5 px-4 pb-10 pt-2 sm:px-6 lg:px-8 ${maxWidth} ${className}`}>
+      {children}
+    </div>
+  );
+}

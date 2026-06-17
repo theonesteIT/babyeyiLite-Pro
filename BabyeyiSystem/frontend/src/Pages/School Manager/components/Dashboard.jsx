@@ -5,10 +5,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { BABYEYI_FONT_STACK } from "../../../theme/babyeyiDashboardTheme";
 import {
-  FileText, CheckCircle, Clock, XCircle, AlertTriangle, TrendingUp,
+  AlertTriangle, TrendingUp,
   Activity, ArrowUpRight,
 } from "lucide-react";
 import { LineAreaChart, HBarChart } from "../components/UI";
+import SmStatCard from "./SmStatCard";
+
+import { hasSchoolId } from "../../../utils/schoolId";
 
 const API_BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
@@ -27,7 +30,7 @@ export default function DashboardPage({ setTab, toast, t, session }) {
     setLoading(true);
     try {
       const q = new URLSearchParams();
-      if (schoolId) q.set("school_id", String(schoolId));
+      if (hasSchoolId(schoolId)) q.set("school_id", String(schoolId));
       q.set("year", String(chartYear));
 
       const statsRes = await fetch(`${API_BASE}/babyeyi/stats?${q}`, { credentials: "include" });
@@ -88,11 +91,11 @@ export default function DashboardPage({ setTab, toast, t, session }) {
   if (!stats) return null;
 
   const kpiCards = [
-    { icon: FileText, label: t?.totalBabyeyi ?? "Total Babyeyi", value: stats.total, highlight: false },
-    { icon: CheckCircle, label: t?.approved ?? "Approved", value: stats.approved, highlight: false },
-    { icon: Clock, label: t?.pending ?? "Pending", value: stats.pending, highlight: false },
-    { icon: XCircle, label: t?.rejected ?? "Rejected", value: stats.rejected, highlight: false },
-    { icon: AlertTriangle, label: "NESA Alerts", value: stats.exceeded, highlight: stats.exceeded > 0 },
+    { label: t?.totalBabyeyi ?? "Total Babyeyi", value: stats.total },
+    { label: t?.approved ?? "Approved", value: stats.approved },
+    { label: t?.pending ?? "Pending", value: stats.pending },
+    { label: t?.rejected ?? "Rejected", value: stats.rejected },
+    { label: "NESA Alerts", value: stats.exceeded, sub: stats.exceeded > 0 ? "Over limit" : undefined },
   ];
 
   const statusBarData = stats.statusOverview.map((row) => ({
@@ -128,25 +131,13 @@ export default function DashboardPage({ setTab, toast, t, session }) {
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         {kpiCards.map((card, i) => (
-          <button
+          <SmStatCard
             key={i}
-            type="button"
+            label={card.label}
+            value={card.value}
+            sub={card.sub}
             onClick={() => setTab("babyeyi")}
-            className={`text-left rounded-xl sm:rounded-2xl p-3 sm:p-4 border transition-all hover:shadow-md active:scale-[0.98] ${
-              card.highlight
-                ? "border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/80"
-                : "border-slate-200 bg-white"
-            }`}
-          >
-            <div className="flex items-start justify-between gap-1 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.highlight ? "bg-amber-400" : "bg-amber-50"}`}>
-                <card.icon className={`w-4 h-4 ${card.highlight ? "text-[#000435]" : "text-amber-600"}`} />
-              </div>
-              {card.highlight && <ArrowUpRight className="w-4 h-4 text-amber-700 shrink-0" />}
-            </div>
-            <p className="text-xl sm:text-2xl font-bold text-[#000435] tabular-nums">{card.value}</p>
-            <p className="text-[10px] sm:text-[11px] font-semibold text-slate-600 mt-0.5">{card.label}</p>
-          </button>
+          />
         ))}
       </div>
 

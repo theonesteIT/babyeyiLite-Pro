@@ -13,13 +13,12 @@ import {
   ClipboardList,
   FileText,
   TrendingUp,
-  Banknote,
-  Package,
   AlertTriangle,
   ChevronDown,
   X,
 } from 'lucide-react';
 import { BABYEYI_FONT_STACK } from '../../../theme/babyeyiDashboardTheme';
+import SmStatCard from './SmStatCard';
 import {
   STATUS_LABEL,
   STATUS_FILTERS,
@@ -388,41 +387,31 @@ export default function SchoolManagerShuleAvance({ toast }) {
   );
 }
 
-function StatCard({ label, value, sub, accent = '#000435', alert }) {
-  return (
-    <div className={`rounded-2xl border p-4 min-w-0 shadow-sm ${alert ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100 bg-white'}`}>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="text-xl sm:text-2xl font-black mt-1 truncate" style={{ color: accent }}>{value}</p>
-      {sub ? <p className="text-[11px] text-slate-500 mt-1 font-semibold">{sub}</p> : null}
-    </div>
-  );
-}
-
 function DashboardView({ summary, pendingCount, onGoRegistry }) {
   const t = summary?.totals || {};
   const byMonth = summary?.by_month || [];
   const maxMonth = Math.max(...byMonth.map((m) => Number(m.amount_rwf) || 0), 1);
+  const cashoutRow = (summary?.by_type || []).find((x) => x.request_type === 'cashout');
+  const serviceRow = (summary?.by_type || []).find((x) => x.request_type === 'service');
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard label="Total advances" value={t.total_count ?? 0} sub={formatMoney(t.total_amount_rwf)} />
-        <StatCard
+        <SmStatCard label="Total advances" value={t.total_count ?? 0} sub={formatMoney(t.total_amount_rwf)} />
+        <SmStatCard
           label="Needs action"
           value={pendingCount}
           sub={formatMoney(t.pending_amount_rwf)}
-          accent="#b45309"
-          alert={pendingCount > 0}
         />
-        <StatCard label="Approved" value={t.approved_count ?? 0} sub={formatMoney(t.approved_amount_rwf)} accent="#047857" />
-        <StatCard label="Rejected" value={t.rejected_count ?? 0} sub={formatMoney(t.rejected_amount_rwf)} accent="#b91c1c" />
+        <SmStatCard label="Approved" value={t.approved_count ?? 0} sub={formatMoney(t.approved_amount_rwf)} />
+        <SmStatCard label="Rejected" value={t.rejected_count ?? 0} sub={formatMoney(t.rejected_amount_rwf)} />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <MiniStat icon={Banknote} label="Cashouts" summary={summary} typeKey="cashout" />
-        <MiniStat icon={Package} label="Services" summary={summary} typeKey="service" />
-        <StatCard label="Over limit" value={t.over_limit_count ?? 0} sub="Exceeded monthly %" accent="#b45309" />
-        <StatCard label="Auto-approved" value={t.auto_approved_count ?? 0} sub="Instant cashouts" accent="#0369a1" />
+        <SmStatCard label="Cashouts" value={cashoutRow?.count ?? 0} sub={formatMoney(cashoutRow?.amount_rwf)} />
+        <SmStatCard label="Services" value={serviceRow?.count ?? 0} sub={formatMoney(serviceRow?.amount_rwf)} />
+        <SmStatCard label="Over limit" value={t.over_limit_count ?? 0} sub="Exceeded monthly %" />
+        <SmStatCard label="Auto-approved" value={t.auto_approved_count ?? 0} sub="Instant cashouts" />
       </div>
 
       {byMonth.length > 0 ? (
@@ -463,22 +452,6 @@ function DashboardView({ summary, pendingCount, onGoRegistry }) {
           Review {pendingCount} pending advance{pendingCount === 1 ? '' : 's'}
         </button>
       ) : null}
-    </div>
-  );
-}
-
-function MiniStat({ icon: Icon, label, summary, typeKey }) {
-  const row = (summary?.by_type || []).find((x) => x.request_type === typeKey);
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-4 flex items-center gap-3 shadow-sm">
-      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-[#000435]">
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
-        <p className="text-lg font-black text-[#000435]">{row?.count ?? 0}</p>
-        <p className="text-[10px] font-semibold text-slate-500">{formatMoney(row?.amount_rwf)}</p>
-      </div>
     </div>
   );
 }

@@ -204,6 +204,20 @@ function normalizePhone(raw) {
 
 function trimStr(v) { return String(v ?? '').trim(); }
 
+function resolveClassNameFromBody(body, fallback = '') {
+  const stream = trimStr(body?.stream ?? body?.stream_name ?? body?.streamName ?? '');
+  const classPart = trimStr(
+    body?.class_name ?? body?.className ?? body?.class ?? body?.group_name ?? body?.groupName ?? '',
+  );
+  if (classPart && stream) {
+    const baseOnly = !classPart.includes(' ') || classPart.split(/\s+/).length === 1;
+    if (baseOnly) return `${classPart} ${stream}`.replace(/\s+/g, ' ').trim();
+    return classPart;
+  }
+  const resolved = classPart || trimStr(fallback);
+  return resolved || null;
+}
+
 /** Optional parent national ID — trim only, max 64 chars. */
 function optionalNationalId(v) {
   const s = trimStr(v);
@@ -1457,8 +1471,8 @@ router.put('/students/:id', requireRole(SCHOOL_ROLES), async (req, res) => {
     );
     const studentCodeVal = cur?.student_code || formattedStudentCodeFromUid(studentUid);
 
-    const cls = 'class_name' in body || 'className' in body
-      ? trimStr(body.class_name || body.className) || null
+    const cls = 'class_name' in body || 'className' in body || 'stream' in body || 'class' in body
+      ? resolveClassNameFromBody(body)
       : cur?.class_name ?? null;
     const ay = 'academic_year' in body || 'academicYear' in body
       ? trimStr(body.academic_year || body.academicYear) || null
@@ -1845,7 +1859,7 @@ router.post('/students', requireRole(SCHOOL_ROLES), async (req, res) => {
     const motherNationalIdVal = optionalNationalId(
       mother_national_id ?? motherNationalId ?? MotherNational_ID
     );
-    const classNameVal = trimStr(class_name || className) || null;
+    const classNameVal = resolveClassNameFromBody(req.body);
     const academicYearVal = trimStr(academic_year || academicYear) || null;
     const sdmCodeVal = trimStr(sdm_code || sdmCode) || null;
 
@@ -1979,7 +1993,7 @@ router.post(
       const importMode    = ['insert_only', 'replace_by_student_id'].includes(importModeRaw)
         ? importModeRaw : 'insert_only';
 
-      const defaultClass = trimStr(req.body?.class_name || '');
+      const defaultClass = resolveClassNameFromBody(req.body);
       const defaultYear = trimStr(req.body?.academic_year || '');
       if (!defaultClass || !defaultYear) {
         return res.status(400).json({

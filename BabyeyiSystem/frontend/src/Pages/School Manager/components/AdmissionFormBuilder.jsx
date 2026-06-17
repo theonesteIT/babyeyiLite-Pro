@@ -21,6 +21,7 @@ import {
   ChevronLeft, RefreshCw, User, BookOpen, Inbox,
   TrendingUp, Award, XCircle
 } from "lucide-react";
+import SmStatCard from "./SmStatCard";
 
 const API = "http://localhost:5100/api/admissions";
 
@@ -79,22 +80,6 @@ function Toggle({ checked, onChange, label }) {
       {checked ? <ToggleRight size={16} className="text-indigo-600" /> : <ToggleLeft size={16} />}
       {label}
     </button>
-  );
-}
-
-// ─── Stat card ────────────────────────────────────────────────
-function StatCard({ icon: Icon, label, value, sub, iconBg, iconColor, valColor }) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-        <Icon size={18} className={iconColor} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className={`text-2xl font-black leading-none ${valColor}`}>{value}</div>
-        <div className="text-xs font-bold text-gray-500 mt-0.5 truncate">{label}</div>
-        {sub && <div className="text-[10px] text-gray-400 mt-0.5 truncate">{sub}</div>}
-      </div>
-    </div>
   );
 }
 
@@ -524,18 +509,18 @@ export default function AdmissionFormBuilder({ schoolId, toast, onNext, onBack }
       {/* ── STATS STRIP ──────────────────────────────────────── */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard icon={Users}       label="Applications"   value={stats.applicantsCount??0}
-            iconBg="bg-indigo-100" iconColor="text-indigo-600" valColor="text-indigo-700" />
-          <StatCard icon={Award}       label="Spots Allowed"  value={stats.maxApplicants??"∞"}
-            sub={stats.maxApplicants ? `${stats.spotsRemaining??0} left` : "Unlimited"}
-            iconBg="bg-emerald-100" iconColor="text-emerald-600" valColor="text-emerald-700" />
-          <StatCard icon={TrendingUp}  label="Days Left"      value={daysLeft??"-"}
+          <SmStatCard label="Applications" value={stats.applicantsCount ?? 0} />
+          <SmStatCard
+            label="Spots Allowed"
+            value={stats.maxApplicants ?? "∞"}
+            sub={stats.maxApplicants ? `${stats.spotsRemaining ?? 0} left` : "Unlimited"}
+          />
+          <SmStatCard
+            label="Days Left"
+            value={daysLeft ?? "—"}
             sub={dead ? `Deadline: ${dead.toLocaleDateString()}` : "No deadline set"}
-            iconBg="bg-amber-100" iconColor="text-amber-600" valColor="text-amber-700" />
-          <StatCard icon={CheckCircle} label="Form Status"    value={fmSt.label}
-            iconBg={form?.status==="open"?"bg-green-100":"bg-gray-100"}
-            iconColor={form?.status==="open"?"text-green-600":"text-gray-500"}
-            valColor={form?.status==="open"?"text-green-700":"text-gray-700"} />
+          />
+          <SmStatCard label="Form Status" value={fmSt.label} />
         </div>
       )}
 

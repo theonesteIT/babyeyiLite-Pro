@@ -10,7 +10,6 @@ import {
   Globe,
   TrendingUp,
   FolderOpen,
-  Receipt,
   Wallet,
   BarChart2,
   Settings,
@@ -62,10 +61,7 @@ export function getSchoolManagerNavGroups({ includeSchoolTeam = false } = {}) {
     {
       id: 'finance',
       label: 'Finance',
-      items: [
-        { id: 'invoices', label: 'Invoices', icon: Receipt },
-        { id: 'shule_avance', label: 'Shule Avance', icon: Wallet },
-      ],
+      items: [{ id: 'shule_avance', label: 'Shule Avance', icon: Wallet }],
     },
     {
       id: 'reports',

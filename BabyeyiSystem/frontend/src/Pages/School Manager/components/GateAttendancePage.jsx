@@ -3,14 +3,17 @@
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Sunrise, Sunset, Users, UserX, Clock, Settings, Search, Loader2,
+  Sunrise, Sunset, Clock, Settings, Search, Loader2,
   Download, ChevronLeft, ChevronRight, DoorOpen, ClipboardList, AlertCircle,
 } from "lucide-react";
 import { BABYEYI_FONT_STACK } from "../../../theme/babyeyiDashboardTheme";
+import { SM_NAVY } from "../utils/schoolManagerTheme";
+import SmStatCard from "./SmStatCard";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const FONT = BABYEYI_FONT_STACK;
 const PAGE_SIZE = 8;
+const NAVY = SM_NAVY;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -42,49 +45,17 @@ function normalizeSettings(data = {}) {
 
 function StatusPill({ status, variant }) {
   const map = {
-    present: "bg-emerald-100 text-emerald-800",
-    late: "bg-amber-100 text-amber-800",
-    absent: "bg-red-100 text-red-700",
-    exit: "bg-blue-100 text-blue-800",
-    pending: "bg-violet-100 text-violet-800",
+    present: "bg-[#000435] text-amber-400",
+    late: "bg-amber-400 text-[#000435]",
+    absent: "bg-[#000435]/10 text-[#000435]",
+    exit: "bg-amber-400/25 text-[#000435] border border-amber-300",
+    pending: "bg-[#000435]/8 text-[#000435]/60",
   };
-  const cls = map[variant] || "bg-slate-100 text-slate-600";
+  const cls = map[variant] || "bg-[#000435]/8 text-[#000435]/60";
   return (
-    <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-semibold ${cls}`}>
+    <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${cls}`}>
       {status}
     </span>
-  );
-}
-
-function RingStat({ icon: Icon, label, value, sub, pct, ringClass }) {
-  const r = 36;
-  const c = 2 * Math.PI * r;
-  const offset = c - (Math.min(100, Math.max(0, pct)) / 100) * c;
-  return (
-    <div className="rounded-2xl bg-white border border-slate-100 shadow-[0_1px_3px_rgba(0,4,53,0.06)] p-5 flex items-center gap-4">
-      <div className="relative w-[88px] h-[88px] shrink-0">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 88 88">
-          <circle cx="44" cy="44" r={r} fill="none" stroke="#f1f5f9" strokeWidth="8" />
-          <circle
-            cx="44" cy="44" r={r} fill="none"
-            strokeWidth="8" strokeLinecap="round"
-            className={ringClass}
-            stroke="currentColor"
-            strokeDasharray={c}
-            strokeDashoffset={offset}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <Icon size={18} className="text-slate-400 mb-0.5" />
-          <span className="text-lg font-black text-[#000435] tabular-nums">{pct}%</span>
-        </div>
-      </div>
-      <div className="min-w-0">
-        <p className="text-2xl font-black text-[#000435] tabular-nums leading-none">{value}</p>
-        <p className="text-sm font-bold text-slate-800 mt-1">{label}</p>
-        {sub ? <p className="text-[11px] text-slate-500 mt-0.5">{sub}</p> : null}
-      </div>
-    </div>
   );
 }
 
@@ -266,25 +237,25 @@ export default function GateAttendancePage({ toast }) {
   };
 
   const donutSegments = [
-    { label: "Present", pct: stats.morningPct, color: "#22c55e" },
+    { label: "Present", pct: stats.morningPct, color: NAVY },
     { label: "Late", pct: Math.round((stats.late / Math.max(1, stats.totalEnrolled)) * 100), color: "#f59e0b" },
-    { label: "Absent", pct: stats.absentPct, color: "#ef4444" },
-    { label: "Not marked", pct: stats.pendingPct, color: "#8b5cf6" },
+    { label: "Absent", pct: stats.absentPct, color: "rgba(0,4,53,0.35)" },
+    { label: "Not marked", pct: stats.pendingPct, color: "#fbbf24" },
   ];
 
   return (
-    <div className="space-y-5 sm:space-y-6 anim" style={{ fontFamily: FONT }}>
+    <div className="space-y-5 sm:space-y-6 anim min-h-0" style={{ fontFamily: FONT }}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl sm:text-[26px] font-black text-[#000435] tracking-tight">Gate Attendance</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitor morning and evening gate attendance for students and staff.</p>
+          <p className="text-sm text-[#000435]/50 mt-1">Monitor morning and evening gate attendance for students and staff.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm font-medium"
+            className="h-10 px-3 rounded-xl border border-[#000435]/15 bg-white text-sm font-medium text-[#000435] focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
           />
           <button
             type="button"
@@ -296,7 +267,7 @@ export default function GateAttendancePage({ toast }) {
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 rounded-xl bg-slate-100 w-fit max-w-full overflow-x-auto">
+      <div className="flex gap-1 p-1 rounded-xl bg-[#000435]/8 w-fit max-w-full overflow-x-auto">
         {[
           { id: "attendance", label: "Attendance", icon: DoorOpen },
           { id: "settings", label: "Time settings", icon: Settings },
@@ -306,7 +277,7 @@ export default function GateAttendancePage({ toast }) {
             type="button"
             onClick={() => setMainTab(id)}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${
-              mainTab === id ? "bg-white text-[#000435] shadow-sm" : "text-slate-600 hover:text-slate-900"
+              mainTab === id ? "bg-[#000435] text-amber-400 shadow-sm" : "text-[#000435]/60 hover:text-[#000435]"
             }`}
           >
             <Icon size={16} /> {label}
@@ -315,67 +286,71 @@ export default function GateAttendancePage({ toast }) {
       </div>
 
       {mainTab === "settings" ? (
-        <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-6 max-w-2xl">
-          <h2 className="text-lg font-black text-[#000435] mb-1">Morning & evening windows</h2>
-          <p className="text-sm text-slate-500 mb-6">
-            Set when taps count as on-time, late, or closed for each session. RFID cards must be assigned in HRCenter or Smart Access.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { key: "morningDeadline", label: "Morning on-time until", hint: "After this → Late" },
-              { key: "morningCutoff", label: "Morning session closes", hint: "No more morning check-in" },
-              { key: "eveningStart", label: "Evening exit opens", hint: "Evening check-out allowed from" },
-              { key: "eveningCutoff", label: "Evening session closes", hint: "No more evening check-out" },
-            ].map(({ key, label, hint }) => (
-              <div key={key}>
-                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">{label}</label>
-                <input
-                  type="time"
-                  value={draftSettings[key]}
-                  onChange={(e) => setDraftSettings((s) => ({ ...s, [key]: e.target.value }))}
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">{hint}</p>
-              </div>
-            ))}
+        <div className="rounded-2xl sm:rounded-3xl bg-white border border-[#000435]/10 shadow-sm overflow-hidden max-w-2xl">
+          <div className="px-6 py-5" style={{ background: NAVY }}>
+            <h2 className="text-lg font-black text-white">Morning & evening windows</h2>
+            <p className="text-sm text-amber-300/70 mt-1">
+              When RFID taps count as on-time, late, or closed for each session.
+            </p>
           </div>
-          <div className="mt-6 flex gap-2">
-            <button
-              type="button"
-              onClick={saveSettings}
-              disabled={savingSettings}
-              className="px-5 py-2.5 rounded-xl bg-[#000435] text-amber-400 text-sm font-bold disabled:opacity-60 inline-flex items-center gap-2"
-            >
-              {savingSettings ? <Loader2 size={16} className="animate-spin" /> : null}
-              Save times
-            </button>
-            <button
-              type="button"
-              onClick={() => setDraftSettings(settings)}
-              className="px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600"
-            >
-              Reset
-            </button>
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[
+                { key: "morningDeadline", label: "Morning on-time until", hint: "After this → Late" },
+                { key: "morningCutoff", label: "Morning session closes", hint: "No more morning check-in" },
+                { key: "eveningStart", label: "Evening exit opens", hint: "Evening check-out allowed from" },
+                { key: "eveningCutoff", label: "Evening session closes", hint: "No more evening check-out" },
+              ].map(({ key, label, hint }) => (
+                <div key={key}>
+                  <label className="block text-[11px] font-bold text-[#000435]/50 uppercase tracking-wide mb-1.5">{label}</label>
+                  <input
+                    type="time"
+                    value={draftSettings[key]}
+                    onChange={(e) => setDraftSettings((s) => ({ ...s, [key]: e.target.value }))}
+                    className="w-full h-11 px-3 rounded-xl border border-[#000435]/15 text-sm font-medium text-[#000435] focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
+                  />
+                  <p className="text-[10px] text-[#000435]/40 mt-1">{hint}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={savingSettings}
+                className="px-5 py-2.5 rounded-xl bg-[#000435] text-amber-400 text-sm font-bold disabled:opacity-60 inline-flex items-center gap-2"
+              >
+                {savingSettings ? <Loader2 size={16} className="animate-spin" /> : null}
+                Save times
+              </button>
+              <button
+                type="button"
+                onClick={() => setDraftSettings(settings)}
+                className="px-4 py-2.5 rounded-xl border border-[#000435]/15 text-sm font-bold text-[#000435]/70 hover:bg-[#000435]/5"
+              >
+                Reset
+              </button>
+            </div>
           </div>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-            <RingStat icon={Sunrise} label="Morning Attendance" value={stats.morningPresent} sub="Present today" pct={stats.morningPct} ringClass="text-amber-500" />
-            <RingStat icon={Sunset} label="Evening Attendance" value={stats.eveningPresent} sub="Checked out" pct={stats.eveningPct} ringClass="text-blue-500" />
-            <RingStat icon={UserX} label="Absent (est.)" value={stats.absentAll} sub="Today" pct={stats.absentPct} ringClass="text-red-500" />
-            <RingStat icon={Clock} label="Not Marked" value={stats.pendingAll} sub="Pending" pct={stats.pendingPct} ringClass="text-violet-500" />
+            <SmStatCard label="Morning Attendance" value={stats.morningPresent} sub={`${stats.morningPct}% present today`} />
+            <SmStatCard label="Evening Attendance" value={stats.eveningPresent} sub={`${stats.eveningPct}% checked out`} />
+            <SmStatCard label="Absent (est.)" value={stats.absentAll} sub={`${stats.absentPct}% today`} />
+            <SmStatCard label="Not Marked" value={stats.pendingAll} sub={`${stats.pendingPct}% pending`} />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-5">
-            <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden min-w-0">
-              <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex flex-col gap-3">
+            <div className="rounded-2xl sm:rounded-3xl bg-white border border-[#000435]/10 shadow-sm overflow-hidden min-w-0">
+              <div className="px-4 sm:px-6 py-4 border-b border-[#000435]/8 bg-[#000435]/[0.02] flex flex-col gap-3">
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setSessionTab("morning")}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${
-                      sessionTab === "morning" ? "bg-amber-400 text-[#000435]" : "bg-slate-100 text-slate-600"
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                      sessionTab === "morning" ? "bg-amber-400 text-[#000435]" : "bg-[#000435]/8 text-[#000435]/70"
                     }`}
                   >
                     <Sunrise size={16} /> Morning
@@ -383,8 +358,8 @@ export default function GateAttendancePage({ toast }) {
                   <button
                     type="button"
                     onClick={() => setSessionTab("evening")}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold ${
-                      sessionTab === "evening" ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+                      sessionTab === "evening" ? "bg-[#000435] text-amber-400" : "bg-[#000435]/8 text-[#000435]/70"
                     }`}
                   >
                     <Sunset size={16} /> Evening
@@ -395,31 +370,31 @@ export default function GateAttendancePage({ toast }) {
                     <h2 className="text-base font-black text-[#000435]">
                       {sessionTab === "morning" ? "Morning Attendance" : "Evening Attendance"}
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[#000435]/45">
                       {sessionTab === "morning"
                         ? `On-time until ${fmt12(settings.morningDeadline)} · closes ${fmt12(settings.morningCutoff)}`
                         : `Opens ${fmt12(settings.eveningStart)} · closes ${fmt12(settings.eveningCutoff)}`}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)} className="h-9 px-2 rounded-lg border border-slate-200 text-xs font-medium">
+                    <select value={personFilter} onChange={(e) => setPersonFilter(e.target.value)} className="h-9 px-2 rounded-lg border border-[#000435]/15 text-xs font-medium text-[#000435] bg-white focus:border-amber-400 outline-none">
                       <option value="all">All</option>
                       <option value="student">Students</option>
                       <option value="staff">Staff</option>
                     </select>
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 px-2 rounded-lg border border-slate-200 text-xs font-medium">
+                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 px-2 rounded-lg border border-[#000435]/15 text-xs font-medium text-[#000435] bg-white focus:border-amber-400 outline-none">
                       <option value="">All status</option>
                       <option value="present">Present</option>
                       <option value="late">Late</option>
                     </select>
                     <div className="relative flex-1 min-w-[140px]">
-                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#000435]/35" />
                       <input
                         type="search"
                         placeholder="Search…"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full h-9 pl-8 pr-2 rounded-lg border border-slate-200 text-xs"
+                        className="w-full h-9 pl-8 pr-2 rounded-lg border border-[#000435]/15 text-xs text-[#000435] focus:border-amber-400 outline-none"
                       />
                     </div>
                   </div>
@@ -442,7 +417,7 @@ export default function GateAttendancePage({ toast }) {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="text-[11px] font-bold uppercase text-slate-400 border-b border-slate-100">
+                        <tr className="text-[11px] font-bold uppercase text-[#000435]/45 border-b border-[#000435]/8 bg-[#000435]/[0.03]">
                           <th className="px-4 py-3">#</th>
                           <th className="px-4 py-3">ID</th>
                           <th className="px-4 py-3">Name</th>
@@ -461,7 +436,7 @@ export default function GateAttendancePage({ toast }) {
                             : (row.evening_check_out ? "Exit" : "—");
                           const variant = status === "Present" ? "present" : status === "Late" ? "late" : status === "Exit" ? "exit" : "pending";
                           return (
-                            <tr key={row.id || `${row.card_uid}-${i}`} className="hover:bg-slate-50/80">
+                            <tr key={row.id || `${row.card_uid}-${i}`} className="hover:bg-amber-50/40 transition-colors">
                               <td className="px-4 py-3 text-slate-500">{(safePage - 1) * PAGE_SIZE + i + 1}</td>
                               <td className="px-4 py-3 font-mono text-xs text-slate-600">{row.person_ref || row.person_id}</td>
                               <td className="px-4 py-3 font-semibold text-slate-900">{row.person_name}</td>
@@ -487,7 +462,7 @@ export default function GateAttendancePage({ toast }) {
             </div>
 
             <aside className="space-y-4">
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-5">
+              <div className="rounded-2xl bg-white border border-[#000435]/10 shadow-sm p-5">
                 <h3 className="text-sm font-black text-[#000435] mb-4">Today overview</h3>
                 <div className="flex flex-col items-center">
                   <div className="relative w-40 h-40">
@@ -515,7 +490,7 @@ export default function GateAttendancePage({ toast }) {
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                       <span className="text-2xl font-black text-[#000435]">{stats.totalEnrolled}</span>
-                      <span className="text-[10px] text-slate-500 font-semibold">Total enrolled</span>
+                      <span className="text-[10px] text-[#000435]/45 font-semibold">Total enrolled</span>
                     </div>
                   </div>
                   <ul className="w-full mt-4 space-y-2 text-xs">
@@ -528,12 +503,12 @@ export default function GateAttendancePage({ toast }) {
                   </ul>
                 </div>
               </div>
-              <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-5">
+              <div className="rounded-2xl bg-white border border-[#000435]/10 shadow-sm p-5">
                 <h3 className="text-sm font-black text-[#000435] mb-3">Quick actions</h3>
                 <ul className="space-y-2 text-sm">
-                  <li><button type="button" onClick={() => setMainTab("settings")} className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 font-medium text-slate-700"><Settings size={16} className="text-amber-500" /> Gate time settings</button></li>
-                  <li><button type="button" onClick={() => { setSessionTab("morning"); setStatusFilter("late"); }} className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 font-medium text-slate-700"><Clock size={16} className="text-amber-500" /> Late arrivals</button></li>
-                  <li><button type="button" onClick={exportCsv} className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 font-medium text-slate-700"><ClipboardList size={16} className="text-blue-500" /> Export report</button></li>
+                  <li><button type="button" onClick={() => setMainTab("settings")} className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-amber-50 font-medium text-[#000435]"><Settings size={16} className="text-amber-500" /> Gate time settings</button></li>
+                  <li><button type="button" onClick={() => { setSessionTab("morning"); setStatusFilter("late"); }} className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-amber-50 font-medium text-[#000435]"><Clock size={16} className="text-[#000435]" /> Late arrivals</button></li>
+                  <li><button type="button" onClick={exportCsv} className="w-full text-left flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-amber-50 font-medium text-[#000435]"><ClipboardList size={16} className="text-amber-500" /> Export report</button></li>
                 </ul>
               </div>
             </aside>
