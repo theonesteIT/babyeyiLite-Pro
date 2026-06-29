@@ -12,20 +12,23 @@ import {
   runRowToValues,
   runTotalRowToValues,
 } from '../utils/payrollReportTables';
-import { formatPayrollRegisterCell } from '../utils/payrollRegister';
+import { formatPayrollRegisterCell, isPayrollPlainTextColumn } from '../utils/payrollRegister';
 
 const COL_MIN = 72;
 
-function fmtCell(v, columnIndex, isDynamic = false) {
+function fmtCell(v, columnIndex, isDynamic = false, columnHeader = '') {
   if (isDynamic) {
     const n = Number(v);
     if (!n) return '0';
     if (n < 0) return `−${Math.abs(n).toLocaleString()}`;
     return n.toLocaleString();
   }
-  const formatted = formatPayrollRegisterCell(v, columnIndex);
+  const formatted = formatPayrollRegisterCell(v, columnIndex, columnHeader);
   const n = Number(v);
-  if (Number.isFinite(n) && n < 0 && columnIndex != null && columnIndex >= 5) {
+  if (
+    Number.isFinite(n) && n < 0 && columnIndex != null && columnIndex >= 5
+    && !isPayrollPlainTextColumn(columnIndex, columnHeader)
+  ) {
     return `−${Math.abs(n).toLocaleString()}`;
   }
   return formatted;
@@ -205,7 +208,7 @@ export default function PayrollReportRegisterTable({
                           >
                             {val}
                           </span>
-                        ) : fmtCell(val, ci, isDyn)}
+                        ) : fmtCell(val, ci, isDyn, headers[ci])}
                       </td>
                     );
                   })}
@@ -216,7 +219,7 @@ export default function PayrollReportRegisterTable({
               <tr className="bg-gradient-to-r from-amber-50 to-amber-100/80 font-bold border-t-2 border-amber-400">
                 {totalMapper(totalRow).map((val, ci) => (
                   <td key={ci} className="py-2.5 px-2.5 whitespace-nowrap tabular-nums text-[#000435]">
-                    {fmtCell(val, ci, ci >= dynStart && ci < dynEnd)}
+                    {fmtCell(val, ci, ci >= dynStart && ci < dynEnd, headers[ci])}
                   </td>
                 ))}
               </tr>

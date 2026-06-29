@@ -13,14 +13,14 @@ import {
   bankTotalRowToValues,
   runTotalRowToValues,
 } from './payrollReportTables';
-import { PAYROLL_REGISTER_TEXT_COL_COUNT } from './payrollRegister';
+import { isPayrollPlainTextColumn } from './payrollRegister';
 
 function stamp() {
   return new Date().toLocaleString();
 }
 
-function fmtNum(v, columnIndex) {
-  if (columnIndex != null && columnIndex < PAYROLL_REGISTER_TEXT_COL_COUNT) {
+function fmtNum(v, columnIndex, columnHeader = '') {
+  if (isPayrollPlainTextColumn(columnIndex, columnHeader)) {
     if (v === '-' || v === '' || v == null) return v === '-' ? '-' : '';
     return String(v);
   }
@@ -29,8 +29,8 @@ function fmtNum(v, columnIndex) {
   return Number.isFinite(n) ? n : String(v);
 }
 
-function mapBodyRows(rows, rowMapper) {
-  return rows.map((r) => rowMapper(r).map((v, i) => fmtNum(v, i)));
+function mapBodyRows(rows, rowMapper, headers = []) {
+  return rows.map((r) => rowMapper(r).map((v, i) => fmtNum(v, i, headers[i])));
 }
 
 function buildSheetAoa({ schoolName, periodLabel, runStatus, note, headers, bodyRows }) {
@@ -81,8 +81,8 @@ export function downloadTaxPayrollReportPdf({
   const taxColumns = rows[0]?.taxColumns || totalRow?.taxColumns || [];
   const taxHeaders = buildTaxRegisterHeaders(taxColumns);
   const rowMapper = (row) => taxRowToValues(row, taxColumns);
-  const body = mapBodyRows(rows, rowMapper);
-  if (totalRow) body.push(taxTotalRowToValues(totalRow, taxColumns).map((v, i) => fmtNum(v, i)));
+  const body = mapBodyRows(rows, rowMapper, taxHeaders);
+  if (totalRow) body.push(taxTotalRowToValues(totalRow, taxColumns).map((v, i) => fmtNum(v, i, taxHeaders[i])));
 
   autoTable(doc, {
     startY: 64,
@@ -128,8 +128,8 @@ export function downloadBankPayrollReportPdf({
   const bankColumns = rows[0]?.dynamicColumns || totalRow?.dynamicColumns || [];
   const bankHeaders = buildBankRegisterHeaders(bankColumns);
   const rowMapper = (row) => bankRowToValues(row, bankColumns);
-  const body = mapBodyRows(rows, rowMapper);
-  if (totalRow) body.push(bankTotalRowToValues(totalRow, bankColumns).map((v, i) => fmtNum(v, i)));
+  const body = mapBodyRows(rows, rowMapper, bankHeaders);
+  if (totalRow) body.push(bankTotalRowToValues(totalRow, bankColumns).map((v, i) => fmtNum(v, i, bankHeaders[i])));
 
   autoTable(doc, {
     startY: 64,
@@ -155,8 +155,8 @@ export function downloadTaxPayrollReportExcel({
   const taxColumns = rows[0]?.taxColumns || totalRow?.taxColumns || [];
   const taxHeaders = buildTaxRegisterHeaders(taxColumns);
   const rowMapper = (row) => taxRowToValues(row, taxColumns);
-  const body = mapBodyRows(rows, rowMapper);
-  if (totalRow) body.push(taxTotalRowToValues(totalRow, taxColumns).map((v, i) => fmtNum(v, i)));
+  const body = mapBodyRows(rows, rowMapper, taxHeaders);
+  if (totalRow) body.push(taxTotalRowToValues(totalRow, taxColumns).map((v, i) => fmtNum(v, i, taxHeaders[i])));
   const aoa = buildSheetAoa({
     schoolName,
     periodLabel,
@@ -179,8 +179,8 @@ export function downloadBankPayrollReportExcel({
   const bankColumns = rows[0]?.dynamicColumns || totalRow?.dynamicColumns || [];
   const bankHeaders = buildBankRegisterHeaders(bankColumns);
   const rowMapper = (row) => bankRowToValues(row, bankColumns);
-  const body = mapBodyRows(rows, rowMapper);
-  if (totalRow) body.push(bankTotalRowToValues(totalRow, bankColumns).map((v, i) => fmtNum(v, i)));
+  const body = mapBodyRows(rows, rowMapper, bankHeaders);
+  if (totalRow) body.push(bankTotalRowToValues(totalRow, bankColumns).map((v, i) => fmtNum(v, i, bankHeaders[i])));
   const aoa = buildSheetAoa({
     schoolName,
     periodLabel,
@@ -204,8 +204,8 @@ export function downloadRunPayrollRegisterExcel({
   const runColumns = rows[0]?.runColumns || totalRow?.runColumns || [];
   const runHeaders = buildRunRegisterHeaders(runColumns, netPayLabel);
   const rowMapper = (row) => runRowToValues(row, runColumns);
-  const body = mapBodyRows(rows, rowMapper);
-  if (totalRow) body.push(runTotalRowToValues(totalRow, runColumns).map((v, i) => fmtNum(v, i)));
+  const body = mapBodyRows(rows, rowMapper, runHeaders);
+  if (totalRow) body.push(runTotalRowToValues(totalRow, runColumns).map((v, i) => fmtNum(v, i, runHeaders[i])));
   const aoa = buildSheetAoa({
     schoolName,
     periodLabel,
