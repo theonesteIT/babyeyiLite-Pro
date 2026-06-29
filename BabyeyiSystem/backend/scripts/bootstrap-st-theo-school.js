@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 /**
- * Seed core roles + St Theo School super-admin account.
+ * Seed core roles + a school SUPER_ADMIN account (idempotent).
+ * Credentials and secrets must be set in .env — never hardcode passwords in this file.
+ *
+ * Required in BabyeyiSystem/backend/.env:
+ *   BOOTSTRAP_SCHOOL_ADMIN_EMAIL
+ *   BOOTSTRAP_SCHOOL_ADMIN_PASSWORD
+ *
+ * Optional:
+ *   BOOTSTRAP_SCHOOL_NAME, BOOTSTRAP_SCHOOL_PROVINCE, BOOTSTRAP_SCHOOL_DISTRICT,
+ *   BOOTSTRAP_SCHOOL_SECTOR, BOOTSTRAP_SCHOOL_PHONE
  *
  *   cd BabyeyiSystem/backend && node scripts/bootstrap-st-theo-school.js
  */
@@ -15,12 +24,28 @@ const { ensureCoreRoles } = require('../utils/coreRolesSchema');
 const { ensureSchoolsTable } = require('../utils/schoolsSchema');
 const { getDistrictCode, formatSchoolCode } = require('../utils/rwandaDistrictCodes');
 
-const EMAIL = 'sttheoschool@gmail.com';
-const PASSWORD = 'sttheoschool@';
-const SCHOOL_NAME = 'St Theo School';
-const PROVINCE = 'Kigali City';
-const DISTRICT = 'Gasabo';
-const SECTOR = 'Remera';
+function loadBootstrapConfig() {
+  const email = String(process.env.BOOTSTRAP_SCHOOL_ADMIN_EMAIL || '').trim().toLowerCase();
+  const password = String(process.env.BOOTSTRAP_SCHOOL_ADMIN_PASSWORD || '');
+
+  if (!email || !password) {
+    throw new Error(
+      'Set BOOTSTRAP_SCHOOL_ADMIN_EMAIL and BOOTSTRAP_SCHOOL_ADMIN_PASSWORD in .env before running this script.',
+    );
+  }
+
+  return {
+    email,
+    password,
+    schoolName: String(process.env.BOOTSTRAP_SCHOOL_NAME || 'St Theo School').trim(),
+    province: String(process.env.BOOTSTRAP_SCHOOL_PROVINCE || 'Kigali City').trim(),
+    district: String(process.env.BOOTSTRAP_SCHOOL_DISTRICT || 'Gasabo').trim(),
+    sector: String(process.env.BOOTSTRAP_SCHOOL_SECTOR || 'Remera').trim(),
+    phone: String(process.env.BOOTSTRAP_SCHOOL_PHONE || '0780000000').trim(),
+    firstName: String(process.env.BOOTSTRAP_SCHOOL_ADMIN_FIRST_NAME || 'St Theo').trim(),
+    lastName: String(process.env.BOOTSTRAP_SCHOOL_ADMIN_LAST_NAME || 'School').trim(),
+  };
+}
 
 function generateUserUID(prefix = 'SA') {
   const ts = Date.now().toString().slice(-6);
@@ -49,6 +74,8 @@ async function getNextDistrictSchoolCode(conn, districtCode) {
 }
 
 async function main() {
+  const cfg = loadBootstrapConfig();
+
   await ensureCoreAuthSchema();
   await ensureCoreRoles();
   await ensureSchoolsTable();
@@ -62,15 +89,10 @@ async function main() {
     );
     if (!saRole) throw new Error('SUPER_ADMIN role missing after seed');
 
-    const [[schoolAdminRole]] = await conn.query(
-      "SELECT id FROM roles WHERE role_code = 'SCHOOL_ADMIN' LIMIT 1",
-    );
-    if (!schoolAdminRole) throw new Error('SCHOOL_ADMIN role missing after seed');
-
     let userId;
     const [[existingUser]] = await conn.query(
       'SELECT id, role_id FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1',
-      [EMAIL],
+      [cfg.email],
     );
 
     if (existingUser) {
@@ -79,28 +101,28 @@ async function main() {
         saRole.id,
         userId,
       ]);
-      const hash = await bcrypt.hash(PASSWORD, 10);
+      const hash = await bcrypt.hash(cfg.password, 10);
       await conn.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, userId]);
-      console.log(`Updated existing user ${EMAIL} → SUPER_ADMIN`);
+      console.log(`Updated existing user ${cfg.email} → SUPER_ADMIN`);
     } else {
-      const hash = await bcrypt.hash(PASSWORD, 10);
+      const hash = await bcrypt.hash(cfg.password, 10);
       const userUid = generateUserUID('SA');
       const [userRes] = await conn.query(
         `INSERT INTO users
            (user_uid, email, password_hash, first_name, last_name,
             province, district, sector, role_id, is_active, is_verified, created_at)
          VALUES (?,?,?,?,?,?,?,?,?,1,1,NOW())`,
-        [userUid, EMAIL, hash, 'St Theo', 'School', PROVINCE, DISTRICT, SECTOR, saRole.id],
+        [userUid, cfg.email, hash, cfg.firstName, cfg.lastName, cfg.province, cfg.district, cfg.sector, saRole.id],
       );
       userId = userRes.insertId;
-      console.log(`Created SUPER_ADMIN: ${EMAIL} (id=${userId})`);
+      console.log(`Created SUPER_ADMIN: ${cfg.email} (id=${userId})`);
     }
 
-    const districtCode = getDistrictCode(DISTRICT);
+    const districtCode = getDistrictCode(cfg.district);
     let schoolId;
     const [[existingSchool]] = await conn.query(
       'SELECT id FROM schools WHERE email = ? AND deleted_at IS NULL LIMIT 1',
-      [EMAIL],
+      [cfg.email],
     );
 
     if (existingSchool) {
@@ -109,9 +131,9 @@ async function main() {
         `UPDATE schools SET school_name = ?, admin_id = ?, manager_user_id = ?,
          province = ?, district = ?, district_code = ?, sector = ?, status = 'active', is_active = 1
          WHERE id = ?`,
-        [SCHOOL_NAME, userId, userId, PROVINCE, DISTRICT, districtCode, SECTOR, schoolId],
+        [cfg.schoolName, userId, userId, cfg.province, cfg.district, districtCode, cfg.sector, schoolId],
       );
-      console.log(`Updated school id=${schoolId} (${SCHOOL_NAME})`);
+      console.log(`Updated school id=${schoolId} (${cfg.schoolName})`);
     } else {
       const schoolCode = await getNextDistrictSchoolCode(conn, districtCode);
       const [schoolRes] = await conn.query(
@@ -123,39 +145,39 @@ async function main() {
           created_at, updated_at
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',1,'pro',1,NOW(),NOW())`,
         [
-          SCHOOL_NAME,
+          cfg.schoolName,
           schoolCode,
           JSON.stringify(['Primary', 'Secondary']),
           'Day',
           'Private',
-          PROVINCE,
-          DISTRICT,
+          cfg.province,
+          cfg.district,
           districtCode,
-          SECTOR,
-          SECTOR,
-          SECTOR,
-          `${SECTOR}, ${DISTRICT}, ${PROVINCE}`,
-          '0780000000',
-          EMAIL,
-          'St Theo School',
-          '0780000000',
-          EMAIL,
+          cfg.sector,
+          cfg.sector,
+          cfg.sector,
+          `${cfg.sector}, ${cfg.district}, ${cfg.province}`,
+          cfg.phone,
+          cfg.email,
+          cfg.schoolName,
+          cfg.phone,
+          cfg.email,
           userId,
           userId,
         ],
       );
       schoolId = schoolRes.insertId;
-      console.log(`Created school: ${SCHOOL_NAME} (id=${schoolId}, code=${schoolCode})`);
+      console.log(`Created school: ${cfg.schoolName} (id=${schoolId}, code=${schoolCode})`);
     }
 
     await conn.query('UPDATE users SET school_id = ? WHERE id = ?', [schoolId, userId]).catch(() => {});
 
     await conn.commit();
-    console.log('\n✅  Ready to log in:');
-    console.log(`   Email:    ${EMAIL}`);
-    console.log(`   Password: ${PASSWORD}`);
-    console.log(`   Role:     SUPER_ADMIN`);
-    console.log(`   School:   ${SCHOOL_NAME} (id=${schoolId})`);
+    console.log('\n✅  Bootstrap complete');
+    console.log(`   Email:  ${cfg.email}`);
+    console.log(`   Role:   SUPER_ADMIN`);
+    console.log(`   School: ${cfg.schoolName} (id=${schoolId})`);
+    console.log('   Password was set from BOOTSTRAP_SCHOOL_ADMIN_PASSWORD in .env (not printed).');
   } catch (e) {
     await conn.rollback();
     throw e;
