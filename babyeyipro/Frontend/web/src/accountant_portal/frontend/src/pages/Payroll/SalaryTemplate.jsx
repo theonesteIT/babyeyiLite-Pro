@@ -26,6 +26,7 @@ import {
   downloadPayrollRegisterCsv,
   downloadPayrollRegisterExcel,
 } from "../../utils/payrollRegister";
+import { payrollChannelLabel, PAYROLL_CHANNEL_OPTIONS, payrollChannelFormLabel, payrollChannelFromFormLabel } from "../../../../../shared/payroll/payrollTemplateChannels";
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN TOKENS
@@ -115,6 +116,12 @@ function isFixedAmountType(amtType) {
   return normalizeAllowanceAmtType(amtType) === "Fixed";
 }
 
+function channelBadgeColor(ch) {
+  if (ch === "bank") return "blue";
+  if (ch === "both") return "amber";
+  return "gray";
+}
+
 function mapAllowanceFromApi(a, i) {
   return {
     id: a.id || i + 1,
@@ -123,6 +130,7 @@ function mapAllowanceFromApi(a, i) {
     amtType: normalizeAllowanceAmtType(a.amountType || a.type || a.amtType),
     value: Number(a.value || 0),
     taxTreatment: a.taxTreatment || (a.taxable === false ? "Non-Taxable" : "Taxable"),
+    payrollChannel: a.payrollChannel || a.payroll_channel || "tax",
     frequency: a.frequency || a.recurring || "Monthly",
     appliesTo: a.appliesTo || "All Employees",
     status: a.status || "Active",
@@ -143,6 +151,7 @@ function mapAllowanceToApi(a) {
     amountType,
     value: Number(a.value || 0),
     taxTreatment: a.taxTreatment,
+    payrollChannel: a.payrollChannel || "tax",
     frequency: a.frequency,
     appliesTo: a.appliesTo,
     status: a.status || "Active",
@@ -158,6 +167,7 @@ function mapDeductionFromApi(d, i) {
     customName: d.customName || "",
     amtType: isPct ? "Percentage" : "Fixed",
     value: Number(d.value || 0),
+    payrollChannel: d.payrollChannel || d.payroll_channel || "tax",
     frequency: d.recurring || d.frequency || "Monthly",
     appliesTo: d.appliesTo || "All Employees",
     priority: d.priority || "Medium",
@@ -174,6 +184,7 @@ function mapDeductionToApi(d) {
     amountType: isPct ? "Percentage of Basic" : "Fixed Amount",
     value: Number(d.value || 0),
     recurring: d.frequency,
+    payrollChannel: d.payrollChannel || "tax",
     appliesTo: d.appliesTo,
     priority: d.priority,
     status: d.status || "Active",
@@ -422,7 +433,7 @@ function InfoBox({ children, color="blue" }) {
 function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceAuto, onSaveDraft, saving }) {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const blank = { category:"Transport Allowance", customName:"", amtType:"Fixed Amount", value:"", taxTreatment:"Taxable", frequency:"Monthly", appliesTo:"All Employees", status:"Active" };
+  const blank = { category:"Transport Allowance", customName:"", amtType:"Fixed Amount", value:"", taxTreatment:"Taxable", payrollChannel:"tax", frequency:"Monthly", appliesTo:"All Employees", status:"Active" };
   const [form, setForm] = useState(blank);
   const f = k => v => setForm(p => ({ ...p, [k]: v }));
 
@@ -503,7 +514,7 @@ function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceA
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
           <thead>
             <tr style={{ background:T.navy }}>
-              {["Allowance Name","Amount Type","Value","Tax Treatment","Frequency","Applies To","Status","Actions"]
+              {["Allowance Name","Amount Type","Value","Payroll","Tax Treatment","Frequency","Applies To","Status","Actions"]
                 .map(h => <th key={h} style={{ padding:"11px 14px", color:T.white, fontWeight:600, textAlign:"left", fontSize:11, letterSpacing:"0.4px", whiteSpace:"nowrap" }}>{h}</th>)}
             </tr>
           </thead>
@@ -514,6 +525,9 @@ function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceA
                 <td style={{ padding:"11px 14px", color:T.muted }}>{allowanceAmtTypeLabel(a.amtType)}</td>
                 <td style={{ padding:"11px 14px", fontWeight:700, color:T.text }}>
                   {isFixedAmountType(a.amtType) ? `${fmt(a.value)} RWF` : `${a.value}%`}
+                </td>
+                <td style={{ padding:"11px 14px" }}>
+                  {badge(payrollChannelLabel(a.payrollChannel), channelBadgeColor(a.payrollChannel))}
                 </td>
                 <td style={{ padding:"11px 14px" }}>
                   {badge(a.taxTreatment, a.taxTreatment==="Taxable"?"amber":"green")}
@@ -535,7 +549,7 @@ function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceA
               </tr>
             ))}
             {allowances.length===0 && (
-              <tr><td colSpan={8} style={{ padding:32, textAlign:"center", color:T.faint }}>No allowances configured. Click "Add Allowance" to begin.</td></tr>
+              <tr><td colSpan={9} style={{ padding:32, textAlign:"center", color:T.faint }}>No allowances configured. Click "Add Allowance" to begin.</td></tr>
             )}
           </tbody>
         </table>
@@ -561,6 +575,13 @@ function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceA
             <Field label="Tax Treatment">
               <ToggleSwitch value={form.taxTreatment} options={["Taxable","Non-Taxable"]} onChange={f("taxTreatment")} />
             </Field>
+            <Field label="Apply On">
+              <Select
+                value={payrollChannelFormLabel(form.payrollChannel)}
+                onChange={(v) => f("payrollChannel")(payrollChannelFromFormLabel(v))}
+                options={PAYROLL_CHANNEL_OPTIONS.map((o) => o.label)}
+              />
+            </Field>
             <Field label="Frequency">
               <Select value={form.frequency} onChange={f("frequency")} options={["Monthly","Quarterly","Yearly","One-Time"]} />
             </Field>
@@ -578,7 +599,7 @@ function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceA
             <div style={{ fontSize:14, fontWeight:800, color:T.white }}>{form.category==="Other"&&form.customName ? form.customName : form.category}</div>
             <div style={{ fontSize:13, color:T.amberLight, marginTop:4 }}>
               {form.amtType==="Fixed Amount" ? `${fmt(form.value||0)} RWF` : `${form.value||0}% of Salary`}
-              {" · "}{form.frequency}{" · "}{form.taxTreatment}{" · "}{form.appliesTo}
+              {" · "}{payrollChannelLabel(form.payrollChannel)}{" · "}{form.frequency}{" · "}{form.taxTreatment}{" · "}{form.appliesTo}
             </div>
           </div>
 
@@ -598,7 +619,7 @@ function AllowancesTab({ allowances, setAllowances, allowanceAuto, setAllowanceA
 function DeductionsTab({ deductions, setDeductions, onSaveDraft, saving }) {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const blank = { category:"SACCO", customName:"", amtType:"Fixed", value:"", frequency:"Monthly", appliesTo:"All Employees", priority:"Medium", status:"Active" };
+  const blank = { category:"SACCO", customName:"", amtType:"Fixed", value:"", payrollChannel:"tax", frequency:"Monthly", appliesTo:"All Employees", priority:"Medium", status:"Active" };
   const [form, setForm] = useState(blank);
   const f = k => v => setForm(p => ({ ...p, [k]: v }));
 
@@ -641,13 +662,13 @@ function DeductionsTab({ deductions, setDeductions, onSaveDraft, saving }) {
         sub="Non-statutory deductions applied automatically during payroll generation"
         action={<Btn onClick={() => open(null)}><IPlus /> Add Deduction</Btn>}
       />
-      <InfoBox color="amber">These are non-statutory deductions (e.g. SACCO, Union Fee). Statutory deductions (RSSB, PAYE, RAMA, CBHI) are configured in the Statutory Rates tab.</InfoBox>
+      <InfoBox color="amber">Bank-only items do not change tax net. Tax and Both items affect tax payroll and appear on both report views. Both items are already in tax net on the bank view (shown for reference).</InfoBox>
 
       <div style={{ background:T.white, borderRadius:12, border:`1px solid ${T.border}`, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,4,53,0.06)" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
           <thead>
             <tr style={{ background:T.navy }}>
-              {["Deduction Name","Type","Value","Frequency","Applies To","Priority","Status","Actions"]
+              {["Deduction Name","Type","Value","Payroll","Frequency","Applies To","Priority","Status","Actions"]
                 .map(h => <th key={h} style={{ padding:"11px 14px", color:T.white, fontWeight:600, textAlign:"left", fontSize:11, letterSpacing:"0.4px" }}>{h}</th>)}
             </tr>
           </thead>
@@ -658,6 +679,9 @@ function DeductionsTab({ deductions, setDeductions, onSaveDraft, saving }) {
                 <td style={{ padding:"11px 14px", color:T.muted }}>{d.amtType}</td>
                 <td style={{ padding:"11px 14px", fontWeight:700 }}>
                   {d.amtType==="Fixed" ? `${fmt(d.value)} RWF` : `${d.value}%`}
+                </td>
+                <td style={{ padding:"11px 14px" }}>
+                  {badge(payrollChannelLabel(d.payrollChannel), channelBadgeColor(d.payrollChannel))}
                 </td>
                 <td style={{ padding:"11px 14px", color:T.muted }}>{d.frequency}</td>
                 <td style={{ padding:"11px 14px", color:T.muted, fontSize:12 }}>{d.appliesTo}</td>
@@ -675,7 +699,7 @@ function DeductionsTab({ deductions, setDeductions, onSaveDraft, saving }) {
               </tr>
             ))}
             {deductions.length===0 && (
-              <tr><td colSpan={8} style={{ padding:32, textAlign:"center", color:T.faint }}>No deductions configured.</td></tr>
+              <tr><td colSpan={9} style={{ padding:32, textAlign:"center", color:T.faint }}>No deductions configured.</td></tr>
             )}
           </tbody>
         </table>
@@ -697,6 +721,13 @@ function DeductionsTab({ deductions, setDeductions, onSaveDraft, saving }) {
             </Field>
             <Field label={form.amtType==="Fixed"?"Value (RWF)":"Percentage (%)"}>
               <input style={inp} value={form.value} onChange={e=>f("value")(e.target.value)} placeholder={form.amtType==="Fixed"?"10000":"5"} />
+            </Field>
+            <Field label="Apply On" span={2}>
+              <Select
+                value={payrollChannelFormLabel(form.payrollChannel)}
+                onChange={(v) => f("payrollChannel")(payrollChannelFromFormLabel(v))}
+                options={PAYROLL_CHANNEL_OPTIONS.map((o) => o.label)}
+              />
             </Field>
             <Field label="Frequency">
               <ToggleSwitch value={form.frequency} options={["Monthly","One-Time"]} onChange={f("frequency")} />

@@ -3,11 +3,15 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import {
   TAX_REGISTER_HEADERS,
-  BANK_REGISTER_HEADERS,
+  buildTaxRegisterHeaders,
+  buildBankRegisterHeaders,
+  buildRunRegisterHeaders,
   taxRowToValues,
   bankRowToValues,
+  runRowToValues,
   taxTotalRowToValues,
   bankTotalRowToValues,
+  runTotalRowToValues,
 } from './payrollReportTables';
 
 function stamp() {
@@ -67,14 +71,17 @@ export function downloadTaxPayrollReportPdf({
     margin,
     44
   );
-  doc.text('Income net excludes Mutuelle (CBHI 0.5%)', margin, 54);
+  doc.text('Income net excludes Mutuelle (CBHI 0.5%). Template tax/both columns shown separately.', margin, 54);
 
-  const body = mapBodyRows(rows, taxRowToValues);
-  if (totalRow) body.push(taxTotalRowToValues(totalRow).map(fmtNum));
+  const taxColumns = rows[0]?.taxColumns || totalRow?.taxColumns || [];
+  const taxHeaders = buildTaxRegisterHeaders(taxColumns);
+  const rowMapper = (row) => taxRowToValues(row, taxColumns);
+  const body = mapBodyRows(rows, rowMapper);
+  if (totalRow) body.push(taxTotalRowToValues(totalRow, taxColumns).map(fmtNum));
 
   autoTable(doc, {
     startY: 64,
-    head: [TAX_REGISTER_HEADERS],
+    head: [taxHeaders],
     body,
     styles: { fontSize: 6, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [0, 4, 53], textColor: [254, 191, 16], fontStyle: 'bold' },
@@ -111,14 +118,17 @@ export function downloadBankPayrollReportPdf({
     margin,
     44
   );
-  doc.text('Includes Mutuelle (CBHI) and other deductions · Final net = bank payable', margin, 54);
+  doc.text('Includes Mutuelle (CBHI), bank template items, other deductions · Final net = bank payable', margin, 54);
 
-  const body = mapBodyRows(rows, bankRowToValues);
-  if (totalRow) body.push(bankTotalRowToValues(totalRow).map(fmtNum));
+  const bankColumns = rows[0]?.dynamicColumns || totalRow?.dynamicColumns || [];
+  const bankHeaders = buildBankRegisterHeaders(bankColumns);
+  const rowMapper = (row) => bankRowToValues(row, bankColumns);
+  const body = mapBodyRows(rows, rowMapper);
+  if (totalRow) body.push(bankTotalRowToValues(totalRow, bankColumns).map(fmtNum));
 
   autoTable(doc, {
     startY: 64,
-    head: [BANK_REGISTER_HEADERS],
+    head: [bankHeaders],
     body,
     styles: { fontSize: 6, cellPadding: 2, overflow: 'linebreak' },
     headStyles: { fillColor: [0, 4, 53], textColor: [254, 191, 16], fontStyle: 'bold' },
@@ -137,14 +147,17 @@ export function downloadTaxPayrollReportExcel({
   runStatus = 'Processing',
   filename,
 }) {
-  const body = mapBodyRows(rows, taxRowToValues);
-  if (totalRow) body.push(taxTotalRowToValues(totalRow).map(fmtNum));
+  const taxColumns = rows[0]?.taxColumns || totalRow?.taxColumns || [];
+  const taxHeaders = buildTaxRegisterHeaders(taxColumns);
+  const rowMapper = (row) => taxRowToValues(row, taxColumns);
+  const body = mapBodyRows(rows, rowMapper);
+  if (totalRow) body.push(taxTotalRowToValues(totalRow, taxColumns).map(fmtNum));
   const aoa = buildSheetAoa({
     schoolName,
     periodLabel,
     runStatus,
-    note: 'Tax payroll — income net excludes Mutuelle (CBHI 0.5%). All register columns included.',
-    headers: TAX_REGISTER_HEADERS,
+    note: 'Tax payroll — income net excludes Mutuelle. Tax & Both template items shown as columns; Bank-only items excluded.',
+    headers: taxHeaders,
     bodyRows: body,
   });
   downloadExcelFromAoa(aoa, 'Tax Payroll', filename || `tax-payroll-${Date.now()}.xlsx`);
@@ -158,15 +171,42 @@ export function downloadBankPayrollReportExcel({
   runStatus = 'Processing',
   filename,
 }) {
-  const body = mapBodyRows(rows, bankRowToValues);
-  if (totalRow) body.push(bankTotalRowToValues(totalRow).map(fmtNum));
+  const bankColumns = rows[0]?.dynamicColumns || totalRow?.dynamicColumns || [];
+  const bankHeaders = buildBankRegisterHeaders(bankColumns);
+  const rowMapper = (row) => bankRowToValues(row, bankColumns);
+  const body = mapBodyRows(rows, rowMapper);
+  if (totalRow) body.push(bankTotalRowToValues(totalRow, bankColumns).map(fmtNum));
   const aoa = buildSheetAoa({
     schoolName,
     periodLabel,
     runStatus,
-    note: 'Bank payroll — includes Mutuelle (CBHI), other deductions, final net salary, bank & account.',
-    headers: BANK_REGISTER_HEADERS,
+    note: 'Bank payroll — includes Mutuelle (CBHI), template bank items, other deductions, final net salary, bank & account.',
+    headers: bankHeaders,
     bodyRows: body,
   });
   downloadExcelFromAoa(aoa, 'Bank Payroll', filename || `bank-payroll-${Date.now()}.xlsx`);
+}
+
+export function downloadRunPayrollRegisterExcel({
+  rows = [],
+  totalRow = null,
+  schoolName = 'School',
+  periodLabel = 'Payroll Run',
+  runStatus = 'Processing',
+  filename,
+}) {
+  const runColumns = rows[0]?.runColumns || totalRow?.runColumns || [];
+  const runHeaders = buildRunRegisterHeaders(runColumns);
+  const rowMapper = (row) => runRowToValues(row, runColumns);
+  const body = mapBodyRows(rows, rowMapper);
+  if (totalRow) body.push(runTotalRowToValues(totalRow, runColumns).map(fmtNum));
+  const aoa = buildSheetAoa({
+    schoolName,
+    periodLabel,
+    runStatus,
+    note: 'Payroll run register with template allowance/deduction columns and bank net.',
+    headers: runHeaders,
+    bodyRows: body,
+  });
+  downloadExcelFromAoa(aoa, 'Payroll Run', filename || `payroll-run-${Date.now()}.xlsx`);
 }

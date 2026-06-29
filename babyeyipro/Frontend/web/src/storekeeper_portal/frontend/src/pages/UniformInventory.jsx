@@ -79,16 +79,42 @@ export default function UniformInventory() {
 
   const dashboardStats = useMemo(
     () => [
-      { label: 'Total Fabric Stock', value: `${totalFabricStock} m`, icon: Layers, accent: 'amber' },
-      { label: 'Finished Uniform Stock', value: `${totalFinishedStock} pcs`, icon: Box, accent: 'blue' },
-      { label: 'Stock Value', value: totalStockValue.toLocaleString(), icon: DollarSign, accent: 'green' },
-      { label: 'Fabric Investment', value: fabricCost.toLocaleString(), icon: Scale, accent: 'purple' },
-      { label: 'Fabric Receipts', value: `${fabrics.length}`, icon: Package, accent: 'emerald' },
       {
-        label: 'Low Stock Alerts',
+        label: 'Total fabric in stock',
+        value: `${totalFabricStock.toLocaleString()} m`,
+        sub: 'All available fabric',
+        icon: Layers,
+      },
+      {
+        label: 'Finished uniform stock',
+        value: `${totalFinishedStock.toLocaleString()} pcs`,
+        sub: 'Ready to issue',
+        icon: Box,
+      },
+      {
+        label: 'Stock value',
+        value: totalStockValue.toLocaleString(),
+        sub: 'Finished goods value',
+        icon: DollarSign,
+      },
+      {
+        label: 'Fabric investment',
+        value: fabricCost.toLocaleString(),
+        sub: 'Total fabric cost',
+        icon: Scale,
+      },
+      {
+        label: 'Fabric receipts',
+        value: `${fabrics.length}`,
+        sub: 'Active fabric batches',
+        icon: Package,
+      },
+      {
+        label: 'Low stock alerts',
         value: lowStockCount === 0 ? 'None' : `${lowStockCount} item${lowStockCount === 1 ? '' : 's'}`,
+        sub: lowStockCount > 0 ? 'Items below threshold' : 'Stock sufficient',
         icon: AlertTriangle,
-        accent: lowStockCount > 0 ? 'red' : 'default',
+        alert: lowStockCount > 0,
       },
     ],
     [totalFabricStock, totalFinishedStock, totalStockValue, fabricCost, fabrics.length, lowStockCount]
@@ -159,8 +185,9 @@ export default function UniformInventory() {
                         key={stat.label}
                         label={stat.label}
                         value={stat.value}
+                        sub={stat.sub}
                         icon={stat.icon}
-                        accent={stat.accent}
+                        alert={stat.alert}
                         index={i}
                       />
                     ))}

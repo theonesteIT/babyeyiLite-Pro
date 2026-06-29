@@ -254,6 +254,24 @@ module.exports = function registerStoreFabricPlannerRoutes(router, deps) {
       [schoolId]
     );
 
+    const planner = year ? await loadPlannerBundle(schoolId, year) : null;
+
+    function buildClassDemand(rows) {
+      const filtered = (rows || []).filter((r) => trimStr(r.class_name || r.name) && Number(r.count || r.value || 0) > 0);
+      const total = filtered.reduce((s, r) => s + Number(r.count ?? r.value ?? 0), 0) || 1;
+      return filtered
+        .sort((a, b) => Number(b.count ?? b.value ?? 0) - Number(a.count ?? a.value ?? 0))
+        .slice(0, 12)
+        .map((r) => {
+          const value = Number(r.count ?? r.value ?? 0);
+          return {
+            name: trimStr(r.class_name || r.name),
+            value,
+            percent: Math.round((value / total) * 100),
+          };
+        });
+    }
+
     let demandByClass = [];
     if (year) {
       const [rows] = await promisePool.query(
@@ -264,21 +282,102 @@ module.exports = function registerStoreFabricPlannerRoutes(router, deps) {
          GROUP BY TRIM(class_name) ORDER BY count DESC LIMIT 12`,
         [schoolId, year]
       );
-      const total = rows.reduce((s, r) => s + Number(r.count || 0), 0) || 1;
-      demandByClass = rows.map((r) => ({
-        name: r.class_name,
-        value: Number(r.count || 0),
-        percent: Math.round((Number(r.count || 0) / total) * 100),
-      }));
+      demandByClass = buildClassDemand(rows);
+    }
+    if (!demandByClass.length && planner?.classCounts) {
+      demandByClass = buildClassDemand(
+        Object.entries(planner.classCounts).map(([class_name, count]) => ({ class_name, count }))
+      );
+    }
+    if (!demandByClass.length) {
+      const [rows] = await promisePool.query(
+        `SELECT TRIM(class_name) AS class_name, COUNT(*) AS count
+         FROM students
+         WHERE school_id = ? AND TRIM(COALESCE(class_name, '')) <> ''
+         GROUP BY TRIM(class_name) ORDER BY count DESC LIMIT 12`,
+        [schoolId]
+      );
+      demandByClass = buildClassDemand(rows);
     }
 
-    const [mostProduced] = await promisePool.query(
-      `SELECT uniform_name AS name, COALESCE(SUM(produced), 0) AS qty
-       FROM store_fabric_planner_consumption
-       WHERE school_id = ? AND deleted_at IS NULL
-       GROUP BY uniform_name ORDER BY qty DESC LIMIT 8`,
-      [schoolId]
+    const yearPlanFilter = year
+      ? 'AND p.planner_id IN (SELECT id FROM store_fabric_planners WHERE school_id = ? AND academic_year = ?)'
+      : '';
+    const yearPlanParams = year ? [schoolId, schoolId, year] : [schoolId];
+
+    const [consumptionAgg] = await promisePool.query(
+      `SELECT c.uniform_name AS name, COALESCE(SUM(c.produced), 0) AS qty
+       FROM store_fabric_planner_consumption c
+       WHERE c.school_id = ? AND c.deleted_at IS NULL
+       ${year ? 'AND c.planner_id IN (SELECT id FROM store_fabric_planners WHERE school_id = ? AND academic_year = ?)' : ''}
+       GROUP BY c.uniform_name HAVING qty > 0 ORDER BY qty DESC LIMIT 8`,
+      year ? [schoolId, schoolId, year] : [schoolId]
     );
+
+    let mostProducedList = consumptionAgg.map((r) => ({ name: r.name, qty: Number(r.qty || 0) }));
+
+    if (!mostProducedList.length) {
+      const [planItems] = await promisePool.query(
+        `SELECT pi.uniform_name AS name, COALESCE(SUM(pi.quantity), 0) AS qty
+         FROM store_fabric_planner_plan_items pi
+         INNER JOIN store_fabric_planner_production_plans p ON p.id = pi.plan_id
+         WHERE p.school_id = ? ${yearPlanFilter}
+         GROUP BY pi.uniform_name HAVING qty > 0 ORDER BY qty DESC LIMIT 8`,
+        yearPlanParams
+      );
+      mostProducedList = planItems.map((r) => ({ name: r.name, qty: Number(r.qty || 0) }));
+    }
+
+    if (!mostProducedList.length && planner?.consumptionRecords?.length) {
+      const agg = {};
+      planner.consumptionRecords.forEach((r) => {
+        const name = trimStr(r.uniform);
+        if (!name) return;
+        agg[name] = (agg[name] || 0) + Number(r.produced || 0);
+      });
+      mostProducedList = Object.entries(agg)
+        .map(([name, qty]) => ({ name, qty: Number(qty || 0) }))
+        .filter((r) => r.qty > 0)
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 8);
+    }
+
+    if (!mostProducedList.length && planner?.productionPlan?.items?.length) {
+      mostProducedList = planner.productionPlan.items
+        .map((it) => ({ name: trimStr(it.name), qty: Number(it.quantity || 0) }))
+        .filter((r) => r.name && r.qty > 0)
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 8);
+    }
+
+    if (!mostProducedList.length) {
+      const issueParams = [schoolId];
+      let issueYearFilter = '';
+      if (year) {
+        issueYearFilter = 'AND TRIM(COALESCE(i.academic_year, "")) = ?';
+        issueParams.push(year);
+      }
+      const [issued] = await promisePool.query(
+        `SELECT sl.item_name AS name, COALESCE(SUM(sl.quantity), 0) AS qty
+         FROM store_uniform_issue_student_lines sl
+         INNER JOIN store_uniform_issues i ON i.id = sl.issue_id AND i.deleted_at IS NULL
+         WHERE i.school_id = ? ${issueYearFilter}
+         GROUP BY sl.item_name HAVING qty > 0 ORDER BY qty DESC LIMIT 8`,
+        issueParams
+      );
+      mostProducedList = issued.map((r) => ({ name: r.name, qty: Number(r.qty || 0) }));
+    }
+
+    if (!mostProducedList.length) {
+      const [finished] = await promisePool.query(
+        `SELECT uniform_name AS name, COALESCE(SUM(stock), 0) AS qty
+         FROM store_finished_goods
+         WHERE school_id = ? AND deleted_at IS NULL
+         GROUP BY uniform_name HAVING qty > 0 ORDER BY qty DESC LIMIT 8`,
+        [schoolId]
+      );
+      mostProducedList = finished.map((r) => ({ name: r.name, qty: Number(r.qty || 0) }));
+    }
 
     const [lowFabric] = await promisePool.query(
       `SELECT fabric_type, color, remaining_meters
@@ -305,7 +404,6 @@ module.exports = function registerStoreFabricPlannerRoutes(router, deps) {
       [schoolId]
     );
 
-    const planner = year ? await loadPlannerBundle(schoolId, year) : null;
     let expectedUniforms = 0;
     let fabricShortage = 0;
     if (planner?.uniformTypes?.length && planner.availableFabric) {
@@ -355,7 +453,7 @@ module.exports = function registerStoreFabricPlannerRoutes(router, deps) {
         meters: num(r.meters),
       })),
       demandByClass,
-      mostProduced: mostProduced.map((r) => ({ name: r.name, qty: Number(r.qty || 0) })),
+      mostProduced: mostProducedList,
       alerts,
       recentPlans: recentPlans.map((p) => ({
         id: p.id,

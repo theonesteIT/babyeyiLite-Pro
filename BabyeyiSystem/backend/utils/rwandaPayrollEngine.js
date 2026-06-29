@@ -1,5 +1,15 @@
 'use strict';
 
+const {
+  normalizePayrollChannel,
+  appliesToTaxPayroll,
+  filterForTaxPayroll,
+  filterForBankPayroll,
+  buildTaxPayrollItems,
+  buildBankPayrollItems,
+  bankPayrollNetAdjust,
+} = require('./payrollTemplateChannels');
+
 const DEFAULT_PAYE_BRACKETS = [
   { min: 0, max: 60000, rate: 0 },
   { min: 60001, max: 100000, rate: 10 },
@@ -323,7 +333,14 @@ function normalizeStatutoryRates(raw = {}) {
 function calcRwandaPayroll(input = {}) {
   const basic = toMoney(input.basicSalary);
   const allowances = input.allowances || [];
+  const templateAllowances = input.templateAllowances || [];
   const templateDeductions = input.templateDeductions || input.deductions || [];
+  const taxAllowances = (allowances || []).filter((a) => appliesToTaxPayroll(a));
+  const taxTemplateDeductions = (templateDeductions || []).filter((d) => appliesToTaxPayroll(d));
+  const bankAllowanceSources = filterForBankPayroll([...templateAllowances, ...allowances]);
+  const bankDeductionSources = filterForBankPayroll(templateDeductions);
+  const taxAllowanceSources = filterForTaxPayroll([...templateAllowances, ...allowances]);
+  const taxDeductionSources = filterForTaxPayroll(templateDeductions);
   const employeeDeductions = input.employeeDeductions || [];
   const statutory = normalizeStatutoryRates({ ...DEFAULT_STATUTORY, ...(input.statutory || {}) });
   const payeRates = input.payeRates?.length ? input.payeRates : DEFAULT_PAYE_BRACKETS;
@@ -361,7 +378,7 @@ function calcRwandaPayroll(input = {}) {
       { name: 'Housing Allowance', amount: registerAllowanceSplit.housing },
       { name: 'Transport Allowance', amount: registerAllowanceSplit.transport },
     ];
-    const extras = (allowances || []).filter(isActiveItem);
+    const extras = taxAllowances.filter(isActiveItem);
     if (extras.length) {
       const topped = calcGrossSalary(gross, extras);
       const extraTotal = topped.breakdown.reduce((sum, item) => sum + toMoney(item.amount), 0);
@@ -385,7 +402,7 @@ function calcRwandaPayroll(input = {}) {
     allowanceBreakdown = [...school.allowanceBreakdown];
     registerAllowanceSplit = { ...school.registerAllowanceSplit };
     transportAmount = school.transportAmount;
-    const extras = (allowances || []).filter(isActiveItem);
+    const extras = taxAllowances.filter(isActiveItem);
     if (extras.length) {
       const topped = calcGrossSalary(school.gross, extras);
       const extraTotal = topped.breakdown.reduce((sum, item) => sum + toMoney(item.amount), 0);
@@ -404,7 +421,7 @@ function calcRwandaPayroll(input = {}) {
       };
     }
   } else {
-    const manual = calcGrossSalary(basic, allowances);
+    const manual = calcGrossSalary(basic, taxAllowances);
     gross = manual.gross;
     allowanceBreakdown = manual.breakdown;
     const split = splitAllowanceBreakdownForRegister(manual.breakdown, gross, basic, allowanceRules);
@@ -427,7 +444,7 @@ function calcRwandaPayroll(input = {}) {
   const payeBreakdown = calcProgressivePAYEBreakdown(gross, payeRates);
   const paye = payeBreakdown.total;
 
-  const recurringDeductions = Math.round(sumTemplateDeductions(templateDeductions, basic, gross));
+  const recurringDeductions = Math.round(sumTemplateDeductions(taxTemplateDeductions, basic, gross));
   const employeeSpecific = Math.round(
     employeeDeductions.reduce((s, d) => s + toMoney(d.monthlyInstallment ?? d.monthly_installment_rwf ?? d.value), 0)
   );
@@ -438,6 +455,10 @@ function calcRwandaPayroll(input = {}) {
   );
   const cbhi = Math.round(incomeSalary * (statutoryPct(statutory, 'cbhi', 0.5) / 100));
   const finalNet = Math.round(incomeSalary - cbhi);
+  const taxPayrollItems = buildTaxPayrollItems(taxAllowanceSources, taxDeductionSources, basic, gross);
+  const bankPayrollItems = buildBankPayrollItems(bankAllowanceSources, bankDeductionSources, basic, gross);
+  const bankPayrollAdjust = bankPayrollNetAdjust(bankPayrollItems);
+  const bankNetPay = Math.round(finalNet + bankPayrollAdjust);
 
   const employerTotal = rssbEmployer + maternityEmployer + ramaEmployer + occupationalHazard;
   const totalCostToSchool = Math.round(gross + employerTotal);
@@ -470,6 +491,10 @@ function calcRwandaPayroll(input = {}) {
     otherDeductions,
     recurringDeductions,
     employeeSpecificDeductions: employeeSpecific,
+    taxPayrollItems,
+    bankPayrollItems,
+    bankPayrollAdjust,
+    bankNetPay,
     incomeSalary,
     netBeforeCbhi: incomeSalary,
     netPay: incomeSalary,

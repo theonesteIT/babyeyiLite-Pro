@@ -24,6 +24,7 @@ function mapAllowanceForEngine(a) {
     amountType: a.amountType || 'Fixed Amount',
     value: a.value,
     status: a.status || 'Active',
+    payrollChannel: a.payrollChannel || 'tax',
   };
 }
 
@@ -32,6 +33,7 @@ function mapDeductionForEngine(d) {
     amountType: d.amountType || 'Fixed Amount',
     value: d.value,
     status: d.status || 'Active',
+    payrollChannel: d.payrollChannel || 'tax',
   };
 }
 
@@ -154,6 +156,7 @@ export function buildPayrollPreviewRows(
       basicSalary: basic,
       allowances,
       storedAllowanceSplit,
+      templateAllowances: template?.allowances ?? [],
       templateDeductions: deductions,
       employeeDeductions: employeeSpecific,
       statutory,

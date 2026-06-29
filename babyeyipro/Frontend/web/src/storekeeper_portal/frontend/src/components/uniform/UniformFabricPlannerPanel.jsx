@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import {
   Layers, Lock, Ruler, Shirt, Users, AlertTriangle, TrendingUp, Plus, Package,
   Play, Send, FileSpreadsheet, RefreshCw, Loader2, AlertCircle, Scissors,
-  CheckCircle2, LayoutDashboard, Table2,
+  LayoutDashboard, Table2,
 } from 'lucide-react'
 import { fetchStoreAcademicSettings } from '../../services/academicSettingsService'
 import { fetchFabricReceipts } from '../../services/fabricReceiptsService'
@@ -32,6 +32,28 @@ function fmtM(v) {
 
 function fmtNum(v) {
   return Number(v || 0).toLocaleString()
+}
+
+function ClassDemandTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl px-3 py-2 shadow-lg text-xs">
+      <p className="font-bold text-[#000435]">{row.name}</p>
+      <p className="text-[#000435]/70 mt-0.5">{fmtNum(row.value)} students · {row.percent}%</p>
+    </div>
+  )
+}
+
+function ProducedTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl px-3 py-2 shadow-lg text-xs">
+      <p className="font-bold text-[#000435]">{row.name}</p>
+      <p className="text-[#000435]/70 mt-0.5">{fmtNum(row.qty)} produced</p>
+    </div>
+  )
 }
 
 function KpiCard({ label, value, sub, icon: Icon, alert }) {
@@ -118,6 +140,62 @@ export default function UniformFabricPlannerPanel({ onFabricsChange, onNavigateT
   }
 
   const kpis = dashboard?.kpis || {}
+
+  const demandByClass = useMemo(() => {
+    const rows = (dashboard?.demandByClass || [])
+      .map((row) => ({
+        name: String(row.name || row.class_name || '').trim(),
+        value: Number(row.value ?? row.count ?? 0),
+        percent: Number(row.percent ?? 0),
+      }))
+      .filter((row) => row.name && row.value > 0)
+
+    if (rows.length) {
+      const total = rows.reduce((s, r) => s + r.value, 0) || 1
+      return rows.map((r) => ({
+        ...r,
+        percent: r.percent || Math.round((r.value / total) * 100),
+      }))
+    }
+
+    const classCounts = dashboard?.planner?.classCounts || {}
+    const fallback = Object.entries(classCounts)
+      .map(([name, count]) => ({ name: String(name).trim(), value: Number(count || 0) }))
+      .filter((r) => r.name && r.value > 0)
+    const total = fallback.reduce((s, r) => s + r.value, 0) || 1
+    return fallback
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 12)
+      .map((r) => ({ ...r, percent: Math.round((r.value / total) * 100) }))
+  }, [dashboard])
+
+  const mostProduced = useMemo(() => {
+    const rows = (dashboard?.mostProduced || [])
+      .map((row) => ({
+        name: String(row.name || row.uniform || '').trim(),
+        qty: Number(row.qty ?? row.produced ?? row.quantity ?? 0),
+      }))
+      .filter((row) => row.name && row.qty > 0)
+
+    if (rows.length) return rows.sort((a, b) => b.qty - a.qty).slice(0, 8)
+
+    const agg = {}
+    for (const rec of dashboard?.planner?.consumptionRecords || []) {
+      const name = String(rec.uniform || '').trim()
+      if (!name) continue
+      agg[name] = (agg[name] || 0) + Number(rec.produced || 0)
+    }
+    const fromConsumption = Object.entries(agg)
+      .map(([name, qty]) => ({ name, qty: Number(qty || 0) }))
+      .filter((r) => r.qty > 0)
+    if (fromConsumption.length) return fromConsumption.sort((a, b) => b.qty - a.qty).slice(0, 8)
+
+    return (dashboard?.planner?.productionPlan?.items || [])
+      .map((it) => ({ name: String(it.name || '').trim(), qty: Number(it.quantity || 0) }))
+      .filter((r) => r.name && r.qty > 0)
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 8)
+  }, [dashboard])
 
   if (loading && !dashboard) {
     return (
@@ -215,90 +293,106 @@ export default function UniformFabricPlannerPanel({ onFabricsChange, onNavigateT
             ))}
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-            <div className="xl:col-span-2 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                  <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <TrendingUp size={14} className="text-[#FEBF10]" /> Fabric consumption trend
-                  </h3>
-                  <div className="h-48">
-                    {(dashboard?.consumptionTrend || []).length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dashboard.consumptionTrend}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#000435' }} />
-                          <YAxis tick={{ fontSize: 10, fill: '#000435' }} />
-                          <Tooltip formatter={(v) => [`${v} m`, 'Usage']} />
-                          <Bar dataKey="meters" fill="#FEBF10" radius={[6, 6, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <p className="text-xs text-[#000435]/40 text-center py-16">No consumption data yet</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                  <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-4">Uniform demand by class</h3>
-                  <div className="h-48">
-                    {(dashboard?.demandByClass || []).length ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={dashboard.demandByClass} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={2}>
-                            {dashboard.demandByClass.map((_, i) => (
-                              <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(v, n, p) => [`${v} students (${p.payload.percent}%)`, p.payload.name]} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <p className="text-xs text-[#000435]/40 text-center py-16">No class data</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-4">Most produced uniforms</h3>
-                <div className="h-52">
-                  {(dashboard?.mostProduced || []).length ? (
+                <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-4 flex items-center gap-2">
+                  <TrendingUp size={14} className="text-[#FEBF10]" /> Fabric consumption trend
+                </h3>
+                <div className="h-48">
+                  {(dashboard?.consumptionTrend || []).length ? (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={dashboard.mostProduced} layout="vertical" margin={{ left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                        <XAxis type="number" tick={{ fontSize: 10, fill: '#000435' }} />
-                        <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#000435' }} width={70} />
-                        <Tooltip />
-                        <Bar dataKey="qty" fill="#000435" radius={[0, 6, 6, 0]} />
+                      <BarChart data={dashboard.consumptionTrend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#000435' }} />
+                        <YAxis tick={{ fontSize: 10, fill: '#000435' }} />
+                        <Tooltip formatter={(v) => [`${v} m`, 'Usage']} />
+                        <Bar dataKey="meters" fill="#FEBF10" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <p className="text-xs text-[#000435]/40 text-center py-16">Record production to see stats</p>
+                    <p className="text-xs text-[#000435]/40 text-center py-16">No consumption data yet</p>
                   )}
                 </div>
               </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-1">Uniform demand by class</h3>
+                <p className="text-[10px] text-[#000435]/45 mb-4">Students per class for {academicYear || 'selected year'}</p>
+                {demandByClass.length ? (
+                  <>
+                    <div className="h-44">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={demandByClass}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={42}
+                            outerRadius={68}
+                            paddingAngle={2}
+                          >
+                            {demandByClass.map((_, i) => (
+                              <Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="#fff" strokeWidth={2} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<ClassDemandTooltip />} />
+                          <Legend
+                            verticalAlign="bottom"
+                            height={36}
+                            formatter={(value) => <span className="text-[10px] font-semibold text-[#000435]">{value}</span>}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 space-y-1.5 max-h-28 overflow-y-auto">
+                      {demandByClass.map((row, i) => (
+                        <div key={row.name} className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="font-semibold text-[#000435] truncate">{row.name}</span>
+                          </div>
+                          <span className="text-[#000435]/55 font-bold tabular-nums shrink-0 ml-2">
+                            {fmtNum(row.value)} · {row.percent}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-[#000435]/40 text-center py-16">
+                    No class data — add students with class names or save a fabric plan with selected classes.
+                  </p>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-5">
-              <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <AlertTriangle size={14} className="text-[#FEBF10]" /> Smart alerts
-                </h3>
-                <div className="space-y-2">
-                  {(dashboard?.alerts || []).length ? dashboard.alerts.map((a, i) => (
-                    <div key={`alert-${i}`} className={`flex items-start gap-2 text-xs rounded-xl px-3 py-2.5 ${
-                      a.type === 'danger' ? 'bg-red-50 text-red-700' : a.type === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-700'
-                    }`}>
-                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                      <span className="font-medium">{a.message}</span>
-                    </div>
-                  )) : (
-                    <p className="text-xs text-[#000435]/40 flex items-center gap-2">
-                      <CheckCircle2 size={14} className="text-[#FEBF10]" /> All clear — no alerts
-                    </p>
-                  )}
-                </div>
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+              <h3 className="text-xs font-bold text-[#000435] uppercase tracking-wider mb-1">Most produced uniforms</h3>
+              <p className="text-[10px] text-[#000435]/45 mb-4">From production records, plans, or issues</p>
+              <div className="h-52">
+                {mostProduced.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={mostProduced} layout="vertical" margin={{ left: 8, right: 12 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#000435' }} allowDecimals={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        tick={{ fontSize: 10, fill: '#000435' }}
+                        width={Math.min(120, Math.max(70, ...mostProduced.map((r) => String(r.name).length * 6)))}
+                      />
+                      <Tooltip content={<ProducedTooltip />} />
+                      <Bar dataKey="qty" fill="#FEBF10" radius={[0, 6, 6, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-xs text-[#000435]/40 text-center py-16">
+                    Record production in a fabric plan or add finished goods to see stats.
+                  </p>
+                )}
               </div>
             </div>
           </div>

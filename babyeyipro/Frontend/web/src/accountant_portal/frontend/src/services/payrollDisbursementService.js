@@ -135,8 +135,9 @@ export function mapLineToPaymentRow(line = {}) {
     ? `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase()
     : (parts[0]?.slice(0, 2) || '??').toUpperCase();
   const netSalary = Number(line.netSalary ?? line.net ?? line.netPayFinal ?? 0);
+  const bankNetPay = Number(line.bankNetPay ?? line.raw?.bankNetPay ?? netSalary);
   const extraDeduction = Number(line.extraDeduction || 0);
-  const finalPayable = Number(line.finalPayable ?? (netSalary - extraDeduction));
+  const finalPayable = Number(line.finalPayable ?? (bankNetPay - extraDeduction));
   const disbursementDeductions = parseDisbursementOnlyDeductions(line);
   const deductionNames = disbursementDeductions.map((d) => d.name).join('; ');
   const deductionAmounts = disbursementDeductions.map((d) => d.amount).join('; ');

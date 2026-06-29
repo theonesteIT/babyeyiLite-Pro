@@ -1,71 +1,47 @@
 import { motion } from 'framer-motion'
 
-const KPI_ACCENTS = {
-  default: {
-    shell: 'border-gray-100 bg-gradient-to-br from-gray-50/90 to-white',
-    icon: 'bg-[#000435]/5 text-[#000435]',
-    value: 'text-[#000435]',
-  },
-  amber: {
-    shell: 'border-amber-100 bg-gradient-to-br from-amber-50/90 to-white',
-    icon: 'bg-amber-100 text-amber-600',
-    value: 'text-amber-700',
-  },
-  blue: {
-    shell: 'border-blue-100 bg-gradient-to-br from-blue-50/80 to-white',
-    icon: 'bg-blue-100 text-blue-600',
-    value: 'text-[#000435]',
-  },
-  green: {
-    shell: 'border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-white',
-    icon: 'bg-emerald-100 text-emerald-600',
-    value: 'text-emerald-700',
-  },
-  purple: {
-    shell: 'border-violet-100 bg-gradient-to-br from-violet-50/80 to-white',
-    icon: 'bg-violet-100 text-violet-600',
-    value: 'text-[#000435]',
-  },
-  emerald: {
-    shell: 'border-emerald-100 bg-gradient-to-br from-emerald-50/80 to-white',
-    icon: 'bg-emerald-100 text-emerald-600',
-    value: 'text-emerald-700',
-  },
-  red: {
-    shell: 'border-red-100 bg-gradient-to-br from-red-50/80 to-white',
-    icon: 'bg-red-100 text-red-500',
-    value: 'text-red-600',
-  },
-}
-
-export function UniformKpiCard({ label, value, sub, icon: Icon, accent = 'default', index = 0, className = '' }) {
-  const scheme = KPI_ACCENTS[accent] || KPI_ACCENTS.default
+/** KPI card — matches Fabric Planner dashboard style (white card, amber icon top-right). */
+export function UniformKpiCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  alert = false,
+  index = 0,
+  className = '',
+}) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      className={`rounded-2xl border p-4 sm:p-5 hover:shadow-md transition-all duration-300 ${scheme.shell} ${className}`}
+      className={`relative rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm min-w-0 ${className}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-          <p className={`text-xl sm:text-2xl font-bold mt-1.5 truncate ${scheme.value}`}>{value}</p>
-          {sub && <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>}
+      {Icon && (
+        <div className="absolute top-4 right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white border border-amber-100 flex items-center justify-center shadow-sm">
+          <Icon size={17} className="text-[#FEBF10]" strokeWidth={2.25} />
         </div>
-        {Icon && (
-          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${scheme.icon}`}>
-            <Icon size={17} strokeWidth={1.75} />
-          </div>
+      )}
+      <div className="pr-11 sm:pr-12">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#000435]/50 leading-tight">{label}</p>
+        <p
+          className={`text-base sm:text-lg font-bold mt-1.5 tabular-nums leading-tight whitespace-nowrap ${
+            alert ? 'text-red-600' : 'text-[#000435]'
+          }`}
+        >
+          {value}
+        </p>
+        {sub && (
+          <p className="text-[10px] sm:text-[11px] text-[#000435]/45 mt-1 leading-snug">{sub}</p>
         )}
       </div>
     </motion.div>
   )
 }
 
-export function UniformKpiGrid({ children, cols = 'sm:grid-cols-2 lg:grid-cols-3', className = '' }) {
+export function UniformKpiGrid({ children, cols = 'md:grid-cols-3 2xl:grid-cols-6', className = '' }) {
   return (
-    <div className={`grid grid-cols-1 ${cols} gap-3 sm:gap-4 ${className}`}>
+    <div className={`grid grid-cols-2 ${cols} gap-3 sm:gap-4 ${className}`}>
       {children}
     </div>
   )

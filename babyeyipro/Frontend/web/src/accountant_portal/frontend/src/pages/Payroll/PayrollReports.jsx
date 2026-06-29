@@ -24,6 +24,10 @@ import {
   runStatusLabel,
   sumBankReportRows,
   sumTaxReportRows,
+  enrichRegisterRowForReports,
+  resolveBankReportColumns,
+  resolveTaxReportColumns,
+  buildPreviewReportRows,
 } from "../../utils/payrollReportTables";
 import {
   downloadBankPayrollReportPdf,
@@ -163,6 +167,8 @@ function RegisterTableModal({
   variant,
   rows,
   totalRow,
+  bankColumns = [],
+  taxColumns = [],
   onExportPdf,
   onExportExcel,
   exporting,
@@ -206,6 +212,8 @@ function RegisterTableModal({
               variant={variant}
               rows={rows}
               totalRow={totalRow}
+              bankColumns={bankColumns}
+              taxColumns={taxColumns}
               maxHeight="none"
               fillHeight
             />
@@ -422,6 +430,7 @@ export default function PayrollReports() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [isPreview, setIsPreview] = useState(false);
+  const [activeTemplate, setActiveTemplate] = useState(null);
 
   const payrollYear = useMemo(() => toPayrollYear(academicYear, month), [academicYear, month]);
   const payrollMonthNum = useMemo(() => MONTHS.indexOf(month) + 1, [month]);
@@ -455,6 +464,7 @@ export default function PayrollReports() {
       listTerminationsForPayrollMonth(payrollMonthNum, payrollYear).catch(() => []),
     ]);
     const template = tplRes?.data?.data || null;
+    setActiveTemplate(template);
     const staffRaw = Array.isArray(staffRes?.data?.data) ? staffRes.data.data : [];
     const empDeductions = filterPayrollEmployeeDeductions(Array.isArray(empDedRows) ? empDedRows : []);
     const preview = buildPayrollPreviewRows(
@@ -465,13 +475,7 @@ export default function PayrollReports() {
       null,
       Array.isArray(terminationPayrolls) ? terminationPayrolls : [],
     );
-    const enriched = preview.rows.map((reg) => ({
-      registerRow: reg,
-      status: "Processing",
-      otherDeductions: 0,
-      finalNetPay: reg.netPayFinal ?? reg.netPay,
-      staffUserId: reg.staffUserId,
-    }));
+    const enriched = buildPreviewReportRows(preview.rows, template);
     setPreviewRows(enriched);
     setRunDetail(null);
     setIsPreview(true);
@@ -500,8 +504,12 @@ export default function PayrollReports() {
 
       const runId = pick.db_id || pick.id;
       setSelectedRunId(String(runId));
-      const detail = await getPayrollRun(runId);
+      const [detail, tplRes] = await Promise.all([
+        getPayrollRun(runId),
+        api.get("/accountant/payroll/templates/active").catch(() => null),
+      ]);
       setRunDetail(detail);
+      setActiveTemplate(tplRes?.data?.data || null);
       setIsPreview(false);
     } catch (e) {
       setError(e?.response?.data?.message || "Failed to load payroll report.");
@@ -519,8 +527,18 @@ export default function PayrollReports() {
   const reportRows = useMemo(() => {
     if (isPreview) return previewRows;
     if (!runDetail) return [];
-    return registerRowsFromRunDetail(runDetail);
-  }, [isPreview, previewRows, runDetail]);
+    return registerRowsFromRunDetail(runDetail, activeTemplate);
+  }, [isPreview, previewRows, runDetail, activeTemplate]);
+
+  const bankColumns = useMemo(
+    () => resolveBankReportColumns(reportRows, activeTemplate),
+    [reportRows, activeTemplate],
+  );
+
+  const taxColumns = useMemo(
+    () => resolveTaxReportColumns(reportRows, activeTemplate),
+    [reportRows, activeTemplate],
+  );
 
   const analytics = useMemo(() => {
     const base = computeReportAnalytics(reportRows, runDetail);
@@ -735,6 +753,8 @@ export default function PayrollReports() {
           variant={activeTab}
           rows={reportRows}
           totalRow={activeTab === "tax" ? taxTotals : bankTotals}
+          bankColumns={bankColumns}
+          taxColumns={taxColumns}
           onExportPdf={handleExportPdf}
           onExportExcel={handleExportExcel}
           exporting={exporting}

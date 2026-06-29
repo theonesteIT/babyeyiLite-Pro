@@ -3132,6 +3132,142 @@ router.get('/accountant/payroll-requests/:id/details', requireRole(ACCOUNTANT_RE
   }
 });
 
+router.get('/manager/payroll/bank-register', requireRole(PAYROLL_MANAGER_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const month = monthLabelToNumber(req.query?.month) || Number(req.query?.month) || 0;
+    const academicYearQ = String(req.query?.academic_year || req.query?.academicYear || '').trim();
+    const year = Number(req.query?.year) >= 2000
+      ? Number(req.query.year)
+      : (resolvePayrollCalendarYear(academicYearQ, month) || parsePayrollYear(req.query?.year) || 0);
+    const termQ = String(req.query?.term || '').trim();
+
+    const { getActiveBankPayrollColumns, mergeBankColumnsFromItems } = require('../utils/payrollTemplateChannels');
+
+    let template = { allowances: [], deductions: [] };
+    try {
+      const [tplRows] = await promisePool.query(
+        `SELECT allowances_json, deductions_json
+         FROM accountant_payroll_templates
+         WHERE school_id = ? AND deleted_at IS NULL
+         ORDER BY is_active DESC, version_no DESC, id DESC
+         LIMIT 1`,
+        [schoolId]
+      );
+      template = {
+        allowances: parseJsonSafe(tplRows?.[0]?.allowances_json, []),
+        deductions: parseJsonSafe(tplRows?.[0]?.deductions_json, []),
+      };
+    } catch {
+      // optional template
+    }
+
+    const runWhere = ['school_id = ?'];
+    const runParams = [schoolId];
+    if (month >= 1 && month <= 12) {
+      runWhere.push('pay_month = ?');
+      runParams.push(month);
+    }
+    if (year >= 2000 && year <= 3000) {
+      runWhere.push('pay_year = ?');
+      runParams.push(year);
+    }
+    if (academicYearQ) {
+      runWhere.push('academic_year_label = ?');
+      runParams.push(academicYearQ);
+    }
+    appendExplicitPayrollTermFilter(runWhere, runParams, termQ, 'pay_term');
+
+    const [[run]] = await promisePool.query(
+      `SELECT id, run_period, status, pay_month, pay_year, pay_term, academic_year_label, staff_count, net_total_rwf, disbursement_total_rwf
+       FROM accountant_payroll_runs
+       WHERE ${runWhere.join(' AND ')}
+       ORDER BY id DESC
+       LIMIT 1`,
+      runParams
+    );
+
+    if (!run) {
+      return res.json({
+        success: true,
+        data: {
+          columns: getActiveBankPayrollColumns(template),
+          rows: [],
+          run: null,
+        },
+      });
+    }
+
+    const [lines] = await promisePool.query(
+      `SELECT l.id, l.user_id, l.staff_name, l.net_rwf, l.register_json,
+              u.user_uid AS staff_code,
+              st.payroll_bank_name, st.payroll_account_number
+       FROM accountant_payroll_run_lines l
+       LEFT JOIN users u ON u.id = l.user_id AND u.school_id = l.school_id
+       LEFT JOIN staff st ON st.user_id = l.user_id AND st.school_id = l.school_id
+       WHERE l.school_id = ? AND l.run_id = ?
+       ORDER BY l.staff_name ASC, l.id ASC`,
+      [schoolId, run.id]
+    );
+
+    const rows = (lines || []).map((l) => {
+      let snap = null;
+      try {
+        snap = l.register_json
+          ? (typeof l.register_json === 'string' ? JSON.parse(l.register_json) : l.register_json)
+          : null;
+      } catch {
+        snap = null;
+      }
+      const taxNetPay = Number(l.net_rwf || 0);
+      const bankPayrollItems = Array.isArray(snap?.bankPayrollItems) ? snap.bankPayrollItems : [];
+      const bankNetPay = Number(snap?.bankNetPay ?? taxNetPay);
+      return {
+        staffUserId: Number(l.user_id || 0) || null,
+        staffName: l.staff_name || '',
+        staffCode: l.staff_code || '',
+        bankName: l.payroll_bank_name || snap?.bankName || '',
+        bankAccount: l.payroll_account_number || snap?.bankAccount || '',
+        taxNetPay,
+        bankNetPay,
+        bankPayrollItems,
+        status: payrollDisbursementStatusLabel(run.status),
+      };
+    });
+
+    const columns = mergeBankColumnsFromItems(
+      rows.flatMap((r) => r.bankPayrollItems || []),
+      getActiveBankPayrollColumns(template),
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        columns,
+        rows,
+        run: {
+          id: run.id,
+          runNumber: formatPayrollRunNumber(run),
+          period: run.run_period,
+          status: run.status,
+          statusLabel: payrollDisbursementStatusLabel(run.status),
+          payMonth: Number(run.pay_month || 0),
+          payYear: Number(run.pay_year || 0),
+          payTerm: run.pay_term || '',
+          academicYear: run.academic_year_label || '',
+          monthLabel: run.pay_month ? numberToMonthLabel(Number(run.pay_month)) : '',
+          staffCount: Number(run.staff_count || rows.length),
+          netTotal: Number(run.net_total_rwf || 0),
+          disbursementTotal: Number(run.disbursement_total_rwf || run.net_total_rwf || 0),
+        },
+      },
+    });
+  } catch (e) {
+    console.error('[manager/payroll/bank-register GET]:', e.message);
+    return res.status(500).json({ success: false, message: 'Failed to load bank payroll register' });
+  }
+});
+
 router.get('/staff/payroll/my', async (req, res) => {
   try {
     const { schoolId, userId } = req.ctx;
@@ -6861,6 +6997,7 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
         basicSalary: basic,
         allowances: allowanceItems,
         storedAllowanceSplit: useStoredAllowances ? storedAllowanceSplit : undefined,
+        templateAllowances: tplAllowances,
         templateDeductions: tplDeductions,
         employeeDeductions: appliedEmployeeDeductions,
         statutory: tplStatutory,
@@ -6916,6 +7053,10 @@ router.post('/accountant/payroll/runs/trigger', requireRole(ACCOUNTANT_WRITE_ROL
           remainingBalance: d.remainingBalance,
         })),
         allowanceSource: useStoredAllowances ? 'staff_profile' : (useSchoolAuto ? 'auto' : 'template'),
+        bankPayrollItems: calc.bankPayrollItems || [],
+        taxPayrollItems: calc.taxPayrollItems || [],
+        bankPayrollAdjust: calc.bankPayrollAdjust || 0,
+        bankNetPay: calc.bankNetPay ?? calc.finalNet,
       };
 
       grossTotal += gross;

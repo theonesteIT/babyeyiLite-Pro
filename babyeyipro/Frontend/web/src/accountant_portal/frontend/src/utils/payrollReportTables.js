@@ -6,10 +6,29 @@ import {
 } from './payrollRegister';
 import { mapLineToPaymentRow } from '../services/payrollDisbursementService';
 import { isPayrollRunPaid } from '../services/payrollRunService';
+import {
+  getActiveBankPayrollColumns,
+  getActiveTaxPayrollColumns,
+  getActiveRunTemplateColumns,
+  taxItemAmountForColumn,
+  bankItemAmountForColumn,
+  mergeBankColumnsFromItems,
+  mergeTaxColumnsFromItems,
+  bankPayrollNetAdjust,
+  resolveStaffPayrollItems,
+  allTemplateItemsForRow,
+  payrollItemAmountForColumn,
+} from '../../../../shared/payroll/payrollTemplateChannels';
 
-/** Tax register — same as payroll run register but excludes MUTUEL and post-Mutuelle NET PAY. */
+/** Tax register base columns (before dynamic template columns). */
+export const TAX_REGISTER_BASE_COUNT = 26;
+
+/** Bank register base columns (before dynamic template columns). */
+export const BANK_REGISTER_BASE_COUNT = PAYROLL_REGISTER_HEADERS.length;
+
+/** Tax register — register columns + optional template columns + status. */
 export const TAX_REGISTER_HEADERS = [
-  ...PAYROLL_REGISTER_HEADERS.slice(0, 26),
+  ...PAYROLL_REGISTER_HEADERS.slice(0, TAX_REGISTER_BASE_COUNT),
   'STATUS',
 ];
 
@@ -17,7 +36,6 @@ export const TAX_REGISTER_HEADERS = [
 export const BANK_REGISTER_HEADERS = [
   ...PAYROLL_REGISTER_HEADERS,
   'OTHER DEDUCTIONS',
-  'OTHER DED. DETAIL',
   'FINAL NET SALARY',
   'BANK',
   'ACCOUNT',
@@ -39,47 +57,122 @@ export function otherDeductionsFromLine(line = {}) {
   return toNum(payment.extraDeduction) + disbursement;
 }
 
-export function enrichRegisterRowForReports(registerRow, line = null, runStatus = 'processing') {
+export function resolveTaxReportColumns(reportRows = [], template = null) {
+  const allItems = (reportRows || []).flatMap((row) => row.taxPayrollItems || []);
+  return mergeTaxColumnsFromItems(allItems, getActiveTaxPayrollColumns(template));
+}
+
+export function resolveBankReportColumns(reportRows = [], template = null) {
+  const allItems = (reportRows || []).flatMap((row) => row.bankPayrollItems || []);
+  return mergeBankColumnsFromItems(allItems, getActiveBankPayrollColumns(template));
+}
+
+export function buildTaxRegisterHeaders(dynamicColumns = []) {
+  const dynHeaders = (dynamicColumns || []).map((col) => String(col.name || '').toUpperCase());
+  return [
+    ...PAYROLL_REGISTER_HEADERS.slice(0, TAX_REGISTER_BASE_COUNT),
+    ...dynHeaders,
+    'STATUS',
+  ];
+}
+
+export function buildBankRegisterHeaders(dynamicColumns = []) {
+  const dynHeaders = (dynamicColumns || []).map((col) => String(col.name || '').toUpperCase());
+  return [
+    ...PAYROLL_REGISTER_HEADERS,
+    ...dynHeaders,
+    'OTHER DEDUCTIONS',
+    'FINAL NET SALARY',
+    'BANK',
+    'ACCOUNT',
+    'STATUS',
+  ];
+}
+
+export function resolveRunReportColumns(template = null) {
+  return getActiveRunTemplateColumns(template);
+}
+
+export function buildRunRegisterHeaders(dynamicColumns = []) {
+  const dynHeaders = (dynamicColumns || []).map((col) => String(col.name || '').toUpperCase());
+  return [
+    ...PAYROLL_REGISTER_HEADERS,
+    ...dynHeaders,
+    'BANK NET',
+    'STATUS',
+  ];
+}
+
+export function enrichRegisterRowForReports(registerRow, line = null, runStatus = 'processing', template = null) {
   const status = runStatusLabel(runStatus);
   const payment = line ? mapLineToPaymentRow(line) : null;
+  const { taxPayrollItems, bankPayrollItems } = resolveStaffPayrollItems({
+    registerRow,
+    line,
+    template,
+    calcSnapshot: line?.calcSnapshot,
+  });
+  const bankTemplateAdjust = bankPayrollNetAdjust(bankPayrollItems);
+  const taxNetPay = toNum(registerRow.netPayFinal ?? registerRow.netPay);
+  const afterTemplateBank = taxNetPay + bankTemplateAdjust;
   const otherDeductions = line ? otherDeductionsFromLine(line) : 0;
   const finalNetPay = payment
     ? toNum(payment.finalPayable)
-    : toNum(registerRow.netPayFinal ?? registerRow.netPay);
+    : Math.max(0, afterTemplateBank - otherDeductions);
 
   return {
     registerRow,
     status,
+    taxPayrollItems,
+    bankPayrollItems,
+    bankTemplateAdjust,
     otherDeductions,
     otherDeductionLabels: payment?.deductionNames || '',
     finalNetPay,
-    bankAccount: line?.bankAccount || '',
+    taxNetPay,
     bankName: line?.bankName || '',
+    bankAccount: line?.bankAccount || '',
     staffUserId: line?.staffUserId || null,
   };
 }
 
-export function registerRowsFromRunDetail(runDetail) {
+export function registerRowsFromRunDetail(runDetail, template = null) {
   const lines = runDetail?.lines || [];
   const runStatus = runDetail?.status || 'processing';
-  return lines.map((line) => {
+  const rows = lines.map((line) => {
     const registerRow = mapApiLineToRegisterRow(line);
-    return enrichRegisterRowForReports(registerRow, line, runStatus);
+    return enrichRegisterRowForReports(registerRow, line, runStatus, template);
   });
+  const taxColumns = resolveTaxReportColumns(rows, template);
+  const bankColumns = resolveBankReportColumns(rows, template);
+  return rows.map((row) => ({ ...row, taxColumns, dynamicColumns: bankColumns }));
 }
 
-export function taxRowToValues(row) {
-  const reg = row.registerRow || row;
-  const base = registerRowToValues(reg).slice(0, 26);
-  return [...base, row.status || runStatusLabel('processing')];
+function signedColumnValue(amount, kind) {
+  if (!amount) return 0;
+  return kind === 'allowance' ? amount : -amount;
 }
 
-export function bankRowToValues(row) {
+export function taxRowToValues(row, dynamicColumns = row?.taxColumns || []) {
   const reg = row.registerRow || row;
+  const base = registerRowToValues(reg).slice(0, TAX_REGISTER_BASE_COUNT);
+  const dynValues = (dynamicColumns || []).map((col) => signedColumnValue(
+    taxItemAmountForColumn(row.taxPayrollItems, col),
+    col.kind,
+  ));
+  return [...base, ...dynValues, row.status || runStatusLabel('processing')];
+}
+
+export function bankRowToValues(row, dynamicColumns = row?.dynamicColumns || []) {
+  const reg = row.registerRow || row;
+  const dynValues = (dynamicColumns || []).map((col) => signedColumnValue(
+    bankItemAmountForColumn(row.bankPayrollItems, col),
+    col.kind,
+  ));
   return [
     ...registerRowToValues(reg),
+    ...dynValues,
     toNum(row.otherDeductions),
-    row.otherDeductionLabels || '',
     toNum(row.finalNetPay ?? reg.netPayFinal),
     row.bankName || '',
     row.bankAccount || '',
@@ -87,48 +180,148 @@ export function bankRowToValues(row) {
   ];
 }
 
-export function sumTaxReportRows(rows = []) {
+export function sumTaxReportRows(rows = [], dynamicColumns = rows?.[0]?.taxColumns || []) {
   const regRows = rows.map((r) => r.registerRow || r);
   const totals = sumPayrollRegisterRows(regRows);
+  const colTotals = (dynamicColumns || []).map((col) => ({
+    ...col,
+    total: rows.reduce(
+      (sum, row) => sum + signedColumnValue(taxItemAmountForColumn(row.taxPayrollItems, col), col.kind),
+      0,
+    ),
+  }));
   return {
     ...totals,
+    taxColumns: colTotals,
     status: rows[0]?.status || '',
   };
 }
 
-export function sumBankReportRows(rows = []) {
+export function sumBankReportRows(rows = [], dynamicColumns = rows?.[0]?.dynamicColumns || []) {
   const regRows = rows.map((r) => r.registerRow || r);
   const totals = sumPayrollRegisterRows(regRows);
   let otherDeductions = 0;
   let finalNetPay = 0;
+  const colTotals = (dynamicColumns || []).map((col) => ({
+    ...col,
+    total: rows.reduce(
+      (sum, row) => sum + signedColumnValue(bankItemAmountForColumn(row.bankPayrollItems, col), col.kind),
+      0,
+    ),
+  }));
   for (const row of rows) {
     otherDeductions += toNum(row.otherDeductions);
     finalNetPay += toNum(row.finalNetPay);
   }
   return {
     registerRow: totals,
+    dynamicColumns: colTotals,
     otherDeductions,
     finalNetPay,
     status: '',
   };
 }
 
-export function taxTotalRowToValues(totalRow) {
-  const base = registerRowToValues(totalRow).slice(0, 26);
-  return [...base, ''];
+export function taxTotalRowToValues(totalRow, dynamicColumns = totalRow?.taxColumns || []) {
+  const base = registerRowToValues(totalRow).slice(0, TAX_REGISTER_BASE_COUNT);
+  const dynValues = (dynamicColumns || []).map((col) => {
+    const match = (totalRow.taxColumns || []).find(
+      (c) => normalizeCol(c) === normalizeCol(col),
+    );
+    return toNum(match?.total);
+  });
+  return [...base, ...dynValues, ''];
 }
 
-export function bankTotalRowToValues(totalRow) {
+export function bankTotalRowToValues(totalRow, dynamicColumns = totalRow?.dynamicColumns || []) {
   const reg = totalRow.registerRow || totalRow;
+  const dynValues = (dynamicColumns || []).map((col) => {
+    const match = (totalRow.dynamicColumns || []).find(
+      (c) => normalizeCol(c) === normalizeCol(col),
+    );
+    return toNum(match?.total);
+  });
   return [
     ...registerRowToValues(reg),
+    ...dynValues,
     toNum(totalRow.otherDeductions),
-    '',
     toNum(totalRow.finalNetPay),
     '',
     '',
     '',
   ];
+}
+
+export function runRowToValues(row, dynamicColumns = row?.runColumns || []) {
+  const reg = row.registerRow || row;
+  const items = allTemplateItemsForRow(row);
+  const dynValues = (dynamicColumns || []).map((col) => signedColumnValue(
+    payrollItemAmountForColumn(items, col),
+    col.kind,
+  ));
+  const bankNet = toNum(row.finalNetPay ?? row.bankNetPay ?? (toNum(reg.netPayFinal) + toNum(row.bankTemplateAdjust)));
+  return [
+    ...registerRowToValues(reg),
+    ...dynValues,
+    bankNet,
+    row.status || runStatusLabel('processing'),
+  ];
+}
+
+export function runTotalRowToValues(totalRow, dynamicColumns = totalRow?.runColumns || []) {
+  const reg = totalRow.registerRow || totalRow;
+  const dynValues = (dynamicColumns || []).map((col) => {
+    const match = (totalRow.runColumns || []).find((c) => normalizeCol(c) === normalizeCol(col));
+    return toNum(match?.total);
+  });
+  return [
+    ...registerRowToValues(reg),
+    ...dynValues,
+    toNum(totalRow.finalNetPay),
+    '',
+  ];
+}
+
+function normalizeCol(col) {
+  return String(col?.id || col?.name || '').toLowerCase();
+}
+
+export function sumRunReportRows(rows = [], dynamicColumns = rows?.[0]?.runColumns || []) {
+  const base = sumBankReportRows(rows, dynamicColumns);
+  const colTotals = (dynamicColumns || []).map((col) => ({
+    ...col,
+    total: rows.reduce((sum, row) => {
+      const items = allTemplateItemsForRow(row);
+      return sum + signedColumnValue(payrollItemAmountForColumn(items, col), col.kind);
+    }, 0),
+  }));
+  return {
+    ...base,
+    runColumns: colTotals,
+    finalNetPay: rows.reduce((s, r) => s + toNum(r.finalNetPay), 0),
+  };
+}
+
+export function enrichPreviewRowForReports(previewRow, template = null, runStatus = 'Processing') {
+  return enrichRegisterRowForReports(
+    previewRow,
+    {
+      calcSnapshot: previewRow.calcSnapshot,
+      staffUserId: previewRow.staffUserId,
+      taxPayrollItems: previewRow.calcSnapshot?.taxPayrollItems,
+      bankPayrollItems: previewRow.calcSnapshot?.bankPayrollItems,
+    },
+    runStatus,
+    template,
+  );
+}
+
+export function buildPreviewReportRows(previewRows = [], template = null) {
+  const enriched = previewRows.map((row) => enrichPreviewRowForReports(row, template));
+  const taxColumns = resolveTaxReportColumns(enriched, template);
+  const bankColumns = resolveBankReportColumns(enriched, template);
+  const runColumns = resolveRunReportColumns(template);
+  return enriched.map((row) => ({ ...row, taxColumns, dynamicColumns: bankColumns, runColumns }));
 }
 
 export function computeReportAnalytics(rows = [], runDetail = null) {
@@ -137,6 +330,7 @@ export function computeReportAnalytics(rows = [], runDetail = null) {
   const paid = isPayrollRunPaid(runDetail?.status);
   const otherDedTotal = rows.reduce((s, r) => s + toNum(r.otherDeductions), 0);
   const bankNetTotal = rows.reduce((s, r) => s + toNum(r.finalNetPay), 0);
+  const bankTemplateAdjustTotal = rows.reduce((s, r) => s + toNum(r.bankTemplateAdjust), 0);
 
   return {
     employeeCount: rows.length,
@@ -147,6 +341,7 @@ export function computeReportAnalytics(rows = [], runDetail = null) {
     taxNetTotal: toNum(totals?.netPay),
     mutuelTotal: toNum(totals?.mutuel),
     bankNetTotal: bankNetTotal || toNum(totals?.netPayFinal),
+    bankTemplateAdjustTotal,
     otherDedTotal,
     runStatus: runDetail?.status || 'preview',
     runStatusLabel: runDetail ? runStatusLabel(runDetail.status) : 'Preview',
