@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Banknote, ChevronDown, Download, FileSpreadsheet, Loader2, RefreshCw, Search,
+  Banknote, ChevronDown, FileSpreadsheet, Loader2, RefreshCw, Search,
   Trash2, CheckCircle, AlertCircle,
 } from 'lucide-react';
 import AccountantOchreHero from '../components/AccountantOchreHero';
-import PayrollRegisterTable from '../components/PayrollRegisterTable';
+import PayrollReportRegisterTable from '../components/PayrollReportRegisterTable';
 import {
-  mapApiLineToRegisterRow,
-  sumPayrollRegisterRows,
-  downloadPayrollRegisterCsv,
-  downloadPayrollRegisterExcel,
-} from '../utils/payrollRegister';
+  registerRowsFromRunDetail,
+  resolveRunReportColumns,
+  sumRunReportRows,
+} from '../utils/payrollReportTables';
+import { downloadRunPayrollRegisterExcel } from '../utils/payrollReportExport';
 import {
   getPayrollRun,
   getPayrollRuns,
@@ -84,6 +84,7 @@ export default function SalaryPayment() {
   const [runs, setRuns] = useState([]);
   const [selectedRunId, setSelectedRunId] = useState(null);
   const [runDetail, setRunDetail] = useState(null);
+  const [activeTemplate, setActiveTemplate] = useState(null);
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [search, setSearch] = useState('');
@@ -168,11 +169,16 @@ export default function SalaryPayment() {
     setLoadingDetail(true);
     setDetailError('');
     try {
-      const data = await getPayrollRun(id);
+      const [data, tplRes] = await Promise.all([
+        getPayrollRun(id),
+        api.get('/accountant/payroll/templates/active').catch(() => null),
+      ]);
       setRunDetail(data);
+      setActiveTemplate(tplRes?.data?.data || null);
       if (!data) setDetailError('Payroll run details could not be loaded.');
     } catch (e) {
       setRunDetail(null);
+      setActiveTemplate(null);
       setDetailError(e?.response?.data?.message || e?.message || 'Failed to load payroll register.');
     } finally {
       setLoadingDetail(false);
@@ -184,23 +190,29 @@ export default function SalaryPayment() {
     else setRunDetail(null);
   }, [selectedRunId, loadRunDetail]);
 
-  const registerRows = useMemo(() => {
-    const lines = Array.isArray(runDetail?.lines) ? runDetail.lines : [];
-    let rows = lines.map((l) => mapApiLineToRegisterRow(l));
+  const reportRows = useMemo(() => {
+    if (!runDetail) return [];
+    let rows = registerRowsFromRunDetail(runDetail, activeTemplate);
     const q = search.trim().toLowerCase();
     if (q) {
-      rows = rows.filter((r) =>
-        [r.firstName, r.familyName, r.rssbNumber, r.nationalId].some((v) =>
+      rows = rows.filter((row) => {
+        const reg = row.registerRow || row;
+        return [reg.firstName, reg.familyName, reg.rssbNumber, reg.nationalId].some((v) =>
           String(v || '').toLowerCase().includes(q)
-        )
-      );
+        );
+      });
     }
     return rows;
-  }, [runDetail, search]);
+  }, [runDetail, activeTemplate, search]);
 
-  const registerTotals = useMemo(
-    () => (registerRows.length ? sumPayrollRegisterRows(registerRows) : null),
-    [registerRows]
+  const runColumns = useMemo(
+    () => resolveRunReportColumns(activeTemplate),
+    [activeTemplate, reportRows],
+  );
+
+  const reportTotals = useMemo(
+    () => (reportRows.length ? sumRunReportRows(reportRows, runColumns) : null),
+    [reportRows, runColumns],
   );
 
   const periodLabel = useMemo(() => {
@@ -266,7 +278,7 @@ export default function SalaryPayment() {
         eyebrow="Finance · Payroll"
         titleLine="Salary"
         titleAccent="Payment"
-        subtitle="View saved payroll runs by academic year and month — full school register with net pay per staff."
+        subtitle="View saved payroll runs — full register with salary template columns and net final payable per staff."
         icon={Banknote}
       />
 
@@ -382,12 +394,16 @@ export default function SalaryPayment() {
         {/* Stats row — below saved runs */}
         {selectedRun || runDetail ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
                 { label: 'Status', value: badge.label, isBadge: true },
                 { label: 'Staff', value: runDetail?.staffCount ?? selectedRun?.staffCount ?? 0 },
                 { label: 'Gross total', value: `${(runDetail?.grossTotal ?? selectedRun?.grossTotal ?? 0).toLocaleString()} RWF` },
                 { label: 'Net total', value: `${(runDetail?.netTotal ?? selectedRun?.netTotal ?? 0).toLocaleString()} RWF` },
+                {
+                  label: 'Final payable',
+                  value: `${(reportTotals?.finalNetPay ?? runDetail?.disbursementTotal ?? selectedRun?.disbursementTotal ?? 0).toLocaleString()} RWF`,
+                },
               ].map(({ label, value, isBadge }) => (
                 <div key={label} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
                   <p className="text-[10px] text-slate-400 uppercase tracking-wide font-normal">{label}</p>
@@ -440,24 +456,14 @@ export default function SalaryPayment() {
             <div className="flex gap-2">
               <button
                 type="button"
-                disabled={!registerRows.length}
-                onClick={() => downloadPayrollRegisterCsv({
+                disabled={!reportRows.length}
+                onClick={() => downloadRunPayrollRegisterExcel({
                   schoolName,
                   periodLabel,
-                  rows: registerRows,
-                  filename: `salary-payment-${month}-${payrollYear}.csv`,
-                })}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-              >
-                <Download size={14} /> CSV
-              </button>
-              <button
-                type="button"
-                disabled={!registerRows.length}
-                onClick={() => downloadPayrollRegisterExcel({
-                  schoolName,
-                  periodLabel,
-                  rows: registerRows,
+                  rows: reportRows,
+                  totalRow: reportTotals,
+                  runStatus: payrollRunStatusLabel(runDetail?.status || selectedRun?.status),
+                  netPayLabel: 'NET FINAL PAYABLE',
                   filename: `salary-payment-${month}-${payrollYear}.xlsx`,
                 })}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F59E0B] text-[#000435] text-xs font-semibold disabled:opacity-50"
@@ -474,7 +480,7 @@ export default function SalaryPayment() {
               </div>
             ) : selectedRunId == null ? (
               <p className="py-16 text-center text-sm text-slate-500 font-normal">Select a payroll run above to view the register.</p>
-            ) : registerRows.length === 0 ? (
+            ) : reportRows.length === 0 ? (
               <p className="py-16 text-center text-sm text-slate-500 font-normal">
                 No staff lines found for this run
                 {(runDetail?.staffCount ?? selectedRun?.staffCount)
@@ -483,7 +489,14 @@ export default function SalaryPayment() {
                 . Try refresh or re-run payroll from Payroll Run.
               </p>
             ) : (
-              <PayrollRegisterTable rows={registerRows} totalRow={registerTotals} maxHeight={640} />
+              <PayrollReportRegisterTable
+                variant="run"
+                rows={reportRows}
+                totalRow={reportTotals}
+                runColumns={runColumns}
+                runNetLabel="NET FINAL PAYABLE"
+                maxHeight={640}
+              />
             )}
           </div>
         </div>

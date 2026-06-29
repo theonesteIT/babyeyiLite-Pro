@@ -32,6 +32,20 @@ export const PAYROLL_REGISTER_HEADERS = [
   'NET PAY',
 ];
 
+/** RSSB, national ID, names, sex — display as plain text (no thousand separators). */
+export const PAYROLL_REGISTER_TEXT_COL_COUNT = 5;
+
+export function formatPayrollRegisterCell(value, columnIndex) {
+  if (columnIndex != null && columnIndex < PAYROLL_REGISTER_TEXT_COL_COUNT) {
+    if (value === '-' || value === '' || value == null) return value === '-' ? '-' : '';
+    return String(value);
+  }
+  if (value === '-' || value === '') return value === '-' ? '-' : '';
+  const n = Number(value);
+  if (Number.isFinite(n) && String(value).trim() !== '') return n.toLocaleString();
+  return value;
+}
+
 function toNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;

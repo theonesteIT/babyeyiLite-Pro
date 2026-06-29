@@ -5750,7 +5750,12 @@ router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), a
       }
       const netSalary = Number(l.net_rwf || 0);
       const extraDeduction = Number(snap?.extraDeduction || 0);
-      const finalPayable = Number(snap?.finalPayable ?? (netSalary - extraDeduction));
+      const bankNetPay = Number(snap?.bankNetPay ?? netSalary);
+      const computedFinal = Math.max(0, bankNetPay - extraDeduction);
+      const storedFinal = Number(snap?.finalPayable);
+      const finalPayable = Number.isFinite(storedFinal) && storedFinal > 0
+        ? storedFinal
+        : computedFinal;
       const base = {
         lineDbId: Number(l.id),
         id: `RUNL-${l.id}`,
@@ -5773,6 +5778,7 @@ router.get('/accountant/payroll/runs/:id', requireRole(ACCOUNTANT_READ_ROLES), a
         gross: Number(l.gross_rwf || 0),
         net: netSalary,
         netSalary,
+        bankNetPay,
         extraDeduction,
         finalPayable,
       };

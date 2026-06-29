@@ -137,7 +137,11 @@ export function mapLineToPaymentRow(line = {}) {
   const netSalary = Number(line.netSalary ?? line.net ?? line.netPayFinal ?? 0);
   const bankNetPay = Number(line.bankNetPay ?? line.raw?.bankNetPay ?? netSalary);
   const extraDeduction = Number(line.extraDeduction || 0);
-  const finalPayable = Number(line.finalPayable ?? (bankNetPay - extraDeduction));
+  const computedFinal = Math.max(0, bankNetPay - extraDeduction);
+  const storedFinal = Number(line.finalPayable);
+  const finalPayable = Number.isFinite(storedFinal) && storedFinal > 0
+    ? storedFinal
+    : computedFinal;
   const disbursementDeductions = parseDisbursementOnlyDeductions(line);
   const deductionNames = disbursementDeductions.map((d) => d.name).join('; ');
   const deductionAmounts = disbursementDeductions.map((d) => d.amount).join('; ');
@@ -148,9 +152,9 @@ export function mapLineToPaymentRow(line = {}) {
     name,
     photo,
     dept: line.dept || '',
-    bank: bankShortName(line.bankName),
-    bankName: line.bankName || '',
-    account: line.bankAccount || '',
+    bank: bankShortName(line.bankName || line.payroll_bank_name),
+    bankName: line.bankName || line.payroll_bank_name || '',
+    account: line.bankAccount || line.payroll_account_number || '',
     netSalary,
     extraDeduction,
     disbursementDeductions,

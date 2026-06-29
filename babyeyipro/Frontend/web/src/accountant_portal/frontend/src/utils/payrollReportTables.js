@@ -57,6 +57,52 @@ export function otherDeductionsFromLine(line = {}) {
   return toNum(payment.extraDeduction) + disbursement;
 }
 
+function resolveLineBankFields(line = {}, payment = null) {
+  return {
+    bankName: String(
+      line?.bankName
+      || line?.payroll_bank_name
+      || payment?.bankName
+      || payment?.bank
+      || '',
+    ).trim(),
+    bankAccount: String(
+      line?.bankAccount
+      || line?.payroll_account_number
+      || payment?.account
+      || '',
+    ).trim(),
+  };
+}
+
+function resolveFinalNetPay({
+  registerRow,
+  line,
+  payment,
+  afterTemplateBank,
+  otherDeductions,
+  bankTemplateAdjust,
+}) {
+  const computed = Math.max(0, afterTemplateBank - otherDeductions);
+  if (computed > 0) return computed;
+
+  const bankNet = toNum(
+    line?.bankNetPay
+    ?? line?.calcSnapshot?.bankNetPay
+    ?? registerRow?.bankNetPay
+    ?? payment?.raw?.bankNetPay,
+  );
+  if (bankNet > 0) return Math.max(0, bankNet - otherDeductions);
+
+  const paymentFinal = payment ? toNum(payment.finalPayable) : 0;
+  if (paymentFinal > 0) return paymentFinal;
+
+  return Math.max(
+    0,
+    toNum(registerRow?.netPayFinal ?? registerRow?.netPay) + bankTemplateAdjust - otherDeductions,
+  );
+}
+
 export function resolveTaxReportColumns(reportRows = [], template = null) {
   const allItems = (reportRows || []).flatMap((row) => row.taxPayrollItems || []);
   return mergeTaxColumnsFromItems(allItems, getActiveTaxPayrollColumns(template));
@@ -93,12 +139,12 @@ export function resolveRunReportColumns(template = null) {
   return getActiveRunTemplateColumns(template);
 }
 
-export function buildRunRegisterHeaders(dynamicColumns = []) {
+export function buildRunRegisterHeaders(dynamicColumns = [], netPayLabel = 'BANK NET') {
   const dynHeaders = (dynamicColumns || []).map((col) => String(col.name || '').toUpperCase());
   return [
     ...PAYROLL_REGISTER_HEADERS,
     ...dynHeaders,
-    'BANK NET',
+    netPayLabel,
     'STATUS',
   ];
 }
@@ -116,9 +162,15 @@ export function enrichRegisterRowForReports(registerRow, line = null, runStatus 
   const taxNetPay = toNum(registerRow.netPayFinal ?? registerRow.netPay);
   const afterTemplateBank = taxNetPay + bankTemplateAdjust;
   const otherDeductions = line ? otherDeductionsFromLine(line) : 0;
-  const finalNetPay = payment
-    ? toNum(payment.finalPayable)
-    : Math.max(0, afterTemplateBank - otherDeductions);
+  const finalNetPay = resolveFinalNetPay({
+    registerRow,
+    line,
+    payment,
+    afterTemplateBank,
+    otherDeductions,
+    bankTemplateAdjust,
+  });
+  const { bankName, bankAccount } = resolveLineBankFields(line, payment);
 
   return {
     registerRow,
@@ -130,8 +182,8 @@ export function enrichRegisterRowForReports(registerRow, line = null, runStatus 
     otherDeductionLabels: payment?.deductionNames || '',
     finalNetPay,
     taxNetPay,
-    bankName: line?.bankName || '',
-    bankAccount: line?.bankAccount || '',
+    bankName,
+    bankAccount,
     staffUserId: line?.staffUserId || null,
   };
 }
@@ -145,7 +197,8 @@ export function registerRowsFromRunDetail(runDetail, template = null) {
   });
   const taxColumns = resolveTaxReportColumns(rows, template);
   const bankColumns = resolveBankReportColumns(rows, template);
-  return rows.map((row) => ({ ...row, taxColumns, dynamicColumns: bankColumns }));
+  const runColumns = resolveRunReportColumns(template);
+  return rows.map((row) => ({ ...row, taxColumns, dynamicColumns: bankColumns, runColumns }));
 }
 
 function signedColumnValue(amount, kind) {
@@ -169,11 +222,17 @@ export function bankRowToValues(row, dynamicColumns = row?.dynamicColumns || [])
     bankItemAmountForColumn(row.bankPayrollItems, col),
     col.kind,
   ));
+  const finalNetFallback = Math.max(
+    0,
+    toNum(reg.netPayFinal ?? reg.netPay) + toNum(row.bankTemplateAdjust) - toNum(row.otherDeductions),
+  );
+  const finalNetPay = toNum(row.finalNetPay) || finalNetFallback;
+
   return [
     ...registerRowToValues(reg),
     ...dynValues,
     toNum(row.otherDeductions),
-    toNum(row.finalNetPay ?? reg.netPayFinal),
+    finalNetPay,
     row.bankName || '',
     row.bankAccount || '',
     row.status || runStatusLabel('processing'),
@@ -303,6 +362,7 @@ export function sumRunReportRows(rows = [], dynamicColumns = rows?.[0]?.runColum
 }
 
 export function enrichPreviewRowForReports(previewRow, template = null, runStatus = 'Processing') {
+  const taxNet = toNum(previewRow.netPayFinal ?? previewRow.calcSnapshot?.finalNet);
   return enrichRegisterRowForReports(
     previewRow,
     {
@@ -310,6 +370,12 @@ export function enrichPreviewRowForReports(previewRow, template = null, runStatu
       staffUserId: previewRow.staffUserId,
       taxPayrollItems: previewRow.calcSnapshot?.taxPayrollItems,
       bankPayrollItems: previewRow.calcSnapshot?.bankPayrollItems,
+      bankNetPay: previewRow.calcSnapshot?.bankNetPay ?? taxNet,
+      net: taxNet,
+      netSalary: taxNet,
+      netPayFinal: taxNet,
+      bankName: previewRow.bankName || previewRow.payroll?.bankName || '',
+      bankAccount: previewRow.bankAccount || previewRow.payroll?.bankAccount || '',
     },
     runStatus,
     template,

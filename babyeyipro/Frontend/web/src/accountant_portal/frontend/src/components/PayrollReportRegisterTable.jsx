@@ -1,3 +1,4 @@
+import { useRef, useEffect, useState, useCallback } from 'react';
 import {
   TAX_REGISTER_BASE_COUNT,
   BANK_REGISTER_BASE_COUNT,
@@ -11,17 +12,23 @@ import {
   runRowToValues,
   runTotalRowToValues,
 } from '../utils/payrollReportTables';
+import { formatPayrollRegisterCell } from '../utils/payrollRegister';
 
 const COL_MIN = 72;
 
-function fmtCell(v) {
-  if (v === '-' || v === '') return v === '-' ? '-' : '';
-  const n = Number(v);
-  if (Number.isFinite(n) && String(v).trim() !== '') {
+function fmtCell(v, columnIndex, isDynamic = false) {
+  if (isDynamic) {
+    const n = Number(v);
+    if (!n) return '0';
     if (n < 0) return `−${Math.abs(n).toLocaleString()}`;
     return n.toLocaleString();
   }
-  return v;
+  const formatted = formatPayrollRegisterCell(v, columnIndex);
+  const n = Number(v);
+  if (Number.isFinite(n) && n < 0 && columnIndex != null && columnIndex >= 5) {
+    return `−${Math.abs(n).toLocaleString()}`;
+  }
+  return formatted;
 }
 
 function signedClass(val, kind) {
@@ -44,6 +51,7 @@ export default function PayrollReportRegisterTable({
   bankColumns = [],
   taxColumns = [],
   runColumns = [],
+  runNetLabel = 'BANK NET',
   maxHeight = 520,
   fillHeight = false,
 }) {
@@ -53,7 +61,7 @@ export default function PayrollReportRegisterTable({
       ? (bankColumns.length ? bankColumns : (rows[0]?.dynamicColumns || []))
       : (taxColumns.length ? taxColumns : (rows[0]?.taxColumns || []));
   const headers = variant === 'run'
-    ? buildRunRegisterHeaders(dynamicColumns)
+    ? buildRunRegisterHeaders(dynamicColumns, runNetLabel)
     : variant === 'bank'
       ? buildBankRegisterHeaders(dynamicColumns)
       : buildTaxRegisterHeaders(dynamicColumns);
@@ -79,8 +87,44 @@ export default function PayrollReportRegisterTable({
     ? undefined
     : { maxHeight };
 
+  const topScrollRef = useRef(null);
+  const bottomScrollRef = useRef(null);
+  const tableRef = useRef(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(2200);
+  const isSyncingScroll = useRef(false);
+  const showBottomScroll = variant === 'bank' || variant === 'run';
+
+  const syncHorizontalScroll = useCallback((from, to) => {
+    if (!from || !to || isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    to.scrollLeft = from.scrollLeft;
+    requestAnimationFrame(() => {
+      isSyncingScroll.current = false;
+    });
+  }, []);
+
+  const handleTableWheel = useCallback((event) => {
+    if (!showBottomScroll || !bottomScrollRef.current) return;
+    const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY);
+    if (!horizontal && !event.shiftKey) return;
+    event.preventDefault();
+    const delta = horizontal ? event.deltaX : event.deltaY;
+    bottomScrollRef.current.scrollLeft += delta;
+    syncHorizontalScroll(bottomScrollRef.current, topScrollRef.current);
+  }, [showBottomScroll, syncHorizontalScroll]);
+
+  useEffect(() => {
+    const table = tableRef.current;
+    if (!table) return undefined;
+    const updateWidth = () => setTableScrollWidth(table.scrollWidth || table.offsetWidth || 2200);
+    updateWidth();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateWidth) : null;
+    observer?.observe(table);
+    return () => observer?.disconnect();
+  }, [rows, headers, dynamicColumns, totalRow]);
+
   return (
-    <div className={`rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgba(0,4,53,0.06)] overflow-hidden ${fillHeight ? 'h-full' : ''}`}>
+    <div className={`rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgba(0,4,53,0.06)] overflow-hidden flex flex-col ${fillHeight ? 'h-full min-h-0' : ''}`}>
       {dynamicColumns.length > 0 ? (
         <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-[#000435] to-[#0a1460] flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-bold uppercase tracking-widest text-amber-300">
@@ -100,10 +144,13 @@ export default function PayrollReportRegisterTable({
       ) : null}
 
       <div
-        className={`overflow-x-auto ${fillHeight ? 'h-full overflow-y-visible' : 'overflow-y-auto'}`}
+        ref={topScrollRef}
+        onScroll={() => syncHorizontalScroll(topScrollRef.current, bottomScrollRef.current)}
+        onWheel={showBottomScroll ? handleTableWheel : undefined}
+        className={`flex-1 min-h-0 overflow-y-auto ${showBottomScroll ? 'overflow-x-hidden' : 'overflow-x-auto'} [scrollbar-gutter:stable]`}
         style={scrollStyle}
       >
-        <table className="border-collapse text-[11px] min-w-[2200px] w-full">
+        <table ref={tableRef} className="border-collapse text-[11px] min-w-[2200px] w-full">
           <thead>
             <tr className="bg-[#000435] text-white sticky top-0 z-10">
               {headers.map((h, i) => {
@@ -158,7 +205,7 @@ export default function PayrollReportRegisterTable({
                           >
                             {val}
                           </span>
-                        ) : fmtCell(val)}
+                        ) : fmtCell(val, ci, isDyn)}
                       </td>
                     );
                   })}
@@ -169,7 +216,7 @@ export default function PayrollReportRegisterTable({
               <tr className="bg-gradient-to-r from-amber-50 to-amber-100/80 font-bold border-t-2 border-amber-400">
                 {totalMapper(totalRow).map((val, ci) => (
                   <td key={ci} className="py-2.5 px-2.5 whitespace-nowrap tabular-nums text-[#000435]">
-                    {fmtCell(val)}
+                    {fmtCell(val, ci, ci >= dynStart && ci < dynEnd)}
                   </td>
                 ))}
               </tr>
@@ -177,6 +224,18 @@ export default function PayrollReportRegisterTable({
           </tbody>
         </table>
       </div>
+
+      {showBottomScroll ? (
+        <div
+          ref={bottomScrollRef}
+          onScroll={() => syncHorizontalScroll(bottomScrollRef.current, topScrollRef.current)}
+          className="shrink-0 overflow-x-auto overflow-y-hidden border-t-2 border-[#000435]/15 bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100"
+          aria-label="Scroll table horizontally"
+          title="Scroll table horizontally"
+        >
+          <div style={{ width: tableScrollWidth, height: 14 }} aria-hidden="true" />
+        </div>
+      ) : null}
     </div>
   );
 }

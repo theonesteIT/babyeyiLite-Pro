@@ -1,16 +1,17 @@
 import { Pencil } from 'lucide-react';
-import { PAYROLL_REGISTER_HEADERS, registerRowToValues } from '../utils/payrollRegister';
+import {
+  PAYROLL_REGISTER_HEADERS,
+  registerRowToValues,
+  formatPayrollRegisterCell,
+} from '../utils/payrollRegister';
 
 const COL_MIN = [
   120, 100, 90, 100, 40, 90, 100, 70, 70, 70, 90, 80, 90,
   80, 90, 90, 80, 80, 70, 80, 100, 80, 80, 90, 90, 90, 70, 90,
 ];
 
-function fmtCell(v) {
-  if (v === '-' || v === '') return v === '-' ? '-' : '';
-  const n = Number(v);
-  if (Number.isFinite(n) && String(v).trim() !== '') return n.toLocaleString();
-  return v;
+function fmtCell(v, columnIndex) {
+  return formatPayrollRegisterCell(v, columnIndex);
 }
 
 export default function PayrollRegisterTable({
@@ -81,7 +82,7 @@ export default function PayrollRegisterTable({
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >
-                  {fmtCell(val)}
+                  {fmtCell(val, ci)}
                 </td>
               ))}
               {showActions ? (
@@ -110,7 +111,7 @@ export default function PayrollRegisterTable({
             <tr style={{ background: '#FEF3C7', fontWeight: 800, borderTop: '2px solid #F59E0B' }}>
               {registerRowToValues(totalRow).map((val, ci) => (
                 <td key={ci} style={{ padding: pad, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtCell(val)}
+                  {fmtCell(val, ci)}
                 </td>
               ))}
               {showActions ? <td style={{ padding: pad }} /> : null}

@@ -206,7 +206,7 @@ function RegisterTableModal({
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-4 bg-slate-50">
+        <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 bg-slate-50 flex flex-col">
           {rows.length ? (
             <PayrollReportRegisterTable
               variant={variant}
