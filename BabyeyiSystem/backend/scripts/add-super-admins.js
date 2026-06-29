@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Add extra SUPER_ADMIN accounts (idempotent). */
+/** Add extra SUPER_ADMIN accounts (idempotent). Credentials come from env only — never commit passwords. */
 'use strict';
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -8,33 +8,62 @@ const bcrypt = require('bcryptjs');
 const { promisePool } = require('../config/database');
 const { ensureCoreRoles } = require('../utils/coreRolesSchema');
 
-const EXTRA_ADMINS = [
-  {
-    email: 'superadmin2@babyeyi.rw',
-    password: 'BabyeyiAdmin2@',
-    first_name: 'Super',
-    last_name: 'Admin Two',
-  },
-  {
-    email: 'superadmin3@babyeyi.rw',
-    password: 'BabyeyiAdmin3@',
-    first_name: 'Super',
-    last_name: 'Admin Three',
-  },
-];
+/**
+ * Parse EXTRA_SUPER_ADMINS from .env (JSON array).
+ * Example:
+ * EXTRA_SUPER_ADMINS=[{"email":"admin2@school.rw","password":"...","first_name":"Super","last_name":"Admin Two"}]
+ */
+function loadExtraAdminsFromEnv() {
+  const raw = String(process.env.EXTRA_SUPER_ADMINS || '').trim();
+  if (!raw) return [];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      'EXTRA_SUPER_ADMINS must be valid JSON array, e.g. [{"email":"...","password":"...","first_name":"...","last_name":"..."}]',
+    );
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('EXTRA_SUPER_ADMINS must be a JSON array');
+  }
+
+  return parsed.map((entry, i) => {
+    const email = String(entry?.email || '').trim().toLowerCase();
+    const password = String(entry?.password || '');
+    const first_name = String(entry?.first_name || entry?.firstName || 'Super').trim();
+    const last_name = String(entry?.last_name || entry?.lastName || 'Admin').trim();
+
+    if (!email || !password) {
+      throw new Error(`EXTRA_SUPER_ADMINS[${i}] requires email and password`);
+    }
+
+    return { email, password, first_name, last_name };
+  });
+}
 
 function generateUserUID() {
   return `SA-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 900 + 100)}`;
 }
 
 async function main() {
+  const extraAdmins = loadExtraAdminsFromEnv();
+  if (!extraAdmins.length) {
+    console.log('No EXTRA_SUPER_ADMINS in .env — nothing to create or update.');
+    console.log('Set EXTRA_SUPER_ADMINS in BabyeyiSystem/backend/.env (JSON array) then re-run this script.');
+    await promisePool.end();
+    return;
+  }
+
   await ensureCoreRoles();
   const [[role]] = await promisePool.query(
     "SELECT id FROM roles WHERE role_code = 'SUPER_ADMIN' LIMIT 1",
   );
   if (!role) throw new Error('SUPER_ADMIN role missing');
 
-  for (const admin of EXTRA_ADMINS) {
+  for (const admin of extraAdmins) {
     const [[existing]] = await promisePool.query(
       'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1',
       [admin.email],
