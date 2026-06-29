@@ -38,17 +38,20 @@ function totalsForStudents(students, columns) {
   return { colTotals, grandTotalQty, grandTotalAmount }
 }
 
-export default function SlotGroupedDistribution({ detail }) {
-  const [studentFilter, setStudentFilter] = useState('')
+export default function SlotGroupedDistribution({ detail, studentFilter = '', onStudentFilterChange }) {
+  const [internalFilter, setInternalFilter] = useState('')
+  const filter = onStudentFilterChange ? studentFilter : internalFilter
+  const setFilter = onStudentFilterChange || setInternalFilter
+
   const { columns, students, grandTotalQty, grandTotalAmount } = buildIssueSlotMatrix(detail)
 
   const filteredStudents = useMemo(
-    () => filterStudentsByQuery(students, studentFilter),
-    [students, studentFilter]
+    () => filterStudentsByQuery(students, filter),
+    [students, filter]
   )
 
   const displayTotals = useMemo(() => {
-    if (!studentFilter.trim()) {
+    if (!filter.trim()) {
       return {
         colTotals: columns.map((c) => ({ key: c.key, totalQty: c.totalQty, totalAmount: c.totalAmount })),
         grandTotalQty,
@@ -56,52 +59,54 @@ export default function SlotGroupedDistribution({ detail }) {
       }
     }
     return totalsForStudents(filteredStudents, columns)
-  }, [studentFilter, filteredStudents, columns, grandTotalQty, grandTotalAmount])
+  }, [filter, filteredStudents, columns, grandTotalQty, grandTotalAmount])
 
   if (!columns.length || !students.length) return null
 
-  const isFiltered = studentFilter.trim().length > 0
+  const isFiltered = filter.trim().length > 0
   const subtitle = isFiltered
     ? `Showing ${filteredStudents.length} of ${students.length} students · ${columns.length} slot${columns.length === 1 ? '' : 's'}`
     : `${students.length} students · ${columns.length} slot${columns.length === 1 ? '' : 's'} — quantity & amount per column`
+
+  const filterControl = !onStudentFilterChange ? (
+    <div className="flex items-center gap-2 min-w-[200px] sm:min-w-[260px]">
+      <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-amber-200/60 focus-within:border-amber-300">
+        <Search size={14} className="text-gray-300 shrink-0" />
+        <input
+          type="search"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name or code…"
+          className="flex-1 text-xs outline-none bg-transparent min-w-0 text-[#000435] placeholder:text-gray-400"
+        />
+        {filter && (
+          <button
+            type="button"
+            onClick={() => setFilter('')}
+            className="text-gray-300 hover:text-gray-500 shrink-0"
+            title="Clear filter"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  ) : null
 
   return (
     <UniformSection
       title="Student distribution"
       subtitle={subtitle}
       icon={Users}
-      action={
-        <div className="flex items-center gap-2 min-w-[200px] sm:min-w-[260px]">
-          <div className="flex items-center gap-2 flex-1 border border-gray-200 rounded-xl px-3 py-2 bg-white focus-within:ring-2 focus-within:ring-amber-200/60 focus-within:border-amber-300">
-            <Search size={14} className="text-gray-300 shrink-0" />
-            <input
-              type="search"
-              value={studentFilter}
-              onChange={(e) => setStudentFilter(e.target.value)}
-              placeholder="Filter by name or code…"
-              className="flex-1 text-xs outline-none bg-transparent min-w-0 text-[#000435] placeholder:text-gray-400"
-            />
-            {studentFilter && (
-              <button
-                type="button"
-                onClick={() => setStudentFilter('')}
-                className="text-gray-300 hover:text-gray-500 shrink-0"
-                title="Clear filter"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-      }
+      action={filterControl}
       bodyClassName="p-0"
     >
       {filteredStudents.length === 0 ? (
         <div className="py-12 text-center px-4">
-          <p className="text-sm font-medium text-gray-500">No students match &ldquo;{studentFilter}&rdquo;</p>
+          <p className="text-sm font-medium text-gray-500">No students match &ldquo;{filter}&rdquo;</p>
           <button
             type="button"
-            onClick={() => setStudentFilter('')}
+            onClick={() => setFilter('')}
             className="mt-3 text-xs font-bold uppercase text-amber-600 hover:underline"
           >
             Clear filter

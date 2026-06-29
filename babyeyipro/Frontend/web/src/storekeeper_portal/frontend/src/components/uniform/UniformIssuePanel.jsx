@@ -100,6 +100,7 @@ export default function UniformIssuePanel() {
   const [deleting, setDeleting] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(true)
   const [exportingDetail, setExportingDetail] = useState(false)
+  const [detailStudentFilter, setDetailStudentFilter] = useState('')
 
   const [academicYear, setAcademicYear] = useState('')
   const [term, setTerm] = useState('')
@@ -511,6 +512,7 @@ export default function UniformIssuePanel() {
 
   const openDetail = async (id) => {
     setLoading(true)
+    setDetailStudentFilter('')
     try {
       const d = await fetchUniformIssueDetail(id)
       setDetail(d)
@@ -608,7 +610,7 @@ export default function UniformIssuePanel() {
       <div className="space-y-4">
         <button
           type="button"
-          onClick={() => { setView('list'); setDetail(null) }}
+          onClick={() => { setView('list'); setDetail(null); setDetailStudentFilter('') }}
           className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 uppercase tracking-wider hover:text-amber-700 transition"
         >
           ← Back to issues
@@ -677,7 +679,48 @@ export default function UniformIssuePanel() {
         </UniformSection>
 
         {(detail.students || []).some((s) => s.slots?.length) && (
-          <SlotGroupedDistribution key={detail.id} detail={detail} />
+          <>
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm">
+              <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <Search size={16} className="text-amber-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Find student</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <input
+                      type="search"
+                      value={detailStudentFilter}
+                      onChange={(e) => setDetailStudentFilter(e.target.value)}
+                      placeholder="Search by student name or code…"
+                      className="flex-1 text-sm outline-none bg-transparent text-[#000435] placeholder:text-gray-400 min-w-0"
+                    />
+                    {detailStudentFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setDetailStudentFilter('')}
+                        className="text-gray-300 hover:text-gray-500 shrink-0 p-1"
+                        title="Clear filter"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {detailStudentFilter.trim() && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl">
+                  Filtering student list
+                </span>
+              )}
+            </div>
+            <SlotGroupedDistribution
+              key={detail.id}
+              detail={detail}
+              studentFilter={detailStudentFilter}
+              onStudentFilterChange={setDetailStudentFilter}
+            />
+          </>
         )}
       </div>
     )
