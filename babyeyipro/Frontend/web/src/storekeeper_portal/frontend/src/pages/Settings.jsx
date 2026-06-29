@@ -56,35 +56,35 @@ export default function Settings() {
     >
       <div className="store-panel-sheet p-4 sm:p-6 space-y-6 max-w-3xl mx-auto w-full">
       <div className="space-y-6">
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-amber-50 rounded-lg"><User size={18} className="text-amber-600" /></div>
-            <h3 className="font-medium text-[#000435]">School Information</h3>
+        <div className="store-section-card">
+          <div className="store-section-head">
+            <div className="store-section-icon"><User size={18} /></div>
+            <h3 className="font-bold text-[#000435]">School Information</h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-gray-400">School Name</label>
+              <label className="store-label">School Name</label>
               <input value={settings.schoolName} onChange={e => update('schoolName', e.target.value)}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none transition" />
+                className="store-input" />
             </div>
             <div>
-              <label className="text-xs text-gray-400">Academic Year</label>
+              <label className="store-label">Academic Year</label>
               <select value={settings.academicYear} onChange={e => update('academicYear', e.target.value)}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none transition bg-white">
+                className="store-input bg-white">
                 <option>2025</option><option>2026</option><option>2027</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-400">Current Term</label>
+              <label className="store-label">Current Term</label>
               <select value={settings.currentTerm} onChange={e => update('currentTerm', e.target.value)}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none transition bg-white">
+                className="store-input bg-white">
                 <option>Term I</option><option>Term II</option><option>Term III</option>
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-400">Currency</label>
+              <label className="store-label">Currency</label>
               <select value={settings.currency} onChange={e => update('currency', e.target.value)}
-                className="w-full mt-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-amber-300 focus:border-amber-300 outline-none transition bg-white">
+                className="store-input bg-white">
                 <option>RWF (Rwandan Franc)</option>
                 <option>KES (Kenyan Shilling)</option>
                 <option>UGX (Ugandan Shilling)</option>
@@ -93,10 +93,10 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-amber-50 rounded-lg"><Bell size={18} className="text-amber-600" /></div>
-            <h3 className="font-medium text-[#000435]">Notifications & Alerts</h3>
+        <div className="store-section-card">
+          <div className="store-section-head">
+            <div className="store-section-icon"><Bell size={18} /></div>
+            <h3 className="font-bold text-[#000435]">Notifications & Alerts</h3>
           </div>
           <div className="space-y-3">
             {[
@@ -116,10 +116,10 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-amber-50 rounded-lg"><Shield size={18} className="text-amber-600" /></div>
-            <h3 className="font-medium text-[#000435]">Approval Workflow</h3>
+        <div className="store-section-card">
+          <div className="store-section-head">
+            <div className="store-section-icon"><Shield size={18} /></div>
+            <h3 className="font-bold text-[#000435]">Approval Workflow</h3>
           </div>
           <div className="space-y-3">
             {[
@@ -139,10 +139,10 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-amber-50 rounded-lg"><Barcode size={18} className="text-amber-600" /></div>
-            <h3 className="font-medium text-[#000435]">Barcode / QR Code</h3>
+        <div className="store-section-card">
+          <div className="store-section-head">
+            <div className="store-section-icon"><Barcode size={18} /></div>
+            <h3 className="font-bold text-[#000435]">Barcode / QR Code</h3>
           </div>
           <div className="flex items-center justify-between">
             <div>
@@ -158,7 +158,7 @@ export default function Settings() {
       </div>
 
       <div className="flex justify-end">
-        <button onClick={handleSave} className="flex items-center gap-2 bg-amber-400 text-[#000435] px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-amber-500 transition">
+        <button onClick={handleSave} className="inline-flex items-center gap-2 bg-[#FEBF10] text-[#000435] px-6 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider hover:bg-amber-300 transition shadow-lg shadow-amber-400/20">
           <Save size={16} /> {saved ? 'Saved!' : 'Save Settings'}
         </button>
       </div>

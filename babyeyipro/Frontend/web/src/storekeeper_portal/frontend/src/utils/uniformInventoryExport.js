@@ -7,17 +7,25 @@ import {
   computeFinishedGoodProfit,
   sanitizeSheetName,
 } from './fabricSheetReport'
+import {
+  AMBER,
+  NAVY,
+  fmtRwf,
+  pdfHeader,
+  pdfTable,
+  savePdf,
+  stamp,
+} from './storeReportExportCommon'
+import { mergeSchoolPdfMeta } from './schoolPdfBranding'
 
-const NAVY = [0, 4, 53]
-const AMBER = [254, 191, 16]
+async function pdfHeaderWithSchool(doc, title, subtitle = '', landscape = false) {
+  const branding = await mergeSchoolPdfMeta()
+  return pdfHeader(doc, title, subtitle, landscape, branding)
+}
 
 function formatDate(d) {
   if (!d) return '—'
   return String(d).slice(0, 10)
-}
-
-function stamp() {
-  return new Date().toISOString().slice(0, 10)
 }
 
 function metaRows(title, extra = []) {
@@ -31,23 +39,6 @@ function metaRows(title, extra = []) {
 
 function downloadWorkbook(wb, filename) {
   XLSX.writeFile(wb, filename)
-}
-
-function fmtRwf(n) {
-  return `${(Number(n) || 0).toLocaleString()} RWF`
-}
-
-function pdfHeader(doc, title, subtitle = '', landscape = false) {
-  const w = landscape ? 297 : 210
-  doc.setFillColor(...NAVY)
-  doc.rect(0, 0, w, 30, 'F')
-  doc.setTextColor(...AMBER)
-  doc.setFontSize(landscape ? 15 : 16)
-  doc.text(title, 14, 13)
-  doc.setFontSize(9)
-  doc.setTextColor(255, 255, 255)
-  doc.text(subtitle || `Exported ${new Date().toLocaleString()}`, 14, 21)
-  return 36
 }
 
 function sheetReportExcelRows(report) {
@@ -231,16 +222,15 @@ export function exportFabricStockInExcelBySheet(receipts, stockouts = [], finish
   downloadWorkbook(wb, `fabric-stock-in-by-sheet-${stamp()}.xlsx`)
 }
 
-export function exportFabricStockInPdf(receipts, stockouts = [], finishedGoods = [], filters = {}) {
+export async function exportFabricStockInPdf(receipts, stockouts = [], finishedGoods = [], filters = {}) {
   const reports = buildAllFabricSheetReports(receipts, stockouts, finishedGoods)
   const filterText = [
     filters.search && `Search: ${filters.search}`,
     filters.fabric_type && `Fabric: ${filters.fabric_type}`,
   ].filter(Boolean).join(' · ')
   const doc = new jsPDF()
-  pdfHeader(doc, 'Fabric Stock In — Sheet Reports', filterText)
+  let y = await pdfHeaderWithSchool(doc, 'Fabric Stock In — Sheet Reports', filterText)
 
-  let y = 36
   reports.forEach((rep, idx) => {
     if (idx > 0 && y > 220) {
       doc.addPage()
@@ -248,7 +238,7 @@ export function exportFabricStockInPdf(receipts, stockouts = [], finishedGoods =
     }
     y = addSheetReportToPdf(doc, rep, y)
   })
-  doc.save(`fabric-stock-in-${stamp()}.pdf`)
+  savePdf(doc, `fabric-stock-in-${stamp()}.pdf`)
 }
 
 export function exportFabricSheetDetailExcel(receipt, stockouts = [], finishedGoods = []) {
@@ -260,13 +250,13 @@ export function exportFabricSheetDetailExcel(receipt, stockouts = [], finishedGo
   downloadWorkbook(wb, `fabric-sheet-${sanitizeSheetName(report.label).toLowerCase()}-${stamp()}.xlsx`)
 }
 
-export function exportFabricSheetDetailPdf(receipt, stockouts = [], finishedGoods = []) {
+export async function exportFabricSheetDetailPdf(receipt, stockouts = [], finishedGoods = []) {
   const report = buildFabricSheetReport(receipt, stockouts, finishedGoods)
   if (!report) return
   const doc = new jsPDF()
-  pdfHeader(doc, report.label, `${report.receipt.supplier_name || ''} · ${formatDate(report.receipt.purchase_date)}`)
-  addSheetReportToPdf(doc, report, 36)
-  doc.save(`fabric-sheet-${sanitizeSheetName(report.label).toLowerCase()}-${stamp()}.pdf`)
+  const y = await pdfHeaderWithSchool(doc, report.label, `${report.receipt.supplier_name || ''} · ${formatDate(report.receipt.purchase_date)}`)
+  addSheetReportToPdf(doc, report, y)
+  savePdf(doc, `fabric-sheet-${sanitizeSheetName(report.label).toLowerCase()}-${stamp()}.pdf`)
 }
 
 export function exportFabricStockOutExcel(stockouts, receipts = [], filters = {}) {
@@ -364,7 +354,7 @@ export function exportFabricStockOutExcelBySheet(receipts, stockouts = [], finis
   downloadWorkbook(wb, `fabric-stock-out-by-sheet-${stamp()}.xlsx`)
 }
 
-export function exportFabricStockOutPdf(receipts, stockouts = [], finishedGoods = [], filters = {}) {
+export async function exportFabricStockOutPdf(receipts, stockouts = [], finishedGoods = [], filters = {}) {
   const reports = buildAllFabricSheetReports(
     receipts.filter((r) => stockouts.some((s) => String(s.fabric_receipt_id) === String(r.id)) || finishedGoods.some((g) => String(g.fabric_receipt_id) === String(r.id))),
     stockouts,
@@ -372,9 +362,8 @@ export function exportFabricStockOutPdf(receipts, stockouts = [], finishedGoods 
   )
   const filterText = filters.search ? `Search: ${filters.search}` : ''
   const doc = new jsPDF()
-  pdfHeader(doc, 'Fabric Stock Out — Sheet Analysis', filterText)
+  let y = await pdfHeaderWithSchool(doc, 'Fabric Stock Out — Sheet Analysis', filterText)
 
-  let y = 36
   reports.forEach((rep, idx) => {
     if (idx > 0 && y > 220) {
       doc.addPage()
@@ -389,7 +378,7 @@ export function exportFabricStockOutPdf(receipts, stockouts = [], finishedGoods 
     doc.text('No fabric sheet data for export.', 14, 50)
   }
 
-  doc.save(`fabric-stock-out-${stamp()}.pdf`)
+  savePdf(doc, `fabric-stock-out-${stamp()}.pdf`)
 }
 
 export function exportFabricStockExcel(rows) {
@@ -446,9 +435,9 @@ export function exportFabricStockExcel(rows) {
   downloadWorkbook(wb, `fabric-stock-${stamp()}.xlsx`)
 }
 
-export function exportFabricStockPdf(rows) {
+export async function exportFabricStockPdf(rows) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  let y = pdfHeader(doc, 'Uniform Inventory — Fabric Stock', `${rows.length} fabric batch(es)`, true)
+  let y = await pdfHeaderWithSchool(doc, 'Uniform Inventory — Fabric Stock', `${rows.length} fabric batch(es)`, true)
 
   const body = (rows || []).map((f) => {
     const received = Number(f.meters) || 0
@@ -506,7 +495,7 @@ export function exportFabricStockPdf(rows) {
     theme: 'grid',
   })
 
-  doc.save(`fabric-stock-${stamp()}.pdf`)
+  savePdf(doc, `fabric-stock-${stamp()}.pdf`)
 }
 
 function finishedGoodsProfitSummary(rows) {
@@ -567,14 +556,14 @@ export function exportFinishedGoodsExcel(rows, filters = {}) {
   downloadWorkbook(wb, `finished-goods-${stamp()}.xlsx`)
 }
 
-export function exportFinishedGoodsPdf(rows, filters = {}) {
+export async function exportFinishedGoodsPdf(rows, filters = {}) {
   const summary = finishedGoodsProfitSummary(rows)
   const doc = new jsPDF({ orientation: 'landscape' })
   const filterText = [filters.search && `Search: ${filters.search}`, filters.uniform && `Uniform: ${filters.uniform}`].filter(Boolean).join(' · ')
-  pdfHeader(doc, 'Finished Goods — Profit / Loss Report', filterText, true)
+  const y = await pdfHeaderWithSchool(doc, 'Finished Goods — Profit / Loss Report', filterText, true)
 
   autoTable(doc, {
-    startY: 38,
+    startY: y,
     head: [['Uniform', 'Size', 'Fabric', 'Sold', 'Rem.', 'Sell/unit', 'Total sold', 'Purchase (sold)', 'P/L', 'Status']],
     body: (rows || []).map((g) => {
       const p = computeFinishedGoodProfit(g)
@@ -598,9 +587,9 @@ export function exportFinishedGoodsPdf(rows, filters = {}) {
     margin: { left: 14, right: 14 },
   })
 
-  const y = doc.lastAutoTable.finalY + 8
+  const summaryY = doc.lastAutoTable.finalY + 8
   autoTable(doc, {
-    startY: y,
+    startY: summaryY,
     head: [['Total sold revenue', 'Total purchase (sold)', 'Net profit / loss', 'Result']],
     body: [[
       fmtRwf(summary.totalSold),
@@ -613,7 +602,7 @@ export function exportFinishedGoodsPdf(rows, filters = {}) {
     margin: { left: 14, right: 14 },
   })
 
-  doc.save(`finished-goods-${stamp()}.pdf`)
+  savePdf(doc, `finished-goods-${stamp()}.pdf`)
 }
 
 export function exportProfitCalculationExcel(rows, summary = {}, filters = {}) {

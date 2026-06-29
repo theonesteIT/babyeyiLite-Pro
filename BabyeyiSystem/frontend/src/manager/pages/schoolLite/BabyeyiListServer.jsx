@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { WizardContent } from "./UpdateBabyeyi";
+import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml } from "./babyeyiPdfExport";
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
 const API_BASE   = `${ASSET_BASE}/api`;
@@ -624,8 +625,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   const ruleDiv    = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="${headingStyle}">${title}</span></div>`;
 
   const parentSection = rec.parentMessage ? `
-    <div style="margin-bottom:22px">
-      ${ruleDiv("")}
+    <div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">
       <div style="padding-left:16px;margin-top:4px">
         <p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${rec.parentMessage}</p>
       </div>
@@ -639,7 +639,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const paySection = payments.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="fees" style="margin-bottom:22px">
       ${ruleDiv(T.secFee)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -665,7 +665,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const banksSection = banks.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="banking" style="margin-bottom:22px">
       ${ruleDiv(T.secBanking)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -688,7 +688,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const reqSection = reqs.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="requirements" style="margin-bottom:22px">
       ${ruleDiv(T.secRequirements)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -709,7 +709,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const otherSection = otherInfos.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="other" style="margin-bottom:22px">
       ${ruleDiv(T.secOtherInfo)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -733,7 +733,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   }).join("");
 
   const leadersSection = leaders.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="leadership" style="margin-bottom:22px">
       ${ruleDiv(T.secLeadership)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -755,7 +755,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const notesSection = classNotes.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="notes" style="margin-bottom:22px">
       ${ruleDiv(T.secClassNotes)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -767,15 +767,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
       </table>
     </div>` : "";
 
-  const qrBlock = qrB64 ? `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-      <div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px">
-        <img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>
-      </div>
-      <p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0;text-align:center">${T.sigScanVerify}</p>
-      ${rec.docId ? `<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}
-      ${vUrl ? `<p style="font-size:9px;color:#4f46e5;margin:0;text-align:center;max-width:110px;word-break:break-all">${vUrl}</p>` : ""}
-    </div>` : `<div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:20px;opacity:.1">▣</span></div>`;
+  const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
 
   const schoolLogoHtml = schoolLogoB64
     ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>`
@@ -786,9 +778,9 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     : "";
 
   return `
-<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
-  <div style="height:3px;background:#1e3a5f"></div>
-  <div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
+<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
+  <div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div>
+  <div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
     <div style="display:flex;align-items:center;gap:20px">
       <div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div>
       <div style="flex:1;text-align:center">
@@ -804,7 +796,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
       <div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div>
     </div>
   </div>
-  <div style="padding:20px 40px 28px">
+  <div id="babyeyi-pdf-body" style="padding:20px 40px 28px">
     ${parentSection}
     ${paySection}
     ${banksSection}
@@ -812,37 +804,8 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     ${otherSection}
     ${leadersSection}
     ${notesSection}
-    <div style="margin-bottom:22px">
-      <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px;margin-top:20px">
-        <span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px">
-        <div style="border:1px solid #e2e8f0;padding:14px;text-align:center">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigHeadTeacher}</p>
-          <div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">
-            ${sigB64 ? `<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}
-          </div>
-          <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64 ? T.sigSigned : T.sigRequired}</p>
-        </div>
-        <div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">
-          ${qrBlock}
-        </div>
-        <div style="border:1px solid #e2e8f0;padding:14px;text-align:center">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigStamp}</p>
-          <div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">
-            ${stampB64 ? `<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:22px;opacity:.08">🔏</span>`}
-          </div>
-          <p style="font-size:11px;color:#94a3b8;margin:0">${T.sigCachet}</p>
-        </div>
-      </div>
-    </div>
+    ${authBlock}
   </div>
-  <div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:11px;color:#64748b">${rec.schoolName || ""} · ${rec.district || ""}</span>
-    <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span>
-    <span style="font-size:11px;color:#64748b">Doc: ${rec.docId || "—"} · ${today}</span>
-  </div>
-  <div style="height:3px;background:#1e3a5f"></div>
 </div>`;
 }
 
@@ -1009,31 +972,12 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
       host.appendChild(root);
       document.body.appendChild(host);
       try {
-        await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, { scale: 2, useCORS: true, backgroundColor: "#fff", logging: false, windowWidth: 794 });
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const pW = 210, pH = 297;
-        const imgH = (canvas.height / canvas.width) * pW;
-        if (imgH <= pH) {
-          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pW, imgH);
-        } else {
-          let yPos = 0, page = 0;
-          while (yPos < imgH) {
-            if (page > 0) pdf.addPage();
-            const srcYPx   = Math.floor((yPos / imgH) * canvas.height);
-            const sliceHPx = Math.min(Math.ceil((pH / imgH) * canvas.height), canvas.height - srcYPx);
-            if (sliceHPx <= 0) break;
-            const sl = document.createElement("canvas");
-            sl.width  = canvas.width; sl.height = sliceHPx;
-            sl.getContext("2d").drawImage(canvas, 0, srcYPx, canvas.width, sliceHPx, 0, 0, canvas.width, sliceHPx);
-            const sliceH = (sliceHPx / canvas.height) * imgH;
-            pdf.addImage(sl.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pW, sliceH);
-            yPos += pH; page++;
-          }
-        }
-        const langSuffix = lang !== "en" ? `-${lang.toUpperCase()}` : "";
-        pdf.save(`Babyeyi-${rec.docId || rec.class}-${rec.term}${langSuffix}.pdf`);
+        await renderBabyeyiPdfFromRoot(
+          root,
+          "__by_p__",
+          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
+          { scale: 2, useCORS: true, backgroundColor: "#fff", logging: false, windowWidth: 794 },
+        );
       } finally {
         document.body.removeChild(host); document.head.removeChild(style);
       }

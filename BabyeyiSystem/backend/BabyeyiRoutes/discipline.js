@@ -514,7 +514,7 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
     );
 
     const [[stName]] = await conn.query(
-      `SELECT s.first_name, s.last_name, sc.school_name
+      `SELECT s.first_name, s.last_name, s.student_code, s.student_uid, sc.school_name
        FROM students s
        LEFT JOIN schools sc ON sc.id = s.school_id
        WHERE s.id = ?
@@ -527,11 +527,14 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
     if (action === 'remove' && req.body?.notify_parent !== false) {
       const studentName =
         `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
+      const studentRef =
+        trimStr(stName?.student_code) || trimStr(stName?.student_uid) || String(studentId);
       try {
         parent_notifications = await notifyStudentParentsDiscipline(studentId, {
           studentName,
           schoolName: stName?.school_name,
           schoolId,
+          studentRef,
           marks,
           remaining: nextMarks,
           maximum: maxMarks,
@@ -555,6 +558,7 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
         new_marks: nextMarks,
         minimum_marks: minMarks,
         maximum_marks: maxMarks,
+        parent_notifications,
       },
       parent_notifications,
     });

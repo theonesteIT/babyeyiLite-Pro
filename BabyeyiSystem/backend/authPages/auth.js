@@ -184,12 +184,13 @@ async function getNextDistrictSchoolCode(conn, districtCode) {
 
 // Guard: session must exist and role must match (case-insensitive)
 function requireRole(req, res, ...roles) {
-  if (!req.session?.userId) {
+  const userId = req.session?.userId ?? req.user?.id;
+  if (!userId) {
     res.status(401).json({ success: false, message: 'Not authenticated — please log in' });
     return false;
   }
   const allowed = roles.flat().map(r => String(r).toUpperCase());
-  const code = (req.session.roleCode || '').toUpperCase();
+  const code = String(req.session?.roleCode || req.user?.role_code || '').toUpperCase();
   if (allowed.length && !allowed.includes(code)) {
     res.status(403).json({ success: false, message: `Access denied — requires: ${allowed.join(' or ')}` });
     return false;
@@ -842,16 +843,16 @@ router.post('/signup-super-admin', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
     }
 
-    // Block if any Super Admin already exists
+    // Allow up to 3 Super Admins via public signup (first-time bootstrap).
     const [[{ count }]] = await promisePool.query(
       `SELECT COUNT(*) AS count FROM users u
        JOIN roles r ON u.role_id = r.id
        WHERE r.role_code = 'SUPER_ADMIN' AND u.deleted_at IS NULL`
     );
-    if (Number(count) >= 1) {
+    if (Number(count) >= 3) {
       return res.status(403).json({
         success: false,
-        message: 'Super Admin already exists — sign in, or ask a Full System Controller to create another account.',
+        message: 'Maximum Super Admin accounts (3) reached — sign in, or ask an existing admin to create another account.',
       });
     }
 
@@ -2091,7 +2092,7 @@ router.patch('/super-admins/:id/active', async (req, res) => {
 // Creates an additional Super Administrator (same role as you).
 // ============================================================
 router.post('/create-super-admin', async (req, res) => {
-  if (!requireFullSystemController(req, res)) return;
+  if (!requireElevatedPlatform(req, res)) return;
   try {
     const { email, password, first_name, last_name, phone } = req.body || {};
     if (!email || !password || !first_name || !last_name) {

@@ -286,6 +286,7 @@ async function notifyStudentParentsDiscipline(studentId, opts = {}) {
   const remaining = Number(opts.remaining);
   const maximum = Number(opts.maximum);
   const reason = trimStr(opts.reason).slice(0, 280);
+  const studentRef = trimStr(opts.studentRef) || String(studentId);
 
   const title = `${schoolName}: Conduct update`;
   const body = [
@@ -301,12 +302,16 @@ async function notifyStudentParentsDiscipline(studentId, opts = {}) {
     .filter(Boolean)
     .join('\n');
 
+  const detailsUrl = `/parents/student-details/${encodeURIComponent(studentRef)}?tab=discipline`;
+
   return notifyStudentParentsChannels(studentId, {
     type: 'DISCIPLINE_MARKS',
     title,
     body,
+    url: detailsUrl,
     payload: {
       student_id: Number(studentId),
+      student_ref: studentRef,
       school_id: opts.schoolId || null,
       action: 'remove',
       marks_deducted: marks,
@@ -314,8 +319,9 @@ async function notifyStudentParentsDiscipline(studentId, opts = {}) {
       maximum_marks: maximum,
       reason,
       log_id: opts.logId || null,
+      tab: 'discipline',
     },
-    pushTag: `discipline-marks-${studentId}`,
+    pushTag: `discipline-marks-${studentId}-${opts.logId || Date.now()}`,
     category: 'discipline',
   });
 }

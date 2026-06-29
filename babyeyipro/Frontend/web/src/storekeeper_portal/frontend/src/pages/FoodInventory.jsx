@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { exportFoodInventoryExcel, exportFoodInventoryPdf } from '../utils/foodInventoryExport'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
+import StoreExportBar from '../components/StoreExportBar'
 import StorekeeperToast from '../components/StorekeeperToast'
 import { fetchSuppliers } from '../services/suppliersService'
 import { fetchStoreAcademicSettings } from '../services/academicSettingsService'
@@ -220,26 +221,12 @@ function ReportsTab({ stockRows, consumptions, levels, filters = {} }) {
       </div>
 
       {/* ── Export ── */}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => exportFoodInventoryPdf(exportPayload)}
-            disabled={!stockRows.length && !consumptions.length}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
-          >
-            <FileText size={14} /> Download PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => exportFoodInventoryExcel(exportPayload)}
-            disabled={!stockRows.length && !consumptions.length}
-            className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-[#0B1340] text-white text-xs font-bold uppercase hover:bg-[#1C2A6E] active:scale-95 transition-all shadow-sm disabled:opacity-40"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-400" />
-            Download Excel
-            <Download size={13} className="text-white/50" />
-          </button>
-      </div>
+      <StoreExportBar
+        variant="panel"
+        disabled={!stockRows.length && !consumptions.length}
+        onExportPdf={() => exportFoodInventoryPdf(exportPayload)}
+        onExportExcel={() => exportFoodInventoryExcel(exportPayload)}
+      />
 
       {/* ── Chart navigator ── */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl w-full sm:w-auto sm:inline-flex">

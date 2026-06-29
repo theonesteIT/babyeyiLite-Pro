@@ -4,10 +4,12 @@ import {
   AlertTriangle, TrendingUp, Truck, Users,
 } from 'lucide-react'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
+import StoreExportBar from '../components/StoreExportBar'
 import { fetchStoreAcademicSettings } from '../services/academicSettingsService'
 import { fetchFoodStockIns, aggregateFoodLevels } from '../services/foodStockService'
 import { fetchFoodConsumptions } from '../services/foodConsumptionService'
 import { fetchFoodAlerts } from '../services/foodAlertService'
+import { exportFoodInventoryExcel, exportFoodInventoryPdf } from '../utils/foodInventoryExport'
 import {
   buildFoodItemSummary,
   buildMonthlyPurchaseTotals,
@@ -149,6 +151,18 @@ export function FoodReport() {
   const dailySeries = useMemo(() => buildDailyConsumptionSeries(consumptions), [consumptions])
   const forecastRows = useMemo(() => buildForecastRows(levels, items), [levels, items])
 
+  const exportPayload = useMemo(() => ({
+    stockRows,
+    consumptions,
+    levels,
+    filters: {
+      academicYear: filterYear,
+      term: filterTerm,
+      dateFrom,
+      dateTo,
+    },
+  }), [stockRows, consumptions, levels, filterYear, filterTerm, dateFrom, dateTo])
+
   const maxMonthly = Math.max(...monthlyPurchases.map((m) => m.value), 1)
   const maxDaily = Math.max(...dailySeries.map((d) => d.value), 1)
   const topConsumed = [...items].sort((a, b) => b.consumed - a.consumed).slice(0, 8)
@@ -184,15 +198,14 @@ export function FoodReport() {
             <label className="text-[10px] font-bold uppercase text-gray-400 block mb-1">To</label>
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={inputClass} />
           </div>
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#000435] text-white text-xs font-bold uppercase disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Apply
-          </button>
+          <StoreExportBar
+            variant="panel"
+            loading={loading}
+            disabled={!stockRows.length && !consumptions.length}
+            onRefresh={loadData}
+            onExportPdf={() => exportFoodInventoryPdf(exportPayload)}
+            onExportExcel={() => exportFoodInventoryExcel(exportPayload)}
+          />
         </div>
       </div>
 
@@ -525,7 +538,7 @@ export default function FoodReportPage() {
       subtitle="Live reports from food stock in and consumption records"
       icon={FileBarChart}
     >
-      <div className="px-3 sm:px-4 lg:px-6 pb-8">
+      <div className="store-panel-sheet p-4 sm:p-6">
         <FoodReport />
       </div>
     </StorekeeperPageShell>

@@ -10,19 +10,36 @@ const INBOX_COOLDOWN_MS = 45_000;
 
 function mapServerNotificationRow(n) {
   const payload = n.payload && typeof n.payload === "object" ? n.payload : {};
+  const type = String(n.type || "").toUpperCase();
   const incompleteTypes = ["INCOMPLETE_ORDER", "INCOMPLETE_ORDER_REMINDER"];
   const isIncomplete =
-    incompleteTypes.includes(String(n.type || "").toUpperCase()) ||
+    incompleteTypes.includes(type) ||
     payload.kind === "incomplete_kit_order";
+  const isDiscipline =
+    type === "DISCIPLINE_MARKS" ||
+    type === "STUDENT_DISCIPLINE" ||
+    payload.tab === "discipline";
+  const studentRef =
+    payload.student_ref ||
+    payload.studentRef ||
+    (payload.student_id != null ? String(payload.student_id) : "");
+  const disciplineUrl = studentRef
+    ? `/parents/student-details/${encodeURIComponent(studentRef)}?tab=discipline`
+    : "/parents/home";
   return {
     id: `srv-${n.id}`,
     title: n.title || "Notification",
     body: n.body || "",
     createdAt: n.created_at || new Date().toISOString(),
     read: !!n.read,
-    kind: isIncomplete ? "incomplete_kit_order" : payload.kind,
-    resumeUrl: payload.resume_url || payload.resumeUrl || "",
-    shareUrl: payload.share_url || payload.shareUrl || payload.resume_url || "",
+    kind: isIncomplete ? "incomplete_kit_order" : isDiscipline ? "discipline" : payload.kind,
+    resumeUrl: isDiscipline
+      ? disciplineUrl
+      : payload.resume_url || payload.resumeUrl || "",
+    shareUrl: isDiscipline
+      ? disciplineUrl
+      : payload.share_url || payload.shareUrl || payload.resume_url || "",
+    serverType: type,
   };
 }
 

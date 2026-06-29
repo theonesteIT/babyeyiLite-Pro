@@ -811,6 +811,8 @@ const normalisePaymentsForHash = (payments) =>
 // AUTO-RUN MIGRATIONS AT STARTUP
 // ════════════════════════════════════════════════════════════
 const runMigrations = async () => {
+  const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+  await ensureBabyeyiCoreSchema();
   const migrations = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS parent_message TEXT NULL`,
@@ -894,13 +896,10 @@ const runRehashMigration = async () => {
   }
 };
 
-// Run both at startup
-runMigrations().catch(e => console.error("[babyeyi] migration error:", e.message));
-
-// Rehash after 3s delay — ensures DB is ready and migrations ran first
-setTimeout(() => {
-  runRehashMigration().catch(e => console.error("[babyeyi] rehash error:", e.message));
-}, 3000);
+async function initBabyeyiMigrations() {
+  await runMigrations();
+  await runRehashMigration();
+}
 
 // ── Multer ────────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -3849,3 +3848,4 @@ router.delete("/:id/leaders/:leaderId", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.initBabyeyiMigrations = initBabyeyiMigrations;

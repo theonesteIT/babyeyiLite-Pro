@@ -6,6 +6,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { promisePool } = require('../config/database');
+const { insertRoleIfMissing } = require('../utils/roleInsert');
+const { ensureRolesPrimaryKey } = require('../utils/coreAuthSchema');
 const { requireRole } = require('../middleware/deoAuth');
 const accountantFeesRoutes = require('./accountantFees');
 
@@ -22,14 +24,18 @@ const query = async (sql, params = []) => {
 
 // ── Schema bootstrap ──────────────────────────────────────────
 async function ensureRepRole() {
-  await promisePool
-    .query(
-      `INSERT INTO roles (role_name, role_code, description, permissions, is_active, is_system_role)
-       SELECT 'School Representative', '${REP_ROLE}',
-              'Owner / cooperative / church representative managing many Babyeyi schools', '[]', 1, 0
-       WHERE NOT EXISTS (SELECT 1 FROM roles WHERE UPPER(role_code) = '${REP_ROLE}' LIMIT 1)`
-    )
-    .catch((e) => console.warn('[representatives] ensureRepRole:', e.message));
+  try {
+    await ensureRolesPrimaryKey();
+    await insertRoleIfMissing({
+      roleName: 'School Representative',
+      roleCode: REP_ROLE,
+      description: 'Owner / cooperative / church representative managing many Babyeyi schools',
+      permissions: '[]',
+      isSystemRole: false,
+    });
+  } catch (e) {
+    console.warn('[representatives] ensureRepRole:', e.message);
+  }
 }
 
 async function ensureProfileTable() {

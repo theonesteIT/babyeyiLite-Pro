@@ -2,16 +2,26 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shirt, TrendingUp, AlertTriangle, Box, Layers, Scale, DollarSign,
-  Package, ArrowUpFromLine, BarChart3, FileSpreadsheet, FileText, Scissors,
+  Package, ArrowUpFromLine, BarChart3, Scissors,
 } from 'lucide-react'
 import { exportFabricStockExcel, exportFabricStockPdf } from '../utils/uniformInventoryExport'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
+import StoreExportBar from '../components/StoreExportBar'
 import FabricStockInPanel from '../components/uniform/FabricStockInPanel'
 import FabricStockOutPanel from '../components/uniform/FabricStockOutPanel'
 import FinishedGoodsStockPanel from '../components/uniform/FinishedGoodsStockPanel'
 import UniformIssuePanel from '../components/uniform/UniformIssuePanel'
 import UniformSalesAnalytics from '../components/uniform/UniformSalesAnalytics'
 import UniformFabricPlannerPanel from '../components/uniform/UniformFabricPlannerPanel'
+import {
+  UniformKpiCard,
+  UniformKpiGrid,
+  UniformSection,
+  UniformTable,
+  UniformTableRow,
+  UniformTableCell,
+  UniformEmptyState,
+} from '../components/uniform/UniformInventoryUi'
 import { fetchFabricReceipts } from '../services/fabricReceiptsService'
 import { fetchFinishedGoods } from '../services/finishedGoodsService'
 
@@ -38,16 +48,6 @@ const tabs = [
   { id: 'issue', label: 'Issue Uniform', icon: Shirt },
   { id: 'sales', label: 'Sales Analytics', icon: BarChart3 },
 ]
-
-function EmptyTab({ icon: Icon, title, message }) {
-  return (
-    <div className="text-center py-16 rounded-2xl border border-dashed border-gray-200 bg-gray-50/50">
-      <Icon size={36} className="mx-auto text-gray-200 mb-3" />
-      <p className="text-sm font-bold text-[#000435]">{title}</p>
-      <p className="text-xs text-gray-400 mt-2 max-w-md mx-auto">{message}</p>
-    </div>
-  )
-}
 
 export default function UniformInventory() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -79,19 +79,30 @@ export default function UniformInventory() {
 
   const dashboardStats = useMemo(
     () => [
-      { label: 'Total Fabric Stock', value: `${totalFabricStock} m`, icon: Layers, color: 'amber' },
-      { label: 'Finished Uniform Stock', value: `${totalFinishedStock} pcs`, icon: Box, color: 'blue' },
-      { label: 'Stock Value', value: totalStockValue.toLocaleString(), icon: DollarSign, color: 'green' },
-      { label: 'Fabric Investment', value: fabricCost.toLocaleString(), icon: Scale, color: 'purple' },
-      { label: 'Fabric Receipts', value: `${fabrics.length}`, icon: Package, color: 'emerald' },
+      { label: 'Total Fabric Stock', value: `${totalFabricStock} m`, icon: Layers, accent: 'amber' },
+      { label: 'Finished Uniform Stock', value: `${totalFinishedStock} pcs`, icon: Box, accent: 'blue' },
+      { label: 'Stock Value', value: totalStockValue.toLocaleString(), icon: DollarSign, accent: 'green' },
+      { label: 'Fabric Investment', value: fabricCost.toLocaleString(), icon: Scale, accent: 'purple' },
+      { label: 'Fabric Receipts', value: `${fabrics.length}`, icon: Package, accent: 'emerald' },
       {
         label: 'Low Stock Alerts',
         value: lowStockCount === 0 ? 'None' : `${lowStockCount} item${lowStockCount === 1 ? '' : 's'}`,
         icon: AlertTriangle,
-        color: lowStockCount > 0 ? 'red' : 'default',
+        accent: lowStockCount > 0 ? 'red' : 'default',
       },
     ],
     [totalFabricStock, totalFinishedStock, totalStockValue, fabricCost, fabrics.length, lowStockCount]
+  )
+
+  const fabricExportRows = useMemo(
+    () => fabrics.map((f) => ({
+      type: f.type,
+      color: f.color,
+      meters: f.meters,
+      remaining: f.remaining,
+      unitCost: f.unitCost,
+    })),
+    [fabrics]
   )
 
   return (
@@ -142,29 +153,21 @@ export default function UniformInventory() {
             >
               {activeTab === 'dashboard' && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <UniformKpiGrid>
                     {dashboardStats.map((stat, i) => (
-                      <motion.div
+                      <UniformKpiCard
                         key={stat.label}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        className={`bg-white rounded-2xl border p-5 hover:shadow-lg transition-all duration-300 ${
-                          stat.color === 'red' ? 'border-red-100 bg-red-50/30' : 'border-gray-100'
-                        }`}
-                      >
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{stat.label}</p>
-                        <p className={`text-2xl font-bold mt-2 ${stat.color === 'red' ? 'text-red-500' : 'text-[#000435]'}`}>
-                          {stat.value}
-                        </p>
-                      </motion.div>
+                        label={stat.label}
+                        value={stat.value}
+                        icon={stat.icon}
+                        accent={stat.accent}
+                        index={i}
+                      />
                     ))}
-                  </div>
+                  </UniformKpiGrid>
+
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                      <h3 className="text-sm font-bold text-[#000435] mb-4 flex items-center gap-2">
-                        <Scale size={16} className="text-amber-500" /> Fabric Usage
-                      </h3>
+                    <UniformSection title="Fabric usage" icon={Scale}>
                       {fabrics.length === 0 ? (
                         <p className="text-xs text-gray-400">No fabric receipts yet. Use Fabric Stock In to register sheets.</p>
                       ) : (
@@ -191,29 +194,27 @@ export default function UniformInventory() {
                           })}
                         </div>
                       )}
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                      <h3 className="text-sm font-bold text-[#000435] mb-4 flex items-center gap-2">
-                        <Box size={16} className="text-amber-500" /> Top Finished Stock
-                      </h3>
+                    </UniformSection>
+
+                    <UniformSection title="Top finished stock" icon={Box}>
                       {finishedGoods.length === 0 ? (
                         <p className="text-xs text-gray-400">No finished goods yet. Add stock under Finished Goods.</p>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-0">
                           {[...finishedGoods]
                             .sort((a, b) => Number(b.stock) - Number(a.stock))
                             .slice(0, 5)
-                            .map((g) => (
-                              <div key={g.id} className="flex justify-between text-xs border-b border-gray-50 py-2">
+                            .map((g, i) => (
+                              <div key={g.id} className={`flex justify-between text-xs py-2.5 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
                                 <span className="font-bold text-[#000435]">
                                   {g.uniform_name} <span className="text-gray-400 font-medium">({g.size})</span>
                                 </span>
-                                <span className="text-gray-600 font-medium">{g.stock} pcs</span>
+                                <span className="text-gray-600 font-semibold">{g.stock} pcs</span>
                               </div>
                             ))}
                         </div>
                       )}
-                    </div>
+                    </UniformSection>
                   </div>
                 </div>
               )}
@@ -227,111 +228,71 @@ export default function UniformInventory() {
               )}
 
               {activeTab === 'fabric-stock' && (
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <h3 className="text-sm font-bold text-[#000435]">Current Fabric Stock</h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                        <Package size={14} className="text-amber-500" />
-                        <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
-                          {totalFabricStock} meters total
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => exportFabricStockPdf(fabrics.map((f) => ({
-                          type: f.type,
-                          color: f.color,
-                          meters: f.meters,
-                          remaining: f.remaining,
-                          unitCost: f.unitCost,
-                        })))}
+                <div className="space-y-4">
+                  <UniformSection
+                    title="Current fabric stock"
+                    subtitle={`${totalFabricStock} meters total · ${fabrics.length} batch${fabrics.length === 1 ? '' : 'es'}`}
+                    icon={Layers}
+                    action={
+                      <StoreExportBar
                         disabled={!fabrics.length}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[10px] font-bold uppercase hover:bg-red-100 disabled:opacity-40 transition"
+                        onExportPdf={() => exportFabricStockPdf(fabricExportRows)}
+                        onExportExcel={() => exportFabricStockExcel(fabricExportRows)}
+                      />
+                    }
+                    bodyClassName="p-0"
+                  >
+                    {fabrics.length === 0 ? (
+                      <UniformEmptyState
+                        icon={Layers}
+                        title="No fabric in stock"
+                        message="Receive fabric under Fabric Stock In to see meters and usage here."
+                      />
+                    ) : (
+                      <UniformTable
+                        headers={['Fabric', 'Color', 'Received', 'Used', 'Remaining', 'Usage', 'Status']}
+                        minWidth="720px"
+                        className="border-0 shadow-none rounded-none"
                       >
-                        <FileText size={14} /> Export PDF
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => exportFabricStockExcel(fabrics.map((f) => ({
-                          type: f.type,
-                          color: f.color,
-                          meters: f.meters,
-                          remaining: f.remaining,
-                          unitCost: f.unitCost,
-                        })))}
-                        disabled={!fabrics.length}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
-                      >
-                        <FileSpreadsheet size={14} /> Export Excel
-                      </button>
-                    </div>
-                  </div>
-                  {fabrics.length === 0 ? (
-                    <EmptyTab
-                      icon={Layers}
-                      title="No fabric in stock"
-                      message="Receive fabric under Fabric Stock In to see meters and usage here."
-                    />
-                  ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-                      <table className="w-full text-sm min-w-[720px]">
-                        <thead>
-                          <tr className="bg-gray-50/80 border-b border-gray-100">
-                            {['Fabric', 'Color', 'Received', 'Used', 'Remaining', 'Usage', 'Status'].map((h) => (
-                              <th key={h} className="text-left py-3.5 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {fabrics.map((f, i) => {
-                            const used = f.meters - f.remaining
-                            const usagePct = f.meters > 0 ? (used / f.meters) * 100 : 0
-                            return (
-                              <motion.tr
-                                key={f.id}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: i * 0.03 }}
-                                className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors"
-                              >
-                                <td className="py-3.5 px-4 text-xs font-bold text-[#000435]">{f.type}</td>
-                                <td className="py-3.5 px-4 text-xs text-gray-500">{f.color}</td>
-                                <td className="py-3.5 px-4 text-xs text-gray-600">{f.meters}m</td>
-                                <td className="py-3.5 px-4 text-xs text-gray-600">{used}m</td>
-                                <td className="py-3.5 px-4 text-xs font-bold text-amber-600">{f.remaining}m</td>
-                                <td className="py-3.5 px-4">
-                                  <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                    <motion.div
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${usagePct}%` }}
-                                      transition={{ duration: 1, delay: i * 0.1 }}
-                                      className={`h-full rounded-full ${usagePct > 70 ? 'bg-red-400' : usagePct > 40 ? 'bg-amber-400' : 'bg-green-400'}`}
-                                    />
-                                  </div>
-                                </td>
-                                <td className="py-3.5 px-4">
-                                  <span
-                                    className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
-                                      usagePct > 70
-                                        ? 'bg-red-50 text-red-600'
-                                        : usagePct > 40
-                                          ? 'bg-amber-50 text-amber-600'
-                                          : 'bg-green-50 text-green-600'
-                                    }`}
-                                  >
-                                    {usagePct.toFixed(0)}% used
-                                  </span>
-                                </td>
-                              </motion.tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        {fabrics.map((f, i) => {
+                          const used = f.meters - f.remaining
+                          const usagePct = f.meters > 0 ? (used / f.meters) * 100 : 0
+                          return (
+                            <UniformTableRow key={f.id} index={i}>
+                              <UniformTableCell className="font-bold text-[#000435]">{f.type}</UniformTableCell>
+                              <UniformTableCell className="text-gray-500">{f.color}</UniformTableCell>
+                              <UniformTableCell className="text-gray-600">{f.meters}m</UniformTableCell>
+                              <UniformTableCell className="text-gray-600">{used}m</UniformTableCell>
+                              <UniformTableCell className="font-bold text-amber-600">{f.remaining}m</UniformTableCell>
+                              <UniformTableCell>
+                                <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${usagePct}%` }}
+                                    transition={{ duration: 1, delay: i * 0.1 }}
+                                    className={`h-full rounded-full ${usagePct > 70 ? 'bg-red-400' : usagePct > 40 ? 'bg-amber-400' : 'bg-green-400'}`}
+                                  />
+                                </div>
+                              </UniformTableCell>
+                              <UniformTableCell>
+                                <span
+                                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
+                                    usagePct > 70
+                                      ? 'bg-red-50 text-red-600'
+                                      : usagePct > 40
+                                        ? 'bg-amber-50 text-amber-600'
+                                        : 'bg-green-50 text-green-600'
+                                  }`}
+                                >
+                                  {usagePct.toFixed(0)}% used
+                                </span>
+                              </UniformTableCell>
+                            </UniformTableRow>
+                          )
+                        })}
+                      </UniformTable>
+                    )}
+                  </UniformSection>
                 </div>
               )}
 

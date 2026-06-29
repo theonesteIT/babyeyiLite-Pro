@@ -1218,6 +1218,7 @@ function ParentAccountsPage({
 // SCHOOLS PAGE  — uses /api/schools (school-add.js)
 // ════════════════════════════════════════════════════════════════
 function SchoolsPage({ navigate, addToast }) {
+  const { refresh: refreshAuthSession } = useAuth();
   const [schools,   setSchools]   = useState([]);
   const [loading,   setLoading]   = useState(false);
   const [search,    setSearch]    = useState('');
@@ -1295,6 +1296,17 @@ function SchoolsPage({ navigate, addToast }) {
 
   const saveSubscription = async () => {
     if (!subscriptionSchool) return;
+    const sessionUser = await refreshAuthSession();
+    if (!sessionUser) {
+      addToast('Session expired — please log in again as Super Admin', 'error');
+      navigate(getPostLogoutLoginPath(), { replace: true });
+      return;
+    }
+    const roleCode = String(sessionUser?.role?.code || '').toUpperCase();
+    if (!['SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER'].includes(roleCode)) {
+      addToast('Only Super Admin or System Controller can change school plans', 'error');
+      return;
+    }
     const schoolId = await resolveSchoolRecordId(subscriptionSchool);
     if (!schoolId) {
       addToast('Invalid school — refresh the schools list and try again', 'error');
@@ -1333,7 +1345,13 @@ function SchoolsPage({ navigate, addToast }) {
       setSubscriptionSchool(null);
       fetchSchools(page);
     } catch (err) {
-      addToast(err.response?.data?.message || err.response?.data?.error || 'Update failed', 'error');
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Update failed';
+      if (err.response?.status === 401) {
+        addToast('Session expired — log in again as Super Admin, then retry', 'error');
+        navigate(getPostLogoutLoginPath(), { replace: true });
+      } else {
+        addToast(msg, 'error');
+      }
     } finally {
       setSavingSub(false);
     }

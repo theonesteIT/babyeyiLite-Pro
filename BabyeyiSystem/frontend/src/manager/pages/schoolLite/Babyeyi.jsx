@@ -3,6 +3,7 @@ import BabyeyiList from "./BabyeyiList";
 import ClassStreamPicker from "../../../Pages/School Manager/components/ClassStreamPicker";
 import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import { NESA_LIMITS } from "./utils/constants";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
 
@@ -115,7 +116,7 @@ const ic = {
 };
 const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
 
-// ── NESA fee_limits `level` must match national fee table labels ───────────
+// ── Babyeyi document education_level (display / PDF) ───────────────────────
 function inferEducationLevelFromClassLabel(label) {
   const raw = String(label || "").trim();
   if (!raw) return "Primary Education";
@@ -126,6 +127,28 @@ function inferEducationLevelFromClassLabel(label) {
   if (/\bS[1-3]\b/.test(u)) return "Lower Secondary Education (O'Level)";
   if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
   return "Primary Education";
+}
+
+const NESA_FEE_LIMIT_LEVELS = ["Nursery", "Primary", "Secondary", "University"];
+
+/** Map class label → fee_limits.level (must match NESA Fee Limits table). */
+function inferNesaFeeLimitLevelFromClass(label) {
+  const raw = String(label || "").trim();
+  if (!raw) return "Primary";
+  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-3])\b/i);
+  if (code) {
+    const c = code[1].toUpperCase();
+    if (/^N[123]$/.test(c)) return "Nursery";
+    if (/^P[1-6]$/.test(c)) return "Primary";
+    if (/^S[1-6]$/.test(c)) return "Secondary";
+    if (/^L[1-3]$/.test(c)) return "University";
+  }
+  const u = raw.toUpperCase();
+  if (/^(N[123]|NURSERY|PRE[- ]?PRIMARY)/.test(u) || /\bN[123]\b/.test(u)) return "Nursery";
+  if (/\bP[1-6]\b/.test(u) || /^P[1-6]$/i.test(raw)) return "Primary";
+  if (/\bS[1-6]\b/.test(u)) return "Secondary";
+  if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
+  return "Primary";
 }
 
 /** Keep multi-select order aligned with the school catalog list. */
@@ -254,6 +277,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   category:             categoryOverride ?? "Public",
   /** Public = NESA smart fee checker applies (when school allows); Private = no national limit checker. */
   feeTargetStudents:    "public",
+  nesaFeeLimitLevel:    "Primary",
   language:             "en",
   payments:             [{ name:"Tuition Fee", amount:"", pay_channel: "babyeyi" },{ name:"Activity Fee", amount:"", pay_channel: "babyeyi" }],
   requestIncrease:      false,
@@ -646,8 +670,10 @@ export default function App({ session }) {
           if (!prev) return prev;
           const prevArr = Array.isArray(prev.classes) ? prev.classes : [];
           const kept = sortSelectedClassesByCatalog(prevArr, opts);
-          if (kept.length) return { ...prev, classes: kept };
-          return { ...prev, classes: [opts[0]] };
+          if (kept.length) {
+            return { ...prev, classes: kept, nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(kept[0]) };
+          }
+          return { ...prev, classes: [opts[0]], nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(opts[0]) };
         });
       })
       .catch(() => {
@@ -723,7 +749,7 @@ export default function App({ session }) {
       return;
     }
     const { category, term, academicYear } = form;
-    const level = form.nesaFeeLimitLevel || inferEducationLevelFromClassLabel(form.classes?.[0] || "");
+    const level = form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(form.classes?.[0] || "");
     if (!category || !term || !academicYear) return;
     setNesaLimit(null);
     setNesaLimitSource("loading");
@@ -732,6 +758,12 @@ export default function App({ session }) {
     const ac = new AbortController();
     const applyLimit    = (max, src) => { if (!ac.signal.aborted) { setNesaLimit(Number(max)); setNesaLimitSource(src); } };
     const applyNotFound = ()         => { if (!ac.signal.aborted) { setNesaLimit(null); setNesaLimitSource("none"); } };
+    const applyFallback = () => {
+      const key = `${category}-${level}`;
+      const fallback = NESA_LIMITS[key];
+      if (fallback != null) applyLimit(fallback, "default");
+      else applyNotFound();
+    };
     fetch(`${API_BASE}/babyeyi/nesa-limit?${qp}`, { credentials:"include", signal:ac.signal })
       .then(r => r.json())
       .then(json => {
@@ -773,10 +805,10 @@ export default function App({ session }) {
               matches.find((row) => row.term === normTerm) ||
               matches.find((row) => row.term === "Full Year");
             if (m?.max_amount != null) applyLimit(m.max_amount, "backend");
-            else applyNotFound();
+            else applyFallback();
           });
       })
-      .catch(err => { if (err?.name !== "AbortError") applyNotFound(); })
+      .catch(err => { if (err?.name !== "AbortError") applyFallback(); })
       .finally(() => { if (!ac.signal.aborted) setNesaLimitLoading(false); });
     return () => ac.abort();
   }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, form?.nesaFeeLimitLevel, schoolFeeScope]);
@@ -1401,7 +1433,7 @@ export default function App({ session }) {
                     selected={form.classes || []}
                     onChange={(next) => {
                       up("classes", next);
-                      if (next[0]) up("nesaFeeLimitLevel", inferEducationLevelFromClassLabel(next[0]));
+                      if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0]));
                     }}
                     sortSelected={sortSelectedClassesByCatalog}
                     catalogOrder={registeredClassOptions}
@@ -1460,8 +1492,8 @@ export default function App({ session }) {
                   <p className="font-semibold text-white text-sm">Tuition Smart Checker</p>
                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     {nesaLimitLoading ? "Fetching limit…"
-                      : nesaLimitSource === "none" ? `No fee limit configured for ${inferEducationLevelFromClassLabel(form.classes?.[0])} ${form.term}`
-                      : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}` : "No limit set"}
+                      : nesaLimitSource === "none" ? `No fee limit configured for ${form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(form.classes?.[0] || "")} · ${form.term}`
+                      : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}${nesaLimitSource === "default" ? " (default)" : ""}` : "No limit set"}
                   </p>
                 </div>
               </div>

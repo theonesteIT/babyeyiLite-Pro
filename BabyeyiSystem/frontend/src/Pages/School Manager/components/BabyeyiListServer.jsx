@@ -1,30 +1,32 @@
-﻿// ================================================================
-// BabyeyiList.jsx â€” v10
+// ================================================================
+// BabyeyiList.jsx — v10
 //
 // NEW IN v10:
-// â€¢ Language switcher: English ðŸ‡¬ðŸ‡§ | Kinyarwanda ðŸ‡·ðŸ‡¼ | FranÃ§ais ðŸ‡«ðŸ‡·
-// â€¢ All static UI labels translated via t() helper
-// â€¢ All DB-fetched dynamic data (payment names, requirement items,
+// • Language switcher: English 🇬🇧 | Kinyarwanda 🇷🇼 | Français 🇫🇷
+// • All static UI labels translated via t() helper
+// • All DB-fetched dynamic data (payment names, requirement items,
 //   class notes, other infos, bank names, leader roles, parent message,
 //   section headings) translated via Claude API before rendering/PDF
-// â€¢ PDF downloads in the selected language
-// â€¢ Language persisted in localStorage
-// â€¢ Beautiful animated language switcher pill in OfficialDoc toolbar
+// • PDF downloads in the selected language
+// • Language persisted in localStorage
+// • Beautiful animated language switcher pill in OfficialDoc toolbar
 // ================================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { CreateBabyeyiModal } from "./Babyeyi";
-import { CORE_BABYEYI_LANG_OPTIONS } from '../schoolLiteSupport/babyeyiTranslateLangs.js';
+import { WizardContent } from "./UpdateBabyeyi";
+import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml } from "./babyeyiPdfExport";
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
 const API_BASE   = `${ASSET_BASE}/api`;
 const FRONTEND_ORIGIN = typeof window !== "undefined" ? window.location.origin : "http://localhost:5174";
 const verifyUrl       = (docId) => docId ? `${FRONTEND_ORIGIN}/babyeyi/verify/${docId}` : "";
 
-// â”€â”€â”€ TRANSLATION DICTIONARIES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const LANGS = Object.fromEntries(
-  CORE_BABYEYI_LANG_OPTIONS.map((o) => [o.code, { flag: o.flag, name: o.name, code: o.code }])
-);
+// ─── TRANSLATION DICTIONARIES ────────────────────────────────────────────────
+const LANGS = {
+  en: { flag: "🇬🇧", name: "English",    code: "en" },
+  rw: { flag: "🇷🇼", name: "Kinyarwanda", code: "rw" },
+  fr: { flag: "🇫🇷", name: "Français",   code: "fr" },
+};
 
 // Static UI label translations
 const UI = {
@@ -36,7 +38,7 @@ const UI = {
     shareBtn:           "Share",
     pdfBtn:             "PDF",
     backBtn:            "Back",
-    searchPlaceholder:  "Search class, term, year, doc IDâ€¦",
+    searchPlaceholder:  "Search class, term, year, doc ID…",
     filters:            "Filters",
     clearAll:           "Clear all",
     status:             "Status",
@@ -51,7 +53,7 @@ const UI = {
     records:            "record",
     recordsPlural:      "records",
     filtered:           "(filtered)",
-    loading:            "Loading recordsâ€¦",
+    loading:            "Loading records…",
     noRecords:          "No records found",
     total:              "Total",
     approved:           "Approved",
@@ -70,7 +72,7 @@ const UI = {
     secClassNotes:      "Class Requirements & Notes",
     secAuth:            "Authorization & Signatures",
     // Table headers
-    thNo:               "NÂ°",
+    thNo:               "N°",
     thPaymentItem:      "Payment Item",
     thAmount:           "Amount (RWF)",
     thTotalLabel:       "TOTAL",
@@ -92,11 +94,11 @@ const UI = {
     sigStamp:           "Official Stamp",
     sigCachet:          "Cachet Officiel",
     sigRequired:        "Signature Required",
-    sigSigned:          "âœ“ Signed",
+    sigSigned:          "✓ Signed",
     // Doc footer
-    docOfficial:        "Official Document â€” DO NOT FALSIFY",
+    docOfficial:        "Official Document — DO NOT FALSIFY",
     // Header
-    republic:           "Republic of Rwanda Â· Ministry of Education â€” NESA",
+    republic:           "Republic of Rwanda · Ministry of Education — NESA",
     district:           "District",
     sector:             "Sector",
     academicYear:       "Academic Year",
@@ -109,12 +111,12 @@ const UI = {
     cancelBtn:          "Cancel",
     confirmDelete:      "Delete",
     // Translate button
-    translating:        "Translatingâ€¦",
+    translating:        "Translating…",
     translateDoc:       "Translate Document",
     language:           "Language",
     // Share
     shareDoc:           "Share Document",
-    capturing:          "Capturing documentâ€¦",
+    capturing:          "Capturing document…",
     whatsapp:           "WhatsApp",
     saveImage:          "Save Image",
   },
@@ -126,7 +128,7 @@ const UI = {
     shareBtn:           "Sangira",
     pdfBtn:             "PDF",
     backBtn:            "Subira",
-    searchPlaceholder:  "Shakisha ishuri, igihembwe, umwaka, IDâ€¦",
+    searchPlaceholder:  "Shakisha ishuri, igihembwe, umwaka, ID…",
     filters:            "Shungura",
     clearAll:           "Siba byose",
     status:             "Imimerere",
@@ -141,7 +143,7 @@ const UI = {
     records:            "inyandiko",
     recordsPlural:      "inyandiko",
     filtered:           "(shunguwe)",
-    loading:            "Gutegereza inyandikoâ€¦",
+    loading:            "Gutegereza inyandiko…",
     noRecords:          "Nta nyandiko ibonetse",
     total:              "Igiteranyo",
     approved:           "Yemewe",
@@ -158,7 +160,7 @@ const UI = {
     secLeadership:      "Inzego z'Ishuri",
     secClassNotes:      "Amabwiriza y'Icyiciro",
     secAuth:            "Uburenganzira n'Umukono",
-    thNo:               "NÂ°",
+    thNo:               "N°",
     thPaymentItem:      "Igice cy'Amafaranga",
     thAmount:           "Amafaranga (RWF)",
     thTotalLabel:       "IGITERANYO",
@@ -179,9 +181,9 @@ const UI = {
     sigStamp:           "Kashe y'Ishuri",
     sigCachet:          "Kashe Nyaburanga",
     sigRequired:        "Umukono Urabeho",
-    sigSigned:          "âœ“ Urasinywe",
-    docOfficial:        "Inyandiko Nyaburanga â€” NTI GUHINDURA",
-    republic:           "Repubulika y'u Rwanda Â· Minisiteri y'Uburezi â€” NESA",
+    sigSigned:          "✓ Urasinywe",
+    docOfficial:        "Inyandiko Nyaburanga — NTI GUHINDURA",
+    republic:           "Repubulika y'u Rwanda · Minisiteri y'Uburezi — NESA",
     district:           "Akarere",
     sector:             "Umurenge",
     academicYear:       "Umwaka w'Amashuri",
@@ -192,11 +194,11 @@ const UI = {
     deleteWarning:      "Ibi ntishobora gusubirwaho",
     cancelBtn:          "Hagarara",
     confirmDelete:      "Siba",
-    translating:        "Guhuza indimiâ€¦",
+    translating:        "Guhuza indimi…",
     translateDoc:       "Huza Indimi",
     language:           "Ururimi",
     shareDoc:           "Sangira Inyandiko",
-    capturing:          "Gufata inyandikoâ€¦",
+    capturing:          "Gufata inyandiko…",
     whatsapp:           "WhatsApp",
     saveImage:          "Bika Ifoto",
   },
@@ -208,83 +210,83 @@ const UI = {
     shareBtn:           "Partager",
     pdfBtn:             "PDF",
     backBtn:            "Retour",
-    searchPlaceholder:  "Rechercher classe, trimestre, annÃ©e, IDâ€¦",
+    searchPlaceholder:  "Rechercher classe, trimestre, année, ID…",
     filters:            "Filtres",
     clearAll:           "Tout effacer",
     status:             "Statut",
     level:              "Niveau",
     term:               "Trimestre",
-    year:               "AnnÃ©e",
+    year:               "Année",
     allOption:          "Tous",
-    newestFirst:        "Plus rÃ©cent d'abord",
+    newestFirst:        "Plus récent d'abord",
     oldestFirst:        "Plus ancien d'abord",
-    highestFee:         "Frais les plus Ã©levÃ©s",
+    highestFee:         "Frais les plus élevés",
     lowestFee:          "Frais les plus bas",
     records:            "dossier",
     recordsPlural:      "dossiers",
-    filtered:           "(filtrÃ©)",
-    loading:            "Chargement des dossiersâ€¦",
-    noRecords:          "Aucun dossier trouvÃ©",
+    filtered:           "(filtré)",
+    loading:            "Chargement des dossiers…",
+    noRecords:          "Aucun dossier trouvé",
     total:              "Total",
-    approved:           "ApprouvÃ©",
+    approved:           "Approuvé",
     pending:            "En attente",
-    rejected:           "RejetÃ©",
-    locked:             "VerrouillÃ©",
-    verify:             "VÃ©rifier",
-    regen:              "RÃ©gÃ©nÃ©rer",
+    rejected:           "Rejeté",
+    locked:             "Verrouillé",
+    verify:             "Vérifier",
+    regen:              "Régénérer",
     share:              "Partager",
-    secFee:             "DÃ©tail des Frais de ScolaritÃ©",
+    secFee:             "Détail des Frais de Scolarité",
     secBanking:         "Informations Bancaires",
-    secRequirements:    "Fournitures de l'Ã‰lÃ¨ve",
+    secRequirements:    "Fournitures de l'Élève",
     secOtherInfo:       "Autres Informations",
-    secLeadership:      "Direction de l'Ã‰cole",
+    secLeadership:      "Direction de l'École",
     secClassNotes:      "Notes et Exigences de la Classe",
     secAuth:            "Autorisation et Signatures",
-    thNo:               "NÂ°",
-    thPaymentItem:      "DÃ©signation",
+    thNo:               "N°",
+    thPaymentItem:      "Désignation",
     thAmount:           "Montant (RWF)",
     thTotalLabel:       "TOTAL",
     thBank:             "Nom de la Banque",
-    thAccount:          "NumÃ©ro de Compte",
+    thAccount:          "Numéro de Compte",
     thAccountName:      "Nom du Compte",
     thPrimary:          "Principal",
     thItem:             "Article",
     thDescription:      "Description",
-    thQuantity:         "QuantitÃ©",
-    thDetails:          "DÃ©tails",
+    thQuantity:         "Quantité",
+    thDetails:          "Détails",
     thFullName:         "Nom Complet",
-    thRole:             "RÃ´le / Titre",
-    thPhone:            "TÃ©lÃ©phone",
+    thRole:             "Rôle / Titre",
+    thPhone:            "Téléphone",
     thEmail:            "Email",
     sigHeadTeacher:     "Directeur",
-    sigScanVerify:      "Scanner pour VÃ©rifier",
+    sigScanVerify:      "Scanner pour Vérifier",
     sigStamp:           "Cachet Officiel",
     sigCachet:          "Cachet Officiel",
     sigRequired:        "Signature Requise",
-    sigSigned:          "âœ“ SignÃ©",
-    docOfficial:        "Document Officiel â€” NE PAS FALSIFIER",
-    republic:           "RÃ©publique du Rwanda Â· MinistÃ¨re de l'Ã‰ducation â€” NESA",
+    sigSigned:          "✓ Signé",
+    docOfficial:        "Document Officiel — NE PAS FALSIFIER",
+    republic:           "République du Rwanda · Ministère de l'Éducation — NESA",
     district:           "District",
     sector:             "Secteur",
-    academicYear:       "AnnÃ©e AcadÃ©mique",
+    academicYear:       "Année Académique",
     termLabel:          "Trimestre",
     classLabel:         "Classe",
     levelLabel:         "Niveau",
     deleteTitle:        "Supprimer Babyeyi",
-    deleteWarning:      "Cette action est irrÃ©versible",
+    deleteWarning:      "Cette action est irréversible",
     cancelBtn:          "Annuler",
     confirmDelete:      "Supprimer",
-    translating:        "Traduction en coursâ€¦",
+    translating:        "Traduction en cours…",
     translateDoc:       "Traduire le Document",
     language:           "Langue",
     shareDoc:           "Partager le Document",
-    capturing:          "Capture du documentâ€¦",
+    capturing:          "Capture du document…",
     whatsapp:           "WhatsApp",
     saveImage:          "Enregistrer l'Image",
   },
 };
 
-// â”€â”€â”€ CLAUDE TRANSLATION ENGINE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── CLAUDE TRANSLATION ENGINE ───────────────────────────────────────────────
 // Translates an array of text strings using Claude API
 async function translateBatch(texts, targetLang) {
   if (targetLang === "en") return texts; // English is default, no translation needed
@@ -325,7 +327,7 @@ async function translateRecord(rec, lang) {
 
   // Collect all translatable strings
   const toTranslate = [];
-  const map = {}; // key â†’ index in toTranslate
+  const map = {}; // key → index in toTranslate
 
   const add = (key, val) => {
     if (!val || typeof val !== "string" || !val.trim()) return;
@@ -388,7 +390,7 @@ async function translateRecord(rec, lang) {
   };
 }
 
-// â”€â”€â”€ LANGUAGE SWITCHER COMPONENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── LANGUAGE SWITCHER COMPONENT ─────────────────────────────────────────────
 function LangSwitcher({ lang, setLang, translating, compact = false }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -407,7 +409,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
         <button
           onClick={() => setOpen(o => !o)}
           disabled={translating}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all border"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold transition-all border"
           style={{
             background: open ? "#1F2937" : "rgba(255,255,255,0.12)",
             color: open ? "#FBBF24" : "white",
@@ -418,7 +420,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
             ? <span className="w-3 h-3 border-2 border-amber-300/30 border-t-amber-300 rounded-full animate-spin" />
             : <span>{current.flag}</span>
           }
-          <span className="hidden sm:inline">{translating ? "â€¦" : current.name}</span>
+          <span className="hidden sm:inline">{translating ? "…" : current.name}</span>
           <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
             <path d="M6 9l6 6 6-6" />
           </svg>
@@ -426,7 +428,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
 
         {open && (
           <div
-            className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-2xl overflow-hidden z-50 min-w-[140px]"
+            className="absolute right-0 top-full mt-1.5 rounded-2xl shadow-sm overflow-hidden z-50 min-w-[140px]"
             style={{ background: "#1F2937", border: "1px solid rgba(251,191,36,0.25)" }}
           >
             {Object.values(LANGS).map(l => (
@@ -465,7 +467,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
           key={l.code}
           onClick={() => setLang(l.code)}
           disabled={translating}
-          className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-black transition-all"
+          className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold transition-all"
           style={{
             background: lang === l.code ? "#FBBF24" : "transparent",
             color: lang === l.code ? "#1F2937" : "rgba(255,255,255,0.6)",
@@ -485,7 +487,7 @@ function LangSwitcher({ lang, setLang, translating, compact = false }) {
   );
 }
 
-// â”€â”€â”€ HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const toAssetUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
@@ -524,7 +526,7 @@ function parseBanks(rec) {
   return [];
 }
 
-// â”€â”€â”€ STYLE CONSTANTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── STYLE CONSTANTS ─────────────────────────────────────────────────────────
 const DOC = {
   heading: { fontSize: "14px", fontWeight: 700, color: "#1e3a5f", textTransform: "uppercase", letterSpacing: "0.05em" },
   body:    { fontSize: "12px", color: "#1e293b", lineHeight: "1.7" },
@@ -582,7 +584,7 @@ const Ic = ({ n, s = 15, c = "currentColor", sw = 2 }) => (
   </svg>
 );
 
-// â”€â”€â”€ QR HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── QR HELPERS ──────────────────────────────────────────────────────────────
 async function ensureQRCode(rec) {
   if (!rec?.id) return null;
   try {
@@ -602,7 +604,7 @@ async function ensureQRCode(rec) {
   return null;
 }
 
-// â”€â”€â”€ BUILD HTML DOC (language-aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── BUILD HTML DOC (language-aware) ─────────────────────────────────────────
 function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en" }) {
   const T       = UI[lang] || UI.en;
   const payments   = Array.isArray(rec.payments)     ? rec.payments     : [];
@@ -623,8 +625,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   const ruleDiv    = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="${headingStyle}">${title}</span></div>`;
 
   const parentSection = rec.parentMessage ? `
-    <div style="margin-bottom:22px">
-      ${ruleDiv("")}
+    <div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">
       <div style="padding-left:16px;margin-top:4px">
         <p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${rec.parentMessage}</p>
       </div>
@@ -638,7 +639,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const paySection = payments.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="fees" style="margin-bottom:22px">
       ${ruleDiv(T.secFee)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -657,14 +658,14 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   const bankRows = banks.map((bk, i) => `
     <tr>
       <td style="${tdStyle};text-align:center;color:#64748b;width:40px">${i + 1}</td>
-      <td style="${tdStyle};font-weight:600">${bk.bankName || bk.bank_name || "â€”"}</td>
-      <td style="${tdStyle};font-family:monospace">${bk.accountNumber || bk.bank_account_no || "â€”"}</td>
-      <td style="${tdStyle}">${bk.accountName || bk.bank_account_name || "â€”"}</td>
-      <td style="${tdStyle};text-align:center;color:#059669;font-weight:700">${bk.isPrimary || i === 0 ? "âœ“" : ""}</td>
+      <td style="${tdStyle};font-weight:600">${bk.bankName || bk.bank_name || "—"}</td>
+      <td style="${tdStyle};font-family:monospace">${bk.accountNumber || bk.bank_account_no || "—"}</td>
+      <td style="${tdStyle}">${bk.accountName || bk.bank_account_name || "—"}</td>
+      <td style="${tdStyle};text-align:center;color:#059669;font-weight:700">${bk.isPrimary || i === 0 ? "✓" : ""}</td>
     </tr>`).join("");
 
   const banksSection = banks.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="banking" style="margin-bottom:22px">
       ${ruleDiv(T.secBanking)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -687,7 +688,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const reqSection = reqs.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="requirements" style="margin-bottom:22px">
       ${ruleDiv(T.secRequirements)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -708,7 +709,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </tr>`).join("");
 
   const otherSection = otherInfos.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="other" style="margin-bottom:22px">
       ${ruleDiv(T.secOtherInfo)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -721,18 +722,18 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     </div>` : "";
 
   const leaderRows = leaders.map((l, i) => {
-    const phone = l.phone ? `+250 ${l.phone}` : "â€”";
+    const phone = l.phone ? `+250 ${l.phone}` : "—";
     return `<tr>
       <td style="${tdStyle};text-align:center;color:#64748b;width:36px;font-size:11px">${i + 1}</td>
-      <td style="${tdStyle};font-weight:700;color:#1e3a5f">${l.name || "â€”"}</td>
-      <td style="${tdStyle};color:#475569">${l.role || "â€”"}</td>
+      <td style="${tdStyle};font-weight:700;color:#1e3a5f">${l.name || "—"}</td>
+      <td style="${tdStyle};color:#475569">${l.role || "—"}</td>
       <td style="${tdStyle};font-family:monospace;font-size:11px">${phone}</td>
-      <td style="${tdStyle};font-size:11px;color:#2563eb">${l.email || "â€”"}</td>
+      <td style="${tdStyle};font-size:11px;color:#2563eb">${l.email || "—"}</td>
     </tr>`;
   }).join("");
 
   const leadersSection = leaders.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="leadership" style="margin-bottom:22px">
       ${ruleDiv(T.secLeadership)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -750,11 +751,11 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     <tr>
       <td style="${tdStyle};text-align:center;color:#64748b;width:42px">${i + 1}</td>
       <td style="${tdStyle};font-weight:600">${n.item || ""}</td>
-      <td style="${tdStyle}">${n.details || "â€”"}</td>
+      <td style="${tdStyle}">${n.details || "—"}</td>
     </tr>`).join("");
 
   const notesSection = classNotes.length > 0 ? `
-    <div style="margin-bottom:22px">
+    <div data-babyeyi-pdf-section="notes" style="margin-bottom:22px">
       ${ruleDiv(T.secClassNotes)}
       <table style="${tableStyle}">
         <thead><tr>
@@ -766,15 +767,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
       </table>
     </div>` : "";
 
-  const qrBlock = qrB64 ? `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-      <div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px">
-        <img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>
-      </div>
-      <p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0;text-align:center">${T.sigScanVerify}</p>
-      ${rec.docId ? `<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}
-      ${vUrl ? `<p style="font-size:9px;color:#4f46e5;margin:0;text-align:center;max-width:110px;word-break:break-all">${vUrl}</p>` : ""}
-    </div>` : `<div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:20px;opacity:.1">â–£</span></div>`;
+  const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
 
   const schoolLogoHtml = schoolLogoB64
     ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>`
@@ -785,25 +778,25 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     : "";
 
   return `
-<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
-  <div style="height:3px;background:#1e3a5f"></div>
-  <div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
+<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
+  <div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div>
+  <div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
     <div style="display:flex;align-items:center;gap:20px">
       <div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div>
       <div style="flex:1;text-align:center">
         <p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p>
-        <p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district || "â€”"}</p>
-        <p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector || "â€”"}</p>
+        <p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district || "—"}</p>
+        <p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector || "—"}</p>
         <h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName || ""}</h1>
         <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">
-          ${[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "â€”"}</span>`).join("")}
+          ${[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`).join("")}
           ${rec.docId ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>` : ""}
         </div>
       </div>
       <div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div>
     </div>
   </div>
-  <div style="padding:20px 40px 28px">
+  <div id="babyeyi-pdf-body" style="padding:20px 40px 28px">
     ${parentSection}
     ${paySection}
     ${banksSection}
@@ -811,41 +804,12 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     ${otherSection}
     ${leadersSection}
     ${notesSection}
-    <div style="margin-bottom:22px">
-      <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px;margin-top:20px">
-        <span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px">
-        <div style="border:1px solid #e2e8f0;padding:14px;text-align:center">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigHeadTeacher}</p>
-          <div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">
-            ${sigB64 ? `<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}
-          </div>
-          <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64 ? T.sigSigned : T.sigRequired}</p>
-        </div>
-        <div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center">
-          ${qrBlock}
-        </div>
-        <div style="border:1px solid #e2e8f0;padding:14px;text-align:center">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigStamp}</p>
-          <div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">
-            ${stampB64 ? `<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:22px;opacity:.08">ðŸ”</span>`}
-          </div>
-          <p style="font-size:11px;color:#94a3b8;margin:0">${T.sigCachet}</p>
-        </div>
-      </div>
-    </div>
+    ${authBlock}
   </div>
-  <div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:11px;color:#64748b">${rec.schoolName || ""} Â· ${rec.district || ""}</span>
-    <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span>
-    <span style="font-size:11px;color:#64748b">Doc: ${rec.docId || "â€”"} Â· ${today}</span>
-  </div>
-  <div style="height:3px;background:#1e3a5f"></div>
 </div>`;
 }
 
-// â”€â”€â”€ CAPTURE DOC AS IMAGE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── CAPTURE DOC AS IMAGE ─────────────────────────────────────────────────────
 async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en" }) {
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
@@ -873,9 +837,9 @@ async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, sta
   }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // QR CODE PANEL
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 function QRCodePanel({ rec }) {
   const [qrB64,   setQrB64]   = useState(null);
   const [vUrl,    setVUrl]    = useState(null);
@@ -893,24 +857,24 @@ function QRCodePanel({ rec }) {
   if (loading) return (
     <div className="flex flex-col items-center p-4 border border-slate-200 rounded-xl min-w-[130px]">
       <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-2" />
-      <p className="text-[10px] text-slate-400 font-bold">Loading QRâ€¦</p>
+      <p className="text-[10px] text-slate-400 font-bold">Loading QR…</p>
     </div>
   );
   if (!qrB64) return (
     <div className="flex flex-col items-center p-4 border border-dashed border-slate-200 rounded-xl min-w-[130px]">
-      <div className="text-3xl opacity-20 mb-2">â–£</div>
+      <div className="text-3xl opacity-20 mb-2">▣</div>
       <p className="text-[10px] text-slate-400 font-bold">QR not ready</p>
     </div>
   );
   return (
     <div className="flex flex-col items-center border border-indigo-200 rounded-xl p-3">
-      <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-1">
+      <p className="text-[8px] font-semibold text-indigo-500 uppercase tracking-widest mb-2 flex items-center gap-1">
         <Ic n="qr" s={9} c="#6366f1" /> Scan to Verify
       </p>
       <div className="bg-white rounded-lg p-2 border border-indigo-100 shadow-sm mb-2">
         <img src={qrB64} alt="QR Code" className="w-28 h-28 object-contain" />
       </div>
-      {rec.docId && <p className="text-[8px] font-mono font-black text-indigo-700 mb-0.5">ID: {rec.docId}</p>}
+      {rec.docId && <p className="text-[8px] font-mono font-semibold text-indigo-700 mb-0.5">ID: {rec.docId}</p>}
       {vUrl && <p className="text-[7px] text-indigo-400 text-center mb-2 break-all px-1 max-w-[160px]">{vUrl}</p>}
       <div className="flex gap-1.5">
         <button onClick={() => { navigator.clipboard.writeText(vUrl || "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }); }}
@@ -926,9 +890,9 @@ function QRCodePanel({ rec }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// OFFICIAL DOC MODAL â€” with language switcher
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
+// OFFICIAL DOC MODAL — with language switcher
+// ════════════════════════════════════════════════════════════
 function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
   const [lang, setLang]           = useState(globalLang || "en");
   const [translating, setTranslating] = useState(false);
@@ -1008,31 +972,12 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
       host.appendChild(root);
       document.body.appendChild(host);
       try {
-        await new Promise(r => setTimeout(r, 500));
-        const canvas = await window.html2canvas(root, { scale: 2, useCORS: true, backgroundColor: "#fff", logging: false, windowWidth: 794 });
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const pW = 210, pH = 297;
-        const imgH = (canvas.height / canvas.width) * pW;
-        if (imgH <= pH) {
-          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pW, imgH);
-        } else {
-          let yPos = 0, page = 0;
-          while (yPos < imgH) {
-            if (page > 0) pdf.addPage();
-            const srcYPx   = Math.floor((yPos / imgH) * canvas.height);
-            const sliceHPx = Math.min(Math.ceil((pH / imgH) * canvas.height), canvas.height - srcYPx);
-            if (sliceHPx <= 0) break;
-            const sl = document.createElement("canvas");
-            sl.width  = canvas.width; sl.height = sliceHPx;
-            sl.getContext("2d").drawImage(canvas, 0, srcYPx, canvas.width, sliceHPx, 0, 0, canvas.width, sliceHPx);
-            const sliceH = (sliceHPx / canvas.height) * imgH;
-            pdf.addImage(sl.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, pW, sliceH);
-            yPos += pH; page++;
-          }
-        }
-        const langSuffix = lang !== "en" ? `-${lang.toUpperCase()}` : "";
-        pdf.save(`Babyeyi-${rec.docId || rec.class}-${rec.term}${langSuffix}.pdf`);
+        await renderBabyeyiPdfFromRoot(
+          root,
+          "__by_p__",
+          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
+          { scale: 2, useCORS: true, backgroundColor: "#fff", logging: false, windowWidth: 794 },
+        );
       } finally {
         document.body.removeChild(host); document.head.removeChild(style);
       }
@@ -1070,17 +1015,17 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
             <Ic n="chevL" s={12} c="white" /> {T.backBtn}
           </button>
           <div className="flex-1 min-w-0 hidden sm:block">
-            <p className="text-white font-black text-sm truncate">
-              {rec.schoolName} â€” {levelLabel} Â· {classLabel} Â· {rec.term} Â· {rec.academicYear}
+            <p className="text-white font-semibold text-sm truncate">
+              {rec.schoolName} — {levelLabel} · {classLabel} · {rec.term} · {rec.academicYear}
               {rec.docId && <span className="ml-2 px-2 py-0.5 bg-indigo-600/40 text-indigo-200 rounded text-[8px] font-mono">{rec.docId}</span>}
             </p>
           </div>
 
-          {/* â”€â”€ LANGUAGE SWITCHER â”€â”€ */}
+          {/* ── LANGUAGE SWITCHER ── */}
           <LangSwitcher lang={lang} setLang={handleLangChange} translating={translating} compact />
 
           <span style={{ background: st.hex.bg, color: st.hex.text, border: `1px solid ${st.hex.border}` }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black flex-shrink-0">
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold flex-shrink-0">
             <span style={{ background: st.hex.dot }} className="w-1.5 h-1.5 rounded-full inline-block" />
             {st.label}
           </span>
@@ -1141,8 +1086,8 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
           </div>
         )}
 
-        {/* â”€â”€ DOCUMENT BODY â”€â”€ */}
-        <div className="bg-white shadow-2xl rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif", opacity: translating ? 0.6 : 1, transition: "opacity 0.3s" }}>
+        {/* ── DOCUMENT BODY ── */}
+        <div className="bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif", opacity: translating ? 0.6 : 1, transition: "opacity 0.3s" }}>
           <div style={{ height: "3px", background: "#1e3a5f" }} />
 
           {/* HEADER */}
@@ -1155,12 +1100,12 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
               </div>
               <div style={{ flex: 1, textAlign: "center" }}>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "â€”"}</strong></p>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "â€”"}</strong></p>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "—"}</strong></p>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "—"}</strong></p>
                 <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
                   {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v], i) => (
-                    <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "â€”"}</span>
+                    <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "—"}</span>
                   ))}
                   {rec.docId && (
                     <span style={{ ...DOC.body, fontFamily: "monospace", fontWeight: 700, color: "#3730a3", border: "1px solid #c7d2fe", padding: "1px 8px" }}>{rec.docId}</span>
@@ -1216,10 +1161,10 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
                     {banks.map((bk, i) => (
                       <tr key={i}>
                         <Td center color="#64748b">{i + 1}</Td>
-                        <Td bold>{bk.bankName || bk.bank_name || "â€”"}</Td>
-                        <Td mono>{bk.accountNumber || bk.bank_account_no || "â€”"}</Td>
-                        <Td>{bk.accountName || bk.bank_account_name || "â€”"}</Td>
-                        <Td center color="#059669" bold>{bk.isPrimary || i === 0 ? "âœ“" : ""}</Td>
+                        <Td bold>{bk.bankName || bk.bank_name || "—"}</Td>
+                        <Td mono>{bk.accountNumber || bk.bank_account_no || "—"}</Td>
+                        <Td>{bk.accountName || bk.bank_account_name || "—"}</Td>
+                        <Td center color="#059669" bold>{bk.isPrimary || i === 0 ? "✓" : ""}</Td>
                       </tr>
                     ))}
                   </tbody>
@@ -1269,10 +1214,10 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
                     {leaders.map((l, i) => (
                       <tr key={l.id || i}>
                         <Td center color="#64748b">{i + 1}</Td>
-                        <Td bold color="#1e3a5f">{l.name || "â€”"}</Td>
-                        <Td italic color="#475569">{l.role || "â€”"}</Td>
-                        <td style={{ ...DOC.td, fontFamily: "monospace", fontSize: "11px" }}>{l.phone ? `+250 ${l.phone}` : "â€”"}</td>
-                        <td style={{ ...DOC.td, fontSize: "11px", color: "#2563eb" }}>{l.email || "â€”"}</td>
+                        <Td bold color="#1e3a5f">{l.name || "—"}</Td>
+                        <Td italic color="#475569">{l.role || "—"}</Td>
+                        <td style={{ ...DOC.td, fontFamily: "monospace", fontSize: "11px" }}>{l.phone ? `+250 ${l.phone}` : "—"}</td>
+                        <td style={{ ...DOC.td, fontSize: "11px", color: "#2563eb" }}>{l.email || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1287,7 +1232,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
                   <thead><tr><Th w="42px" center>{T.thNo}</Th><Th>{T.thItem}</Th><Th>{T.thDetails}</Th></tr></thead>
                   <tbody>
                     {classNotes.map((n, i) => (
-                      <tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{n.item || ""}</Td><Td>{n.details || "â€”"}</Td></tr>
+                      <tr key={i}><Td center color="#64748b">{i + 1}</Td><Td bold>{n.item || ""}</Td><Td>{n.details || "—"}</Td></tr>
                     ))}
                   </tbody>
                 </table>
@@ -1320,18 +1265,18 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
                   ) : qrLoading ? (
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
                       <div style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid #e0e7ff", borderTopColor: "#4f46e5", animation: "spin .8s linear infinite" }} />
-                      <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>Generatingâ€¦</span>
+                      <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>Generating…</span>
                     </div>
                   ) : (
                     <div style={{ width: 80, height: 80, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: "22px", opacity: .1 }}>â–£</span>
+                      <span style={{ fontSize: "22px", opacity: .1 }}>▣</span>
                     </div>
                   )}
                 </div>
                 <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>
                   <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "11px", margin: "0 0 8px" }}>{T.sigStamp}</p>
                   <div style={{ width: "80px", height: "80px", border: "1px dashed #e2e8f0", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: "0 auto 6px" }}>
-                    {stampB64 ? <img src={stampB64} style={{ width: "76px", height: "76px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <span style={{ fontSize: "22px", opacity: .08 }}>ðŸ”</span>}
+                    {stampB64 ? <img src={stampB64} style={{ width: "76px", height: "76px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <span style={{ fontSize: "22px", opacity: .08 }}>🔏</span>}
                   </div>
                   <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
                 </div>
@@ -1351,9 +1296,9 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // SHARE MODAL (language-aware)
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T }) {
   const labels = T || UI[lang] || UI.en;
   const [step,   setStep]   = useState("capturing");
@@ -1393,18 +1338,18 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
       style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(10px)" }}>
-      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl bg-white"
+      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-sm bg-white"
         style={{ maxHeight: "92vh", display: "flex", flexDirection: "column" }}>
         <div style={{ background: "linear-gradient(135deg,#1e3a5f,#1d4ed8)", padding: "18px 20px 14px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>ðŸ“¤</div>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📤</div>
               <div>
                 <p style={{ color: "white", fontWeight: 900, fontSize: 14, margin: 0 }}>{labels.shareDoc}</p>
-                <p style={{ color: "rgba(255,255,255,.6)", fontSize: 11, margin: 0 }}>{rec.class} Â· {rec.docId || rec.id} Â· {LANGS[lang]?.flag} {LANGS[lang]?.name}</p>
+                <p style={{ color: "rgba(255,255,255,.6)", fontSize: 11, margin: 0 }}>{rec.class} · {rec.docId || rec.id} · {LANGS[lang]?.flag} {LANGS[lang]?.name}</p>
               </div>
             </div>
-            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 15, background: "rgba(255,255,255,.15)", border: "none", cursor: "pointer", color: "white", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>âœ•</button>
+            <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 15, background: "rgba(255,255,255,.15)", border: "none", cursor: "pointer", color: "white", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
         </div>
         <div style={{ padding: "16px 18px", flex: 1, overflowY: "auto" }}>
@@ -1415,7 +1360,7 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
                 <p style={{ color: "#64748b", fontSize: 12, margin: 0 }}>{labels.capturing}</p>
               </div>
             )}
-            {step === "error" && <p style={{ color: "#ef4444", fontSize: 12, textAlign: "center", padding: 16 }}>âŒ {errMsg}</p>}
+            {step === "error" && <p style={{ color: "#ef4444", fontSize: 12, textAlign: "center", padding: 16 }}>❌ {errMsg}</p>}
             {step === "ready" && imgUrl && (
               <img src={imgUrl} style={{ width: "100%", display: "block", maxHeight: 280, objectFit: "cover", objectPosition: "top" }} alt="Document preview" />
             )}
@@ -1441,26 +1386,47 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // EDIT WIZARD MODAL
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 function EditWizardModal({ rec, session, onClose, onSaved }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
   return (
-    <CreateBabyeyiModal
-      key={rec.id}
-      session={session}
-      isOpen
-      editRecord={rec}
-      onClose={onClose}
-      onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }}
-    />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-3xl w-full flex flex-col"
+        style={{ maxWidth: "680px", maxHeight: "94vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 30px 80px rgba(30,58,95,0.25)", animation: "modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}>
+        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
+          style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)", position: "sticky", top: 0, zIndex: 10 }}>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
+              <span className="text-base">✏️</span>
+            </div>
+            <div>
+              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Edit Babyeyi</h1>
+              <p className="text-[10px] text-indigo-300">{rec.class} · {rec.term} · {rec.academicYear}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/20 text-white/70">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <WizardContent session={session} editRecord={rec} onClose={onClose} onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }} />
+        </div>
+      </div>
+      <style>{`@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
   );
 }
 
-
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // BABYEYI CARD
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
   const st      = STATUS[rec.status] || STATUS.pending;
   const lv      = LEVEL_TW[rec.level] || LEVEL_TW.Primary;
@@ -1472,26 +1438,26 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
   const lCount  = rec.leadersCount || 0;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/50 transition-all duration-300 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200 hover:border-indigo-300 hover:shadow-sm hover:shadow-indigo-100/50 transition-all duration-300 overflow-hidden">
       <div className={`h-1 w-full ${rec.status === "approved" ? "bg-gradient-to-r from-emerald-400 to-teal-400" : rec.status === "rejected" ? "bg-gradient-to-r from-red-400 to-rose-400" : "bg-gradient-to-r from-amber-400 to-orange-400"}`} />
       <div className="p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-12 h-12 bg-amber-800 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
-              <span className="text-white font-black text-[11px] text-center leading-tight">{classes.join(", ")}</span>
+              <span className="text-white font-semibold text-[11px] text-center leading-tight">{classes.join(", ")}</span>
             </div>
             <div className="min-w-0">
-              <p className="font-black text-slate-800 text-sm truncate">{rec.term} Â· {rec.academicYear}</p>
+              <p className="font-semibold text-slate-800 text-sm truncate">{rec.term} · {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black border ${lv}`}>{rec.level}</span>
-                {rec.docId && <span className="inline-flex px-1.5 py-0.5 rounded font-mono text-[7.5px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">{rec.docId}</span>}
-                {blocked && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black bg-amber-50 text-amber-700 border border-amber-200"><Ic n="lock" s={8} c="#b45309" /> {T.locked}</span>}
-                {lCount > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black bg-slate-50 text-slate-600 border border-slate-200"><Ic n="users" s={8} c="#475569" /> {lCount}</span>}
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-semibold border ${lv}`}>{rec.level}</span>
+                {rec.docId && <span className="inline-flex px-1.5 py-0.5 rounded font-mono text-[7.5px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">{rec.docId}</span>}
+                {blocked && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><Ic n="lock" s={8} c="#b45309" /> {T.locked}</span>}
+                {lCount > 0 && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-semibold bg-slate-50 text-slate-600 border border-slate-200"><Ic n="users" s={8} c="#475569" /> {lCount}</span>}
               </div>
             </div>
           </div>
           <span style={{ background: st.hex.bg, color: st.hex.text, border: `1px solid ${st.hex.border}` }}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black shrink-0">
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold shrink-0">
             <span style={{ background: st.hex.dot }} className="w-1.5 h-1.5 rounded-full inline-block" />
             {st.label}
           </span>
@@ -1500,12 +1466,12 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div className={`rounded-xl px-3 py-2 border ${rec.exceedsLimit ? "bg-red-50 border-red-200" : "bg-emerald-50 border-emerald-200"}`}>
             <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">{T.total}</p>
-            <p className={`text-sm font-black font-mono ${rec.exceedsLimit ? "text-red-700" : "text-emerald-700"}`}>{fee.toLocaleString()} RWF</p>
+            <p className={`text-sm font-semibold font-mono ${rec.exceedsLimit ? "text-red-700" : "text-emerald-700"}`}>{fee.toLocaleString()} RWF</p>
             {rec.exceedsLimit && <p className="text-[8px] text-red-600 font-semibold">+{over.toLocaleString()} over NESA</p>}
           </div>
           <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
             <p className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">Bank</p>
-            <p className="text-[10px] font-bold text-slate-700 truncate">{rec.bankName || "â€”"}</p>
+            <p className="text-[10px] font-bold text-slate-700 truncate">{rec.bankName || "—"}</p>
             {rec.bankAccountNo && <p className="text-[8px] text-slate-400 font-mono truncate">{rec.bankAccountNo}</p>}
           </div>
         </div>
@@ -1544,7 +1510,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
   );
 }
 
-// â”€â”€â”€ DATA HELPERS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── DATA HELPERS ─────────────────────────────────────────────────────────────
 const mapRow = (row) => {
   let paymentsArr = [];
   try {
@@ -1623,13 +1589,7 @@ async function loadFullRecord(sumRec) {
 
   return {
     ...sumRec, payments,
-    requirements: (d.student_requirements || []).map(r => ({
-      item: r.item,
-      description: r.description || "",
-      quantity: r.quantity || "",
-      pay_channel: String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi",
-      cost: r.cost != null && r.cost !== "" ? String(r.cost) : "",
-    })),
+    requirements: (d.student_requirements || []).map(r => ({ item: r.item, description: r.description || "", quantity: r.quantity || "" })),
     classNotes, otherInfos, leaders, leadersCount: leaders.length,
     increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : null,
     signaturePath:  norm(sig.director_sig_path) || null,
@@ -1649,14 +1609,14 @@ async function loadFullRecord(sumRec) {
 function DeleteModal({ rec, onConfirm, onCancel, T }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm w-full max-w-sm overflow-hidden">
         <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-4">
-          <p className="font-black text-white text-sm">{T.deleteTitle}</p>
+          <p className="font-semibold text-white text-sm">{T.deleteTitle}</p>
           <p className="text-white/70 text-[10px]">{T.deleteWarning}</p>
         </div>
         <div className="p-5">
           <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 my-3">
-            <p className="font-black text-slate-800">{rec.class} Â· {rec.term} Â· {rec.academicYear}</p>
+            <p className="font-semibold text-slate-800">{rec.class} · {rec.term} · {rec.academicYear}</p>
             {rec.docId && <p className="text-[9px] font-mono text-indigo-600 mt-1">{rec.docId}</p>}
           </div>
           <div className="flex gap-3">
@@ -1669,13 +1629,13 @@ function DeleteModal({ rec, onConfirm, onCancel, T }) {
   );
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 // MAIN COMPONENT
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ════════════════════════════════════════════════════════════
 export default function BabyeyiList({ session }) {
   const schoolId = session?.schoolId ?? null;
 
-  // Language â€” persisted in localStorage
+  // Language — persisted in localStorage
   const [lang, setLang] = useState(() => {
     try { return localStorage.getItem("babyeyi_lang") || "en"; } catch { return "en"; }
   });
@@ -1734,7 +1694,7 @@ export default function BabyeyiList({ session }) {
   };
 
   const handleEdit = async (sumRec) => {
-    showToast("Loading recordâ€¦", "info");
+    showToast("Loading record…", "info");
     try {
       const full = await loadFullRecord(sumRec);
       setToast(null);
@@ -1749,7 +1709,7 @@ export default function BabyeyiList({ session }) {
 
   const handleShare = async (sumRec) => {
     if (isBlocked(sumRec.status)) { showToast("Sharing locked until approved.", "error"); return; }
-    showToast("Loading documentâ€¦", "info");
+    showToast("Loading document…", "info");
     try {
       const full = await loadFullRecord(sumRec);
       setToast(null);
@@ -1798,9 +1758,9 @@ export default function BabyeyiList({ session }) {
       )}
 
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold flex items-center gap-2 max-w-xs ${toast.type === "success" ? "bg-emerald-600 text-white" : toast.type === "info" ? "bg-indigo-600 text-white" : "bg-red-600 text-white"}`}
+        <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs ${toast.type === "success" ? "bg-emerald-600 text-white" : toast.type === "info" ? "bg-indigo-600 text-white" : "bg-red-600 text-white"}`}
           style={{ animation: "slideIn .3s ease-out" }}>
-          {toast.type === "success" ? "âœ…" : toast.type === "info" ? "â„¹ï¸" : "âŒ"} {toast.msg}
+          {toast.type === "success" ? "✅" : toast.type === "info" ? "ℹ️" : "❌"} {toast.msg}
         </div>
       )}
 
@@ -1811,21 +1771,21 @@ export default function BabyeyiList({ session }) {
         .card-enter{animation:fadeUp .3s ease-out both}
       `}</style>
 
-      {/* â”€â”€ HEADER â”€â”€ */}
+      {/* ── HEADER ── */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-4 sm:px-6 py-5">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between gap-3 mb-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/15 rounded-2xl flex items-center justify-center">
-                <span className="text-xl">ðŸ“‹</span>
+                <span className="text-xl">📋</span>
               </div>
               <div>
-                <h1 className="font-black text-white text-lg sm:text-xl">{T.title}</h1>
+                <h1 className="font-semibold text-white text-lg sm:text-xl">{T.title}</h1>
                 <p className="text-indigo-300 text-xs">{session?.schoolName || "School"}</p>
               </div>
             </div>
 
-            {/* â”€â”€ GLOBAL LANGUAGE SWITCHER â”€â”€ */}
+            {/* ── GLOBAL LANGUAGE SWITCHER ── */}
             <div className="flex flex-col items-end gap-1">
               <p className="text-white/40 text-[9px] font-bold uppercase tracking-widest">{T.language}</p>
               <LangSwitcher lang={lang} setLang={handleLangChange} translating={false} compact />
@@ -1840,7 +1800,7 @@ export default function BabyeyiList({ session }) {
               { l: T.rejected, v: stats.rejected, c: "text-red-400"     },
             ].map(s => (
               <div key={s.l} className="bg-white/10 backdrop-blur rounded-2xl p-3 border border-white/10 text-center">
-                <p className={`text-2xl font-black ${s.c}`}>{s.v}</p>
+                <p className={`text-2xl font-semibold ${s.c}`}>{s.v}</p>
                 <p className="text-white/80 text-[10px] font-bold uppercase tracking-wider">{s.l}</p>
               </div>
             ))}
@@ -1848,7 +1808,7 @@ export default function BabyeyiList({ session }) {
         </div>
       </div>
 
-      {/* â”€â”€ SEARCH / FILTER â”€â”€ */}
+      {/* ── SEARCH / FILTER ── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5">
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="relative flex-1 min-w-[180px]">
@@ -1860,7 +1820,7 @@ export default function BabyeyiList({ session }) {
           <button onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-sm border-2 ${showFilters || activeFilters > 0 ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"}`}>
             <Ic n="filter" s={14} c={showFilters || activeFilters > 0 ? "white" : "currentColor"} /> {T.filters}
-            {activeFilters > 0 && <span className="w-5 h-5 bg-white text-indigo-700 rounded-full text-[9px] font-black flex items-center justify-center">{activeFilters}</span>}
+            {activeFilters > 0 && <span className="w-5 h-5 bg-white text-indigo-700 rounded-full text-[9px] font-semibold flex items-center justify-center">{activeFilters}</span>}
           </button>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
             className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 font-semibold outline-none focus:border-indigo-400 cursor-pointer">
@@ -1874,7 +1834,7 @@ export default function BabyeyiList({ session }) {
         {showFilters && (
           <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{T.filters}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">{T.filters}</p>
               {activeFilters > 0 && (
                 <button onClick={() => setFilters({ status: "", level: "", term: "", year: "" })} className="text-xs text-red-500 font-bold flex items-center gap-1">
                   <Ic n="x" s={11} c="#ef4444" /> {T.clearAll}
@@ -1889,7 +1849,7 @@ export default function BabyeyiList({ session }) {
                 { key: "year",   label: T.year,   opts: ["", "2025", "2026", "2024"],                                    labels: [T.allOption, "2025", "2026", "2024"] },
               ].map(f => (
                 <div key={f.key}>
-                  <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
+                  <label className="block text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1">{f.label}</label>
                   <select value={filters[f.key]} onChange={e => setFilters(p => ({ ...p, [f.key]: e.target.value }))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold outline-none focus:border-indigo-400">
                     {f.opts.map((o, i) => <option key={o} value={o}>{f.labels[i]}</option>)}
@@ -1914,8 +1874,8 @@ export default function BabyeyiList({ session }) {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
-            <div className="text-5xl mb-4 opacity-30">ðŸ“‹</div>
-            <p className="font-black text-slate-400 text-lg">{T.noRecords}</p>
+            <div className="text-5xl mb-4 opacity-30">📋</div>
+            <p className="font-semibold text-slate-400 text-lg">{T.noRecords}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -42,9 +42,11 @@ const nodemailer = require('nodemailer');
 
 // ── DB ────────────────────────────────────────────────────────
 const { promisePool: db } = require('../config/database');
+const { ensureSchoolsTable } = require('../utils/schoolsSchema');
 const { getDistrictCode, DISTRICTS_ALPHA, formatSchoolCode } = require('../utils/rwandaDistrictCodes');
 
 async function ensureSchoolsExtraColumns(conn) {
+  await ensureSchoolsTable();
   await conn.query('ALTER TABLE schools ADD COLUMN district_code VARCHAR(2) NULL').catch(() => {});
   await conn.query('ALTER TABLE schools ADD COLUMN a_level_combinations JSON NULL').catch(() => {});
   await conn.query('ALTER TABLE schools ADD COLUMN tvet_trades JSON NULL').catch(() => {});

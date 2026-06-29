@@ -109,6 +109,7 @@ export function getLegacyBabyeyiUI(lang) {
     save: t("list.save"),
     schoolLogoPlaceholder: t("list.schoolLogoPlaceholder"),
     lockedPdfWhatsapp: t("list.lockedPdfWhatsapp"),
+    lockedNesaApproval: t("list.lockedNesaApproval"),
     otherLogoGov: t("list.otherLogoGov"),
     qrPending: t("list.qrPending"),
     totalFeeLabel: t("list.totalFeeLabel"),

@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import QRCode from 'qrcode'
 import {
   Shirt, Users, ChevronRight, ChevronLeft, Search, CheckSquare, Square,
-  Plus, AlertCircle, Loader2, X, Eye, Printer, QrCode, Calendar,
-  Package, DollarSign, BadgeCheck, List, Pencil, Trash2, FileSpreadsheet, Download,
-  Filter, GraduationCap, RefreshCw, Sparkles,
+  Plus, AlertCircle, Loader2, X, Eye, QrCode, Calendar,
+  Package, DollarSign, BadgeCheck, List, Pencil, Trash2,
+  Filter, GraduationCap, Sparkles,
 } from 'lucide-react'
 import {
   ModalField,
@@ -37,7 +37,22 @@ import {
   findRecentIssueForClass,
   formatRwf,
 } from '../../services/uniformIssueService'
-import { exportUniformIssuesListExcel, exportUniformIssueDetailExcel } from '../../utils/uniformIssuesListExport'
+import {
+  exportUniformIssuesListExcel,
+  exportUniformIssueDetailExcel,
+  exportUniformIssueDetailPdf,
+} from '../../utils/uniformIssuesListExport'
+import { buildIssueSlotMatrix, slotColumnHeaderLabel, formatMatrixQty, formatMatrixAmount } from '../../utils/uniformIssueSlotGroups'
+import StoreExportBar from '../StoreExportBar'
+import SlotGroupedDistribution from './SlotGroupedDistribution'
+import {
+  UniformKpiCard,
+  UniformKpiGrid,
+  UniformSection,
+  UniformTable,
+  UniformTableRow,
+  UniformTableCell,
+} from './UniformInventoryUi'
 
 const STEPS = [
   { id: 1, label: 'Academic info' },
@@ -84,6 +99,7 @@ export default function UniformIssuePanel() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(true)
+  const [exportingDetail, setExportingDetail] = useState(false)
 
   const [academicYear, setAcademicYear] = useState('')
   const [term, setTerm] = useState('')
@@ -347,7 +363,27 @@ export default function UniformIssuePanel() {
       academic_year: listFilterYear,
       class_name: listFilterClass,
       student_q: listFilterStudent.trim(),
-    })
+    }).catch(() => {})
+  }
+
+  const handleExportDetailExcel = async (issueDetail) => {
+    if (!issueDetail) return
+    setExportingDetail(true)
+    try {
+      await exportUniformIssueDetailExcel(issueDetail)
+    } finally {
+      setExportingDetail(false)
+    }
+  }
+
+  const handleExportDetailPdf = async (issueDetail) => {
+    if (!issueDetail) return
+    setExportingDetail(true)
+    try {
+      await exportUniformIssueDetailPdf(issueDetail)
+    } finally {
+      setExportingDetail(false)
+    }
   }
 
   useEffect(() => {
@@ -501,55 +537,65 @@ export default function UniformIssuePanel() {
     return Number.isInteger(q) ? String(q) : q.toFixed(2)
   }
 
-  const studentQtyForItem = (student, itemName) => {
-    const target = String(itemName || '').trim().toLowerCase()
-    if (!target) return 0
-    const slots = student.slots || []
-    if (slots.length) {
-      return slots
-        .filter((sl) => {
-          const label = String(sl.label_name || sl.slot_name || '').trim().toLowerCase()
-          return label === target
-        })
-        .reduce((sum, sl) => sum + (Number(sl.quantity) || 0), 0)
-    }
-    return 0
-  }
-
   const printDistributionSheet = () => {
     const w = window.open('', '_blank')
     if (!w || !detail) return
-    const rows = detail.students || []
+    const { columns, students, grandTotalQty, grandTotalAmount } = buildIssueSlotMatrix(detail)
     const items = detail.lines || []
-    const head = items.map((l) => `<th>${escapeHtml(l.item_name)}</th>`).join('')
-    const body = rows
-      .map((s) => {
-        const cells = items
-          .map((l) => {
-            const q = studentQtyForItem(s, l.item_name)
-            const display = q > 0 ? String(q) : '—'
-            return `<td style="text-align:center;font-weight:600">${display}</td>`
-          })
-          .join('')
-        return `<tr><td>${escapeHtml(s.student_name)}</td><td>${escapeHtml(s.student_uid)}</td>${cells}<td></td></tr>`
-      })
-      .join('')
+
+    const slotHead1 = columns.map((c) => `<th colspan="2">${escapeHtml(slotColumnHeaderLabel(c))}</th>`).join('')
+    const slotHead2 = columns.map(() => '<th>Qty</th><th>Amount</th>').join('')
     const summaryRows = items
       .map(
         (l) =>
-          `<tr><td><strong>${escapeHtml(l.item_name)}</strong></td><td colspan="2" style="text-align:center">${qtyPerStudentForLine(l)} / student</td><td style="text-align:center">${Number(l.total_qty) || 0}</td><td></td></tr>`
+          `<tr><td><strong>${escapeHtml(l.item_name)}</strong></td><td style="text-align:center">${qtyPerStudentForLine(l)}</td><td style="text-align:center">${Number(l.total_qty) || 0}</td><td style="text-align:right">${formatRwf(l.unit_price)}</td><td style="text-align:right;font-weight:700">${formatRwf(l.line_total)}</td></tr>`
       )
       .join('')
+
+    const body = students
+      .map((st) => {
+        const slotCells = columns
+          .map((col) => {
+            const cell = st.cells[col.key]
+            const qty = cell ? Number(cell.qty) || 0 : 0
+            const amt = cell ? Number(cell.amount) || 0 : 0
+            return `<td style="text-align:right">${formatMatrixQty(qty)}</td><td style="text-align:right">${formatMatrixAmount(amt)}</td>`
+          })
+          .join('')
+        return `<tr><td>${escapeHtml(st.code)}</td><td>${escapeHtml(st.name)}</td>${slotCells}<td style="text-align:right;font-weight:600;color:#b45309">${formatMatrixQty(st.rowTotalQty)}</td><td style="text-align:right;font-weight:700">${formatMatrixAmount(st.rowTotalAmount)}</td></tr>`
+      })
+      .join('')
+
+    const colTotals = columns
+      .map((col) => `<td style="text-align:right;font-weight:700;color:#b45309">${formatMatrixQty(col.totalQty)}</td><td style="text-align:right;font-weight:700">${formatMatrixAmount(col.totalAmount)}</td>`)
+      .join('')
+
     w.document.write(`
       <html><head><title>Distribution ${escapeHtml(detail.issue_no)}</title>
-      <style>body{font-family:sans-serif;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:12px}th{background:#f5f5f5}</style>
+      <style>
+        body{font-family:Montserrat,sans-serif;padding:24px;color:#000435}
+        h2{margin:0 0 4px} p.sub{color:#64748b;font-size:12px;margin:0 0 20px}
+        table{border-collapse:collapse;width:100%;margin-bottom:24px;font-size:11px}
+        th,td{border:1px solid #e2e8f0;padding:7px 10px}
+        th{background:#000435;color:#FEBF10;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+        tr:nth-child(even) td{background:#f8fafc}
+        .totals td{background:#fffbeb;font-weight:700}
+      </style>
       </head><body>
       <h2>Uniform Distribution — ${escapeHtml(detail.issue_no)}</h2>
-      <p>${escapeHtml(detail.class_name)} · ${escapeHtml(detail.academic_year)} · ${escapeHtml(detail.term)} · ${detail.students_count || rows.length} students</p>
-      <h3 style="font-size:14px;margin-top:20px">Summary</h3>
-      <table style="margin-bottom:24px"><thead><tr><th>Item</th><th colspan="2">Qty / student</th><th>Total qty</th><th></th></tr></thead><tbody>${summaryRows}</tbody></table>
-      <h3 style="font-size:14px">Per student</h3>
-      <table><thead><tr><th>Student</th><th>ID</th>${head}<th>Signature</th></tr></thead><tbody>${body}</tbody></table>
+      <p class="sub">${escapeHtml(detail.class_name)} · ${escapeHtml(detail.academic_year)} · ${escapeHtml(detail.term)} · ${detail.students_count || students.length} students</p>
+      <h3 style="font-size:13px;margin:0 0 8px">Summary</h3>
+      <table><thead><tr><th>Item</th><th>Qty / student</th><th>Total qty</th><th>Unit price</th><th>Line total</th></tr></thead><tbody>${summaryRows}</tbody></table>
+      <h3 style="font-size:13px;margin:0 0 8px">Student distribution</h3>
+      <table>
+        <thead>
+          <tr><th rowspan="2">Code</th><th rowspan="2">Student name</th>${slotHead1}<th colspan="2">Row total</th></tr>
+          <tr>${slotHead2}<th>Qty</th><th>Amount</th></tr>
+        </thead>
+        <tbody>${body}
+          <tr class="totals"><td colspan="2">Column totals</td>${colTotals}<td style="text-align:right;color:#b45309">${formatMatrixQty(grandTotalQty)}</td><td style="text-align:right">${formatMatrixAmount(grandTotalAmount)}</td></tr>
+        </tbody>
+      </table>
       </body></html>`)
     w.document.close()
     w.focus()
@@ -557,102 +603,82 @@ export default function UniformIssuePanel() {
   }
 
   if (view === 'detail' && detail) {
+    const studentsCount = Number(detail.students_count) || (detail.students || []).length || 0
     return (
       <div className="space-y-4">
-        <button type="button" onClick={() => { setView('list'); setDetail(null) }} className="text-xs font-bold text-amber-600 uppercase tracking-wider">
+        <button
+          type="button"
+          onClick={() => { setView('list'); setDetail(null) }}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 uppercase tracking-wider hover:text-amber-700 transition"
+        >
           ← Back to issues
         </button>
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <div className="flex flex-wrap justify-between gap-4 mb-6">
+
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#000435] via-[#0d1654] to-[#1a2876] text-white shadow-lg">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-[#FEBF10]/10 rounded-full blur-3xl" />
+          <div className="relative px-5 py-5 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-[#000435]">Issue {detail.issue_no}</h2>
-              <p className="text-xs text-gray-500 mt-1">
-                {detail.academic_year} · {detail.term} · Class {detail.class_name} · {detail.students_count} students
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#FEBF10]/90">Uniform issue</p>
+              <h2 className="text-xl font-bold mt-1">{detail.issue_no}</h2>
+              <p className="text-xs text-white/70 mt-1.5">
+                Class {detail.class_name} · {detail.academic_year} · {detail.term}
               </p>
-              <p className="text-xs text-gray-400 mt-1">Issued by: {detail.issued_by_name || '—'}</p>
+              <p className="text-[11px] text-white/50 mt-1">Issued by {detail.issued_by_name || '—'}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => startEditIssue({ id: detail.id, issue_no: detail.issue_no, academic_year: detail.academic_year, term: detail.term, class_name: detail.class_name })}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs font-bold uppercase tracking-wider"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/20 bg-white/10 text-white text-[10px] font-bold uppercase tracking-wider hover:bg-white/15 transition"
               >
                 <Pencil size={14} /> Edit
               </button>
-              <button
-                type="button"
-                onClick={() => exportUniformIssueDetailExcel(detail)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs font-bold uppercase tracking-wider hover:bg-emerald-100"
-              >
-                <Download size={14} /> Export Excel
-              </button>
-              <button type="button" onClick={printDistributionSheet} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider">
-                <Printer size={14} /> Print sheet
-              </button>
+              <StoreExportBar
+                variant="hero"
+                loading={exportingDetail}
+                disabled={exportingDetail}
+                onExportExcel={() => handleExportDetailExcel(detail)}
+                onExportPdf={() => handleExportDetailPdf(detail)}
+                onPrint={printDistributionSheet}
+              />
             </div>
           </div>
-          <h3 className="text-sm font-bold text-[#000435] mb-3">Distribution items</h3>
-          <div className="overflow-x-auto rounded-xl border border-gray-100 mb-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-[10px] font-bold uppercase text-gray-400">
-                  <th className="text-left p-3">Item</th>
-                  <th className="text-left p-3">Qty / student</th>
-                  <th className="text-left p-3">Total qty</th>
-                  <th className="text-left p-3">Unit price</th>
-                  <th className="text-left p-3">Line total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(detail.lines || []).map((l) => (
-                  <tr key={l.id} className="border-t border-gray-50">
-                    <td className="p-3 font-bold text-[#000435]">{l.item_name}</td>
-                    <td className="p-3">{qtyPerStudentForLine(l)}</td>
-                    <td className="p-3">{l.total_qty}</td>
-                    <td className="p-3">{formatRwf(l.unit_price)}</td>
-                    <td className="p-3 font-bold">{formatRwf(l.line_total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-sm font-bold text-[#000435] mb-6">Total: {formatRwf(detail.total_amount)}</p>
-          {(detail.students || []).some((s) => s.slots?.length) && (
-            <>
-              <h3 className="text-sm font-bold text-[#000435] mb-3">Per-student slots</h3>
-              <div className="overflow-x-auto rounded-xl border border-gray-100 max-h-80 overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-gray-50 text-[10px] font-bold uppercase text-gray-400">
-                      <th className="text-left p-2">Code</th>
-                      <th className="text-left p-2">Name</th>
-                      <th className="text-left p-2">Slots</th>
-                      <th className="text-right p-2">Qty</th>
-                      <th className="text-right p-2">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detail.students.map((st) => (
-                      <tr key={st.student_id} className="border-t border-gray-50">
-                        <td className="p-2 font-mono">{st.student_uid}</td>
-                        <td className="p-2 font-bold">{st.student_name}</td>
-                        <td className="p-2">
-                          {(st.slots || []).map((sl) => (
-                            <span key={sl.id} className="inline-block mr-2 mb-1 px-2 py-0.5 bg-blue-50 rounded text-blue-800">
-                              {sl.slot_name ? `${sl.slot_name}: ` : ''}{sl.label_name} ×{sl.quantity}
-                            </span>
-                          ))}
-                        </td>
-                        <td className="p-2 text-right">{st.total_qty}</td>
-                        <td className="p-2 text-right font-bold">{formatRwf(st.total_amount)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
         </div>
+
+        <UniformKpiGrid cols="sm:grid-cols-2 lg:grid-cols-4">
+          <UniformKpiCard label="Students" value={studentsCount} icon={Users} accent="blue" />
+          <UniformKpiCard label="Items" value={(detail.lines || []).length} icon={Package} accent="amber" />
+          <UniformKpiCard label="Total pieces" value={Number(detail.total_pieces) || 0} icon={Shirt} accent="purple" />
+          <UniformKpiCard label="Total amount" value={formatRwf(detail.total_amount)} icon={DollarSign} accent="green" />
+        </UniformKpiGrid>
+
+        <UniformSection title="Distribution summary" subtitle="Items issued to this class" icon={Package} bodyClassName="p-0">
+          <UniformTable
+            headers={['Item', 'Qty / student', 'Total qty', 'Unit price', 'Line total']}
+            minWidth="560px"
+            className="border-0 shadow-none rounded-none"
+          >
+            {(detail.lines || []).map((l, i) => (
+              <UniformTableRow key={l.id} index={i}>
+                <UniformTableCell className="font-bold text-[#000435]">{l.item_name}</UniformTableCell>
+                <UniformTableCell>{qtyPerStudentForLine(l)}</UniformTableCell>
+                <UniformTableCell>{l.total_qty}</UniformTableCell>
+                <UniformTableCell>{formatRwf(l.unit_price)}</UniformTableCell>
+                <UniformTableCell className="font-bold text-[#000435]">{formatRwf(l.line_total)}</UniformTableCell>
+              </UniformTableRow>
+            ))}
+            <UniformTableRow className="bg-amber-50/40">
+              <td colSpan={4} className="py-3 px-4 text-xs font-bold text-[#000435] uppercase text-[10px] tracking-wider">
+                Issue total
+              </td>
+              <td className="py-3 px-4 text-xs text-right font-bold text-amber-700">{formatRwf(detail.total_amount)}</td>
+            </UniformTableRow>
+          </UniformTable>
+        </UniformSection>
+
+        {(detail.students || []).some((s) => s.slots?.length) && (
+          <SlotGroupedDistribution key={detail.id} detail={detail} />
+        )}
       </div>
     )
   }
@@ -682,13 +708,12 @@ export default function UniformIssuePanel() {
             />
             {!loading && editIssueDetail && selectedStudents.length > 0 && (
               <div className="px-5 sm:px-6 pb-2 flex justify-end shrink-0">
-                <button
-                  type="button"
-                  onClick={() => exportUniformIssueDetailExcel(editIssueDetail)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100"
-                >
-                  <Download size={12} /> Export Excel
-                </button>
+                <StoreExportBar
+                  loading={exportingDetail}
+                  disabled={exportingDetail}
+                  onExportExcel={() => handleExportDetailExcel(editIssueDetail)}
+                  onExportPdf={() => handleExportDetailPdf(editIssueDetail)}
+                />
               </div>
             )}
             {error && (
@@ -1012,17 +1037,38 @@ export default function UniformIssuePanel() {
           <Plus size={14} /> New issue
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Issues', value: listSummary.count },
-          { label: 'Students', value: listSummary.students.toLocaleString() },
-          { label: 'Total value', value: formatAmount(listSummary.amount) },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{stat.label}</p>
-            <p className="text-2xl font-bold mt-2 text-[#000435]">{stat.value}</p>
-          </div>
-        ))}
+      <UniformKpiGrid cols="sm:grid-cols-3">
+        <UniformKpiCard label="Issues" value={listSummary.count} icon={List} accent="blue" />
+        <UniformKpiCard label="Students" value={listSummary.students.toLocaleString()} icon={Users} accent="amber" />
+        <UniformKpiCard label="Total value" value={formatAmount(listSummary.amount)} icon={DollarSign} accent="green" />
+      </UniformKpiGrid>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-md">
+          <Search size={15} className="text-gray-300 shrink-0" />
+          <input
+            type="search"
+            value={listFilterStudent}
+            onChange={(e) => setListFilterStudent(e.target.value)}
+            placeholder="Filter issues by student name or code…"
+            className="flex-1 text-sm outline-none bg-transparent text-[#000435] placeholder:text-gray-400 min-w-0"
+          />
+          {listFilterStudent && (
+            <button
+              type="button"
+              onClick={() => setListFilterStudent('')}
+              className="text-gray-300 hover:text-gray-500 shrink-0"
+              title="Clear student filter"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+        {listFilterStudent.trim() && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg">
+            Student filter active
+          </span>
+        )}
       </div>
 
       {error && view === 'list' && (
@@ -1032,18 +1078,20 @@ export default function UniformIssuePanel() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setFiltersOpen((o) => !o)}
-          className="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-50 hover:bg-gray-50/50 transition"
-        >
-          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#000435]">
-            <Filter size={14} className="text-amber-500" />
-            Filters & export
-          </span>
-          <span className="text-[10px] font-bold text-gray-400">{filtersOpen ? 'Hide' : 'Show'}</span>
-        </button>
+      <UniformSection
+        title="Filters & export"
+        icon={Filter}
+        action={
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            className="text-[10px] font-bold uppercase text-gray-400 hover:text-[#000435] transition"
+          >
+            {filtersOpen ? 'Hide' : 'Show'}
+          </button>
+        }
+        bodyClassName="p-0"
+      >
         <AnimatePresence initial={false}>
           {filtersOpen && (
             <motion.div
@@ -1110,15 +1158,12 @@ export default function UniformIssuePanel() {
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => loadIssues()}
-                    disabled={listLoading}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-bold uppercase text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {listLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    Refresh
-                  </button>
+                  <StoreExportBar
+                    onRefresh={() => loadIssues()}
+                    onExportExcel={handleExportList}
+                    loading={listLoading}
+                    disabled={!issues.length && !listLoading}
+                  />
                   <button
                     type="button"
                     onClick={clearListFilters}
@@ -1126,21 +1171,12 @@ export default function UniformIssuePanel() {
                   >
                     Clear filters
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleExportList}
-                    disabled={!issues.length}
-                    className="inline-flex items-center gap-1.5 ml-auto px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase hover:bg-emerald-100 disabled:opacity-40 transition"
-                  >
-                    <FileSpreadsheet size={14} />
-                    Export Excel
-                  </button>
                 </div>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </UniformSection>
 
       {listLoading && !issues.length ? (
         <div className="flex justify-center py-16 text-gray-400">
@@ -1155,77 +1191,67 @@ export default function UniformIssuePanel() {
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <table className="w-full text-sm min-w-[640px]">
-            <thead>
-              <tr className="bg-gradient-to-r from-gray-50 to-amber-50/30 text-[10px] font-bold uppercase text-gray-400 tracking-wider">
-                <th className="text-left p-3 pl-4">Issue no</th>
-                <th className="text-left p-3">Class</th>
-                <th className="text-left p-3">Year / Term</th>
-                <th className="text-center p-3">Students</th>
-                <th className="text-right p-3">Amount</th>
-                <th className="text-right p-3 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {issues.map((row, idx) => (
-                <tr
-                  key={row.id}
-                  className={`border-t border-gray-50 transition hover:bg-amber-50/40 ${idx % 2 === 1 ? 'bg-gray-50/30' : ''}`}
-                >
-                  <td className="p-3 pl-4">
-                    <span className="font-bold text-[#000435]">{row.issue_no}</span>
-                    {row.created_at && (
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        {new Date(row.created_at).toLocaleDateString()}
-                      </p>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <span className="inline-flex px-2 py-0.5 rounded-lg bg-[#000435]/5 text-xs font-bold text-[#000435]">
-                      {row.class_name}
-                    </span>
-                  </td>
-                  <td className="p-3 text-gray-500 text-xs">
-                    <span className="font-medium text-gray-700">{row.academic_year}</span>
-                    <span className="text-gray-300 mx-1">·</span>
-                    {row.term}
-                  </td>
-                  <td className="p-3 text-center font-semibold text-[#000435]">{row.students_count}</td>
-                  <td className="p-3 text-right font-bold text-[#000435]">{formatAmount(row.total_amount)}</td>
-                  <td className="p-3 pr-4">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        title="View"
-                        onClick={() => openDetail(row.id)}
-                        className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition"
-                      >
-                        <Eye size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Edit"
-                        onClick={() => startEditIssue(row)}
-                        className="p-2 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-700 transition"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        title="Delete"
-                        onClick={() => setDeleteTarget(row)}
-                        className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <UniformTable
+          headers={['Issue no', 'Class', 'Year / Term', { key: 'students', label: 'Students', align: 'center' }, { key: 'amount', label: 'Amount', align: 'right' }, { key: 'actions', label: 'Actions', align: 'right' }]}
+          minWidth="640px"
+        >
+          {issues.map((row, idx) => (
+            <UniformTableRow key={row.id} index={idx}>
+              <UniformTableCell className="font-bold text-[#000435]">
+                {row.issue_no}
+                {row.created_at && (
+                  <p className="text-[10px] text-gray-400 mt-0.5 font-normal">
+                    {new Date(row.created_at).toLocaleDateString()}
+                  </p>
+                )}
+              </UniformTableCell>
+              <UniformTableCell>
+                <span className="inline-flex px-2 py-0.5 rounded-lg bg-[#000435]/5 text-xs font-bold text-[#000435]">
+                  {row.class_name}
+                </span>
+              </UniformTableCell>
+              <UniformTableCell className="text-gray-500">
+                <span className="font-medium text-gray-700">{row.academic_year}</span>
+                <span className="text-gray-300 mx-1">·</span>
+                {row.term}
+              </UniformTableCell>
+              <UniformTableCell align="center" className="font-semibold text-[#000435]">
+                {row.students_count}
+              </UniformTableCell>
+              <UniformTableCell align="right" className="font-bold text-[#000435]">
+                {formatAmount(row.total_amount)}
+              </UniformTableCell>
+              <UniformTableCell align="right">
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    title="View"
+                    onClick={() => openDetail(row.id)}
+                    className="p-2 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition"
+                  >
+                    <Eye size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Edit"
+                    onClick={() => startEditIssue(row)}
+                    className="p-2 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-700 transition"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Delete"
+                    onClick={() => setDeleteTarget(row)}
+                    className="p-2 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </UniformTableCell>
+            </UniformTableRow>
+          ))}
+        </UniformTable>
       )}
 
       <AnimatePresence>

@@ -1,9 +1,17 @@
 import * as XLSX from 'xlsx'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import {
+  pdfHeader,
+  pdfTable,
+  savePdf,
+  stamp,
+} from './storeReportExportCommon'
+import { mergeSchoolPdfMeta } from './schoolPdfBranding'
 
-function stamp() {
-  return new Date().toISOString().slice(0, 10)
+async function pdfHeaderWithSchool(doc, title, subtitle = '', landscape = false) {
+  const branding = await mergeSchoolPdfMeta()
+  return pdfHeader(doc, title, subtitle, landscape, branding)
 }
 
 function metaRows(title, extra = []) {
@@ -85,19 +93,13 @@ export function exportFabricPlannerPlanDetailExcel(plan) {
   downloadWorkbook(wb, `${plan.planNo || 'plan'}-${stamp()}.xlsx`)
 }
 
-export function exportFabricPlannerPlansPdf(plans, academicYear = '') {
+export async function exportFabricPlannerPlansPdf(plans, academicYear = '') {
   const doc = new jsPDF({ orientation: 'landscape' })
-  doc.setFillColor(0, 4, 53)
-  doc.rect(0, 0, 297, 28, 'F')
-  doc.setTextColor(254, 191, 16)
-  doc.setFontSize(14)
-  doc.text('Uniform Fabric Planner — Production Plans', 14, 12)
-  doc.setFontSize(9)
-  doc.setTextColor(255, 255, 255)
-  doc.text(`Exported ${new Date().toLocaleString()}${academicYear ? ` · ${academicYear}` : ''}`, 14, 20)
+  const sub = academicYear ? `Academic year ${academicYear}` : ''
+  const y = await pdfHeaderWithSchool(doc, 'Uniform Fabric Planner — Production Plans', sub, true)
 
-  autoTable(doc, {
-    startY: 34,
+  pdfTable(doc, autoTable, {
+    startY: y + 2,
     head: [['Plan', 'Year', 'Fabric', 'Students', 'Required', 'Reserved', 'Status', 'Created']],
     body: (plans || []).map((p) => [
       p.planNo || '',
@@ -109,26 +111,17 @@ export function exportFabricPlannerPlansPdf(plans, academicYear = '') {
       p.status || '',
       p.createdAt ? String(p.createdAt).slice(0, 10) : '',
     ]),
-    styles: { fontSize: 8, textColor: [0, 4, 53] },
-    headStyles: { fillColor: [0, 4, 53], textColor: [254, 191, 16] },
-    alternateRowStyles: { fillColor: [255, 251, 235] },
   })
-  doc.save(`fabric-planner-plans-${stamp()}.pdf`)
+
+  savePdf(doc, `fabric-planner-plans-${stamp()}.pdf`)
 }
 
-export function exportFabricPlannerPlanDetailPdf(plan) {
+export async function exportFabricPlannerPlanDetailPdf(plan) {
   if (!plan) return
   const doc = new jsPDF()
-  doc.setFillColor(0, 4, 53)
-  doc.rect(0, 0, 210, 32, 'F')
-  doc.setTextColor(254, 191, 16)
-  doc.setFontSize(16)
-  doc.text(plan.planNo || 'Production Plan', 14, 14)
-  doc.setFontSize(9)
-  doc.setTextColor(255, 255, 255)
-  doc.text(`${plan.fabricRollName || plan.fabricType || ''} · ${plan.status || ''}`, 14, 22)
+  const y = await pdfHeaderWithSchool(doc, plan.planNo || 'Production Plan', `${plan.fabricRollName || plan.fabricType || ''} · ${plan.status || ''}`)
 
-  let y = 40
+  let bodyY = y + 2
   const lines = [
     ['Academic year', plan.academicYear],
     ['Term', plan.term || '—'],
@@ -141,20 +134,19 @@ export function exportFabricPlannerPlanDetailPdf(plan) {
   doc.setTextColor(0, 4, 53)
   doc.setFontSize(10)
   lines.forEach(([k, v]) => {
-    doc.setFont(undefined, 'bold')
-    doc.text(`${k}:`, 14, y)
-    doc.setFont(undefined, 'normal')
-    doc.text(String(v), 60, y)
-    y += 7
+    doc.setFont('helvetica', 'bold')
+    doc.text(`${k}:`, 14, bodyY)
+    doc.setFont('helvetica', 'normal')
+    doc.text(String(v), 60, bodyY)
+    bodyY += 7
   })
 
-  autoTable(doc, {
-    startY: y + 4,
+  pdfTable(doc, autoTable, {
+    startY: bodyY + 4,
     head: [['Uniform', 'Qty', 'M/child']],
     body: (plan.items || []).map((it) => [it.name, String(it.quantity), `${it.metersPerChild}m`]),
-    styles: { fontSize: 9, textColor: [0, 4, 53] },
     headStyles: { fillColor: [254, 191, 16], textColor: [0, 4, 53] },
   })
 
-  doc.save(`${plan.planNo || 'plan'}-${stamp()}.pdf`)
+  savePdf(doc, `${plan.planNo || 'plan'}-${stamp()}.pdf`)
 }

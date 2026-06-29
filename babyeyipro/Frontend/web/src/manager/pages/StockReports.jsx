@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
+import {
   Package, TrendingUp, TrendingDown, AlertTriangle, XCircle, Clock,
   Wrench, ShoppingCart, BarChart2,   ArrowDownCircle, ArrowUpCircle, ArrowDownUp,
   RefreshCw, Building2, DollarSign, ShieldCheck, CheckCircle2,
@@ -30,6 +33,33 @@ const NAV_TABS = [
   { id: "lowstock",    label: "Low Stock",      Icon: AlertTriangle },
   { id: "inventory",   label: "All Items",      Icon: Package },
 ];
+
+function exportCSV(headers, rows, filename) {
+  const csv = [headers.join(","), ...rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function StockChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-lg px-3 py-2 text-xs">
+      <p className="font-bold text-slate-700 mb-1">{label}</p>
+      {payload.map((p) => (
+        <p key={p.dataKey} className="text-slate-600">
+          {p.name}: {fmtQty(p.value)}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 function fmtQty(n) { return Number(n || 0).toLocaleString(); }
 function fmtDate(v) {
@@ -184,7 +214,6 @@ export default function StockReports() {
     return Object.values(buckets).sort((a,b) => a.ts - b.ts).slice(-6);
   }, [movements]);
 
-  const barMax = useMemo(() => Math.max(...monthlyData.flatMap(d => [d.in, d.out]), 1), [monthlyData]);
 
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
@@ -299,6 +328,52 @@ export default function StockReports() {
       ? `Real-time inventory tracking & movements · ${[storeMeta.term, storeMeta.academic_year].filter(Boolean).join(' · ')} (same data as School Store)`
       : 'Real-time inventory tracking & movements';
 
+  const handleExportTab = () => {
+    const date = new Date().toISOString().slice(0, 10);
+    if (tab === 'inventory') {
+      exportCSV(
+        ['Item', 'Category', 'Term', 'Year', 'Unit', 'Qty', 'Reorder', 'Status'],
+        filteredItems.map((i) => [
+          i.item_name, i.category, i.term, i.academic_year, i.unit,
+          i.current_qty, i.reorder_level,
+          Number(i.current_qty) === 0 ? 'Out' : Number(i.reorder_level) > 0 && Number(i.current_qty) <= Number(i.reorder_level) ? 'Low' : 'OK',
+        ]),
+        `stock-inventory-${date}.csv`
+      );
+      return;
+    }
+    const movementRows = tab === 'stockin' ? filteredIn
+      : tab === 'stockout' ? filteredOut
+        : tab === 'returned' ? filteredReturned
+          : tab === 'adjusted' ? filteredAdjusted
+            : tab === 'allmove' ? filteredAllMovements
+              : [];
+    if (movementRows.length) {
+      exportCSV(
+        ['Date', 'Item', 'Type', 'Supplier', 'Category', 'Qty', 'Unit cost', 'Note'],
+        movementRows.map((m) => [
+          fmtDate(m.movement_date || m.created_at), m.item_name, m.type_label,
+          m.supplier_name || '', m.category, Math.abs(m.quantity_change), m.unit_cost ?? '', m.reason || '',
+        ]),
+        `stock-movements-${tab}-${date}.csv`
+      );
+      return;
+    }
+    if (tab === 'lowstock') {
+      const alertItems = [...outOfStock, ...lowStock.filter((i) => Number(i.current_qty) > 0)];
+      exportCSV(
+        ['Item', 'Category', 'Current', 'Min', 'Status'],
+        alertItems.map((i) => [
+          i.item_name, i.category, i.current_qty, i.reorder_level,
+          Number(i.current_qty) === 0 ? 'Out of stock' : 'Low stock',
+        ]),
+        `stock-alerts-${date}.csv`
+      );
+    }
+  };
+
+  const monthlyChartData = monthlyData.map((d) => ({ month: d.m, in: d.in, out: d.out }));
+
   return (
     <div style={{ fontFamily:"'Montserrat',sans-serif", color:"#0f172a" }}>
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -310,14 +385,25 @@ export default function StockReports() {
         subtitle={stockHeroSubtitle}
         HeroIcon={Package}
         headerRight={(
-          <button
-            type="button"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/25 bg-white/10 text-white text-[10px] font-semibold uppercase tracking-widest hover:bg-white/15 transition-colors"
-          >
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportTab}
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/25 bg-white/10 text-white text-[10px] font-semibold uppercase tracking-widest hover:bg-white/15 transition-colors disabled:opacity-50"
+            >
+              <Download size={12} />
+              Export
+            </button>
+            <button
+              type="button"
+              onClick={() => setRefreshKey((k) => k + 1)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/25 bg-white/10 text-white text-[10px] font-semibold uppercase tracking-widest hover:bg-white/15 transition-colors"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         )}
         kpiTiles={summaryCards.map((c) => ({
           key: c.label,
@@ -370,23 +456,19 @@ export default function StockReports() {
                 {monthlyData.length === 0 ? (
                   <div style={{ height:128, display:"flex", alignItems:"center", justifyContent:"center", color:"#cbd5e1", fontSize:12, fontWeight:700 }}>No movement data yet</div>
                 ) : (
-                  <>
-                    <div style={{ display:"flex", alignItems:"flex-end", gap:10, height:128 }}>
-                      {monthlyData.map((d, i) => (
-                        <div key={i} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                          <div style={{ display:"flex", gap:3, alignItems:"flex-end", height:106 }}>
-                            <div style={{ width:13, borderRadius:"4px 4px 0 0", background:ACCENT, height:`${(d.in/barMax)*106}px`, minHeight:4 }} />
-                            <div style={{ width:13, borderRadius:"4px 4px 0 0", background:GOLD, height:`${(d.out/barMax)*106}px`, minHeight:4 }} />
-                          </div>
-                          <div style={{ fontSize:9, fontWeight:700, color:"#cbd5e1" }}>{d.m}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display:"flex", gap:16, marginTop:12 }}>
-                      <span style={{ fontSize:11, fontWeight:600, color:"#64748b", display:"flex", alignItems:"center", gap:5 }}><span style={{ width:10, height:10, borderRadius:3, background:ACCENT, display:"inline-block" }} />In</span>
-                      <span style={{ fontSize:11, fontWeight:600, color:"#64748b", display:"flex", alignItems:"center", gap:5 }}><span style={{ width:10, height:10, borderRadius:3, background:GOLD, display:"inline-block" }} />Out</span>
-                    </div>
-                  </>
+                  <div style={{ height: 200 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthlyChartData} barGap={4}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fontWeight: 600, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} width={36} />
+                        <Tooltip content={<StockChartTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Bar dataKey="in" name="Stock in" fill={ACCENT} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="out" name="Stock out" fill={GOLD} radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 )}
               </div>
 

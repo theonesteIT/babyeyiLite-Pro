@@ -31,8 +31,12 @@ const { normalizeSchoolId, hasSchoolId } = require('./utils/normalizeSchoolId');
 const systemSettings = require('./utils/systemSettings');
 const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
 const { ensureCoreAuthSchema } = require('./utils/coreAuthSchema');
+const { ensureCoreRoles } = require('./utils/coreRolesSchema');
+const { ensureSchoolsTable } = require('./utils/schoolsSchema');
+const { ensureNesaBabyeyiSchema } = require('./utils/nesaBabyeyiSchema');
 const { ensureSchoolMiniWebsitesSchema } = require('./utils/schoolMiniWebsitesSchema');
 const { ensurePublicPaymentCommitmentsSchema } = require('./utils/publicPaymentCommitmentsSchema');
+const { ensureShuleAvanceOrgTables } = require('./BabyeyiRoutes/shuleAvanceOrgSchema');
 const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
 const chatModule = require('./BabyeyiRoutes/chatRoutes');
@@ -1022,7 +1026,6 @@ const representativesModule = require('./BabyeyiRoutes/representativesRoutes');
 app.use('/api/representatives', representativesModule.adminRouter);
 app.use('/api/representative', representativesModule.repRouter);
 console.log('  ✅  /api/representatives/*  |  /api/representative/*');
-representativesModule.ensureSchema().catch((e) => console.warn('[representatives] ensureSchema:', e.message));
 
 // IMPORTANT: momoRoutes must be mounted BEFORE publicBabyeyiPay calls it internally
 app.use('/api/momo', momoRoutes);
@@ -1126,9 +1129,41 @@ const startServer = async () => {
     await ensureFullSystemControllerRole();
     try {
       await ensureCoreAuthSchema();
-      console.log('  ✅  Core auth schema ready (users, staff)');
+      await ensureCoreRoles();
+      console.log('  ✅  Core auth schema ready (users, staff, roles)');
     } catch (schemaErr) {
       console.error('❌  Core auth schema init failed:', schemaErr.message);
+    }
+    try {
+      await representativesModule.ensureSchema();
+      console.log('  ✅  Representatives schema ready');
+    } catch (schemaErr) {
+      console.warn('⚠️  Representatives schema init:', schemaErr.message);
+    }
+    try {
+      await ensureSchoolsTable();
+      console.log('  ✅  Schools schema ready');
+    } catch (schemaErr) {
+      console.error('❌  Schools schema init failed:', schemaErr.message);
+    }
+    try {
+      await ensureShuleAvanceOrgTables();
+    } catch (schemaErr) {
+      console.warn('⚠️  Shule Avance org schema:', schemaErr.message);
+    }
+    try {
+      if (typeof babyeyiRoute.initBabyeyiMigrations === 'function') {
+        await babyeyiRoute.initBabyeyiMigrations();
+        console.log('  ✅  Babyeyi schema ready');
+      }
+    } catch (schemaErr) {
+      console.error('❌  Babyeyi schema init failed:', schemaErr.message);
+    }
+    try {
+      await ensureNesaBabyeyiSchema();
+      console.log('  ✅  NESA Babyeyi schema ready');
+    } catch (schemaErr) {
+      console.error('❌  NESA Babyeyi schema init failed:', schemaErr.message);
     }
     try {
       await ensureSchoolMiniWebsitesSchema();

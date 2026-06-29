@@ -213,7 +213,33 @@ const STATUS_CFG = {
 };
 
 const BLOCKED_STATUSES = new Set(["pending","draft","submitted"]);
-const isBlocked = (s) => BLOCKED_STATUSES.has(s);
+const isBlocked = (s) => BLOCKED_STATUSES.has(String(s || "").toLowerCase());
+
+function nesaRequestStatus(rec) {
+  return String(
+    rec?.increaseRequest?.nesaStatus ||
+    rec?.requestStatus ||
+    rec?.increase_request?.nesa_status ||
+    ""
+  ).toLowerCase();
+}
+
+/** True when total fee is above the stored NESA cap (API flag or live check). */
+function feeExceedsNesa(rec) {
+  if (rec?.exceedsLimit) return true;
+  const limit = Number(rec?.nesaLimit);
+  const fee = Number(rec?.totalFee);
+  return limit > 0 && fee > limit;
+}
+
+/** Lock PDF / WhatsApp until DEO + NESA approve when fee exceeds the national limit. */
+function isSharingLocked(rec) {
+  const status = String(rec?.status || "draft").toLowerCase();
+  if (feeExceedsNesa(rec)) {
+    return !(status === "approved" && nesaRequestStatus(rec) === "approved");
+  }
+  return isBlocked(status);
+}
 
 export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T: TOverride, parentMsgOverride }) {
   const T = TOverride || getLegacyBabyeyiUI(lang);
@@ -232,23 +258,23 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent`;
   const hdg = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${title}</span></div>`;
 
-  const parentSection = parentMsg ? `<div style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
+  const parentSection = parentMsg ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
   const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
-  const paySection = payments.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
+  const paySection = payments.length > 0 ? `<div data-babyeyi-pdf-section="fees" style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
   const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:40px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"—"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"—"}</td><td style="${tdS}">${bk.accountName||"—"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"✓":""}</td></tr>`).join("");
-  const banksSection = banks.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:40px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:70px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
+  const banksSection = banks.length > 0 ? `<div data-babyeyi-pdf-section="banking" style="margin-bottom:22px">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:40px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:70px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
   const reqRows = reqs.map((r,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${(r&&r.item)||r||""}</td><td style="${tdS}">${(r&&r.description)||""}</td><td style="${tdS};text-align:center">${(r&&r.quantity)||""}</td></tr>`).join("");
-  const reqSection = reqs.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th></tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
+  const reqSection = reqs.length > 0 ? `<div data-babyeyi-pdf-section="requirements" style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th></tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
   const otherRows = otherInfos.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||""}</td></tr>`).join("");
-  const otherSection = otherInfos.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
+  const otherSection = otherInfos.length > 0 ? `<div data-babyeyi-pdf-section="other" style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
   const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px;font-size:11px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"—"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"—"}</td><td style="${tdS};font-family:monospace;font-size:11px">${l.phone?`+250 ${l.phone}`:"—"}</td><td style="${tdS};font-size:11px;color:#2563eb">${l.email||"—"}</td></tr>`).join("");
-  const leadersSection = leaders.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
+  const leadersSection = leaders.length > 0 ? `<div data-babyeyi-pdf-section="leadership" style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
   const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
-  const notesSection = classNotes.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
+  const notesSection = classNotes.length > 0 ? `<div data-babyeyi-pdf-section="notes" style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>` : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>` : "";
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
-  return `<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div style="height:3px;background:#1e3a5f"></div><div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -282,27 +308,6 @@ async function patchRwContentI18n(babyeyiId, body) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) throw new Error(json.message || "Save failed");
   return json;
-}
-
-/** Fetch server-generated PDF (cookie auth) and trigger browser download. */
-async function downloadBabyeyiPdfFromServerPath(pdfPath, filename = "Babyeyi.pdf") {
-  if (!pdfPath || typeof pdfPath !== "string") return;
-  const url = toAssetUrl(pdfPath.replace(/\\/g, "/"));
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) throw new Error(`PDF HTTP ${res.status}`);
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const safeName = String(filename || "Babyeyi.pdf").replace(/[/\\?%*:|"<>]/g, "-");
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = safeName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
 }
 
 // ── Language switcher ─────────────────────────────────────────
@@ -644,18 +649,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
       else if (target.type === "classNote") {
         body = { classNotes: [{ index: target.index, item: v.item ?? "", details: v.details ?? "" }] };
       }       else if (target.type === "leader") body = { leaders: [{ index: target.index, role: v.role ?? "" }] };
-      const json = await patchRwContentI18n(recId, body);
-      const pdfPath = json?.data?.pdfPath;
-      // Do not auto-download server PDF after saving Requirements (user uses PDF button when needed).
-      if (pdfPath && target.type !== "requirement") {
-        try {
-          const fname = `Babyeyi-${docId || recId}-RW.pdf`;
-          await downloadBabyeyiPdfFromServerPath(pdfPath, fname);
-        } catch (dlErr) {
-          console.warn("[KinyarwandaSectionEditModal] PDF download:", dlErr);
-          alert(T.pdfSaveDownloadFailed || "Saved. The server PDF could not be downloaded — use the PDF button.");
-        }
-      }
+      await patchRwContentI18n(recId, body);
       await onSaved?.();
       onClose();
     } catch (e) {
@@ -850,7 +844,7 @@ function OfficialDoc({
   const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
   const stKeyDoc = String(rec.status || "draft").toLowerCase();
   const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: T[`status_${stKeyDoc}`] || getStatusLabelSafe(lang, rec.status) };
-  const blocked = isBlocked(rec.status);
+  const blocked = isSharingLocked(rec);
   const banks = docBody.banks;
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
   const classLabel = classesArr.filter(Boolean).join(", ");
@@ -1013,7 +1007,11 @@ function OfficialDoc({
         {blocked && (
           <div className="bg-amber-400/10 border-x border-amber-400/20 px-4 py-2 flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 shrink-0 text-amber-400" aria-hidden strokeWidth={2.5} />
-            <p className="text-amber-400 text-[10px] font-bold">{T.lockedPdfWhatsapp || "PDF and sharing locked until approved."}</p>
+            <p className="text-amber-400 text-[10px] font-bold">
+              {feeExceedsNesa(rec)
+                ? (T.lockedNesaApproval || "PDF and WhatsApp are locked until DEO and NESA approve the fee increase request.")
+                : (T.lockedPdfWhatsapp || "PDF and sharing locked until approved.")}
+            </p>
           </div>
         )}
         <div className="sm:hidden bg-[#000435] border-x border-white/10 px-4 py-2">
@@ -1033,10 +1031,10 @@ function OfficialDoc({
             </div>
           )}
           <div className="overflow-x-auto overscroll-x-contain">
-            <div style={{ minWidth: "760px" }}>
-              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            <div style={{ minWidth: "760px" }} id="babyeyi-pdf-doc">
+              <div data-babyeyi-pdf-topbar style={{ height: "3px", background: "#1e3a5f" }} />
           {/* Header */}
-          <div style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
+          <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {schoolLogoB64 ? <img src={schoolLogoB64} style={{ width: "110px", height: "110px", objectFit: "contain" }} alt="Logo" /> : <span style={{ fontSize: "8px", color: "#64748b", textAlign: "center", fontWeight: 700, padding: "4px" }}>{T.schoolLogoPlaceholder || "SCHOOL LOGO"}</span>}
@@ -1060,9 +1058,9 @@ function OfficialDoc({
           </div>
 
           {/* Body */}
-          <div style={{ padding: "20px 40px 28px" }}>
+          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px" }}>
             {(parentMsg || isRwLocale) && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="parent" style={DOC.section}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
                   <span style={DOC.heading}>{T.parentMessageHeading}</span>
                   {isRwLocale && (
@@ -1083,7 +1081,7 @@ function OfficialDoc({
               </div>
             )}
             {payments.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="fees" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secFee}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thPaymentItem}</Th><Th>{T.thAmount || "Amount"}</Th></tr></thead>
@@ -1107,7 +1105,7 @@ function OfficialDoc({
               </div>
             )}
             {banks.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="banking" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secBanking}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="40px" center>#</Th><Th>{T.thBank || "Bank"}</Th><Th>{T.thAccount || "Account"}</Th><Th>{T.thAccountName || "Name"}</Th><Th w="70px" center>{T.thPrimary || "Primary"}</Th></tr></thead>
@@ -1116,7 +1114,7 @@ function OfficialDoc({
               </div>
             )}
             {reqs.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="requirements" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secRequirements}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDescription || "Description"}</Th><Th w="80px" center>{T.thQuantity || "Qty"}</Th></tr></thead>
@@ -1140,7 +1138,7 @@ function OfficialDoc({
               </div>
             )}
             {otherInfos.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="other" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secOtherInfo}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDetails || "Details"}</Th></tr></thead>
@@ -1163,7 +1161,7 @@ function OfficialDoc({
               </div>
             )}
             {leaders.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="leadership" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secLeadership}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="36px" center>#</Th><Th>{T.thFullName || "Full Name"}</Th><Th>{T.thRole || "Role"}</Th><Th>{T.thPhone || "Phone"}</Th><Th>{T.thEmail || "Email"}</Th></tr></thead>
@@ -1188,7 +1186,7 @@ function OfficialDoc({
               </div>
             )}
             {classNotes.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="notes" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secClassNotes}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDetails || "Details"}</Th></tr></thead>
@@ -1248,6 +1246,11 @@ function OfficialDoc({
                   </div>
                   <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
                 </div>
+              </div>
+              <div style={{ borderTop: "1px solid #1e3a5f", padding: "8px 0", marginTop: "18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>{rec.schoolName || ""} · {rec.district || ""}</span>
+                <span style={{ fontSize: "11px", color: "#1e3a5f", fontWeight: 700, textTransform: "uppercase" }}>{T.docOfficial}</span>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>{T.docFooterLeft != null ? T.docFooterLeft : "Doc"} {rec.docId || ""} · {today}</span>
               </div>
             </div>
           </div>
@@ -1351,8 +1354,8 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
   const classes = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
   const fee = rec.totalFee ?? payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const over = rec.exceedsLimit ? fee - (rec.nesaLimit || 0) : 0;
-  const blocked = isBlocked(rec.status);
+  const over = feeExceedsNesa(rec) ? fee - (rec.nesaLimit || 0) : 0;
+  const blocked = isSharingLocked(rec);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-amber-300 transition-all hover:shadow-md" style={{ fontFamily: FONT }}>
@@ -1386,7 +1389,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
             <p className="text-[14px] font-semibold font-mono text-[#000435]">
               {fee.toLocaleString()} <span className="text-[10px]">RWF</span>
             </p>
-            {rec.exceedsLimit && <p className="text-[9px] text-amber-700 font-medium">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
+            {feeExceedsNesa(rec) && <p className="text-[9px] text-amber-700 font-medium">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
           </div>
           <div className="rounded-xl px-3 py-2.5 border bg-slate-50 border-slate-200">
             <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.bankShort || "Bank"}</p>
@@ -1449,7 +1452,11 @@ const mapRow = (row) => {
     pdfPath: row.pdf_url || row.pdf_path || null, signaturePath: null, stampPath: null,
     payments: paymentsArr, requirements: [], classNotes: [], otherInfos: [],
     leaders: Array.isArray(row.leaders) ? row.leaders : [], leadersCount: Array.isArray(row.leaders) ? row.leaders.length : 0,
-    increaseRequest: null, translationsJson: parseTranslationsJson(row.translations_json),
+    increaseRequest: row.request_status || row.request_id
+      ? { nesaStatus: row.request_status || null, requestId: row.request_id || null }
+      : null,
+    requestStatus: row.request_status || null,
+    translationsJson: parseTranslationsJson(row.translations_json),
   };
 };
 
@@ -1493,7 +1500,7 @@ async function loadFullRecord(sumRec, docLang = "en") {
       cost: r.cost != null && r.cost !== "" ? String(r.cost) : "",
     })),
     classNotes, otherInfos, leaders, leadersCount: leaders.length,
-    increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : null,
+    increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : sumRec.increaseRequest || null,
     signaturePath: norm(sig.director_sig_path) || null, stampPath: norm(sig.stamp_path) || null,
     schoolLogoPath: norm(sig.school_logo_path) || norm(sumRec.schoolLogoPath) || null,
     otherLogoPath: norm(sig.other_logo_path) || norm(sumRec.otherLogoPath) || null,
@@ -1503,6 +1510,10 @@ async function loadFullRecord(sumRec, docLang = "en") {
     docId: d.doc_id || sumRec.docId || null,
     integrityHash: d.integrity_hash != null ? String(d.integrity_hash) : sumRec.integrityHash || null,
     totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
+    status: d.status || sumRec.status || "draft",
+    nesaLimit: d.nesa_limit != null ? Number(d.nesa_limit) : sumRec.nesaLimit,
+    exceedsLimit: d.exceeds_limit != null ? !!d.exceeds_limit : sumRec.exceedsLimit,
+    requestStatus: d.increase_request?.nesa_status || sumRec.requestStatus || null,
     parentMessage: d.parent_message || sumRec.parentMessage || "",
     banksJson: d.banks_json || sumRec.banksJson || null,
     translationsJson: parseTranslationsJson(d.translations_json) ?? sumRec.translationsJson ?? null,
@@ -1578,7 +1589,15 @@ export default function BabyeyiList({ session }) {
   const handleSaved = (updatedRec) => { setRecords(r => r.map(x => x.id === updatedRec.id ? { ...x, ...updatedRec } : x)); showToast("Babyeyi updated!"); };
 
   const handleShare = async (sumRec) => {
-    if (isBlocked(sumRec.status)) { showToast("Sharing locked until approved.", "error"); return; }
+    if (isSharingLocked(sumRec)) {
+      showToast(
+        feeExceedsNesa(sumRec)
+          ? (T.lockedNesaApproval || "Sharing locked until DEO and NESA approve the fee increase request.")
+          : "Sharing locked until approved.",
+        "error"
+      );
+      return;
+    }
     showToast("Loading document…", "info");
     try { const full = await loadFullRecord(sumRec, lang); setToast(null); setSharing(full); }
     catch (e) { showToast(e.message || "Failed", "error"); }
@@ -1611,7 +1630,7 @@ export default function BabyeyiList({ session }) {
   const stats = {
     total: records.length,
     approved: records.filter(r => r.status === "approved").length,
-    pending: records.filter(r => ["pending","draft","submitted"].includes(r.status)).length,
+    pending: records.filter(r => isSharingLocked(r)).length,
     rejected: records.filter(r => r.status === "rejected").length,
   };
   const activeFilters = Object.values(filters).filter(Boolean).length;
@@ -1640,7 +1659,7 @@ export default function BabyeyiList({ session }) {
       )}
       {editing && <EditWizardModal rec={editing} session={session} onClose={() => setEditing(null)} onSaved={u => { handleSaved(u); setEditing(null); }} />}
       {deleting && <DeleteModal rec={deleting} onConfirm={handleDelete} onCancel={() => setDeleting(null)} T={T} />}
-      {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
+      {sharing && !isSharingLocked(sharing) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
 
       {!schoolId && (
         <div className="bg-red-600 text-white text-center text-[12px] font-bold py-2 px-4 rounded-xl mb-4">School session not found. Please log out and log back in.</div>

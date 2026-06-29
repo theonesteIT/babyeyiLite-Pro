@@ -1,10 +1,12 @@
 /**
- * Babyeyi PDF export — keep AUTHORIZATION & SIGNATURES on one page (no mid-section cut).
+ * Babyeyi PDF export — exactly 2 A4 pages; Authorization stays on page 2 (not page 3).
  */
 
 export const BABYEYI_DOC_WIDTH_PX = 794;
 export const BABYEYI_A4_PAGE_HEIGHT_PX = Math.round((BABYEYI_DOC_WIDTH_PX * 297) / 210);
 export const BABYEYI_PDF_AUTH_SELECTOR = "#babyeyi-pdf-auth-block";
+export const BABYEYI_PDF_SECTION_SELECTOR = "[data-babyeyi-pdf-section]";
+export const BABYEYI_PDF_HEADER_SELECTOR = "#babyeyi-pdf-header";
 
 function offsetTopWithinRoot(el, root) {
   if (!el || !root) return 0;
@@ -13,31 +15,137 @@ function offsetTopWithinRoot(el, root) {
   return Math.max(0, Math.round(elRect.top - rootRect.top));
 }
 
-/** Insert white spacer so the auth block starts at the top of a new PDF page when needed. */
-export function insertPdfPageBreakSpacerBefore(
-  root,
-  selector = BABYEYI_PDF_AUTH_SELECTOR,
-  extraGap = 48,
-) {
-  const el = root?.querySelector?.(selector);
-  if (!el?.parentNode) return false;
+function elHeight(el) {
+  if (!el) return 0;
+  return Math.round(el.offsetHeight || el.getBoundingClientRect().height || 0);
+}
 
-  root.querySelectorAll("[data-babyeyi-pdf-page-spacer]").forEach((n) => n.remove());
+function removePdfSpacers(root) {
+  root?.querySelectorAll?.("[data-babyeyi-pdf-spacer]").forEach((n) => n.remove());
+}
+
+function createSpacer(heightPx) {
+  const spacer = document.createElement("div");
+  spacer.setAttribute("data-babyeyi-pdf-spacer", "1");
+  spacer.style.cssText = `height:${Math.max(0, Math.round(heightPx))}px;width:100%;background:#fff;flex-shrink:0;`;
+  return spacer;
+}
+
+function compactPdfSpacing(root) {
+  root?.querySelectorAll?.(BABYEYI_PDF_SECTION_SELECTOR).forEach((el) => {
+    el.style.marginBottom = "14px";
+  });
+  const auth = root?.querySelector?.(BABYEYI_PDF_AUTH_SELECTOR);
+  if (auth) auth.style.marginTop = "12px";
+  const body = root?.querySelector?.("#babyeyi-pdf-body");
+  if (body) body.style.paddingBottom = "16px";
+}
+
+/**
+ * Split sections between page 1 and page 2 so Authorization fits on page 2 with content above it.
+ */
+export function layoutBabyeyiTwoPages(root) {
+  if (!root) return false;
+  removePdfSpacers(root);
 
   const pageH = BABYEYI_A4_PAGE_HEIGHT_PX;
-  const top = offsetTopWithinRoot(el, root);
-  const blockH = el.offsetHeight || el.getBoundingClientRect().height;
-  const usedOnPage = top % pageH;
-  const spaceLeft = pageH - usedOnPage;
+  const auth = root.querySelector(BABYEYI_PDF_AUTH_SELECTOR);
+  const sections = [...root.querySelectorAll(BABYEYI_PDF_SECTION_SELECTOR)];
+  if (!auth) return false;
 
-  if (usedOnPage > 0 && spaceLeft < blockH + extraGap) {
-    const spacer = document.createElement("div");
-    spacer.setAttribute("data-babyeyi-pdf-page-spacer", "1");
-    spacer.style.cssText = `height:${spaceLeft}px;width:100%;background:#fff;flex-shrink:0;`;
-    el.parentNode.insertBefore(spacer, el);
-    return true;
+  const authH = elHeight(auth);
+  const heights = sections.map(elHeight);
+  const preBodyH = sections.length
+    ? offsetTopWithinRoot(sections[0], root)
+    : offsetTopWithinRoot(auth, root);
+
+  let bestSplit = 0;
+  for (let split = 0; split <= sections.length; split += 1) {
+    const page1H = preBodyH + heights.slice(0, split).reduce((a, b) => a + b, 0);
+    const page2H = heights.slice(split).reduce((a, b) => a + b, 0) + authH;
+    if (page1H <= pageH && page2H <= pageH) bestSplit = split;
   }
-  return false;
+
+  if (bestSplit === 0 && sections.length > 0) {
+    for (let split = sections.length; split >= 0; split -= 1) {
+      const page1H = preBodyH + heights.slice(0, split).reduce((a, b) => a + b, 0);
+      if (page1H <= pageH) {
+        bestSplit = split;
+        break;
+      }
+    }
+  }
+
+  const breakEl = bestSplit < sections.length ? sections[bestSplit] : auth;
+  if (breakEl?.parentNode) {
+    const breakTop = offsetTopWithinRoot(breakEl, root);
+    const usedOnPage = breakTop % pageH;
+    if (usedOnPage > 6) {
+      breakEl.parentNode.insertBefore(createSpacer(pageH - usedOnPage), breakEl);
+    }
+  }
+
+  let authTop = offsetTopWithinRoot(auth, root);
+  let authBottom = authTop + authH;
+
+  if (authBottom > 2 * pageH) {
+    compactPdfSpacing(root);
+    removePdfSpacers(root);
+
+    const compactHeights = sections.map(elHeight);
+    let compactSplit = 0;
+    for (let split = 0; split <= sections.length; split += 1) {
+      const page1H = preBodyH + compactHeights.slice(0, split).reduce((a, b) => a + b, 0);
+      const page2H = compactHeights.slice(split).reduce((a, b) => a + b, 0) + elHeight(auth);
+      if (page1H <= pageH && page2H <= pageH) compactSplit = split;
+    }
+    if (compactSplit === 0 && sections.length) {
+      for (let split = sections.length; split >= 0; split -= 1) {
+        const page1H = preBodyH + compactHeights.slice(0, split).reduce((a, b) => a + b, 0);
+        if (page1H <= pageH) {
+          compactSplit = split;
+          break;
+        }
+      }
+    }
+
+    const compactBreak = compactSplit < sections.length ? sections[compactSplit] : auth;
+    if (compactBreak?.parentNode) {
+      const breakTop = offsetTopWithinRoot(compactBreak, root);
+      const usedOnPage = breakTop % pageH;
+      if (usedOnPage > 6) {
+        compactBreak.parentNode.insertBefore(createSpacer(pageH - usedOnPage), compactBreak);
+      }
+    }
+    authTop = offsetTopWithinRoot(auth, root);
+    authBottom = authTop + elHeight(auth);
+  }
+
+  if (authTop < pageH) {
+    auth.parentNode.insertBefore(createSpacer(pageH - authTop), auth);
+    authTop = pageH;
+    authBottom = authTop + elHeight(auth);
+  }
+
+  const page2Start = pageH;
+  const page2ContentH = authTop - page2Start;
+  const roomBeforeAuth = pageH - page2ContentH - authH;
+  if (roomBeforeAuth > 32 && sections.length > bestSplit) {
+    auth.parentNode.insertBefore(createSpacer(roomBeforeAuth), auth);
+  }
+
+  const docH = elHeight(root);
+  if (docH > 2 * pageH) {
+    compactPdfSpacing(root);
+  }
+
+  return true;
+}
+
+/** @deprecated Use layoutBabyeyiTwoPages — kept for callers that still import it. */
+export function insertPdfPageBreakSpacerBefore(root, selector = BABYEYI_PDF_AUTH_SELECTOR) {
+  layoutBabyeyiTwoPages(root);
+  return !!root?.querySelector?.(selector);
 }
 
 export async function waitForPdfImages(root, timeoutMs = 4000) {
@@ -61,18 +169,14 @@ export async function waitForPdfImages(root, timeoutMs = 4000) {
   await new Promise((r) => setTimeout(r, 120));
 }
 
-export async function prepareBabyeyiPdfRoot(root, selector = BABYEYI_PDF_AUTH_SELECTOR) {
+export async function prepareBabyeyiPdfRoot(root) {
   await waitForPdfImages(root);
-  insertPdfPageBreakSpacerBefore(root, selector);
-  await new Promise((r) => setTimeout(r, 100));
-  insertPdfPageBreakSpacerBefore(root, selector);
+  layoutBabyeyiTwoPages(root);
+  await new Promise((r) => setTimeout(r, 80));
+  layoutBabyeyiTwoPages(root);
 }
 
-export function measurePdfProtectedRanges(
-  root,
-  selector = BABYEYI_PDF_AUTH_SELECTOR,
-  scale = 2,
-) {
+export function measurePdfProtectedRanges(root, selector = BABYEYI_PDF_AUTH_SELECTOR, scale = 2) {
   const el = root?.querySelector?.(selector);
   if (!el) return [];
   const rootRect = root.getBoundingClientRect();
@@ -88,10 +192,14 @@ export function computePdfSliceEnds(canvasHeight, canvasWidth, protectedRanges =
   const pH = 297;
   const imgH = (canvasHeight / canvasWidth) * pW;
   const pageHPx = Math.max(1, Math.ceil((pH / imgH) * canvasHeight));
+
+  if (canvasHeight <= pageHPx) return [canvasHeight];
+
   const ends = [];
   let y = 0;
+  const maxPages = 2;
 
-  while (y < canvasHeight) {
+  while (y < canvasHeight && ends.length < maxPages) {
     let sliceEnd = Math.min(y + pageHPx, canvasHeight);
 
     for (const range of protectedRanges) {
@@ -102,20 +210,19 @@ export function computePdfSliceEnds(canvasHeight, canvasWidth, protectedRanges =
       if (!crosses) continue;
 
       if (blockH <= pageHPx) {
-        if (y < top && sliceEnd > top) {
-          sliceEnd = top;
-        } else if (y >= top && y < bottom) {
-          sliceEnd = Math.min(bottom, canvasHeight);
-        }
+        if (y < top && sliceEnd > top) sliceEnd = top;
+        else if (y >= top && y < bottom) sliceEnd = Math.min(bottom, canvasHeight);
       }
     }
 
-    if (sliceEnd <= y) {
-      sliceEnd = Math.min(y + pageHPx, canvasHeight);
-    }
+    if (sliceEnd <= y) sliceEnd = Math.min(y + pageHPx, canvasHeight);
     if (sliceEnd <= y) break;
     ends.push(sliceEnd);
     y = sliceEnd;
+  }
+
+  if (ends.length === 1 && canvasHeight > pageHPx) {
+    ends.push(canvasHeight);
   }
 
   return ends;
@@ -167,7 +274,7 @@ export function addCanvasToPdfAndSave(canvas, filename, options = {}) {
   pdf.save(filename);
 }
 
-/** Full pipeline: spacer + html2canvas + smart page breaks. */
+/** Full pipeline: 2-page layout + html2canvas + smart page breaks. */
 export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canvasOptions) {
   const scale = html2canvasOptions?.scale || 2;
   await prepareBabyeyiPdfRoot(root);
