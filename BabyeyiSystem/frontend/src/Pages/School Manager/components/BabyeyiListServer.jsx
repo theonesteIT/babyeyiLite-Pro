@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { WizardContent } from "./UpdateBabyeyi";
-import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml } from "./babyeyiPdfExport";
+import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml, BABYEYI_PDF_CAPTURE_HOST_STYLE } from "./babyeyiPdfExport";
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
 const API_BASE   = `${ASSET_BASE}/api`;
@@ -770,11 +770,11 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
 
   const schoolLogoHtml = schoolLogoB64
-    ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>`
-    : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
+    ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>`
+    : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
 
   const otherLogoHtml = otherLogoB64
-    ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>`
+    ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>`
     : "";
 
   return `
@@ -782,7 +782,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   <div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div>
   <div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
     <div style="display:flex;align-items:center;gap:20px">
-      <div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div>
+      <div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div>
       <div style="flex:1;text-align:center">
         <p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p>
         <p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district || "—"}</p>
@@ -793,7 +793,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
           ${rec.docId ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>` : ""}
         </div>
       </div>
-      <div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div>
+      <div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div>
     </div>
   </div>
   <div id="babyeyi-pdf-body" style="padding:20px 40px 28px">
@@ -821,7 +821,7 @@ async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, sta
   style.textContent = `#__by_c__ * { box-sizing:border-box; color-scheme:light only; } #__by_c__ { all:initial;display:block;background:#fff; }`;
   document.head.appendChild(style);
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-9999;";
+  host.style.cssText = BABYEYI_PDF_CAPTURE_HOST_STYLE;
   const root = document.createElement("div");
   root.id = "__by_c__";
   root.innerHTML = html;
@@ -965,7 +965,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
       style.textContent = `#__by_p__ * { box-sizing:border-box; color-scheme:light only; } #__by_p__ { all:initial;display:block;background:#fff; }`;
       document.head.appendChild(style);
       const host = document.createElement("div");
-      host.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-9999;";
+      host.style.cssText = BABYEYI_PDF_CAPTURE_HOST_STYLE;
       const root = document.createElement("div");
       root.id = "__by_p__";
       root.innerHTML = html;

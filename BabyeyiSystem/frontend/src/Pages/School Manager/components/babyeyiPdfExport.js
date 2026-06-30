@@ -7,6 +7,36 @@ export const BABYEYI_A4_PAGE_HEIGHT_PX = Math.round((BABYEYI_DOC_WIDTH_PX * 297)
 export const BABYEYI_PDF_AUTH_SELECTOR = "#babyeyi-pdf-auth-block";
 export const BABYEYI_PDF_SECTION_SELECTOR = "[data-babyeyi-pdf-section]";
 export const BABYEYI_PDF_HEADER_SELECTOR = "#babyeyi-pdf-header";
+/** In-viewport but invisible — avoids html2canvas clipping tall off-screen nodes. */
+export const BABYEYI_PDF_CAPTURE_HOST_STYLE =
+  "position:fixed;top:0;left:0;width:794px;background:#fff;z-index:-9999;opacity:0;pointer-events:none;overflow:visible;";
+
+export function measureBabyeyiDocHeight(root) {
+  const docEl = root?.querySelector?.("#babyeyi-pdf-doc") || root;
+  if (!docEl) return BABYEYI_A4_PAGE_HEIGHT_PX * 2;
+  return Math.max(
+    docEl.scrollHeight || 0,
+    docEl.offsetHeight || 0,
+    root?.scrollHeight || 0,
+    root?.offsetHeight || 0,
+    BABYEYI_A4_PAGE_HEIGHT_PX,
+  );
+}
+
+export function babyeyiHtml2CanvasOptionsForRoot(root, baseOptions = {}) {
+  const height = measureBabyeyiDocHeight(root);
+  return {
+    ...baseOptions,
+    width: BABYEYI_DOC_WIDTH_PX,
+    height,
+    windowWidth: BABYEYI_DOC_WIDTH_PX,
+    windowHeight: height,
+    scrollX: 0,
+    scrollY: 0,
+    x: 0,
+    y: 0,
+  };
+}
 
 function offsetTopWithinRoot(el, root) {
   if (!el || !root) return 0;
@@ -221,11 +251,11 @@ export function computePdfSliceEnds(canvasHeight, canvasWidth, protectedRanges =
     y = sliceEnd;
   }
 
-  if (ends.length === 1 && canvasHeight > pageHPx) {
-    ends.push(canvasHeight);
+  const deduped = ends.filter((v, i) => i === 0 || v > ends[i - 1]);
+  if (deduped.length === 1 && canvasHeight > pageHPx) {
+    deduped.push(canvasHeight);
   }
-
-  return ends;
+  return deduped.filter((v) => v > 0);
 }
 
 export function addCanvasToPdfAndSave(canvas, filename, options = {}) {
@@ -243,9 +273,9 @@ export function addCanvasToPdfAndSave(canvas, filename, options = {}) {
     const sliceEnds = computePdfSliceEnds(canvas.height, canvas.width, protectedRanges);
     let srcYPx = 0;
     sliceEnds.forEach((endPx, page) => {
-      if (page > 0) pdf.addPage();
       const sliceHPx = endPx - srcYPx;
       if (sliceHPx <= 0) return;
+      if (page > 0) pdf.addPage();
       const sl = document.createElement("canvas");
       sl.width = canvas.width;
       sl.height = sliceHPx;
@@ -278,8 +308,9 @@ export function addCanvasToPdfAndSave(canvas, filename, options = {}) {
 export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canvasOptions) {
   const scale = html2canvasOptions?.scale || 2;
   await prepareBabyeyiPdfRoot(root);
+  const captureOptions = babyeyiHtml2CanvasOptionsForRoot(root, html2canvasOptions);
   const protectedRanges = measurePdfProtectedRanges(root, BABYEYI_PDF_AUTH_SELECTOR, scale);
-  const canvas = await window.html2canvas(root, html2canvasOptions);
+  const canvas = await window.html2canvas(root, captureOptions);
   addCanvasToPdfAndSave(canvas, filename, { protectedRanges });
 }
 
