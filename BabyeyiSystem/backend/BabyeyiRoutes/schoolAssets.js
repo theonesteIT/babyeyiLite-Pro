@@ -739,7 +739,7 @@ function registerTotalsFromDbRow(row) {
   const storedTotalDep = toMoney(row.total_dep);
   const totalDep = storedTotalDep > 0
     ? storedTotalDep
-    : Math.max(0, totalBalance - annualDep);
+    : accumulated + annualDep;
   return { totalBalance, totalDep };
 }
 
@@ -2144,8 +2144,8 @@ function computeAssetRegisterMath({
   const decimalDep = rate > 0 ? rate / 100 : 0;
   const totalBalance = opening + purchase;
   const annualDep = Math.round(totalBalance * decimalDep);
-  const totalDep = Math.max(0, totalBalance - annualDep);
-  const netBookValue = totalDep;
+  const totalDep = accumulated + annualDep;
+  const netBookValue = Math.max(0, totalBalance - totalDep);
   const newAccumulatedDep = totalDep;
   return {
     openingAmount: opening,
@@ -2366,7 +2366,8 @@ function enrichRegisterFinancialsRow(base) {
   const totalBalance = toMoney(base.total_balance);
   const annualDep = toMoney(base.annual_dep);
   const storedTotalDep = toMoney(base.total_dep);
-  const totalDep = storedTotalDep > 0 ? storedTotalDep : Math.max(0, totalBalance - annualDep);
+  const totalDep = storedTotalDep > 0 ? storedTotalDep : accumulated + annualDep;
+  const netBookValue = toMoney(base.net_book_value) || Math.max(0, totalBalance - totalDep);
   return {
     ...base,
     opening_amount: opening,
@@ -2375,7 +2376,7 @@ function enrichRegisterFinancialsRow(base) {
     accumulated_depreciation: accumulated,
     annual_dep: annualDep,
     total_dep: totalDep,
-    net_book_value: totalDep,
+    net_book_value: netBookValue,
   };
 }
 

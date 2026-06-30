@@ -18,9 +18,9 @@ export function parseRegisterNum(v) {
 
  * ANNUAL DEPRECIATION = total balance × (rate ÷ 100)
 
- * TOTAL DEPRECIATION (closing) = total balance − annual depreciation
+ * TOTAL DEPRECIATION = accumulated depreciation + annual depreciation
 
- * NET BOOK VALUE = total depreciation (closing balance)
+ * NET BOOK VALUE = total balance − total depreciation
 
  */
 
@@ -50,9 +50,9 @@ export function computeAssetRegisterMath({
 
   const annualDep = Math.round(totalBalance * decimalDep)
 
-  const totalDep = Math.max(0, totalBalance - annualDep)
+  const totalDep = accumulated + annualDep
 
-  const netBookValue = totalDep
+  const netBookValue = Math.max(0, totalBalance - totalDep)
 
   const newAccumulatedDep = totalDep
 
@@ -157,33 +157,21 @@ export function enrichRegisterFinancials(asset) {
   }
 
   const totalBalance = parseRegisterNum(asset.total_balance)
-
   const annualDep = parseRegisterNum(asset.annual_dep)
-
   const storedTotalDep = parseRegisterNum(asset.total_dep)
-
-  const totalDep = storedTotalDep > 0 ? storedTotalDep : Math.max(0, totalBalance - annualDep)
+  const totalDep = storedTotalDep > 0 ? storedTotalDep : accumulated + annualDep
+  const netBookValue = parseRegisterNum(asset.net_book_value) || Math.max(0, totalBalance - totalDep)
 
   return {
-
     ...asset,
-
     opening_amount: opening,
-
     unit_price: purchase,
-
     total_balance: totalBalance,
-
     accumulated_depreciation: accumulated,
-
     annual_dep: annualDep,
-
     total_dep: totalDep,
-
-    net_book_value: totalDep,
-
+    net_book_value: netBookValue,
   }
-
 }
 
 

@@ -25,8 +25,9 @@ function computeAssetRegisterMath({
   const decimalDep = rate > 0 ? rate / 100 : 0;
   const totalBalance = opening + purchase;
   const annualDep = Math.round(totalBalance * decimalDep);
-  const totalDep = Math.max(0, totalBalance - annualDep);
-  return { opening, purchase, accumulated, totalBalance, annualDep, totalDep, decimalDep };
+  const totalDep = accumulated + annualDep;
+  const netBookValue = Math.max(0, totalBalance - totalDep);
+  return { opening, purchase, accumulated, totalBalance, annualDep, totalDep, netBookValue, decimalDep };
 }
 
 async function repairYearStart(schoolId, year, category) {
