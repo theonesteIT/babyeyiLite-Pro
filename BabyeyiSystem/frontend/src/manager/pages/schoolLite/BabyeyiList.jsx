@@ -156,7 +156,7 @@ async function toBase64(url) {
 }
 
 export async function downloadBabyeyiServerPdf({ babyeyiId, apiLang = "en", fileName, onRegenerate }) {
-  const pdfUrl = `${API_BASE}/babyeyi/${babyeyiId}/pdf?download=1`;
+  const pdfUrl = `${API_BASE}/babyeyi/${babyeyiId}/pdf?download=1&lang=${encodeURIComponent(apiLang)}`;
   let res = await fetch(pdfUrl, { credentials: "include" });
   if (!res.ok) {
     if (onRegenerate) await onRegenerate();
@@ -1200,25 +1200,26 @@ function OfficialDoc({
                 </table>
               </div>
             )}
-            {/* Auth — page 2 with remaining sections on PDF export */}
-            <div id="babyeyi-pdf-auth-block" style={{ ...DOC.section, marginTop: "20px", pageBreakInside: "avoid", breakInside: "avoid" }}>
-              <div style={{ borderBottom: "1.5px solid #1e3a5f", paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secAuth}</span></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px", marginTop: "12px" }}>
-                <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>
-                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "11px", margin: "0 0 8px" }}>{T.sigHeadTeacher}</p>
-                  <div style={{ height: "52px", borderBottom: "1px solid #cbd5e1", display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "4px", marginBottom: "6px" }}>
-                    {sigB64 && <img src={sigB64} style={{ maxHeight: "48px", maxWidth: "140px", objectFit: "contain" }} alt="Sig" />}
+            {/* Auth — compact; stays on same page when content is short */}
+            <div id="babyeyi-pdf-auth-block" style={{ marginTop: "14px", pageBreakInside: "avoid", breakInside: "avoid", pageBreakBefore: "avoid", breakBefore: "avoid" }}>
+              <div style={{ borderBottom: "1.5px solid #1e3a5f", paddingBottom: "4px", marginBottom: "8px" }}><span style={{ ...DOC.heading, fontSize: "13px" }}>{T.secAuth}</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginTop: "8px" }}>
+                <div style={{ border: "1px solid #e2e8f0", padding: "10px 8px", textAlign: "center", minHeight: "96px", boxSizing: "border-box" }}>
+                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "10px", margin: "0 0 6px" }}>{T.sigHeadTeacher}</p>
+                  <div style={{ height: "44px", display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "2px", marginBottom: "2px" }}>
+                    {sigB64 && <img src={sigB64} style={{ maxHeight: "40px", maxWidth: "120px", objectFit: "contain" }} alt="Sig" />}
+                    {!sigB64 && <div style={{ width: "100%", height: "1px", borderBottom: "1px solid #cbd5e1" }} />}
                   </div>
-                  <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{sigB64 ? T.sigSigned : T.sigRequired}</p>
+                  <p style={{ fontSize: "10px", color: "#94a3b8", margin: 0 }}>{sigB64 ? T.sigSigned : T.sigRequired}</p>
                 </div>
-                <div style={{ border: "1px solid #e2e8f0", padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ border: "1px solid #e2e8f0", padding: "10px 8px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "96px", boxSizing: "border-box" }}>
                   {qrB64 ? (
                     <>
                       <div style={{ background: "white", border: "1px solid #e2e8f0", padding: "4px", borderRadius: "4px" }}>
-                        <img src={qrB64} style={{ width: "80px", height: "80px", objectFit: "contain", display: "block" }} alt="QR" />
+                        <img src={qrB64} style={{ width: "64px", height: "64px", objectFit: "contain", display: "block" }} alt="QR" />
                       </div>
-                      <p style={{ fontSize: "10px", color: "#1e3a5f", fontWeight: 700, margin: "6px 0 0", textTransform: "uppercase", letterSpacing: ".05em" }}>{T.sigScanVerify}</p>
-                      {rec.docId && <p style={{ fontSize: "10px", color: "#64748b", margin: "2px 0 0", fontFamily: "monospace" }}>ID: {rec.docId}</p>}
+                      <p style={{ fontSize: "9px", color: "#1e3a5f", fontWeight: 700, margin: "4px 0 0", textTransform: "uppercase", letterSpacing: ".05em" }}>{T.sigScanVerify}</p>
+                      {rec.docId && <p style={{ fontSize: "9px", color: "#64748b", margin: "2px 0 0", fontFamily: "monospace" }}>ID: {rec.docId}</p>}
                     </>
                   ) : qrLoading ? (
                     <div className="flex flex-col items-center gap-2">
@@ -1226,23 +1227,23 @@ function OfficialDoc({
                       <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>{T.generatingQr || "Generating…"}</span>
                     </div>
                   ) : (
-                    <div style={{ width: 80, height: 80, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <QrCode className="w-8 h-8 text-slate-300 opacity-35" aria-hidden strokeWidth={1.75} />
+                    <div style={{ width: 64, height: 64, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <QrCode className="w-7 h-7 text-slate-300 opacity-35" aria-hidden strokeWidth={1.75} />
                     </div>
                   )}
                 </div>
-                <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>
-                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "11px", margin: "0 0 8px" }}>{T.sigStamp}</p>
-                  <div style={{ width: "80px", height: "80px", border: "1px dashed #e2e8f0", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: "0 auto 6px" }}>
-                    {stampB64 ? <img src={stampB64} style={{ width: "76px", height: "76px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <StampLucide className="w-8 h-8 text-slate-300 opacity-[0.14]" aria-hidden strokeWidth={1.5} />}
+                <div style={{ border: "1px solid #e2e8f0", padding: "10px 8px", textAlign: "center", minHeight: "96px", boxSizing: "border-box" }}>
+                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "10px", margin: "0 0 6px" }}>{T.sigStamp}</p>
+                  <div style={{ width: "64px", height: "64px", border: "1px dashed #e2e8f0", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: "0 auto 4px" }}>
+                    {stampB64 ? <img src={stampB64} style={{ width: "60px", height: "60px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <StampLucide className="w-7 h-7 text-slate-300 opacity-[0.14]" aria-hidden strokeWidth={1.5} />}
                   </div>
-                  <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
+                  <p style={{ fontSize: "10px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
                 </div>
               </div>
-              <div style={{ borderTop: "1px solid #1e3a5f", padding: "8px 0", marginTop: "18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-                <span style={{ fontSize: "11px", color: "#64748b" }}>{rec.schoolName || ""} · {rec.district || ""}</span>
-                <span style={{ fontSize: "11px", color: "#1e3a5f", fontWeight: 700, textTransform: "uppercase" }}>{T.docOfficial}</span>
-                <span style={{ fontSize: "11px", color: "#64748b" }}>{T.docFooterLeft != null ? T.docFooterLeft : "Doc"} {rec.docId || ""} · {today}</span>
+              <div style={{ borderTop: "1px solid #1e3a5f", padding: "6px 0", marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>{rec.schoolName || ""} · {rec.district || ""}</span>
+                <span style={{ fontSize: "10px", color: "#1e3a5f", fontWeight: 700, textTransform: "uppercase" }}>{T.docOfficial}</span>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>{T.docFooterLeft != null ? T.docFooterLeft : "Doc"} {rec.docId || ""} · {today}</span>
               </div>
             </div>
           </div>

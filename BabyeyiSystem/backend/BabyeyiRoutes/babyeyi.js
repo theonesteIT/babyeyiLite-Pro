@@ -36,7 +36,7 @@ const {
 } = require("../utils/babyeyiContentI18n");
 const { getDocStrings } = require("../utils/babyeyiDocI18n");
 const { buildBabyeyiPrintPageHtml } = require("../utils/babyeyiDocHtml");
-const { fileToDataUrl, renderHtmlToPdfFile, puppeteerAvailable } = require("../utils/babyeyiPuppeteerPdf");
+const { fileToDataUrl, renderHtmlToPdfFile, renderHtmlToPdfBuffer, puppeteerAvailable } = require("../utils/babyeyiPuppeteerPdf");
 const { fetchStudentRequirementsCatalog } = require("../utils/studentRequirementsSchema");
 const { normalizeSchoolId } = require("../utils/normalizeSchoolId");
 
@@ -1687,25 +1687,22 @@ const generateDocuments = async ({
 
   const pdf = await (async () => {
     if (puppeteerAvailable()) {
-      try {
-        const htmlPdf = await generateBabyeyiHtmlPDF({
-          babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
-          payments: merged.payments,
-          requirements: merged.requirements,
-          classNotes: merged.classNotes,
-          sigPaths: resolvedSigPaths,
-          qrFilePath: qr.fullPath,
-          docId,
-          parentMessage: merged.parentMessage,
-          leaders: merged.leaders,
-          documentLang: docLang,
-        });
-        console.log(`[generateDocuments] Puppeteer HTML PDF file=${htmlPdf.filePath}`);
-        return htmlPdf;
-      } catch (e) {
-        console.warn("[generateDocuments] Puppeteer PDF failed, falling back to PDFKit:", e.message);
-      }
+      const htmlPdf = await generateBabyeyiHtmlPDF({
+        babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
+        payments: merged.payments,
+        requirements: merged.requirements,
+        classNotes: merged.classNotes,
+        sigPaths: resolvedSigPaths,
+        qrFilePath: qr.fullPath,
+        docId,
+        parentMessage: merged.parentMessage,
+        leaders: merged.leaders,
+        documentLang: docLang,
+      });
+      console.log(`[generateDocuments] Puppeteer HTML PDF file=${htmlPdf.filePath}`);
+      return htmlPdf;
     }
+    console.warn("[generateDocuments] No Chrome/Edge — using legacy PDFKit layout");
     return generateBabyeyiPDF({
       babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
       payments: merged.payments,
@@ -3940,12 +3937,43 @@ router.get("/pdf/:docId", async (req, res) => {
 
 router.get("/:id/pdf", async (req, res) => {
   try {
+    const id = req.params.id;
+    const lang = req.query.lang || "en";
+    const download = req.query.download === "1" || req.query.download === "true";
+
     const rows = await query(
       "SELECT pdf_path, pdf_name, class_name, doc_id FROM school_babyeyi WHERE id=? AND is_active=1 LIMIT 1",
-      [req.params.id]
+      [id]
     );
-    if (!rows.length || !rows[0].pdf_path) {
-      return res.status(404).json({ success: false, message: "PDF not ready yet." });
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "Document not found." });
+    }
+
+    const fileName = rows[0].pdf_name || ("Babyeyi-" + (rows[0].doc_id || id) + ".pdf");
+
+    // Always render fresh PDF from shared HTML template (matches on-screen View / Print)
+    if (puppeteerAvailable()) {
+      try {
+        const html = await buildBabyeyiPrintHtmlForBid(id, lang, { autoPrint: false });
+        if (html) {
+          const buffer = await renderHtmlToPdfBuffer(html);
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
+          res.setHeader("Cache-Control", "no-store");
+          return res.send(buffer);
+        }
+      } catch (e) {
+        console.error("[babyeyi/:id/pdf] HTML PDF render failed:", e.message);
+      }
+    }
+
+    if (!rows[0].pdf_path) {
+      return res.status(404).json({
+        success: false,
+        message: puppeteerAvailable()
+          ? "PDF render failed."
+          : "PDF not ready — install Chrome/Edge or set PUPPETEER_EXECUTABLE_PATH, then Regenerate.",
+      });
     }
 
     const absPath = path.resolve(resolveFilePath(rows[0].pdf_path));
@@ -3953,8 +3981,6 @@ router.get("/:id/pdf", async (req, res) => {
       return res.status(404).json({ success: false, message: "PDF file missing on server." });
     }
 
-    const fileName = rows[0].pdf_name || ("Babyeyi-" + (rows[0].doc_id || req.params.id) + ".pdf");
-    const download = req.query.download === "1" || req.query.download === "true";
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
     res.setHeader("Cache-Control", "public, max-age=3600");

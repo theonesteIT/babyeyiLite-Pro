@@ -71,105 +71,11 @@ function compactPdfSpacing(root) {
   if (body) body.style.paddingBottom = "16px";
 }
 
-/**
- * Split sections between page 1 and page 2 so Authorization fits on page 2 with content above it.
- */
+/** Clear legacy spacers — auth flows on the same page when content is short. */
 export function layoutBabyeyiTwoPages(root) {
   if (!root) return false;
   removePdfSpacers(root);
-
-  const pageH = BABYEYI_A4_PAGE_HEIGHT_PX;
-  const auth = root.querySelector(BABYEYI_PDF_AUTH_SELECTOR);
-  const sections = [...root.querySelectorAll(BABYEYI_PDF_SECTION_SELECTOR)];
-  if (!auth) return false;
-
-  const authH = elHeight(auth);
-  const heights = sections.map(elHeight);
-  const preBodyH = sections.length
-    ? offsetTopWithinRoot(sections[0], root)
-    : offsetTopWithinRoot(auth, root);
-
-  let bestSplit = 0;
-  for (let split = 0; split <= sections.length; split += 1) {
-    const page1H = preBodyH + heights.slice(0, split).reduce((a, b) => a + b, 0);
-    const page2H = heights.slice(split).reduce((a, b) => a + b, 0) + authH;
-    if (page1H <= pageH && page2H <= pageH) bestSplit = split;
-  }
-
-  if (bestSplit === 0 && sections.length > 0) {
-    for (let split = sections.length; split >= 0; split -= 1) {
-      const page1H = preBodyH + heights.slice(0, split).reduce((a, b) => a + b, 0);
-      if (page1H <= pageH) {
-        bestSplit = split;
-        break;
-      }
-    }
-  }
-
-  const breakEl = bestSplit < sections.length ? sections[bestSplit] : auth;
-  if (breakEl?.parentNode) {
-    const breakTop = offsetTopWithinRoot(breakEl, root);
-    const usedOnPage = breakTop % pageH;
-    if (usedOnPage > 6) {
-      breakEl.parentNode.insertBefore(createSpacer(pageH - usedOnPage), breakEl);
-    }
-  }
-
-  let authTop = offsetTopWithinRoot(auth, root);
-  let authBottom = authTop + authH;
-
-  if (authBottom > 2 * pageH) {
-    compactPdfSpacing(root);
-    removePdfSpacers(root);
-
-    const compactHeights = sections.map(elHeight);
-    let compactSplit = 0;
-    for (let split = 0; split <= sections.length; split += 1) {
-      const page1H = preBodyH + compactHeights.slice(0, split).reduce((a, b) => a + b, 0);
-      const page2H = compactHeights.slice(split).reduce((a, b) => a + b, 0) + elHeight(auth);
-      if (page1H <= pageH && page2H <= pageH) compactSplit = split;
-    }
-    if (compactSplit === 0 && sections.length) {
-      for (let split = sections.length; split >= 0; split -= 1) {
-        const page1H = preBodyH + compactHeights.slice(0, split).reduce((a, b) => a + b, 0);
-        if (page1H <= pageH) {
-          compactSplit = split;
-          break;
-        }
-      }
-    }
-
-    const compactBreak = compactSplit < sections.length ? sections[compactSplit] : auth;
-    if (compactBreak?.parentNode) {
-      const breakTop = offsetTopWithinRoot(compactBreak, root);
-      const usedOnPage = breakTop % pageH;
-      if (usedOnPage > 6) {
-        compactBreak.parentNode.insertBefore(createSpacer(pageH - usedOnPage), compactBreak);
-      }
-    }
-    authTop = offsetTopWithinRoot(auth, root);
-    authBottom = authTop + elHeight(auth);
-  }
-
-  if (authTop < pageH) {
-    auth.parentNode.insertBefore(createSpacer(pageH - authTop), auth);
-    authTop = pageH;
-    authBottom = authTop + elHeight(auth);
-  }
-
-  const page2Start = pageH;
-  const page2ContentH = authTop - page2Start;
-  const roomBeforeAuth = pageH - page2ContentH - authH;
-  if (roomBeforeAuth > 32 && sections.length > bestSplit) {
-    auth.parentNode.insertBefore(createSpacer(roomBeforeAuth), auth);
-  }
-
-  const docH = elHeight(root);
-  if (docH > 2 * pageH) {
-    compactPdfSpacing(root);
-  }
-
-  return true;
+  return !!root.querySelector(BABYEYI_PDF_AUTH_SELECTOR);
 }
 
 /** @deprecated Use layoutBabyeyiTwoPages — kept for callers that still import it. */
@@ -201,8 +107,6 @@ export async function waitForPdfImages(root, timeoutMs = 4000) {
 
 export async function prepareBabyeyiPdfRoot(root) {
   await waitForPdfImages(root);
-  layoutBabyeyiTwoPages(root);
-  await new Promise((r) => setTimeout(r, 80));
   layoutBabyeyiTwoPages(root);
 }
 
@@ -316,34 +220,34 @@ export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canv
 
 export function buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 }) {
   const qrBlock = qrB64
-    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="background:white;border:1px solid #e2e8f0;padding:6px;border-radius:6px"><img src="${qrB64}" style="width:80px;height:80px;object-fit:contain;display:block"/></div><p style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId ? `<p style="font-size:10px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}</div>`
-    : `<div style="width:80px;height:80px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:20px;opacity:.1">&#9635;</span></div>`;
+    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="background:white;border:1px solid #e2e8f0;padding:4px;border-radius:4px"><img src="${qrB64}" style="width:64px;height:64px;object-fit:contain;display:block"/></div><p style="font-size:9px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId ? `<p style="font-size:9px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}</div>`
+    : `<div style="width:64px;height:64px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;opacity:.1">&#9635;</span></div>`;
 
   const footerLeft = T.docFooterLeft != null ? T.docFooterLeft : "Doc";
 
-  return `<div id="babyeyi-pdf-auth-block" style="margin-top:20px;padding-top:8px;page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid">
-    <div style="margin-bottom:18px">
-      <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:5px;margin-bottom:12px">
-        <span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span>
+  return `<div id="babyeyi-pdf-auth-block" style="margin-top:14px;padding-top:4px;page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;-webkit-column-break-inside:avoid">
+    <div style="margin-bottom:10px">
+      <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:4px;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:12px">
-        <div style="border:1px solid #e2e8f0;padding:14px;text-align:center;min-height:120px;box-sizing:border-box">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigHeadTeacher}</p>
-          <div style="height:52px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px">${sigB64 ? `<img src="${sigB64}" style="max-height:48px;max-width:140px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div>
-          <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">${sigB64 ? T.sigSigned : T.sigRequired}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px">
+        <div style="border:1px solid #e2e8f0;padding:10px 8px;text-align:center;min-height:96px;box-sizing:border-box">
+          <p style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 6px">${T.sigHeadTeacher}</p>
+          <div style="height:44px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px">${sigB64 ? `<img src="${sigB64}" style="max-height:40px;max-width:120px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div>
+          <p style="font-size:10px;color:#94a3b8;margin:2px 0 0">${sigB64 ? T.sigSigned : T.sigRequired}</p>
         </div>
-        <div style="border:1px solid #e2e8f0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:120px;box-sizing:border-box">${qrBlock}</div>
-        <div style="border:1px solid #e2e8f0;padding:14px;text-align:center;min-height:120px;box-sizing:border-box">
-          <p style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 8px">${T.sigStamp}</p>
-          <div style="width:80px;height:80px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 6px">${stampB64 ? `<img src="${stampB64}" style="width:76px;height:76px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:22px;opacity:.08">&#128271;</span>`}</div>
-          <p style="font-size:11px;color:#94a3b8;margin:0">${T.sigCachet}</p>
+        <div style="border:1px solid #e2e8f0;padding:10px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:96px;box-sizing:border-box">${qrBlock}</div>
+        <div style="border:1px solid #e2e8f0;padding:10px 8px;text-align:center;min-height:96px;box-sizing:border-box">
+          <p style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 6px">${T.sigStamp}</p>
+          <div style="width:64px;height:64px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 4px">${stampB64 ? `<img src="${stampB64}" style="width:60px;height:60px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:18px;opacity:.08">&#128271;</span>`}</div>
+          <p style="font-size:10px;color:#94a3b8;margin:0">${T.sigCachet}</p>
         </div>
       </div>
     </div>
-    <div style="border-top:1px solid #1e3a5f;padding:8px 40px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:11px;color:#64748b">${rec.schoolName || ""} · ${rec.district || ""}</span>
-      <span style="font-size:11px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span>
-      <span style="font-size:11px;color:#64748b">${footerLeft} ${rec.docId || ""} · ${today}</span>
+    <div style="border-top:1px solid #1e3a5f;padding:6px 40px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:10px;color:#64748b">${rec.schoolName || ""} · ${rec.district || ""}</span>
+      <span style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span>
+      <span style="font-size:10px;color:#64748b">${footerLeft} ${rec.docId || ""} · ${today}</span>
     </div>
     <div style="height:3px;background:#1e3a5f"></div>
   </div>`;
