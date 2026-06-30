@@ -11,6 +11,7 @@ const {
   sendWebPushToParentPhones,
   normalizeParentPhone,
 } = require('./parentWebPush');
+const { sendParentSms, isSmsConfigured, sanitizeSmsText } = require('../utils/smsNotifications');
 
 let parentNotifyTableReady = false;
 let mailer = null;
@@ -132,6 +133,52 @@ async function collectParentEmailsForStudent(studentId) {
   return [...emails];
 }
 
+const DISCIPLINE_REASON_RW = {
+  'Late to class': 'Yatinze mu ishuri',
+  Absence: 'Kubura mu ishuri',
+  Fighting: 'Kurwana',
+  Disrespect: 'Kutubaha',
+  'Uniform violation': 'Kutagira uniforme',
+  Other: 'Ikindi',
+};
+
+function disciplineReasonKinyarwanda(reason) {
+  const key = trimStr(reason);
+  if (!key) return '';
+  return DISCIPLINE_REASON_RW[key] || key;
+}
+
+function buildDisciplineSmsBody(opts = {}) {
+  const studentName = trimStr(opts.studentName) || 'Your child';
+  const schoolName = trimStr(opts.schoolName) || 'School';
+  const marks = Number(opts.marks);
+  const remaining = Number(opts.remaining);
+  const maximum = Number(opts.maximum);
+  const reason = trimStr(opts.reason).slice(0, 80);
+  const subject = trimStr(opts.lessonSubject).slice(0, 60);
+  const reasonRw = disciplineReasonKinyarwanda(reason).slice(0, 80);
+  const caseLabel = reason || subject;
+
+  const marksText = Number.isFinite(marks) ? String(marks) : '';
+  const balanceText =
+    Number.isFinite(remaining) && Number.isFinite(maximum)
+      ? `${remaining}/${maximum}`
+      : Number.isFinite(remaining)
+        ? String(remaining)
+        : '';
+
+  const englishParts = [`${schoolName}: ${studentName} -${marksText} conduct marks.`];
+  if (caseLabel) englishParts.push(`Reason: ${caseLabel}.`);
+  if (balanceText) englishParts.push(`Left ${balanceText}.`);
+
+  const kinyarwandaParts = [`${studentName} yakuwe amanota ${marksText}.`];
+  if (caseLabel) kinyarwandaParts.push(`Impamvu: ${reasonRw || caseLabel}.`);
+  if (balanceText) kinyarwandaParts.push(`Asigaye ${balanceText}.`);
+
+  // Keep bilingual SMS short — long GET URLs and multi-part SMS reduce delivery rates.
+  return sanitizeSmsText(`EN ${englishParts.join(' ')} | RW ${kinyarwandaParts.join(' ')}`);
+}
+
 const PERMISSION_TYPE_LABELS = {
   MEDICAL: 'Medical',
   FAMILY: 'Family',
@@ -163,6 +210,7 @@ async function notifyStudentParentsChannels(studentId, opts = {}) {
     email: { sent: 0, failed: 0, skipped: 0 },
     push: { sent: 0, skipped: null },
     in_app: { sent: 0, skipped: 0 },
+    sms: { sent: 0, failed: 0, skipped: 0 },
   };
   if (!id) return summary;
 
@@ -172,11 +220,13 @@ async function notifyStudentParentsChannels(studentId, opts = {}) {
   const payload = opts.payload && typeof opts.payload === 'object' ? opts.payload : {};
   const pushTag = trimStr(opts.pushTag) || `babyeyi-${type.toLowerCase()}`;
   const category = opts.category || 'discipline';
+  const sendSmsFlag = opts.sms === true;
 
   const phones = await collectParentPhonesForStudent(id);
   if (!phones.length) {
     summary.in_app.skipped = 'no_parent_phones';
     summary.push.skipped = 'no_parent_phones';
+    if (sendSmsFlag) summary.sms.skipped = 'no_parent_phones';
   } else {
     for (const phone of phones) {
       try {
@@ -210,6 +260,41 @@ async function notifyStudentParentsChannels(studentId, opts = {}) {
     } catch (e) {
       console.warn('[parent-notify/push]', e.message);
       summary.push.skipped = e.message;
+    }
+
+    if (sendSmsFlag) {
+      if (!isSmsConfigured()) {
+        summary.sms.skipped = 'sms_not_configured';
+      } else {
+        const smsText = sanitizeSmsText(
+          trimStr(opts.smsBody) ||
+            [title, body.replace(/\n/g, ' ')].filter(Boolean).join(' - ').slice(0, 480)
+        );
+        summary.sms.details = [];
+        for (const phone of phones) {
+          try {
+            const sms = await sendParentSms({ phone, message: smsText });
+            summary.sms.details.push({
+              phone,
+              sent: !!sms.sent,
+              skipped: sms.skipped || null,
+              error: sms.error || null,
+              providerCode: sms.providerCode || null,
+              messagePreview: smsText.slice(0, 120),
+            });
+            if (sms.sent) summary.sms.sent += 1;
+            else summary.sms.failed += 1;
+          } catch (e) {
+            console.warn('[parent-notify/sms]', e.message);
+            summary.sms.details.push({ phone, sent: false, error: e.message });
+            summary.sms.failed += 1;
+          }
+        }
+        if (summary.sms.sent === 0 && summary.sms.failed > 0) {
+          summary.sms.skipped = summary.sms.details[0]?.skipped || 'sms_send_failed';
+          summary.sms.error = summary.sms.details[0]?.error || null;
+        }
+      }
     }
   }
 
@@ -309,6 +394,14 @@ async function notifyStudentParentsDiscipline(studentId, opts = {}) {
     title,
     body,
     url: detailsUrl,
+    smsBody: buildDisciplineSmsBody({
+      studentName,
+      schoolName,
+      marks,
+      remaining,
+      maximum,
+      reason,
+    }),
     payload: {
       student_id: Number(studentId),
       student_ref: studentRef,
@@ -323,6 +416,7 @@ async function notifyStudentParentsDiscipline(studentId, opts = {}) {
     },
     pushTag: `discipline-marks-${studentId}-${opts.logId || Date.now()}`,
     category: 'discipline',
+    sms: true,
   });
 }
 
@@ -381,6 +475,7 @@ module.exports = {
   notifyStudentParentsPermission,
   notifyStudentParentsDiscipline,
   notifyStudentParentsMarks,
+  buildDisciplineSmsBody,
   collectParentEmailsForStudent,
   insertParentPortalNotification,
 };

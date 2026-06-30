@@ -20,6 +20,7 @@ const {
 const {
   notifyStudentParentsDiscipline,
   notifyStudentParentsChannels,
+  buildDisciplineSmsBody,
 } = require('./parentStudentNotifications');
 const { requireRole } = require('../middleware/deoAuth');
 const {
@@ -1031,11 +1032,22 @@ router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req
     const studentName =
       `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
     const schoolName = trimStr(stName?.school_name) || 'School';
-    setImmediate(() => {
-      notifyStudentParentsChannels(studentId, {
+
+    let parent_notifications = null;
+    try {
+      parent_notifications = await notifyStudentParentsChannels(studentId, {
         type: 'DISCIPLINE_CASE',
         title: `${schoolName}: Discipline case`,
-        body: `${studentName}: ${marksDeducted} mark(s) deducted — ${lessonSubject}. Remaining: ${remainAfter} of ${totalMarks}.`,
+        body: `${studentName}: ${marksDeducted} mark(s) deducted - ${lessonSubject}. Remaining: ${remainAfter} of ${totalMarks}.`,
+        smsBody: buildDisciplineSmsBody({
+          studentName,
+          schoolName,
+          marks: marksDeducted,
+          remaining: remainAfter,
+          maximum: totalMarks,
+          lessonSubject,
+          reason: description,
+        }),
         payload: {
           case_id: ins.insertId,
           student_id: studentId,
@@ -1045,17 +1057,22 @@ router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req
         },
         pushTag: `discipline-case-${ins.insertId}`,
         category: 'discipline',
-      }).catch((e) => console.warn('[discipline/case/notify]', e.message));
-    });
+        sms: true,
+      });
+    } catch (notifyErr) {
+      console.warn('[discipline/case/notify]', notifyErr.message);
+    }
 
     return res.status(201).json({
       success: true,
       message: 'Discipline case recorded.',
+      parent_notifications,
       data: {
         id: ins.insertId,
         marks_remaining_after: remainAfter,
         discipline_total: totalMarks,
         discipline_deducted: already + marksDeducted,
+        parent_notifications,
       },
     });
   } catch (err) {

@@ -5,6 +5,12 @@ import {
     Activity, Users, ChevronRight, User, Trash2, ArrowLeft, ArrowRight, Loader2, Grid, Award,
     ListChecks
 } from 'lucide-react';
+import api from '../services/api';
+import {
+    conductCaseSmsMessage,
+    mergeParentNotifySummaries,
+    readParentNotificationsFromCaseResponse,
+} from '../utils/parentNotifySummary';
 
 const CATALOGUE = [
     { id: 'c1', name: 'Late Arrival', category: 'Lateness', points: -2 },
@@ -30,6 +36,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
     const [showBrowser, setShowBrowser] = useState(false);
     const [showStudents, setShowStudents] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [smsNotice, setSmsNotice] = useState('');
     const searchRef = useRef(null);
     const searchInputRef = useRef(null);
 
@@ -39,6 +46,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             setStudent(initialStudent || null);
             setNote('');
             setSuccess(false);
+            setSmsNotice('');
             setSearch('');
             setMobileStep('items');
         }
@@ -109,6 +117,17 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                             </div>
                         </div>
 
+                        {totalPoints < 0 && smsNotice ? (
+                            <div className={`rounded-2xl px-4 py-3 mb-6 border text-left ${
+                                smsNotice.startsWith('SMS sent')
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                            }`}>
+                                <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Parent SMS</p>
+                                <p className="text-xs font-bold mt-1">{smsNotice}</p>
+                            </div>
+                        ) : null}
+
                         <div className="space-y-3">
                             <button
                                 onClick={() => {
@@ -116,6 +135,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                     setStudent(initialStudent || null);
                                     setNote('');
                                     setSuccess(false);
+                                    setSmsNotice('');
                                 }}
                                 className="w-full py-4 bg-re-grad-orange text-white rounded-2xl text-xs font-black shadow-re-glow hover:scale-[1.02] active:scale-95 transition-all"
                             >
@@ -346,14 +366,47 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             {/* Submit */}
             <div className="px-4 py-4 border-t border-black/5 shrink-0 bg-white">
                 <button
-                    onClick={() => {
+                    onClick={async () => {
                         if (!canSubmit || submitting) return;
+
+                        const idToUse = student?.row_id || student?._raw?.id || student?.dbId;
+                        if (!idToUse) {
+                            alert('Missing internal student ID. Please re-select the student.');
+                            return;
+                        }
+
                         setSubmitting(true);
-                        // Mock API delay
-                        setTimeout(() => {
-                            setSubmitting(false);
+                        try {
+                            const notifySummaries = [];
+                            let recorded = 0;
+                            for (const row of rows) {
+                                const pts = row.points * row.qty;
+                                const marksDeducted = -pts;
+                                if (marksDeducted <= 0) continue;
+
+                                const res = await api.post('/discipline/cases', {
+                                    student_id: idToUse,
+                                    lesson_subject: row.name,
+                                    description: note || null,
+                                    marks_deducted: marksDeducted,
+                                });
+                                notifySummaries.push(readParentNotificationsFromCaseResponse(res));
+                                recorded += 1;
+                            }
+                            if (recorded === 0) {
+                                alert('Add at least one deduction criterion to record conduct marks.');
+                                return;
+                            }
+
+                            const merged = mergeParentNotifySummaries(notifySummaries);
+                            setSmsNotice(conductCaseSmsMessage(merged) || '');
                             setSuccess(true);
-                        }, 1200);
+                        } catch (err) {
+                            console.error('Failed to record conduct marks:', err);
+                            alert(err.response?.data?.message || 'Failed to record one or more marks. Please try again.');
+                        } finally {
+                            setSubmitting(false);
+                        }
                     }}
                     disabled={!canSubmit || submitting}
                     className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] uppercase tracking-widest font-black transition-all ${canSubmit && !submitting ? 'bg-re-grad-orange text-white shadow-re-glow hover:scale-[1.02] active:scale-95' : 'bg-re-bg text-gray-400 cursor-not-allowed border border-black/5'
