@@ -35,6 +35,8 @@ const {
   mergeRwPatchesIntoContentI18nBundle,
 } = require("../utils/babyeyiContentI18n");
 const { getDocStrings } = require("../utils/babyeyiDocI18n");
+const { buildBabyeyiPrintPageHtml } = require("../utils/babyeyiDocHtml");
+const { fileToDataUrl, renderHtmlToPdfFile, puppeteerAvailable } = require("../utils/babyeyiPuppeteerPdf");
 const { fetchStudentRequirementsCatalog } = require("../utils/studentRequirementsSchema");
 const { normalizeSchoolId } = require("../utils/normalizeSchoolId");
 
@@ -996,6 +998,201 @@ const generateQRCodeFile = async (qrPayload, docId) => {
   return { filePath: `/${QR_DIR}${filename}`, fileName: filename, fullPath: filepath };
 };
 
+function babyeyiTodayFr() {
+  return new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+async function loadBabyeyiDocBundle(bid, documentLanguage = "en") {
+  const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [bid]);
+  if (!rows.length) return null;
+  const babyeyi = normalise(rows[0]);
+
+  let payments = await query(
+    "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [bid]
+  );
+  if (!payments.length && rows[0].payments) {
+    try {
+      const raw = typeof rows[0].payments === "string" ? JSON.parse(rows[0].payments) : rows[0].payments;
+      if (Array.isArray(raw)) payments = raw;
+    } catch (_) {}
+  }
+
+  const [studentReqs, classReqsRaw, sigRows, leaderRows] = await Promise.all([
+    query("SELECT item, description, quantity FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order", [bid]).catch(() => []),
+    query(`SELECT COALESCE(item, information) AS item, details
+           FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`, [bid]).catch(() => []),
+    query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=? LIMIT 1", [bid]).catch(() => []),
+    fetchLeaders(bid).catch(() => []),
+  ]);
+
+  const sigRow = sigRows[0] || {};
+  let contentI18nRaw = null;
+  try {
+    const [ciRow] = await query("SELECT content_i18n FROM school_babyeyi WHERE id=?", [bid]);
+    contentI18nRaw = ciRow?.content_i18n ?? null;
+  } catch (_) {}
+
+  const docLang = normalizeSourceLang(documentLanguage);
+  const merged = mergeLocalizedBabyeyiPayload({
+    lang: docLang,
+    parentMessage: babyeyi.parent_message || "",
+    payments: payments.map((p) => ({ name: p.name, amount: Number(p.amount) || 0 })),
+    requirements: studentReqs,
+    classNotes: classReqsRaw.map(normaliseClassReq),
+    leaders: leaderRows,
+    contentI18n: contentI18nRaw,
+  });
+
+  let classes = [];
+  try {
+    const cj = rows[0].classes_json;
+    if (cj) {
+      const raw = typeof cj === "string" ? JSON.parse(cj) : cj;
+      if (Array.isArray(raw)) classes = raw.filter(Boolean);
+    }
+  } catch (_) {}
+  const primaryClass = babyeyi.class || babyeyi.class_name || (classes[0] || "");
+  if (!classes.length && primaryClass) classes = [primaryClass];
+
+  let sigPaths = {
+    sigPath:        sigRow.director_sig_path  || null,
+    stampPath:      sigRow.stamp_path         || null,
+    schoolLogoPath: sigRow.school_logo_path   || null,
+    otherLogoPath:  sigRow.other_logo_path    || null,
+  };
+
+  if (babyeyi.school_id) {
+    try {
+      const schoolRows = await query(
+        "SELECT logo_url, school_stamp_url, head_signature_url FROM schools WHERE id=? LIMIT 1",
+        [babyeyi.school_id]
+      );
+      if (schoolRows.length) {
+        const sr = schoolRows[0];
+        if (!sigPaths.schoolLogoPath && sr.logo_url) sigPaths.schoolLogoPath = sr.logo_url;
+        if (!sigPaths.stampPath && sr.school_stamp_url) sigPaths.stampPath = sr.school_stamp_url;
+        if (!sigPaths.sigPath && sr.head_signature_url) sigPaths.sigPath = sr.head_signature_url;
+      }
+    } catch (_) {}
+  }
+
+  const rec = {
+    schoolName: babyeyi.school_name || "",
+    district: babyeyi.district || babyeyi.school_district || "",
+    sector: babyeyi.sector || babyeyi.school_sector || "",
+    academicYear: babyeyi.academic_year || "",
+    term: babyeyi.term || "",
+    level: babyeyi.level || babyeyi.education_level || "",
+    class: primaryClass,
+    classes,
+    docId: babyeyi.doc_id || null,
+    parentMessage: merged.parentMessage,
+    payments: merged.payments,
+    requirements: merged.requirements,
+    classNotes: merged.classNotes,
+    leaders: merged.leaders,
+    banksJson: babyeyi.banks_json,
+    bankName: babyeyi.bank_name,
+    bankAccountNo: babyeyi.bank_account_no,
+    bankAccountName: babyeyi.bank_account_name,
+  };
+
+  const qrPath = sigRow.qr_code_path || babyeyi.qr_code_path || null;
+
+  return {
+    rec,
+    sigPaths,
+    qrPath,
+    docLang,
+    parentMessage: merged.parentMessage,
+    babyeyi,
+  };
+}
+
+async function buildBabyeyiPrintHtmlForBid(bid, documentLanguage = "en", { autoPrint = false } = {}) {
+  const bundle = await loadBabyeyiDocBundle(bid, documentLanguage);
+  if (!bundle) return null;
+
+  const { rec, sigPaths, qrPath, docLang, parentMessage } = bundle;
+  const totalFee = (rec.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  return buildBabyeyiPrintPageHtml({
+    rec,
+    totalFee,
+    today: babyeyiTodayFr(),
+    schoolLogoB64: fileToDataUrl(sigPaths.schoolLogoPath),
+    otherLogoB64: fileToDataUrl(sigPaths.otherLogoPath),
+    sigB64: fileToDataUrl(sigPaths.sigPath),
+    stampB64: fileToDataUrl(sigPaths.stampPath),
+    qrB64: fileToDataUrl(qrPath),
+    lang: docLang,
+    parentMsgOverride: parentMessage,
+  }, { autoPrint });
+}
+
+async function generateBabyeyiHtmlPDF({
+  babyeyi,
+  payments,
+  requirements,
+  classNotes,
+  sigPaths,
+  qrFilePath,
+  docId,
+  parentMessage,
+  leaders = [],
+  documentLang = "en",
+}) {
+  const nb = normalise(babyeyi);
+  const totalFee = (payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  let classes = [];
+  try {
+    const cj = nb.classes_json || babyeyi.classes_json;
+    if (cj) {
+      const raw = typeof cj === "string" ? JSON.parse(cj) : cj;
+      if (Array.isArray(raw)) classes = raw.filter(Boolean);
+    }
+  } catch (_) {}
+  const primaryClass = nb.class || nb.class_name || babyeyi.class_name || (classes[0] || "");
+  if (!classes.length && primaryClass) classes = [primaryClass];
+
+  const rec = {
+    schoolName: nb.school_name || babyeyi.school_name || "",
+    district: nb.district || nb.school_district || babyeyi.school_district || "",
+    sector: nb.sector || nb.school_sector || babyeyi.school_sector || "",
+    academicYear: nb.academic_year || babyeyi.academic_year || "",
+    term: nb.term || babyeyi.term || "",
+    level: nb.level || nb.education_level || "",
+    class: primaryClass,
+    classes,
+    docId,
+    parentMessage,
+    payments,
+    requirements,
+    classNotes,
+    leaders,
+    banksJson: nb.banks_json || babyeyi.banks_json,
+    bankName: nb.bank_name || babyeyi.bank_name,
+    bankAccountNo: nb.bank_account_no || babyeyi.bank_account_no,
+    bankAccountName: nb.bank_account_name || babyeyi.bank_account_name,
+  };
+
+  const html = buildBabyeyiPrintPageHtml({
+    rec,
+    totalFee,
+    today: babyeyiTodayFr(),
+    schoolLogoB64: fileToDataUrl(sigPaths?.schoolLogoPath),
+    otherLogoB64: fileToDataUrl(sigPaths?.otherLogoPath),
+    sigB64: fileToDataUrl(sigPaths?.sigPath),
+    stampB64: fileToDataUrl(sigPaths?.stampPath),
+    qrB64: fileToDataUrl(qrFilePath),
+    lang: documentLang,
+    parentMsgOverride: parentMessage,
+  });
+
+  return renderHtmlToPdfFile(html, PDF_DIR, docId);
+}
+
 // ── Generate PDF ──────────────────────────────────────────────
 const generateBabyeyiPDF = async ({
   babyeyi,
@@ -1488,18 +1685,40 @@ const generateDocuments = async ({
     contentI18n: contentI18nRaw,
   });
 
-  const pdf = await generateBabyeyiPDF({
-    babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
-    payments: merged.payments,
-    requirements: merged.requirements,
-    classNotes: merged.classNotes,
-    sigPaths: resolvedSigPaths,
-    qrFilePath: qr.fullPath,
-    docId,
-    parentMessage: merged.parentMessage,
-    leaders: merged.leaders,
-    documentLang: docLang,
-  });
+  const pdf = await (async () => {
+    if (puppeteerAvailable()) {
+      try {
+        const htmlPdf = await generateBabyeyiHtmlPDF({
+          babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
+          payments: merged.payments,
+          requirements: merged.requirements,
+          classNotes: merged.classNotes,
+          sigPaths: resolvedSigPaths,
+          qrFilePath: qr.fullPath,
+          docId,
+          parentMessage: merged.parentMessage,
+          leaders: merged.leaders,
+          documentLang: docLang,
+        });
+        console.log(`[generateDocuments] Puppeteer HTML PDF file=${htmlPdf.filePath}`);
+        return htmlPdf;
+      } catch (e) {
+        console.warn("[generateDocuments] Puppeteer PDF failed, falling back to PDFKit:", e.message);
+      }
+    }
+    return generateBabyeyiPDF({
+      babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
+      payments: merged.payments,
+      requirements: merged.requirements,
+      classNotes: merged.classNotes,
+      sigPaths: resolvedSigPaths,
+      qrFilePath: qr.fullPath,
+      docId,
+      parentMessage: merged.parentMessage,
+      leaders: merged.leaders,
+      documentLang: docLang,
+    });
+  })();
   console.log(`[generateDocuments] PDF file=${pdf.filePath}`);
 
   const viewUrl = `${getBabyeyiPublicVerifyOrigin()}/babyeyi/verify/${docId}?h=${integrityHash}`;
@@ -3708,8 +3927,9 @@ router.get("/pdf/:docId", async (req, res) => {
     }
 
     const fileName = rows[0].pdf_name || ("Babyeyi-" + docId + ".pdf");
+    const download = req.query.download === "1" || req.query.download === "true";
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
     res.setHeader("Cache-Control", "public, max-age=3600");
     fs.createReadStream(absPath).pipe(res);
   } catch (err) {
@@ -3734,13 +3954,33 @@ router.get("/:id/pdf", async (req, res) => {
     }
 
     const fileName = rows[0].pdf_name || ("Babyeyi-" + (rows[0].doc_id || req.params.id) + ".pdf");
+    const download = req.query.download === "1" || req.query.download === "true";
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
     res.setHeader("Cache-Control", "public, max-age=3600");
     fs.createReadStream(absPath).pipe(res);
   } catch (err) {
     console.error("[babyeyi/:id/pdf]", err.message);
     res.status(500).json({ success: false, message: "Failed to serve PDF" });
+  }
+});
+
+// Printable HTML (same layout as server PDF — opens browser print dialog)
+router.get("/:id/print", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const lang = req.query.lang || "en";
+    const autoPrint = req.query.autoprint !== "0";
+    const html = await buildBabyeyiPrintHtmlForBid(id, lang, { autoPrint });
+    if (!html) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(html);
+  } catch (err) {
+    console.error("[babyeyi/:id/print]", err.message);
+    res.status(500).json({ success: false, message: "Failed to render print page" });
   }
 });
 

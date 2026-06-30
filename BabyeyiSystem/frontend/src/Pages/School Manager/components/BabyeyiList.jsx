@@ -44,6 +44,7 @@ import {
   FileText,
   RefreshCw,
   Check,
+  Printer,
   Stamp as StampLucide,
 } from 'lucide-react';
 
@@ -159,6 +160,35 @@ async function toBase64(url) {
     const blob = await res.blob();
     return await new Promise(r => { const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(blob); });
   } catch { return null; }
+}
+
+/** Download official server-generated PDF (Puppeteer/PDFKit). Regenerates once if missing. */
+export async function downloadBabyeyiServerPdf({ babyeyiId, apiLang = "en", fileName, onRegenerate }) {
+  const pdfUrl = `${API_BASE}/babyeyi/${babyeyiId}/pdf?download=1`;
+  let res = await fetch(pdfUrl, { credentials: "include" });
+  if (!res.ok) {
+    if (onRegenerate) await onRegenerate();
+    else {
+      await fetch(`${API_BASE}/babyeyi/${babyeyiId}/regenerate-docs?lang=${encodeURIComponent(apiLang)}`, {
+        method: "POST",
+        credentials: "include",
+      });
+    }
+    res = await fetch(pdfUrl, { credentials: "include" });
+  }
+  if (!res.ok) throw new Error("PDF not ready — try Regenerate, then download again.");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName || "Babyeyi.pdf";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function openBabyeyiPrintPage({ babyeyiId, apiLang = "en" }) {
+  const printUrl = `${API_BASE}/babyeyi/${babyeyiId}/print?lang=${encodeURIComponent(apiLang)}&autoprint=1`;
+  window.open(printUrl, "_blank", "noopener,noreferrer");
 }
 
 function loadScript(src) {
@@ -872,39 +902,30 @@ export function BabyeyiOfficialDocViewer({
     if (blocked) return;
     setDownloading(true);
     try {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-      const html = buildWordDocHTML({
-        rec: docBody.merged,
-        totalFee,
-        today,
-        schoolLogoB64,
-        otherLogoB64,
-        sigB64,
-        stampB64,
-        qrB64,
-        vUrl,
-        lang,
-        T,
-        parentMsgOverride: docBody.parentMsg,
+      const fileName = `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`;
+      await downloadBabyeyiServerPdf({
+        babyeyiId: rec.id,
+        apiLang,
+        fileName,
+        onRegenerate: async () => {
+          const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs?lang=${encodeURIComponent(apiLang)}`, {
+            method: "POST",
+            credentials: "include",
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || json.success === false) throw new Error(json.message || "Regenerate failed");
+        },
       });
-      const style = document.createElement("style");
-      style.textContent = `#__by_p__ * { box-sizing:border-box; color-scheme:light only; } #__by_p__ { all:initial;display:block;background:#fff; }`;
-      document.head.appendChild(style);
-      const host = document.createElement("div");
-      host.style.cssText = BABYEYI_PDF_CAPTURE_HOST_STYLE;
-      const root = document.createElement("div"); root.id = "__by_p__"; root.innerHTML = html;
-      host.appendChild(root); document.body.appendChild(host);
-      try {
-        await renderBabyeyiPdfFromRoot(
-          root,
-          "__by_p__",
-          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
-          babyeyiDocHtml2CanvasOptions("__by_p__"),
-        );
-      } finally { document.body.removeChild(host); document.head.removeChild(style); }
-    } catch (e) { alert("PDF error: " + e.message); }
-    finally { setDownloading(false); }
+    } catch (e) {
+      alert("PDF error: " + (e.message || e));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (blocked) return;
+    openBabyeyiPrintPage({ babyeyiId: rec.id, apiLang });
   };
 
   const handleRegen = async () => {
@@ -981,10 +1002,16 @@ export function BabyeyiOfficialDocViewer({
             <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> {T.locked || "Locked"}</span>
           )}
           {!blocked ? (
-            <button onClick={handlePDF} disabled={downloading}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-bold shrink-0">
-              {downloading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.pdfBtn || "PDF"} {lang !== "en" ? langMeta(lang).flag : ""}
-            </button>
+            <>
+              <button onClick={handlePrint}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-white/8 border border-white/15 hover:bg-white/14 text-white rounded-xl text-[10px] font-bold shrink-0">
+                <Printer className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden /> {T.printBtn || "Print"}
+              </button>
+              <button onClick={handlePDF} disabled={downloading}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-bold shrink-0">
+                {downloading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.pdfBtn || "PDF"} {lang !== "en" ? langMeta(lang).flag : ""}
+              </button>
+            </>
           ) : (
             <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> PDF</span>
           )}
