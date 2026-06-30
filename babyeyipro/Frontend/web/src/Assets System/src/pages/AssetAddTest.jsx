@@ -18,6 +18,7 @@ import { ASSET_HEALTH_STATUS_OPTIONS, ASSET_HEALTH_STATUS_NOT_USED_OLD } from '.
 import { assetsHref } from '../../../assets_portal/config/portal'
 import { EMPTY_DATE_PERIOD, resolveDateFilterQuery } from '../../../assets_portal/utils/assetsDateUtils'
 import AssetDatePeriodFilter from '../components/AssetDatePeriodFilter'
+import AssetOldNotReplacedFilter from '../components/AssetOldNotReplacedFilter'
 import TablePagination from '../components/TablePagination'
 import { exportReportExcel } from './Reports/utils/reportExport'
 
@@ -305,7 +306,7 @@ export default function AssetAddTest() {
     refreshAll()
   }
 
-  const handleConfirmImport = async ({ rows, skipDuplicates, registerYear, entryMode, firstTime }) => {
+  const handleConfirmImport = async ({ rows, skipDuplicates, registerYear, entryMode, firstTime, autoGenerateSku }) => {
     if (!rows.length) return
     setImportConfirming(true)
     setError('')
@@ -316,6 +317,7 @@ export default function AssetAddTest() {
         entryMode,
         firstTime,
         skipDuplicates,
+        autoGenerateSku,
       })
       const created = result?.created ?? 0
       const failed = result?.failed ?? 0
@@ -554,19 +556,14 @@ export default function AssetAddTest() {
             {years.map((y) => <option key={y} value={y}>FY {y}</option>)}
           </select>
         </div>
-        <label className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-red-200 bg-red-50/60 text-xs font-semibold text-red-800 cursor-pointer hover:bg-red-50">
-          <input
-            type="checkbox"
-            className="rounded border-red-300 text-red-600 focus:ring-red-400"
-            checked={filterOldNotReplaced}
-            onChange={(e) => {
-              const on = e.target.checked
-              setFilterOldNotReplaced(on)
-              if (on && !filterHealth) setFilterHealth(ASSET_HEALTH_STATUS_NOT_USED_OLD)
-            }}
-          />
-          Old · not replaced (Not Used (Old) with no replacement link)
-        </label>
+        <AssetOldNotReplacedFilter
+          className="mt-3 pt-3 border-t border-slate-100"
+          active={filterOldNotReplaced}
+          onChange={(on) => {
+            setFilterOldNotReplaced(on)
+            if (on && !filterHealth) setFilterHealth(ASSET_HEALTH_STATUS_NOT_USED_OLD)
+          }}
+        />
         <div className="mt-4">
           <AssetDatePeriodFilter value={datePeriod} onChange={setDatePeriod} label="Purchase / register date" />
         </div>

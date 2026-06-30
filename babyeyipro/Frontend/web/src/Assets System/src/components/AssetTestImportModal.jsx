@@ -35,6 +35,8 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [parseError, setParseError] = useState('')
   const [skipDuplicates, setSkipDuplicates] = useState(true)
+  const [autoGenerateSku, setAutoGenerateSku] = useState(true)
+  const [parsedRows, setParsedRows] = useState([])
 
   const legacyYears = useMemo(() => yearOptionsFrom1900(), [])
   const activeYears = useMemo(() => financialYears.filter((y) => y.status === 'Active'), [financialYears])
@@ -54,6 +56,8 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     setOpeningByCategory({})
     setParseError('')
     setLoadingMeta(true)
+    setAutoGenerateSku(true)
+    setParsedRows([])
     assetTestApi.getMeta()
       .then((meta) => {
         const yrList = meta?.financial_years ?? []
@@ -79,6 +83,11 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     return map
   }, [categories])
 
+  const knownCategoryNames = useMemo(
+    () => categories.map((c) => c?.name).filter(Boolean),
+    [categories],
+  )
+
   const loadOpeningContexts = useCallback(async (year, rows, firstTime) => {
     const cats = [...new Set(rows.map((r) => r.category).filter(Boolean))]
     const openings = {}
@@ -98,6 +107,24 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     return openings
   }, [depRateByCategory])
 
+  const rebuildPreview = useCallback(async (rows, year, firstTime, autoSku = autoGenerateSku) => {
+    const [openings, identifiers] = await Promise.all([
+      loadOpeningContexts(year, rows, firstTime),
+      assetTestApi.getIdentifiers(year).catch(() => ({ skus: [] })),
+    ])
+    setOpeningByCategory(openings)
+    const existingSkus = new Set(
+      (identifiers?.skus ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean)
+    )
+    return buildAssetTestImportPreview(
+      rows,
+      openings,
+      depRateByCategory,
+      existingSkus,
+      { autoGenerateSku: autoSku },
+    )
+  }, [autoGenerateSku, depRateByCategory, loadOpeningContexts])
+
   const parseFile = async (selectedFile) => {
     if (!selectedFile || !selectedYear) return
     setFile(selectedFile)
@@ -105,29 +132,31 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     setParseError('')
     setPreviewRows([])
     try {
-      const parsed = await parseAssetTestExcelFile(selectedFile)
+      const parsed = await parseAssetTestExcelFile(selectedFile, { knownCategories: knownCategoryNames })
       if (!parsed.rows.length) {
         throw new Error('No data rows found. Check column headers match the template.')
       }
-      const [openings, identifiers] = await Promise.all([
-        loadOpeningContexts(selectedYear, parsed.rows, isFirstEntry),
-        assetTestApi.getIdentifiers(selectedYear).catch(() => ({ skus: [] })),
-      ])
-      setOpeningByCategory(openings)
-      const existingSkus = new Set(
-        (identifiers?.skus ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean)
-      )
-      const preview = buildAssetTestImportPreview(
-        parsed.rows,
-        openings,
-        depRateByCategory,
-        existingSkus
-      )
+      setParsedRows(parsed.rows)
+      const preview = await rebuildPreview(parsed.rows, selectedYear, isFirstEntry)
       setPreviewRows(preview)
       setPhase('preview')
     } catch (err) {
       setParseError(err?.message || 'Failed to read Excel file')
       setPhase('file')
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  const applyAutoSkuToggle = async (enabled) => {
+    setAutoGenerateSku(enabled)
+    if (!parsedRows.length || !selectedYear || phase !== 'preview') return
+    setLoadingPreview(true)
+    try {
+      const preview = await rebuildPreview(parsedRows, selectedYear, isFirstEntry, enabled)
+      setPreviewRows(preview)
+    } catch {
+      /* keep current preview */
     } finally {
       setLoadingPreview(false)
     }
@@ -173,6 +202,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     onSuccess?.({
       rows,
       skipDuplicates,
+      autoGenerateSku,
       registerYear: Number(selectedYear),
       entryMode: isFirstEntry ? 'year_setup' : 'legacy',
       firstTime: isFirstEntry,
@@ -288,7 +318,9 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                   <ul className="text-xs text-blue-900/80 space-y-1 list-disc list-inside">
                     <li>First row per category uses year-start opening + accumulated depreciation.</li>
                     <li>Next rows: <strong>Opening</strong> = prior row TOTAL BALANCE · <strong>Acc. dep.</strong> = prior TOTAL DEPRECIATION · <strong>Annual dep.</strong> = total balance × depreciation rate.</li>
-                    <li>Required columns: <strong>name</strong>, <strong>type</strong>, <strong>sku</strong>, <strong>purchase_unit_price</strong>.</li>
+                    <li>Required columns: <strong>name</strong>, <strong>type</strong> (or <strong>category</strong>), <strong>purchase_unit_price</strong>.</li>
+                    <li><strong>type</strong> (e.g. BUILDING) maps to your Year Setup category (e.g. Buildings) for opening balances.</li>
+                    <li><strong>SKU</strong> is optional when auto-generate is enabled (default).</li>
                     <li>Duplicate <strong>SKU</strong> in the selected year is flagged and can be skipped.</li>
                   </ul>
                 </div>
@@ -369,6 +401,15 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
               <span className="text-amber-700 font-medium">{summary.duplicate} duplicates</span>
               <span className="text-red-700 font-medium">{summary.invalid} invalid</span>
               <label className="ml-auto flex items-center gap-2 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={autoGenerateSku}
+                  onChange={(e) => applyAutoSkuToggle(e.target.checked)}
+                  className="rounded"
+                />
+                Auto-generate missing SKUs
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-xs">
                 <input type="checkbox" checked={skipDuplicates} onChange={(e) => setSkipDuplicates(e.target.checked)} className="rounded" />
                 Skip duplicate SKUs
               </label>
@@ -423,7 +464,12 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                       </td>
                       <td className="px-2 py-2 font-medium max-w-[120px] truncate">{row.name || '—'}</td>
                       <td className="px-2 py-2">{row.category || '—'}</td>
-                      <td className="px-2 py-2 font-mono">{row.sku || '—'}</td>
+                      <td className="px-2 py-2 font-mono">
+                        {row.sku || '—'}
+                        {row.autoSku && (
+                          <span className="ml-1 text-[9px] font-bold uppercase text-blue-700">auto</span>
+                        )}
+                      </td>
                       <td className="px-2 py-2 max-w-[90px] truncate">{row.location}</td>
                       <td className="px-2 py-2 font-mono tabular-nums">{row.unit_price != null ? formatRwfPlain(row.unit_price) : '—'}</td>
                       <td className="px-2 py-2 font-mono tabular-nums text-gray-600">{row.opening_amount != null ? formatRwfPlain(row.opening_amount) : '—'}</td>

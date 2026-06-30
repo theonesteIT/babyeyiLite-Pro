@@ -73,6 +73,7 @@ const assetTestApi = {
       entry_mode: options.entryMode,
       first_time: options.firstTime,
       skip_duplicates: options.skipDuplicates !== false,
+      auto_generate_sku: options.autoGenerateSku !== false,
     }, { timeout: 300000 })
   ),
 

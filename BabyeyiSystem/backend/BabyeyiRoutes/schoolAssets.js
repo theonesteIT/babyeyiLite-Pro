@@ -3071,11 +3071,45 @@ async function loadSchoolSkuSet(schoolId, registerYear) {
   return skus;
 }
 
-function findSkuDuplicateIssues(p, skuSet, fileSeenSkus) {
+function resolveImportCategoryName(rawCategory, rawType, knownCategories = []) {
+  const explicit = trimStr(rawCategory);
+  if (explicit) return explicit;
+
+  const typeRaw = trimStr(rawType);
+  if (!typeRaw) return '';
+
+  const typeUpper = typeRaw.toUpperCase();
+  const typeMap = {
+    BUILDING: 'Buildings',
+    BUILDINGS: 'Buildings',
+    FURNITURE: 'Furniture',
+    VEHICLE: 'Vehicles',
+    VEHICLES: 'Vehicles',
+    'ICT & ELECTRONICS': 'IT Equipment',
+    'LAB EQUIPMENT': 'Laboratory Equipment',
+    MACHINERY: 'Machinery',
+    'OFFICE EQUIPMENT': 'Office Equipment',
+    ELECTRONICS: 'Electronics',
+    LAND: 'Land',
+  };
+  if (typeMap[typeUpper]) return typeMap[typeUpper];
+
+  const norm = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const typeNorm = norm(typeRaw);
+  for (const name of knownCategories) {
+    const nameNorm = norm(name);
+    if (!nameNorm) continue;
+    if (nameNorm === typeNorm || nameNorm === `${typeNorm}s` || `${nameNorm}s` === typeNorm) return name;
+    if (nameNorm.replace(/s$/, '') === typeNorm.replace(/s$/, '')) return name;
+  }
+  return typeRaw;
+}
+
+function findSkuDuplicateIssues(p, skuSet, fileSeenSkus, { allowMissingSku = false } = {}) {
   const issues = [];
   const sku = trimStr(p.sku).toUpperCase();
   if (!sku) {
-    issues.push('SKU is required');
+    if (!allowMissingSku) issues.push('SKU is required');
     return issues;
   }
   if (skuSet.has(sku)) issues.push(`SKU "${p.sku}" already exists in this register year`);
@@ -4136,6 +4170,7 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
     const body = req.body || {};
     const rows = Array.isArray(body.rows) ? body.rows : [];
     const skipDuplicates = body.skip_duplicates !== false;
+    const autoGenerateSku = body.auto_generate_sku !== false;
     const entryMode = resolveAssetEntryMode(body);
     const registerYear = resolveRegisterYear(body, null);
 
@@ -4151,6 +4186,8 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
 
     const skuSet = await loadSchoolSkuSet(schoolId, registerYear);
     const fileSeenSkus = new Set();
+    const schoolCategories = await loadCategoriesWithCounts(schoolId);
+    const knownCategoryNames = schoolCategories.map((c) => c.name).filter(Boolean);
     const created = [];
     const errors = [];
     const skipped = [];
@@ -4164,19 +4201,33 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
       const rowNo = i + 1;
       try {
         const assetName = trimStr(row.asset_name || row.name);
-        const categoryName = trimStr(row.category || row.type || row.asset_type);
-        const sku = trimStr(row.sku);
+        const categoryName = resolveImportCategoryName(
+          row.category,
+          row.type || row.asset_type,
+          knownCategoryNames,
+        );
+        let sku = trimStr(row.sku);
         const purchasePrice = toMoney(row.purchase_price ?? row.purchase_unit_price ?? row.unit_price);
+        const rowLocation = formatLocationValue(row.location) || 'Unspecified';
 
         const validationIssues = [];
         if (!assetName) validationIssues.push('Name is required');
         if (!categoryName) validationIssues.push('Type / Category is required');
-        if (!sku) validationIssues.push('SKU is required');
+        if (!sku && !autoGenerateSku) validationIssues.push('SKU is required');
         if (purchasePrice <= 0) validationIssues.push('Purchase unit price is required');
 
         if (validationIssues.length) {
           errors.push({ row: rowNo, message: validationIssues.join('; ') });
           continue;
+        }
+
+        if (!sku && autoGenerateSku) {
+          const autoSku = await resolveAutoSkuForBody(schoolId, registerYear, {
+            location: rowLocation,
+            label_tag: row.label_tag || row.label || null,
+            asset_name: assetName,
+          });
+          sku = autoSku.sku;
         }
 
         const dupIssues = findSkuDuplicateIssues({ sku }, skuSet, fileSeenSkus);
@@ -4215,7 +4266,7 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
           rolling_accumulated_dep: rollState.accumulated,
           asset_name: assetName,
           category: categoryName,
-          location: formatLocationValue(row.location) || 'Unspecified',
+          location: rowLocation,
           label_tag: row.label_tag || row.label || null,
           supplier_name: row.supplier_name || row.supplier || null,
           upi: row.upi || null,
