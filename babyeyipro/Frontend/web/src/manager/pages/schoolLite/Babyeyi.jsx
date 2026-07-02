@@ -12,6 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardPen,
+  Pencil,
+  X,
 } from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
 import ClassStreamPicker from "../../components/ClassStreamPicker";
@@ -309,6 +311,112 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   leaders:              [blankLeader()],
 });
 
+function hydrateFormFromEditRecord(rec, session = {}) {
+  const parsedPayments = (() => {
+    try {
+      const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
+      if (!Array.isArray(raw)) return [];
+      return raw.map((p) => ({
+        name: p?.name ?? "",
+        amount: p?.amount != null && p?.amount !== "" ? String(p.amount) : "",
+        pay_channel:
+          String(p?.pay_channel || p?.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+      }));
+    } catch {
+      return [];
+    }
+  })();
+
+  const parsedReqs = (Array.isArray(rec.requirements) ? rec.requirements : []).map((r) => ({
+    item: r?.item ?? "",
+    description: r?.description ?? "",
+    quantity: r?.quantity ?? "",
+    pay_channel: String(r?.pay_channel ?? r?.payChannel ?? "").toLowerCase() === "school" ? "school" : "babyeyi",
+    cost: r?.cost != null && r.cost !== "" ? String(r.cost) : "",
+  }));
+
+  const parsedOtherInfos = Array.isArray(rec.otherInfos) ? rec.otherInfos : [];
+  const parsedClassNotes = Array.isArray(rec.classNotes) ? rec.classNotes : [];
+
+  const parsedBanks = (() => {
+    try {
+      const b = typeof rec.banksJson === "string" ? JSON.parse(rec.banksJson) : (rec.banksJson || []);
+      return Array.isArray(b) ? b : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const parsedLeaders = (() => {
+    try {
+      const raw = rec.leaders;
+      if (!raw) return [blankLeader()];
+      const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (!Array.isArray(arr) || !arr.length) return [blankLeader()];
+      return arr.map((l) => ({
+        name: l?.name ?? l?.leader_name ?? "",
+        role: l?.role ?? l?.leader_role ?? "",
+        phone: l?.phone ?? "",
+        email: l?.email ?? "",
+      }));
+    } catch {
+      return [blankLeader()];
+    }
+  })();
+
+  const classes =
+    Array.isArray(rec.classes) && rec.classes.length ? rec.classes : rec.class ? [rec.class] : [];
+
+  const primaryBank = parsedBanks[0] || {};
+  const extraBanks = parsedBanks.slice(1);
+  const firstClass = classes[0] || "";
+
+  return {
+    ...buildBlankForm({ name: rec.schoolName || session?.schoolName || "" }),
+    schoolName: rec.schoolName || session?.schoolName || "",
+    province: rec.province || session?.schoolProvince || "",
+    district: rec.district || session?.schoolDistrict || "",
+    sector: rec.sector || "",
+    academicYear: rec.academicYear || "2025-2026",
+    term: rec.term || "Term 1",
+    category: rec.category || "Public",
+    language: rec.language || "en",
+    classes,
+    nesaFeeLimitLevel: mapToNesaLimitLevel(
+      normalizeEducationLevel(rec.level || inferEducationLevelFromClassLabel(firstClass)),
+    ),
+    parentMessage: rec.parentMessage || "",
+    payments: parsedPayments.length
+      ? parsedPayments
+      : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
+    requirements: parsedReqs.length
+      ? parsedReqs
+      : [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
+    classReqs: parsedClassNotes.length
+      ? parsedClassNotes.map((n) => ({ item: n.item || "", details: n.details || "" }))
+      : [{ item: "", details: "" }],
+    otherInfos: parsedOtherInfos.length
+      ? parsedOtherInfos.map((o) => ({ item: o.item || o.information || "" }))
+      : [{ item: "" }],
+    bankName: primaryBank.bankName || rec.bankName || "",
+    accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
+    accountName: primaryBank.accountName || rec.bankAccountName || "",
+    extraBankAccounts: extraBanks,
+    leaders: parsedLeaders,
+    feeTargetStudents: rec.feeTargetStudents || "public",
+    schoolLogo: null,
+    otherLogo: null,
+    directorSignature: null,
+    stamp: null,
+    requestIncrease: false,
+    requestTitle: "",
+    requestReasons: [],
+    requestDescription: "",
+    dateSigned: "",
+    _isEditHydrated: true,
+  };
+}
+
 // ── Shared Input Styles ───────────────────────────────────────
 const inp    = `w-full px-3 py-2.5 bg-white border border-amber-200 rounded-xl text-sm text-slate-800 outline-none transition-all placeholder:text-slate-300`;
 const inpFocus = { boxShadow: "0 0 0 2px rgba(254,191,16,0.25)", borderColor: C.gold };
@@ -531,11 +639,13 @@ function DocPreview({ form, previews }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// MAIN APP
+// MAIN WIZARD — create (page) or edit (modal)
 // ════════════════════════════════════════════════════════════
-export default function App({ session }) {
+export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, layout = "page" }) {
   const schoolId = session?.schoolId ?? null;
   const academic = useAcademic();
+  const isModal = layout === "modal";
+  const [editId, setEditId] = useState(editRecord?.id ?? null);
 
   const academicYearOptions = useMemo(
     () => (academic.academicYears?.length ? academic.academicYears : (academic.academicYear ? [academic.academicYear] : [])),
@@ -590,6 +700,27 @@ export default function App({ session }) {
     stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [step]);
 
+  useEffect(() => {
+    if (!editRecord?.id) return;
+    setForm(hydrateFormFromEditRecord(editRecord, session));
+    setEditId(editRecord.id);
+    const logo = toAssetUrl(editRecord.schoolLogoPath);
+    const sig = toAssetUrl(editRecord.signaturePath);
+    const stamp = toAssetUrl(editRecord.stampPath);
+    const other = toAssetUrl(editRecord.otherLogoPath);
+    setPreviews({
+      schoolLogo: logo,
+      otherLogo: other,
+      directorSignature: sig,
+      stamp,
+    });
+    setDbAssets({
+      schoolLogo: !!logo,
+      directorSignature: !!sig,
+      stamp: !!stamp,
+    });
+  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+
   const classRowMap = useMemo(() => {
     const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
     return buildClassRowMap(merged.rows, merged.options);
@@ -636,6 +767,7 @@ export default function App({ session }) {
   }, [classOptions, classRowMap]);
 
   useEffect(() => {
+    if (editId || editRecord?.id) return;
     if (academic.loading) return;
     const schoolPayload = {
       name:     session?.schoolName     ?? "",
@@ -670,6 +802,8 @@ export default function App({ session }) {
     session?.schoolName,
     session?.schoolProvince,
     session?.schoolDistrict,
+    editId,
+    editRecord?.id,
   ]);
 
   useEffect(() => {
@@ -725,8 +859,8 @@ export default function App({ session }) {
             cell:        info.cell          || base.cell        || "",
             village:     info.village       || base.village     || "",
             accountName: base.accountName   || info.school_name || "",
-            feeTargetStudents,
-            category:    nextCategory,
+            feeTargetStudents: base._isEditHydrated ? base.feeTargetStudents : feeTargetStudents,
+            category:    base._isEditHydrated ? base.category : nextCategory,
           };
         });
         const logoUrl = toAssetUrl(info.logo_url);
@@ -774,6 +908,7 @@ export default function App({ session }) {
           if (kept.length) {
             return { ...prev, classes: kept, nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(kept[0]) };
           }
+          if ((editId || prev._isEditHydrated) && prevArr.length) return prev;
           const first = catalog[0];
           return { ...prev, classes: [first], nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first) };
         });
@@ -1080,14 +1215,17 @@ export default function App({ session }) {
       if (form.parentApprovalDoc instanceof File) fd.append("parent_rep_doc",     form.parentApprovalDoc);
       if (form.schoolBudgetDoc   instanceof File) fd.append("budget_doc",         form.schoolBudgetDoc);
 
-      const res  = await fetch(`${API_BASE}/babyeyi`, { method: "POST", body: fd, credentials: "include" });
+      const url = editId ? `${API_BASE}/babyeyi/${editId}` : `${API_BASE}/babyeyi`;
+      const method = editId ? "PUT" : "POST";
+      const res  = await fetch(url, { method, body: fd, credentials: "include" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
         throw new Error(json.detail || json.message || "Failed to save Babyeyi");
       }
-      if (json.data?.id) createdIds.push({ id: json.data.id, classes: classesToCreate });
+      const savedId = json.data?.id || editId;
+      if (savedId) createdIds.push({ id: savedId, classes: classesToCreate });
 
-      showToast("Babyeyi saved successfully!", "success");
+      showToast(editId ? "Babyeyi updated successfully!" : "Babyeyi saved successfully!", "success");
       setQrGenerating(true);
 
       const qrResults = [];
@@ -1107,6 +1245,11 @@ export default function App({ session }) {
       }
       setGeneratedQRCodes(qrResults);
       setQrGenerating(false);
+      if (isModal) {
+        if (onSuccess) onSuccess(json.data || { id: savedId });
+        if (onClose) onClose();
+        return;
+      }
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -1127,10 +1270,14 @@ export default function App({ session }) {
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, boxShadow: "0 8px 30px rgba(254,191,16,0.45)" }}>
             <Svg d={ic.check} size={36} color={C.dark} sw={3} />
           </div>
-          <h2 className="text-2xl font-semibold mb-2" style={{ color: C.dark }}>Babyeyi Generated!</h2>
+          <h2 className="text-2xl font-semibold mb-2" style={{ color: C.dark }}>
+            {editId ? "Babyeyi Updated!" : "Babyeyi Generated!"}
+          </h2>
           <p className="text-slate-500 text-sm mb-4">
-            {form.classes.length} record{form.classes.length > 1 ? "s" : ""} created for:{" "}
-            <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong>
+            {editId
+              ? <>Changes saved for <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong></>
+              : <>{form.classes.length} record{form.classes.length > 1 ? "s" : ""} created for:{" "}
+                  <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong></>}
           </p>
 
           {qrGenerating ? (
@@ -1204,6 +1351,14 @@ export default function App({ session }) {
               </div>
             ))}
           </div>
+          {(isModal || editId) ? (
+            <button
+              onClick={() => { if (onClose) onClose(); }}
+              className="px-5 py-2.5 rounded-2xl font-bold shadow-lg text-sm transition-all hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
+              Close
+            </button>
+          ) : (
           <button onClick={() => {
             const nextCat =
               schoolKind === "private" ? "Private"
@@ -1218,7 +1373,7 @@ export default function App({ session }) {
               feeTargetStudents: schoolKind === "private" ? "private" : "public",
               category: schoolKind === "government_aided" ? "Public" : nextCat,
             });
-            setSubmitted(false); setStep(1); setErrors({}); setGeneratedQRCodes([]);
+            setSubmitted(false); setStep(1); setErrors({}); setGeneratedQRCodes([]); setEditId(null);
             setDbAssets({ schoolLogo:false, directorSignature:false, stamp:false });
             setPreviews({ schoolLogo:null, otherLogo:null, directorSignature:null, stamp:null });
           }}
@@ -1226,12 +1381,13 @@ export default function App({ session }) {
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
             Create Another
           </button>
+          )}
         </div>
       </div>
     );
   }
 
-  if (view === "list") {
+  if (!isModal && view === "list") {
     return (
       <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: FONT }}>
         <div className="fixed top-3 left-3 z-50">
@@ -2549,7 +2705,7 @@ export default function App({ session }) {
   return (
     <>
     <div
-      className="flex flex-col flex-1 min-h-0 overflow-hidden w-full -mx-4 md:-mx-6 bg-slate-50/60"
+      className={`flex flex-col flex-1 min-h-0 overflow-hidden w-full bg-slate-50/60 ${isModal ? "" : "-mx-4 md:-mx-6"}`}
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
@@ -2572,8 +2728,9 @@ export default function App({ session }) {
         </div>
       )}
 
-      <div className="flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full border border-slate-200/80 rounded-2xl shadow-sm">
+      <div className={`flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full ${isModal ? "" : "border border-slate-200/80 rounded-2xl shadow-sm"}`}>
 
+        {!isModal && (
         <div className="px-4 sm:px-8 py-5 shrink-0 border-b border-slate-100 bg-gradient-to-r from-[#000435] to-[#0a1142]">
           <div className="flex items-center justify-between max-w-5xl mx-auto w-full">
             <div className="flex items-center gap-3 min-w-0">
@@ -2593,6 +2750,7 @@ export default function App({ session }) {
             </button>
           </div>
         </div>
+        )}
 
         <div className="border-b px-4 sm:px-8 py-4 shrink-0 bg-white">
           <div className="max-w-5xl mx-auto w-full">
@@ -2676,7 +2834,13 @@ export default function App({ session }) {
                 <>
                   <I n={exceeds&&form.requestIncrease?"send":"save"} size={14} color="#fff" />
                   <span className="hidden sm:inline">
-                    {form.classes.length>1 ? `Generate ${form.classes.length} Babyeyi` : exceeds&&form.requestIncrease ? "Submit + Request Approval" : "Generate Babyeyi"}
+                    {editId
+                      ? "Save changes"
+                      : form.classes.length > 1
+                        ? `Generate ${form.classes.length} Babyeyi`
+                        : exceeds && form.requestIncrease
+                          ? "Submit + Request Approval"
+                          : "Generate Babyeyi"}
                   </span>
                   <span className="sm:hidden">Generate</span>
                 </>
@@ -2833,4 +2997,84 @@ export default function App({ session }) {
     )}
     </>
   );
+}
+
+export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null }) {
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const editClasses = editRecord
+    ? (Array.isArray(editRecord.classes) && editRecord.classes.length ? editRecord.classes : [editRecord.class]).filter(Boolean)
+    : [];
+  const editSubtitle = editRecord
+    ? [editClasses.join(", "), editRecord.term, editRecord.academicYear, editRecord.docId].filter(Boolean).join(" · ")
+    : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden min-h-0"
+        style={{
+          maxWidth: "920px",
+          height: "min(94vh, calc(100dvh - 1rem))",
+          maxHeight: "94vh",
+          boxShadow: "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
+        }}
+      >
+        <div
+          className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
+          style={{ background: "linear-gradient(135deg, #000435, #0a1142)" }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#FEBF10]/15 border border-[#FEBF10]/25 shrink-0">
+              {editRecord
+                ? <Pencil size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />
+                : <ClipboardPen size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />}
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight truncate">
+                {editRecord ? "Edit Babyeyi" : "Create Babyeyi"}
+              </h1>
+              <p className="text-[10px] truncate text-[#FEBF10]/90">
+                {session?.schoolName || "School"}
+                {editRecord ? (editSubtitle ? ` — ${editSubtitle}` : " — Update document") : " — New document"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20 text-white/70 shrink-0"
+            title="Close"
+          >
+            <X size={16} strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
+
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <BabyeyiWizard
+            key={editRecord?.id || "create"}
+            session={session}
+            editRecord={editRecord}
+            layout="modal"
+            onClose={onClose}
+            onSuccess={onSuccess}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Babyeyi(props) {
+  return <BabyeyiWizard {...props} layout="page" />;
 }

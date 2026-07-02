@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { CreateBabyeyiModal } from "./UpdateBabyeyi";
+import { CreateBabyeyiModal } from "./Babyeyi";
 import { parseTranslationsJson } from '../../schoolLiteSupport/utils/applyBabyeyiTranslations';
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getParentMessageForMachineTranslation, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
 import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../../schoolLiteSupport/babyeyiTranslateLangs.js';
@@ -1327,9 +1327,8 @@ function EditWizardModal({ rec, session, onClose, onSaved }) {
       isOpen
       editRecord={rec}
       onClose={onClose}
-      onSuccess={() => {
-        onSaved?.(rec);
-        onClose();
+      onSuccess={(updated) => {
+        onSaved?.(updated || rec);
       }}
     />
   );
@@ -1457,6 +1456,7 @@ const mapRow = (row) => {
   return {
     id: row.id, class: row.class_name || row.class || (classes[0] || ""), classes,
     level: row.education_level || row.level || "Primary", term: row.term || "", academicYear: row.academic_year || "",
+    category: row.school_category || row.category || "Public",
     status: row.status || "draft", totalFee: Number(totalFee || 0), nesaLimit: row.nesa_limit != null ? Number(row.nesa_limit) : null,
     exceedsLimit: !!row.exceeds_limit, schoolName: row.school_name || "", district: row.school_district || row.district || "",
     sector: row.school_sector || row.sector || "", createdAt: row.created_at || "",
@@ -1531,6 +1531,7 @@ async function loadFullRecord(sumRec, docLang = "en") {
     exceedsLimit: d.exceeds_limit != null ? !!d.exceeds_limit : sumRec.exceedsLimit,
     requestStatus: d.increase_request?.nesa_status || sumRec.requestStatus || null,
     parentMessage: d.parent_message || sumRec.parentMessage || "",
+    category: d.school_category || d.category || sumRec.category || "Public",
     banksJson: d.banks_json || sumRec.banksJson || null,
     translationsJson: parseTranslationsJson(d.translations_json) ?? sumRec.translationsJson ?? null,
   };
