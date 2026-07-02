@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { parseClassAndStream } from "../../../utils/classStreamGroups";
 
 /**
- * Hierarchical class picker: grade row (P1) selects all streams; chevron expands P1 A, P1 B…
+ * Hierarchical class picker: checkbox per class; chevron expands streams (all levels).
  */
 export default function ClassStreamPicker({
   groups = [],
@@ -120,7 +122,7 @@ export default function ClassStreamPicker({
       >
         {!groups.length ? (
           <p className="text-xs text-slate-500 text-center py-8 px-4">
-            No classes on this education level. Try another level above.
+            No classes on this education level. Register or import students first, or try another level.
           </p>
         ) : null}
         {groups.map((group) => {
@@ -143,11 +145,15 @@ export default function ClassStreamPicker({
                     onClick={() =>
                       setExpanded((p) => ({ ...p, [group.groupName]: !p[group.groupName] }))
                     }
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold transition-transform bg-white"
-                    style={{ borderColor: C.goldBorder, color: C.goldDark, transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)" }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border bg-white transition-transform"
+                    style={{
+                      borderColor: C.goldBorder,
+                      color: C.goldDark,
+                      transform: isOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                    }}
                     title={isOpen ? "Hide streams" : "Show streams"}
                   >
-                    ▾
+                    <ChevronDown size={14} strokeWidth={2.5} />
                   </button>
                 ) : (
                   <span className="w-7 shrink-0" aria-hidden />
@@ -157,7 +163,13 @@ export default function ClassStreamPicker({
 
                 <button
                   type="button"
-                  onClick={() => toggleGroup(group)}
+                  onClick={() => {
+                    if (group.hasStreams) {
+                      setExpanded((p) => ({ ...p, [group.groupName]: !p[group.groupName] }));
+                    } else {
+                      toggleGroup(group);
+                    }
+                  }}
                   className="flex-1 min-w-0 text-left text-sm font-semibold truncate"
                 >
                   {group.groupName}
@@ -171,7 +183,10 @@ export default function ClassStreamPicker({
 
               {group.hasStreams && isOpen && (
                 <div id={`${groupId}-streams`} className="ml-9 mr-2 mb-2 space-y-0.5 border-l pl-2" style={{ borderColor: C.goldBorder }}>
-                  {group.labels.map((label) => (
+                  {group.labels.map((label) => {
+                    const { stream } = parseClassAndStream(label);
+                    const streamDisplay = stream || label;
+                    return (
                     <label
                       key={label}
                       className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg cursor-pointer text-[12px] font-semibold transition-colors hover:bg-amber-50/60 text-slate-600"
@@ -182,9 +197,12 @@ export default function ClassStreamPicker({
                         onChange={() => toggleStream(label)}
                         className="size-3.5 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
                       />
-                      <span className="min-w-0 break-words">{label}</span>
+                      <span className="min-w-0 break-words">
+                        Stream <span className="text-slate-800">{streamDisplay}</span>
+                      </span>
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

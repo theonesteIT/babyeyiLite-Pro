@@ -28,7 +28,7 @@ import {
   ClipboardPen,
 } from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
-import RegisteredClassStreamPicker from "./RegisteredClassStreamPicker";
+import ClassStreamPicker from "./ClassStreamPicker";
 import EducationLevelPicker from "./EducationLevelPicker";
 import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
 import {
@@ -1764,7 +1764,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                 </p>
               ) : (
                 <>
-                  <RegisteredClassStreamPicker
+                  <ClassStreamPicker
                     groups={filteredClassGroups}
                     selected={form.classes || []}
                     onChange={(next) => {
@@ -1781,6 +1781,10 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                     onSelectAllLevel={() => {
                       const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
                       up("classes", sortSelectedClassesByCatalog(labels, classOptions));
+                    }}
+                    onClearLevel={() => {
+                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
+                      up("classes", first ? [first] : []);
                     }}
                   />
                   {form.classes.length > 1 && (
