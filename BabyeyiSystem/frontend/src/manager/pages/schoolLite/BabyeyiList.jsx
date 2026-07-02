@@ -18,6 +18,8 @@ import {
   formatBabyeyiDocumentClassLabel,
   buildBabyeyiDocumentClassHeaderHtml,
 } from '../../../utils/classStreamGroups';
+import { wrapBabyeyiDocHtml } from './babyeyiDocFrame';
+import BabyeyiDocFrame from './babyeyiDocFrameView.jsx';
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
 import {
@@ -314,7 +316,7 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>` : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>` : "";
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
-  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${classHeaderHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:6px">${metaHtml}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  return wrapBabyeyiDocHtml(`<div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${classHeaderHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:6px">${metaHtml}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -1073,8 +1075,8 @@ function OfficialDoc({
             </div>
           )}
           <div className="overflow-x-auto overscroll-x-contain">
-            <div style={{ minWidth: "760px" }} id="babyeyi-pdf-doc">
-              <div data-babyeyi-pdf-topbar style={{ height: "3px", background: "#1e3a5f" }} />
+            <div style={{ minWidth: "760px" }}>
+            <BabyeyiDocFrame>
           {/* Header */}
           <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
@@ -1301,7 +1303,7 @@ function OfficialDoc({
               </div>
             </div>
           </div>
-              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            </BabyeyiDocFrame>
             </div>
           </div>
         </div>

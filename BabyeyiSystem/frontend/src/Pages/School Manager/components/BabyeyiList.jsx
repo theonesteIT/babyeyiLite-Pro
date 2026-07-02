@@ -28,6 +28,8 @@ import {
   formatBabyeyiDocumentClassLabel,
   buildBabyeyiDocumentClassHeaderHtml,
 } from '../../../utils/classStreamGroups';
+import { wrapBabyeyiDocHtml } from './babyeyiDocFrame';
+import BabyeyiDocFrame from './babyeyiDocFrameView.jsx';
 import SmStatCard from "./SmStatCard";
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
@@ -337,7 +339,7 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>` : "";
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
   const headerMeta = buildWordDocHeaderMetaHtml({ T, rec, levelLabel, classesArr });
-  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  return wrapBabyeyiDocHtml(`<div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
 }
 
 //  Capture doc image
@@ -1142,9 +1144,9 @@ export function BabyeyiOfficialDocViewer({
           )}
           <div className="overflow-x-auto overscroll-x-contain">
             <div style={{ minWidth: "760px" }}>
-              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            <BabyeyiDocFrame>
           {/* Header */}
-          <div style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
+          <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {schoolLogoB64 ? <img src={schoolLogoB64} style={{ width: "110px", height: "110px", objectFit: "contain" }} alt="Logo" /> : <span style={{ fontSize: "8px", color: "#64748b", textAlign: "center", fontWeight: 700, padding: "4px" }}>{T.schoolLogoPlaceholder || "SCHOOL LOGO"}</span>}
@@ -1172,7 +1174,7 @@ export function BabyeyiOfficialDocViewer({
           </div>
 
           {/* Body */}
-          <div style={{ padding: "20px 40px 28px" }}>
+          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px" }}>
             {showParentMessage && (parentMsg || (isRwLocale && canSaveRwEdits)) && (
               <div style={DOC.section}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
@@ -1369,7 +1371,7 @@ export function BabyeyiOfficialDocViewer({
               </div>
             </div>
           </div>
-              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            </BabyeyiDocFrame>
             </div>
           </div>
         </div>

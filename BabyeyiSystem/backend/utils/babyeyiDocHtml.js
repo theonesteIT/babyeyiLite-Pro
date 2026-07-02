@@ -7,6 +7,7 @@ const {
   formatBabyeyiDocumentClassLabel,
   buildBabyeyiDocumentClassHeaderHtml,
 } = require("./classStreamLabels");
+const { wrapBabyeyiDocHtml, BABYEYI_DOC_FRAME_PRINT_CSS } = require("./babyeyiDocFrame");
 
 function esc(s) {
   return String(s ?? "")
@@ -184,14 +185,15 @@ function buildBabyeyiDocHtml({
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
 
   const headerMeta = buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classesArr });
-  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:16px 40px 12px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${esc(T.republic)}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${esc(T.district)}: ${esc(rec.district || "—")}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${esc(T.sector)}: ${esc(rec.sector || "—")}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${esc(rec.schoolName || "")}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:16px 40px 20px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  return wrapBabyeyiDocHtml(`<div id="babyeyi-pdf-header" style="padding:16px 40px 12px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${esc(T.republic)}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${esc(T.district)}: ${esc(rec.district || "—")}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${esc(T.sector)}: ${esc(rec.sector || "—")}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${esc(rec.schoolName || "")}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:16px 40px 20px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
 }
 
 const PRINT_STYLES = `
   @page { size: A4; margin: 0; }
   html, body { margin: 0; padding: 0; background: #fff; color: #1e293b; }
   body { display: flex; justify-content: center; }
-  #babyeyi-pdf-doc { width: 210mm; max-width: 100%; box-sizing: border-box; }
+  #babyeyi-pdf-doc { width: 210mm; max-width: 100%; box-sizing: border-box; position: relative; }
+  ${BABYEYI_DOC_FRAME_PRINT_CSS}
   /* Stay on same page as content when space allows — never force a new page */
   #babyeyi-pdf-auth-block {
     page-break-inside: avoid;

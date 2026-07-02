@@ -15,6 +15,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { WizardContent } from "./UpdateBabyeyi";
 import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml, BABYEYI_PDF_CAPTURE_HOST_STYLE } from "./babyeyiPdfExport";
+import { wrapBabyeyiDocHtml } from "./babyeyiDocFrame";
+import BabyeyiDocFrame from "./babyeyiDocFrameView.jsx";
+import {
+  uniqueClassGradesFromLabels,
+  formatBabyeyiDocumentClassLabel,
+  buildBabyeyiDocumentClassHeaderHtml,
+} from "../../../utils/classStreamGroups";
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
 const API_BASE   = `${ASSET_BASE}/api`;
@@ -615,8 +622,12 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
   const banks      = parseBanks(rec);
 
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classLabel = formatBabyeyiDocumentClassLabel(classesArr);
+  const classHeaderHtml = buildBabyeyiDocumentClassHeaderHtml(classesArr, T.classLabel || "Class");
   const levelLabel = rec.level || rec.education_level || "";
+  const metaHtml = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]]
+    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
+    .join("");
 
   const tableStyle = `width:100%;border-collapse:collapse;margin-top:8px`;
   const thStyle    = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent`;
@@ -777,9 +788,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>`
     : "";
 
-  return `
-<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
-  <div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div>
+  return wrapBabyeyiDocHtml(`
   <div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
     <div style="display:flex;align-items:center;gap:20px">
       <div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div>
@@ -787,9 +796,10 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
         <p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p>
         <p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district || "—"}</p>
         <p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector || "—"}</p>
-        <h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName || ""}</h1>
-        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">
-          ${[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`).join("")}
+        <h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName || ""}</h1>
+        ${classHeaderHtml}
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:6px">
+          ${metaHtml}
           ${rec.docId ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>` : ""}
         </div>
       </div>
@@ -805,8 +815,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     ${leadersSection}
     ${notesSection}
     ${authBlock}
-  </div>
-</div>`;
+  </div>`);
 }
 
 // ─── CAPTURE DOC AS IMAGE ─────────────────────────────────────────────────────
@@ -920,7 +929,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
   const blocked    = isBlocked(rec.status);
   const banks      = parseBanks(rec);
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classLabel = formatBabyeyiDocumentClassLabel(classesArr);
   const levelLabel = rec.level || rec.education_level || "";
 
   // Load assets once
@@ -1088,10 +1097,12 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
 
         {/* ── DOCUMENT BODY ── */}
         <div className="bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif", opacity: translating ? 0.6 : 1, transition: "opacity 0.3s" }}>
-          <div style={{ height: "3px", background: "#1e3a5f" }} />
+          <div className="overflow-x-auto overscroll-x-contain">
+            <div style={{ minWidth: "760px" }}>
+            <BabyeyiDocFrame>
 
           {/* HEADER */}
-          <div style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
+          <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {schoolLogoB64
@@ -1119,7 +1130,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
           </div>
 
           {/* BODY CONTENT */}
-          <div style={{ padding: "20px 40px 28px" }}>
+          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px" }}>
             {rec.parentMessage && (
               <div style={DOC.section}>
                 <div style={{ paddingLeft: "16px", marginTop: "4px" }}>
@@ -1284,7 +1295,9 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
             </div>
           </div>
 
-          <div style={{ height: "3px", background: "#1e3a5f" }} />
+            </BabyeyiDocFrame>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1444,7 +1457,9 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T }) {
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-12 h-12 bg-amber-800 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200">
-              <span className="text-white font-semibold text-[11px] text-center leading-tight">{classes.join(", ")}</span>
+              <span className="text-white font-semibold text-[11px] text-center leading-tight">
+                {formatBabyeyiDocumentClassLabel(classes, { max: 3 })}
+              </span>
             </div>
             <div className="min-w-0">
               <p className="font-semibold text-slate-800 text-sm truncate">{rec.term} · {rec.academicYear}</p>

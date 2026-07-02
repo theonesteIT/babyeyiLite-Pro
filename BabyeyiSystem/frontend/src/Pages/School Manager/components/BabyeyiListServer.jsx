@@ -15,6 +15,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CreateBabyeyiModal } from "./UpdateBabyeyi";
 import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml, BABYEYI_PDF_CAPTURE_HOST_STYLE } from "./babyeyiPdfExport";
+import { wrapBabyeyiDocHtml } from "./babyeyiDocFrame";
+import BabyeyiDocFrame from "./babyeyiDocFrameView.jsx";
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
 const API_BASE   = `${ASSET_BASE}/api`;
@@ -777,9 +779,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>`
     : "";
 
-  return `
-<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b">
-  <div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div>
+  return wrapBabyeyiDocHtml(`
   <div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f">
     <div style="display:flex;align-items:center;gap:20px">
       <div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div>
@@ -805,8 +805,7 @@ function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, s
     ${leadersSection}
     ${notesSection}
     ${authBlock}
-  </div>
-</div>`;
+  </div>`);
 }
 
 // ─── CAPTURE DOC AS IMAGE ─────────────────────────────────────────────────────
@@ -1088,10 +1087,12 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
 
         {/* ── DOCUMENT BODY ── */}
         <div className="bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif", opacity: translating ? 0.6 : 1, transition: "opacity 0.3s" }}>
-          <div style={{ height: "3px", background: "#1e3a5f" }} />
+          <div className="overflow-x-auto overscroll-x-contain">
+            <div style={{ minWidth: "760px" }}>
+            <BabyeyiDocFrame>
 
           {/* HEADER */}
-          <div style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
+          <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {schoolLogoB64
@@ -1119,7 +1120,7 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
           </div>
 
           {/* BODY CONTENT */}
-          <div style={{ padding: "20px 40px 28px" }}>
+          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px" }}>
             {rec.parentMessage && (
               <div style={DOC.section}>
                 <div style={{ paddingLeft: "16px", marginTop: "4px" }}>
@@ -1284,7 +1285,9 @@ function OfficialDoc({ rec: originalRec, onClose, globalLang }) {
             </div>
           </div>
 
-          <div style={{ height: "3px", background: "#1e3a5f" }} />
+            </BabyeyiDocFrame>
+            </div>
+          </div>
         </div>
       </div>
 
