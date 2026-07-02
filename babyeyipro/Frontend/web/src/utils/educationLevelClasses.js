@@ -136,17 +136,8 @@ export function buildDefaultClassLabelsByLevel(levelId) {
   }
 
   if (level === "TSS") {
-    const combos = ["BDC", "FBO", "SOD", "MECH", "ELEC", "ICT"];
-    const streams = ["A", "B"];
-    const labels = [];
-    for (const lv of [3, 4, 5]) {
-      for (const combo of combos) {
-        for (const stream of streams) {
-          labels.push(`L${lv}${combo}-${stream}`);
-        }
-      }
-    }
-    return labels;
+    /** No static TSS list — trades come from registered/imported students. */
+    return [];
   }
 
   return [];

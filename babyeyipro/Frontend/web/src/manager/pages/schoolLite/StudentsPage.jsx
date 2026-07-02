@@ -6,6 +6,17 @@ import {
 } from "lucide-react";
 import { downloadStudentImportTemplate } from "../../utils/studentImportTemplate";
 import { processStudentPortraitFile, revokePortraitPreview } from "../../utils/studentPhotoProcess";
+import schoolService from "../../services/schoolService";
+import EducationLevelPicker from "../../components/EducationLevelPicker";
+import ClassStreamEntryFields from "../../components/ClassStreamEntryFields";
+import { formatClassWithStream, formatSchoolClassRowLabel, parseClassAndStream, formatClassStreamDisplay } from "../../../utils/classStreamGroups";
+import {
+  EDUCATION_LEVEL_OPTIONS,
+  inferEducationLevelFromClass,
+  normalizeEducationLevel,
+  levelsPresentInCatalog,
+  mergeWithDefaultClassCatalog,
+} from "../../../utils/educationLevelClasses";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -324,7 +335,7 @@ function StudentDetailModal({ student, onClose, onEdit }) {
           </Section>
 
           <Section title="School enrolment" icon={GraduationCap}>
-            <Field label="Class" value={student.class_name} />
+            <Field label="Class" value={formatClassStreamDisplay(student.class_name)} />
             <Field label="Academic year" value={student.academic_year} />
             <Field label="SDMS ID" value={student.sdm_code} />
             <Field label="RFID UID" value={student.rfid_uid} />
@@ -440,6 +451,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     birth_year:       "",
     nationality:      "Rwandan",
     class_name:       "",
+    class_id:         "",
     academic_year:    "",
     sdm_code:         "",
     province:         "",
@@ -464,6 +476,62 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoProcessing, setPhotoProcessing] = useState(false);
+  const [classes, setClasses] = useState([]);
+  const [fetchingClasses, setFetchingClasses] = useState(false);
+  const [educationLevel, setEducationLevel] = useState("Primary");
+  const [classGrade, setClassGrade] = useState("");
+  const [streamName, setStreamName] = useState("");
+
+  const schoolId = session?.school_id || session?.schoolId || session?.school?.id;
+
+  const mergedCatalog = useMemo(() => {
+    const apiLabels = (classes || []).map((c) =>
+      formatSchoolClassRowLabel(c) ||
+      `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim(),
+    ).filter(Boolean);
+    return mergeWithDefaultClassCatalog(apiLabels, classes || []);
+  }, [classes]);
+
+  const classOptions = useMemo(() => (mergedCatalog.rows || []).map((c) => {
+    const label =
+      formatSchoolClassRowLabel(c) ||
+      `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim();
+    return { ...c, label, id: c.id ?? label };
+  }), [mergedCatalog]);
+
+  const levelOptions = useMemo(() => {
+    const labels = classOptions.map((c) => c.label).filter(Boolean);
+    const rows = classOptions.map((c) => ({
+      group_name: c.group_name,
+      stream_name: c.stream_name,
+      combination: c.combination,
+      category: c.category,
+      education_level: c.education_level,
+    }));
+    const present = levelsPresentInCatalog(labels, rows);
+    return present.length ? present : EDUCATION_LEVEL_OPTIONS;
+  }, [classOptions]);
+
+  const filteredGroups = useMemo(() => {
+    const seen = new Set();
+    return classOptions.filter((c) => {
+      if (inferEducationLevelFromClass(c.label, c) !== normalizeEducationLevel(educationLevel)) return false;
+      const g = String(c.group_name || "").trim();
+      if (!g || seen.has(g)) return false;
+      seen.add(g);
+      return true;
+    });
+  }, [classOptions, educationLevel]);
+
+  const streamsForClass = useMemo(() => classOptions.filter((c) =>
+    String(c.group_name || "").trim() === classGrade &&
+    inferEducationLevelFromClass(c.label, c) === normalizeEducationLevel(educationLevel)
+  ), [classOptions, classGrade, educationLevel]);
+
+  const streamSuggestions = useMemo(() => {
+    const names = streamsForClass.map((c) => String(c.stream_name || "").trim()).filter(Boolean);
+    return [...new Set(names)];
+  }, [streamsForClass]);
 
   // Location cascade
   const { districts, sectors, cells, villages, loading: locLoading, errors: locErrors } =
@@ -506,14 +574,66 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
         mother_email:     editStudent.mother_email     || "",
         mother_national_id: editStudent.mother_national_id || "",
         class_name:       editStudent.class_name       || "",
+        class_id:         editStudent.class_id ? String(editStudent.class_id) : "",
         academic_year:    editStudent.academic_year    ? String(editStudent.academic_year) : "",
         sdm_code:         editStudent.sdm_code         || "",
       });
+      const parts = parseClassAndStream(editStudent.class_name || "");
+      setClassGrade(parts.classGrade || "");
+      setStreamName(parts.stream || "");
     } else {
       setForm(BLANK_FORM);
+      setEducationLevel("Primary");
+      setClassGrade("");
+      setStreamName("");
     }
+
+    if (!schoolId) return;
+    setFetchingClasses(true);
+    schoolService.getGroups(schoolId)
+      .then((res) => { if (res.success) setClasses(res.data || []); })
+      .catch(() => setClasses([]))
+      .finally(() => setFetchingClasses(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editStudent?.id]);
+  }, [open, editStudent?.id, schoolId]);
+
+  useEffect(() => {
+    if (!open || !isEdit || !form.class_name) return;
+    const inferred = inferEducationLevelFromClass(form.class_name, null);
+    setEducationLevel(normalizeEducationLevel(inferred));
+  }, [open, isEdit, form.class_name]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (levelOptions.some((o) => o.id === educationLevel)) return;
+    if (levelOptions[0]) setEducationLevel(levelOptions[0].id);
+  }, [open, levelOptions, educationLevel]);
+
+  const handleLevelChange = (level) => {
+    setEducationLevel(level);
+    setClassGrade("");
+    setStreamName("");
+    setForm((prev) => ({ ...prev, class_id: "", class_name: "" }));
+  };
+
+  const handleClassGradeChange = (value) => {
+    setClassGrade(value);
+    setStreamName("");
+    setForm((prev) => ({
+      ...prev,
+      class_id: "",
+      class_name: formatClassWithStream(value, ""),
+    }));
+  };
+
+  const handleStreamChange = (value) => {
+    setStreamName(value);
+    setForm((prev) => ({
+      ...prev,
+      class_id: "",
+      class_name: formatClassWithStream(classGrade, value),
+    }));
+  };
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -578,6 +698,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
       if (!form.gender)            return "Please select a gender.";
       if (!form.birth_year)        return "Please select a birth year.";
       if (!form.autoId && !form.student_uid.trim()) return "Enter a student ID or enable auto-generate.";
+      if (!String(classGrade || "").trim()) return "Please enter or select a class for this level.";
     }
     if (s === 2) {
       if (!form.province) return "Please select a province.";
@@ -663,7 +784,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
       sector:           form.sector,
       cell:             form.cell,
       village:          form.village.trim(),
-      class_name:       form.class_name.trim()       || undefined,
+      class_name:       formatClassWithStream(classGrade, streamName) || undefined,
       academic_year:    form.academic_year.trim()    || undefined,
       sdm_code:         form.sdm_code.trim()         || undefined,
       father_full_name: form.father_full_name.trim() || undefined,
@@ -897,15 +1018,28 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                     onChange={e => set("nationality", e.target.value)}
                   />
                 </FormField>
-                <FormField label="Class / stream">
-                  <input
-                    type="text"
-                    className={inputCls}
-                    placeholder="e.g. S3 Science A"
-                    value={form.class_name}
-                    onChange={e => set("class_name", e.target.value)}
-                  />
-                </FormField>
+              </div>
+
+              <EducationLevelPicker
+                value={educationLevel}
+                onChange={handleLevelChange}
+                options={levelOptions}
+                title="Education level"
+                hint="TSS: type class manually. Other levels: pick grade, then type stream."
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ClassStreamEntryFields
+                  educationLevel={educationLevel}
+                  classGrade={classGrade}
+                  onClassGradeChange={handleClassGradeChange}
+                  stream={streamName}
+                  onStreamChange={handleStreamChange}
+                  filteredGroups={filteredGroups}
+                  streamSuggestions={streamSuggestions}
+                  inputCls={inputCls}
+                  selectCls={selectCls}
+                />
                 <FormField label="Academic year">
                   <input
                     type="text"
@@ -1148,22 +1282,84 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
 // ════════════════════════════════════════════════════════════════
 // ImportCard
 // ════════════════════════════════════════════════════════════════
-function ImportCard({ toast, onImported }) {
+function ImportCard({ toast, onImported, session }) {
+  const [educationLevel, setEducationLevel] = useState("Primary");
+  const [classes, setClasses] = useState([]);
   const [importClass, setImportClass] = useState("");
-  const [importYear, setImportYear] = useState("");
-  const [file,       setFile]       = useState(null);
-  const [photosZip,  setPhotosZip]  = useState(null);
-  const [busy,       setBusy]       = useState(false);
-  const [result,     setResult]     = useState(null);
-  const [errors,     setErrors]     = useState([]);
+  const [importStream, setImportStream] = useState("");
+  const [importYear, setImportYear] = useState("2025-2026");
+  const [file, setFile] = useState(null);
+  const [photosZip, setPhotosZip] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const [errors, setErrors] = useState([]);
   const fileRef = useRef();
   const zipRef = useRef();
 
+  const schoolId = session?.school_id || session?.schoolId || session?.school?.id;
+
+  useEffect(() => {
+    if (!schoolId) return;
+    schoolService.getGroups(schoolId)
+      .then((res) => { if (res.success) setClasses(res.data || []); })
+      .catch(() => setClasses([]));
+  }, [schoolId]);
+
+  const mergedCatalog = useMemo(() => {
+    const labels = (classes || []).map((c) =>
+      formatSchoolClassRowLabel(c) || `${c.group_name || ""} ${c.stream_name || ""}`.trim(),
+    ).filter(Boolean);
+    return mergeWithDefaultClassCatalog(labels, classes || []);
+  }, [classes]);
+
+  const classRows = useMemo(() => (mergedCatalog.rows || []).map((c) => ({
+    ...c,
+    label: formatSchoolClassRowLabel(c) || `${c.group_name || ""} ${c.stream_name || ""}`.trim(),
+    id: c.id ?? (formatSchoolClassRowLabel(c) || c.group_name),
+  })), [mergedCatalog]);
+
+  const levelOptions = useMemo(() => {
+    const labels = classRows.map((c) => c.label).filter(Boolean);
+    const present = levelsPresentInCatalog(labels, classRows);
+    return present.length ? present : EDUCATION_LEVEL_OPTIONS;
+  }, [classRows]);
+
+  const filteredGroups = useMemo(() => {
+    const seen = new Set();
+    return classRows.filter((c) => {
+      if (inferEducationLevelFromClass(c.label, c) !== normalizeEducationLevel(educationLevel)) return false;
+      const g = String(c.group_name || "").trim();
+      if (!g || seen.has(g)) return false;
+      seen.add(g);
+      return true;
+    });
+  }, [classRows, educationLevel]);
+
+  const streamsForClass = useMemo(() => classRows.filter((c) =>
+    String(c.group_name || "").trim() === importClass &&
+    inferEducationLevelFromClass(c.label, c) === normalizeEducationLevel(educationLevel)
+  ), [classRows, importClass, educationLevel]);
+
+  const streamSuggestions = useMemo(() => {
+    const names = streamsForClass.map((c) => String(c.stream_name || "").trim()).filter(Boolean);
+    return [...new Set(names)];
+  }, [streamsForClass]);
+
+  useEffect(() => {
+    if (levelOptions.some((o) => o.id === educationLevel)) return;
+    if (levelOptions[0]) setEducationLevel(levelOptions[0].id);
+  }, [levelOptions, educationLevel]);
+
+  useEffect(() => {
+    setImportClass("");
+    setImportStream("");
+  }, [educationLevel]);
+
   const handleImport = async () => {
-    const cls = importClass.trim();
+    const cls = formatClassWithStream(importClass, importStream);
     const yr = importYear.trim();
-    if (!cls || !yr) {
-      toast?.("Enter class and academic year before importing.", "error");
+    if (!importClass.trim() || !yr) {
+      toast?.("Select education level, class, and academic year before importing.", "error");
       return;
     }
     if (!file) return;
@@ -1175,14 +1371,16 @@ function ImportCard({ toast, onImported }) {
       fd.append("file", file);
       if (photosZip) fd.append("photos_zip", photosZip);
       fd.append("importMode", "insert_only");
-      fd.append("class_name", cls);
+      fd.append("class_name", importClass.trim());
+      if (importStream.trim()) fd.append("stream", importStream.trim());
       fd.append("academic_year", yr);
-      const res  = await fetch(`${API}/api/students/import`, { method: "POST", credentials: "include", body: fd });
+      fd.append("education_level", normalizeEducationLevel(educationLevel));
+      const res = await fetch(`${API}/api/students/import`, { method: "POST", credentials: "include", body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
         setResult({ ok: false, message: json.message || "Import failed." });
         setErrors(json.errors || []);
-        toast?.("Import failed", "error");
+        toast?.(json.message || "Import failed", "error");
       } else {
         setResult({ ok: true, message: json.message, meta: json });
         setErrors(json.errors || []);
@@ -1212,36 +1410,56 @@ function ImportCard({ toast, onImported }) {
         <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-800">Bulk import from Excel</p>
           <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-            <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
+            <span className="font-semibold text-amber-700">1.</span> Level, class &amp; academic year ·{" "}
             <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
-            <span className="font-semibold text-amber-700">3.</span> Optional photos ZIP (named like Code / Student ID) ·{" "}
+            <span className="font-semibold text-amber-700">3.</span> Optional photos ZIP ·{" "}
             <span className="font-semibold text-amber-700">4.</span> Upload &amp; import.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        <div>
-          <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Class / stream <span className="text-red-500">*</span></label>
-          <input
-            type="text"
-            value={importClass}
-            onChange={e => { setImportClass(e.target.value); setResult(null); }}
-            placeholder="e.g. S3 Science A"
-            className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
-          />
-        </div>
+      <div className="mb-4">
+        <EducationLevelPicker
+          value={educationLevel}
+          onChange={(level) => {
+            setEducationLevel(level);
+            setImportClass("");
+            setImportStream("");
+            setResult(null);
+          }}
+          options={levelOptions}
+          title="Education level for this import"
+          hint="TSS: type class & stream manually. Secondary: type stream or pick a suggestion."
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <ClassStreamEntryFields
+          educationLevel={educationLevel}
+          classGrade={importClass}
+          onClassGradeChange={(v) => { setImportClass(v); setImportStream(""); setResult(null); }}
+          stream={importStream}
+          onStreamChange={(v) => { setImportStream(v); setResult(null); }}
+          filteredGroups={filteredGroups}
+          streamSuggestions={streamSuggestions}
+        />
         <div>
           <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Academic year <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={importYear}
-            onChange={e => { setImportYear(e.target.value); setResult(null); }}
+            onChange={(e) => { setImportYear(e.target.value); setResult(null); }}
             placeholder="e.g. 2025-2026"
             className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
           />
         </div>
       </div>
+
+      {importClass ? (
+        <p className="mb-4 text-[11px] text-slate-600 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2">
+          Import target: <strong>{formatClassStreamDisplay(formatClassWithStream(importClass, importStream))}</strong> · {educationLevel} · {importYear}
+        </p>
+      ) : null}
 
       <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
         <button
@@ -1544,7 +1762,7 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
         </div>
         <div className="min-w-0">
           <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Class</dt>
-          <dd className="text-slate-800 font-semibold truncate mt-0.5">{s.class_name || "—"}</dd>
+          <dd className="text-slate-800 font-semibold truncate mt-0.5">{formatClassStreamDisplay(s.class_name)}</dd>
         </div>
         <div className="min-w-0">
           <dt className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Acad. year</dt>
@@ -2047,7 +2265,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
           rightHeaderAction={rightHeaderAction}
         >
           <div className="border-t border-slate-100 bg-slate-50/45 px-3 py-4 sm:px-5">
-            <ImportCard toast={toast} onImported={() => loadStudents(debouncedSearch, 1, pageSize)} />
+            <ImportCard toast={toast} session={session} onImported={() => loadStudents(debouncedSearch, 1, pageSize)} />
           </div>
           <div className="border-t border-slate-100 bg-white overflow-hidden max-w-full min-w-0">
             {/* Toolbar */}
@@ -2249,7 +2467,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                           {s.first_name} {s.last_name}
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-slate-600 max-w-[100px]">
-                          <span className="truncate block">{s.class_name || "—"}</span>
+                          <span className="truncate block">{formatClassStreamDisplay(s.class_name)}</span>
                         </td>
                         <td className="px-3 sm:px-4 py-3 text-slate-600 whitespace-nowrap">
                           {s.academic_year || "—"}

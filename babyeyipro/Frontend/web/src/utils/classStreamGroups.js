@@ -7,21 +7,72 @@ export function formatClassWithStream(classPart, streamPart) {
   return `${cls} ${stream}`.replace(/\s+/g, " ").trim();
 }
 
-/** Split stored label "P1 A" into { classBase, stream }. */
-export function parseClassNameToParts(className) {
+/** Split stored label into class grade + stream (e.g. "L3 SOD A" → L3 SOD / A). */
+export function parseClassAndStream(className) {
   const raw = String(className || "").trim();
-  if (!raw) return { classBase: "", stream: "" };
-  const space = raw.indexOf(" ");
-  if (space > 0) {
-    return { classBase: raw.slice(0, space), stream: raw.slice(space + 1).trim() };
+  if (!raw) return { classGrade: "", stream: "" };
+
+  const legacy = raw.match(/^L([1-6])\s*([A-Z]{2,})\s*-\s*([A-Z])$/i)
+    || raw.match(/^L([1-6])([A-Z]{2,})-([A-Z])$/i);
+  if (legacy) {
+    return {
+      classGrade: `L${legacy[1]} ${legacy[2].toUpperCase()}`,
+      stream: legacy[3].toUpperCase(),
+    };
   }
-  return { classBase: raw, stream: "" };
+
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    if (/^[A-Z]$/i.test(last)) {
+      return {
+        classGrade: parts.slice(0, -1).join(" "),
+        stream: last.toUpperCase(),
+      };
+    }
+  }
+
+  if (parts.length === 2 && /^[PSN][1-6]?$/i.test(parts[0])) {
+    return { classGrade: parts[0].toUpperCase(), stream: parts[1] };
+  }
+
+  return { classGrade: raw, stream: "" };
+}
+
+/** @deprecated use parseClassAndStream */
+export function parseClassNameToParts(className) {
+  const { classGrade, stream } = parseClassAndStream(className);
+  return { classBase: classGrade, stream };
+}
+
+/** Human-readable: Class L3 SOD · Stream A */
+export function formatClassStreamDisplay(className) {
+  const { classGrade, stream } = parseClassAndStream(className);
+  if (!classGrade) return "—";
+  if (!stream) return classGrade;
+  return `Class ${classGrade} · Stream ${stream}`;
+}
+
+/** Normalize student-only rows into group_name + stream_name for grouping. */
+export function normalizeRegisteredClassRow(r) {
+  if (!r || !r._from_students) return r;
+  const raw = String(r.group_name || "").trim();
+  const { classGrade, stream } = parseClassAndStream(raw);
+  return {
+    ...r,
+    group_name: classGrade || raw,
+    stream_name: stream || null,
+  };
 }
 
 /** Format one school_classes row the same way as GET /api/schools/:id/classes. */
 export function formatSchoolClassRowLabel(r) {
   if (!r) return "";
-  if (r._from_students) return String(r.group_name || "").trim();
+  if (r._from_students) {
+    const raw = String(r.group_name || "").trim();
+    const { classGrade, stream } = parseClassAndStream(raw);
+    return formatClassWithStream(classGrade, stream) || raw;
+  }
   const stream =
     r.stream_name && String(r.stream_name).trim() !== "" ? String(r.stream_name).trim() : "";
   const parts = [r.group_name, stream].filter((p) => p != null && String(p).trim() !== "");
@@ -44,17 +95,18 @@ export function buildClassGroupsFromRows(rows = [], labelOptions = []) {
 
   if (Array.isArray(rows) && rows.length) {
     for (const r of rows) {
-      const groupName = String(r.group_name || "").trim();
+      const row = normalizeRegisteredClassRow(r);
+      const groupName = String(row.group_name || "").trim();
       if (!groupName) continue;
-      add(groupName, formatSchoolClassRowLabel(r));
+      add(groupName, formatSchoolClassRowLabel(row));
     }
   }
 
   for (const opt of labelOptions) {
     const s = String(opt || "").trim();
     if (!s) continue;
-    const space = s.indexOf(" ");
-    const groupName = space > 0 ? s.slice(0, space) : s;
+    const { classGrade } = parseClassAndStream(s);
+    const groupName = classGrade || s;
     add(groupName, s);
   }
 

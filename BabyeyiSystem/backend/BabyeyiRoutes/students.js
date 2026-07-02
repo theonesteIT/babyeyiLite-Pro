@@ -210,9 +210,10 @@ function resolveClassNameFromBody(body, fallback = '') {
     body?.class_name ?? body?.className ?? body?.class ?? body?.group_name ?? body?.groupName ?? '',
   );
   if (classPart && stream) {
-    const baseOnly = !classPart.includes(' ') || classPart.split(/\s+/).length === 1;
-    if (baseOnly) return `${classPart} ${stream}`.replace(/\s+/g, ' ').trim();
-    return classPart;
+    const parts = classPart.split(/\s+/).filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    if (last.toLowerCase() === stream.toLowerCase()) return classPart;
+    return `${classPart} ${stream}`.replace(/\s+/g, ' ').trim();
   }
   const resolved = classPart || trimStr(fallback);
   return resolved || null;

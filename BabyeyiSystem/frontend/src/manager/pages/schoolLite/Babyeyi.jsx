@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import BabyeyiList from "./BabyeyiList";
-import ClassStreamPicker from "../../../Pages/School Manager/components/ClassStreamPicker";
+import RegisteredClassStreamPicker from "../../../Pages/School Manager/components/RegisteredClassStreamPicker";
 import EducationLevelPicker from "../../../Pages/School Manager/components/EducationLevelPicker";
 import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
 import {
@@ -1444,7 +1444,7 @@ export default function App({ session }) {
                 </p>
               ) : (
                 <>
-                  <ClassStreamPicker
+                  <RegisteredClassStreamPicker
                     groups={filteredClassGroups}
                     selected={form.classes || []}
                     onChange={(next) => {
@@ -1459,10 +1459,6 @@ export default function App({ session }) {
                     onSelectAllLevel={() => {
                       const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
                       up("classes", sortSelectedClassesByCatalog(labels, classOptions));
-                    }}
-                    onClearLevel={() => {
-                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
-                      up("classes", first ? [first] : []);
                     }}
                   />
                   {form.classes.length > 1 && (

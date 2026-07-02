@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Users, Loader2, CheckCircle2, AlertTriangle,
@@ -7,6 +7,16 @@ import {
 import schoolService from "../services/schoolService";
 import { useAuth } from "../context/AuthContext";
 import { processStudentPortraitFile, revokePortraitPreview } from "../utils/studentPhotoProcess";
+import { formatSchoolClassRowLabel, formatClassWithStream, parseClassAndStream, formatClassStreamDisplay } from "../../utils/classStreamGroups";
+import EducationLevelPicker from "./EducationLevelPicker";
+import ClassStreamEntryFields from "./ClassStreamEntryFields";
+import {
+  EDUCATION_LEVEL_OPTIONS,
+  inferEducationLevelFromClass,
+  normalizeEducationLevel,
+  levelsPresentInCatalog,
+  mergeWithDefaultClassCatalog,
+} from "../../utils/educationLevelClasses";
 
 // API Resolution pointing strictly to the central backend
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
@@ -216,6 +226,9 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
   const sessionUser = manager || teacher;
   const [classes, setClasses] = useState([]);
   const [fetchingClasses, setFetchingClasses] = useState(false);
+  const [educationLevel, setEducationLevel] = useState("Primary");
+  const [classGrade, setClassGrade] = useState("");
+  const [streamName, setStreamName] = useState("");
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(BLANK_FORM);
@@ -250,7 +263,14 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
         village: normalizeLocationTokenForUI(editStudent.village),
         academic_year: editStudent.academic_year ? String(editStudent.academic_year) : "",
       });
-    } else setForm(BLANK_FORM);
+      const parts = parseClassAndStream(editStudent.class_name || "");
+      setClassGrade(parts.classGrade || "");
+      setStreamName(parts.stream || "");
+    } else {
+      setForm(BLANK_FORM);
+      setClassGrade("");
+      setStreamName("");
+    }
 
     const loadClasses = async () => {
       const sid = sessionUser?.school_id || sessionUser?.schoolId || session?.school_id || session?.schoolId || session?.school?.id;
@@ -268,23 +288,92 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
     loadClasses();
   }, [open, editStudent?.id, sessionUser?.school_id, session?.school_id]);
 
-  useEffect(() => {
-    if (!open || !isEdit || !classes.length) return;
-    if (form.class_id) return;
-    const cn = String(form.class_name || editStudent?.class_name || "").trim();
-    if (!cn) return;
-    const match = classes.find((c) => {
-      const label = `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim();
-      return label === cn || String(c.group_name || "").trim() === cn;
+  const mergedCatalog = useMemo(() => {
+    const apiLabels = (classes || []).map((c) =>
+      formatSchoolClassRowLabel(c) ||
+      `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim(),
+    ).filter(Boolean);
+    return mergeWithDefaultClassCatalog(apiLabels, classes || []);
+  }, [classes]);
+
+  const classOptions = useMemo(() => (mergedCatalog.rows || []).map((c) => {
+    const label =
+      formatSchoolClassRowLabel(c) ||
+      `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim();
+    return { ...c, label, id: c.id ?? label };
+  }), [mergedCatalog]);
+
+  const levelOptions = useMemo(() => {
+    const labels = classOptions.map((c) => c.label).filter(Boolean);
+    const rows = classOptions.map((c) => ({
+      group_name: c.group_name,
+      stream_name: c.stream_name,
+      combination: c.combination,
+      category: c.category,
+      education_level: c.education_level,
+    }));
+    const present = levelsPresentInCatalog(labels, rows);
+    return present.length ? present : EDUCATION_LEVEL_OPTIONS;
+  }, [classOptions]);
+
+  const filteredGroups = useMemo(() => {
+    const seen = new Set();
+    return classOptions.filter((c) => {
+      if (inferEducationLevelFromClass(c.label, c) !== normalizeEducationLevel(educationLevel)) return false;
+      const g = String(c.group_name || "").trim();
+      if (!g || seen.has(g)) return false;
+      seen.add(g);
+      return true;
     });
-    if (match) {
-      setForm((prev) => ({
-        ...prev,
-        class_id: String(match.id),
-        class_name: `${match.group_name || ""} ${match.stream_name || ""} ${match.combination || ""}`.trim(),
-      }));
-    }
-  }, [open, isEdit, classes, editStudent?.id, editStudent?.class_name, form.class_id, form.class_name]);
+  }, [classOptions, educationLevel]);
+
+  const streamsForClass = useMemo(() => classOptions.filter((c) =>
+    String(c.group_name || "").trim() === classGrade &&
+    inferEducationLevelFromClass(c.label, c) === normalizeEducationLevel(educationLevel)
+  ), [classOptions, classGrade, educationLevel]);
+
+  const streamSuggestions = useMemo(() => {
+    const names = streamsForClass.map((c) => String(c.stream_name || "").trim()).filter(Boolean);
+    return [...new Set(names)];
+  }, [streamsForClass]);
+
+  useEffect(() => {
+    if (!open || isEdit) return;
+    if (levelOptions.some((o) => o.id === educationLevel)) return;
+    if (levelOptions[0]) setEducationLevel(levelOptions[0].id);
+  }, [open, isEdit, levelOptions, educationLevel]);
+
+  useEffect(() => {
+    if (!open || !isEdit || !form.class_name) return;
+    const inferred = inferEducationLevelFromClass(form.class_name, null);
+    setEducationLevel(normalizeEducationLevel(inferred));
+  }, [open, isEdit, form.class_name]);
+
+  const handleLevelChange = (level) => {
+    setEducationLevel(level);
+    setClassGrade("");
+    setStreamName("");
+    setForm((prev) => ({ ...prev, class_id: "", class_name: "" }));
+  };
+
+  const handleClassGradeChange = (value) => {
+    setClassGrade(value);
+    setStreamName("");
+    setForm((prev) => ({
+      ...prev,
+      class_id: "",
+      class_name: formatClassWithStream(value, ""),
+    }));
+  };
+
+  const handleStreamChange = (value) => {
+    setStreamName(value);
+    setForm((prev) => ({
+      ...prev,
+      class_id: "",
+      class_name: formatClassWithStream(classGrade, value),
+    }));
+  };
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -300,7 +389,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
       if (!form.gender) return "Gender is required.";
       if (!form.birth_year) return "Please select a birth year.";
       if (!form.academic_year && !isEdit) return "Please select an academic year.";
-      if (!form.class_id && !String(form.class_name || "").trim()) return "Please select a homeroom/class.";
+      if (!String(classGrade || "").trim()) return "Please enter or select a class for this level.";
       if (!form.autoId && !form.student_uid.trim()) return "Enter a student ID or enable auto-generate.";
     }
     if (s === 2) {
@@ -345,7 +434,11 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
 
   const handleSubmit = async () => {
     setLoading(true); setError(null);
-    const payload = { ...form };
+    const payload = {
+      ...form,
+      class_name: formatClassWithStream(classGrade, streamName),
+      class_id: "",
+    };
     let studentId = isEdit ? editStudent.id : null;
 
     try {
@@ -470,28 +563,29 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                             <FormField label="Gender" required><select className={selectCls} value={form.gender} onChange={e => set("gender", e.target.value)}><option value="">Select…</option><option value="Male">Male</option><option value="Female">Female</option></select></FormField>
                             <FormField label="Birth Year" required><select className={selectCls} value={form.birth_year} onChange={e => set("birth_year", e.target.value)}><option value="">Select…</option>{YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select></FormField>
                             <FormField label="Nationality"><input type="text" className={inputCls} value={form.nationality} onChange={e => set("nationality", e.target.value)} /></FormField>
-                            <FormField label="Homeroom / Class" required>
-                              <select 
-                                className={selectCls} 
-                                value={form.class_id || ""} 
-                                onChange={e => {
-                                  const cid = e.target.value;
-                                  const selected = classes.find(c => String(c.id) === String(cid));
-                                  setForm(prev => ({ 
-                                    ...prev, 
-                                    class_id: cid, 
-                                    class_name: selected ? `${selected.group_name} ${selected.stream_name || ''} ${selected.combination || ''}`.trim() : "" 
-                                  }));
-                                }}
-                              >
-                                <option value="">{fetchingClasses ? "Fetching registry..." : "Select Class..."}</option>
-                                {classes.map(c => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.group_name} {c.stream_name || ''} {c.combination ? `(${c.combination})` : ''}
-                                  </option>
-                                ))}
-                              </select>
-                            </FormField>
+                          </div>
+
+                          <EducationLevelPicker
+                            value={educationLevel}
+                            onChange={handleLevelChange}
+                            options={levelOptions}
+                            title="Education level"
+                            hint="TSS: type class manually. Other levels: pick grade, then type stream."
+                          />
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <ClassStreamEntryFields
+                              educationLevel={educationLevel}
+                              classGrade={classGrade}
+                              onClassGradeChange={handleClassGradeChange}
+                              stream={streamName}
+                              onStreamChange={handleStreamChange}
+                              filteredGroups={filteredGroups}
+                              streamSuggestions={streamSuggestions}
+                              classLabel="Homeroom / class"
+                              inputCls={inputCls}
+                              selectCls={selectCls}
+                            />
                             <FormField label="Academic Year" required>
                               <select className={selectCls} value={form.academic_year} onChange={e => set("academic_year", e.target.value)}>
                                 <option value="">Select Year…</option>
