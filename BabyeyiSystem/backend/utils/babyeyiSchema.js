@@ -47,7 +47,7 @@ async function ensureBabyeyiCoreSchema() {
       pdf_name VARCHAR(255) NULL,
       school_logo_url VARCHAR(500) NULL,
       supporting_doc_url VARCHAR(500) NULL,
-      status ENUM('draft','submitted','approved','rejected') NOT NULL DEFAULT 'draft',
+      status ENUM('draft','submitted','approved','rejected','pending') NOT NULL DEFAULT 'draft',
       submitted_at DATETIME NULL,
       deo_status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
       deo_name VARCHAR(255) NULL,

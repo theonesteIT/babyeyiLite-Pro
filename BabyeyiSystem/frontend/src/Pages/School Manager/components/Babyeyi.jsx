@@ -1231,7 +1231,9 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       const method = editId ? "PUT" : "POST";
       const res  = await fetch(url, { method, body: fd, credentials: "include" });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) throw new Error(json.message || "Failed to save Babyeyi");
+      if (!res.ok || json.success === false) {
+        throw new Error(json.detail || json.message || "Failed to save Babyeyi");
+      }
       const savedId = json.data?.id ?? json.data?.ID ?? editId;
       if (savedId) {
         createdIds.push({

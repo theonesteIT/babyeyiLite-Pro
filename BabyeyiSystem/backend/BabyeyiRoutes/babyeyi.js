@@ -569,16 +569,77 @@ const classToLevel = (cls) => {
     if (/^N[123]$/.test(c)) return "Nursery";
     if (/^P[1-6]$/.test(c)) return "Primary";
     if (/^S[1-6]$/.test(c)) return "Secondary";
-    if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO)\b/i.test(raw)) return "TSS";
+    if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO|SOD|MECH|ELEC|ICT)\b/i.test(raw)) return "TSS";
     if (/^L[1-6]/.test(compact)) return "TSS";
   }
   if (["N1", "N2", "N3"].includes(raw)) return "Nursery";
   if (["P1", "P2", "P3", "P4", "P5", "P6"].includes(raw)) return "Primary";
   if (["S1", "S2", "S3", "S4", "S5", "S6"].includes(raw)) return "Secondary";
-  if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO)\b/i.test(raw)) return "TSS";
-  if (["L1", "L2", "L3"].includes(raw)) return "TSS";
+  if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO|SOD|MECH|ELEC|ICT)\b/i.test(raw)) return "TSS";
+  if (["L1", "L2", "L3", "L4", "L5", "L6"].includes(raw)) return "TSS";
   return "Primary";
 };
+
+/** Normalize wizard/API level label → Nursery | Primary | Secondary | TSS */
+const normalizeNesaLevel = (level, classFallback = "") => {
+  const s = String(level || "").trim();
+  if (s) {
+    const lower = s.toLowerCase();
+    if (lower.includes("nursery") || /^n[123]$/i.test(s)) return "Nursery";
+    if (lower.includes("primary") || /^p[1-6]$/i.test(s)) return "Primary";
+    if (lower.includes("secondary") && !lower.includes("technical") && !lower.includes("tss") && !lower.includes("tvet")) {
+      return "Secondary";
+    }
+    if (lower.includes("tss") || lower.includes("tvet") || lower.includes("technical")) return "TSS";
+    if (["Nursery", "Primary", "Secondary", "TSS"].includes(s)) return s;
+  }
+  return classToLevel(classFallback);
+};
+
+const resolveBabyeyiCreateStatus = (exceeds, requestIncrease) => {
+  if (!exceeds) return "approved";
+  if (requestIncrease) return "pending";
+  return "draft";
+};
+
+const VALID_TERMS = new Set(["Term 1", "Term 2", "Term 3"]);
+
+const normalizeBabyeyiTerm = (term) => {
+  const s = String(term || "").trim();
+  if (VALID_TERMS.has(s)) return s;
+  const m = s.match(/^term\s*([123])$/i) || s.match(/^t\s*([123])$/i);
+  if (m) return `Term ${m[1]}`;
+  return s;
+};
+
+async function resolveSchoolIdentityForBabyeyi(body, schoolId, req) {
+  const fv = (v, fb = null) => Array.isArray(v) ? v[0] ?? fb : v ?? fb;
+  let schoolName = fv(body.school_name, null);
+  let schoolCode = fv(body.school_code, null);
+  if (schoolId && (!schoolName || !schoolCode)) {
+    try {
+      const [schRow] = await query(
+        "SELECT school_name, school_code FROM schools WHERE id=? LIMIT 1",
+        [schoolId]
+      );
+      if (schRow) {
+        if (!schoolName) schoolName = schRow.school_name;
+        if (!schoolCode) schoolCode = schRow.school_code;
+      }
+    } catch (_) {}
+  }
+  if (!schoolName) {
+    schoolName =
+      fv(req.user?.school_name) ||
+      fv(req.session?.user?.school_name) ||
+      fv(req.session?.schoolName) ||
+      "School";
+  }
+  return {
+    schoolName: String(schoolName || "School").trim() || "School",
+    schoolCode: String(schoolCode || "").trim(),
+  };
+}
 
 /** Match fee_limits row: exact term first; Term 1/2/3 also match a stored "Full Year" cap. */
 async function queryActiveNesaFeeLimit(category, level, term, academicYear) {
@@ -843,6 +904,7 @@ const runMigrations = async () => {
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS translations_json LONGTEXT NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS content_i18n LONGTEXT NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS translation_status VARCHAR(32) NULL`,
+    `ALTER TABLE school_babyeyi MODIFY COLUMN status ENUM('draft','submitted','approved','rejected','pending') NOT NULL DEFAULT 'draft'`,
     `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS item VARCHAR(300) NULL`,
     `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS details TEXT NULL`,
     `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0`,
@@ -2817,7 +2879,21 @@ router.post("/", (req, res) => {
         return res.status(422).json({ success: false, message: "academic_year, term, class/classes, category are required" });
       }
 
+      const term = normalizeBabyeyiTerm(body.term);
+      if (!VALID_TERMS.has(term)) {
+        return res.status(422).json({
+          success: false,
+          message: `Invalid term "${body.term}". Use Term 1, Term 2, or Term 3.`,
+        });
+      }
+
       const schoolId = resolveSchoolId(req);
+      if (!schoolId) {
+        return res.status(422).json({
+          success: false,
+          message: "School ID is required. Please log out and sign in again with your school manager account.",
+        });
+      }
       const fv = (v, fb = null) => Array.isArray(v) ? v[0] ?? fb : v ?? fb;
 
       const schoolProvince = fv(body.province, req.user?.province || null);
@@ -2832,7 +2908,7 @@ router.post("/", (req, res) => {
         return res.status(422).json({ success: false, message: "At least one class is required" });
       }
 
-      const level         = body.level || classToLevel(primaryClass);
+      const level = normalizeNesaLevel(body.level || body.education_level, primaryClass);
       const payments      = parseJSONField(body.payments);
       const totalFee      = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
       const parentMessage = body.parent_message || "";
@@ -2856,21 +2932,14 @@ router.post("/", (req, res) => {
 
       const nesaRow = skipNesa
         ? null
-        : await queryActiveNesaFeeLimit(categoryForRow, level, body.term, body.academic_year).catch(() => null);
+        : await queryActiveNesaFeeLimit(categoryForRow, level, term, body.academic_year).catch(() => null);
       const nesaLimit       = skipNesa ? null : (nesaRow?.max_amount ?? null);
       const exceeds         = !skipNesa && nesaLimit !== null && totalFee > Number(nesaLimit);
       const requestIncrease = body.request_increase === "true" || body.request_increase === true;
 
-      let schoolName = body.school_name || null;
-      let schoolCode = body.school_code || null;
-      if (schoolId && !schoolName) {
-        try {
-          const [schRow] = await query("SELECT school_name, school_code FROM schools WHERE id=? LIMIT 1", [schoolId]);
-          if (schRow) { schoolName = schRow.school_name; schoolCode = schRow.school_code; }
-        } catch (_) {}
-      }
+      const { schoolName, schoolCode } = await resolveSchoolIdentityForBabyeyi(body, schoolId, req);
 
-      const status = !exceeds ? "approved" : requestIncrease ? "pending" : "draft";
+      const status = resolveBabyeyiCreateStatus(exceeds, requestIncrease);
       const preDocId = await generateDocId(body.academic_year);
 
       const result = await query(
@@ -2886,7 +2955,7 @@ router.post("/", (req, res) => {
         [
           schoolId, schoolName, schoolCode,
           schoolProvince, schoolDistrict, schoolSector,
-          body.academic_year, body.term, primaryClass, classesArr.length ? JSON.stringify(classesArr) : null,
+          body.academic_year, term, primaryClass, classesArr.length ? JSON.stringify(classesArr) : null,
           categoryForRow, level,
           JSON.stringify(payments), totalFee,
           bankName, bankAccountNo, bankBranch, banksJson,
@@ -3002,7 +3071,7 @@ router.post("/", (req, res) => {
         }
       }
 
-      await seedRequirementPricesFromDefaults(bid, schoolId, body.academic_year, body.term, primaryClass);
+      await seedRequirementPricesFromDefaults(bid, schoolId, body.academic_year, term, primaryClass);
 
       const classReqs = parseJSONField(body.classReqs);
       for (let i = 0; i < classReqs.length; i++) {
@@ -3127,7 +3196,7 @@ router.post("/", (req, res) => {
             status,
             exceeds: !!exceeds,
             className: primaryClass,
-            term: body.term,
+            term,
             academicYear: body.academic_year,
           }).catch((e) => console.warn("[babyeyi] district DEO notify:", e.message));
         } catch (notifyErr) {
@@ -3160,7 +3229,15 @@ router.post("/", (req, res) => {
 
     } catch (err) {
       console.error("[babyeyi/POST]", err);
-      res.status(500).json({ success: false, message: "Failed to create babyeyi", detail: err.message });
+      const detail = err?.message || String(err);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create babyeyi",
+        detail,
+        hint: detail.includes("status") || detail.includes("Data truncated")
+          ? "Server database may need a Babyeyi status migration — restart the API after deploy."
+          : undefined,
+      });
     }
   });
 });
@@ -3467,7 +3544,7 @@ router.put("/:id", (req, res) => {
       const classesJson   = classesArr.length ? JSON.stringify(classesArr) : (old.classes_json || null);
       const newTerm  = body.term          || old.term;
       const newYear  = body.academic_year || old.academic_year;
-      const level    = body.level || classToLevel(resolvedClass);
+      const level    = normalizeNesaLevel(body.level || body.education_level, resolvedClass);
 
       const payments      = parseJSONField(body.payments);
       const totalFee      = payments.length ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) : old.total_fee || 0;
