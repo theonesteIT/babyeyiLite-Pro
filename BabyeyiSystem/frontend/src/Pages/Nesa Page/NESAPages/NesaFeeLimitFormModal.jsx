@@ -34,9 +34,31 @@ export default function NesaFeeLimitFormModal({
   onClose,
   onSave,
   yearOptions = [],
+  currentAcademicYear = '',
 }) {
   const pdfInputRef = useRef(null);
   if (!open) return null;
+
+  const years = [...new Set(
+    [
+      ...(yearOptions || []),
+      form.academic_year,
+      currentAcademicYear,
+    ]
+      .map((y) => String(y || '').trim())
+      .filter(Boolean),
+  )];
+  const preferred = String(currentAcademicYear || years[0] || '').trim();
+  if (preferred) {
+    years.sort((a, b) => String(b).localeCompare(String(a)));
+    const idx = years.indexOf(preferred);
+    if (idx > 0) {
+      years.splice(idx, 1);
+      years.unshift(preferred);
+    } else if (idx === -1) {
+      years.unshift(preferred);
+    }
+  }
 
   return createPortal(
     <div
@@ -167,20 +189,22 @@ export default function NesaFeeLimitFormModal({
               <label className={labelCls}>
                 Academic year <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 value={form.academic_year}
                 onChange={(e) => setForm((f) => ({ ...f, academic_year: e.target.value }))}
-                placeholder="e.g. 2025-2026"
-                list="nesa-fee-limit-years-modal"
                 style={inp}
-              />
-              <datalist id="nesa-fee-limit-years-modal">
-                {(yearOptions || []).map((y) => (
-                  <option key={y} value={y} />
+              >
+                <option value="">Select academic year…</option>
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                    {y === preferred ? ' · Current' : ''}
+                  </option>
                 ))}
-              </datalist>
-              <p className="mt-1.5 text-[10px] text-slate-500">Format YYYY-YYYY (e.g. 2027-2028)</p>
+              </select>
+              <p className="mt-1.5 text-[10px] text-slate-500">
+                Current year first — register more in Academic period above
+              </p>
             </div>
 
             <div>

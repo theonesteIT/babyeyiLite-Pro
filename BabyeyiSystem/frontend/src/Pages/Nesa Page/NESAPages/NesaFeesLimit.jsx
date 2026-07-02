@@ -15,6 +15,7 @@ import { FEE_API, apiFetch, apiFetchForm } from "../NesaPage/utils/api";
 import Pagination from "../NesaPage/components/Pagination";
 import { validateAcademicYear } from "../../../utils/babyeyiAcademicPeriod";
 import NesaFeeLimitFormModal from "./NesaFeeLimitFormModal";
+import NesaAcademicPeriodPanel from "../NesaPage/components/NesaAcademicPeriodPanel";
 import {
   NESA_FEE_BLANK_FORM,
   NESA_FEE_LEVEL_IDS,
@@ -155,7 +156,10 @@ export default function NesaFeesLimit({
   onHeroActions,
   portalFilters,
   filterVersion = 0,
+  academicPeriod,
   yearOptions = [],
+  sortedYearOptions = [],
+  termOptions = [],
   onAcademicMetaRefresh,
   onAcademicPeriodChange,
 }) {
@@ -183,6 +187,8 @@ export default function NesaFeesLimit({
 
   const filterYear = portalFilters?.academicYear || "";
   const filterTerm = portalFilters?.term || "";
+  const modalYearOptions = sortedYearOptions?.length ? sortedYearOptions : yearOptions;
+  const panelPeriod = academicPeriod || { academicYear: filterYear, term: filterTerm };
 
   // ── Fetch ──────────────────────────────────────────────────
   const fetchLimits = useCallback(async () => {
@@ -231,12 +237,12 @@ export default function NesaFeesLimit({
     setEditItem(null);
     setForm({
       ...BLANK,
-      academic_year: portalFilters?.academicYear || "",
+      academic_year: portalFilters?.academicYear || modalYearOptions[0] || "",
       term: portalFilters?.term || BLANK.term,
     });
     setPdfFile(null);
     setShowForm(true);
-  }, [portalFilters?.academicYear, portalFilters?.term]);
+  }, [portalFilters?.academicYear, portalFilters?.term, modalYearOptions]);
 
   useEffect(() => {
     if (!embedded || !onHeroActions) return;
@@ -395,12 +401,20 @@ export default function NesaFeesLimit({
         </>
       )}
 
-      {embedded && (filterYear || filterTerm) && (
-        <p className="text-xs font-medium text-[#92400e]">
-          Portal filter: {filterYear || 'all years'}
-          {filterTerm ? ` · ${filterTerm}` : ''}.
-          {filterYear ? ' Use header Filters to change year.' : ''}
-        </p>
+      {embedded && onAcademicPeriodChange && (
+        <NesaAcademicPeriodPanel
+          academicPeriod={panelPeriod}
+          yearOptions={yearOptions}
+          termOptions={termOptions}
+          onAcademicPeriodChange={onAcademicPeriodChange}
+          onRegisterYear={async (year) => {
+            await onAcademicPeriodChange(
+              { academicYear: year, term: panelPeriod.term || "Term 1" },
+              { skipRegister: false },
+            );
+            await onAcademicMetaRefresh?.();
+          }}
+        />
       )}
 
       {/* Filters */}
@@ -563,7 +577,8 @@ export default function NesaFeesLimit({
         saving={saving}
         onClose={closeForm}
         onSave={handleSave}
-        yearOptions={yearOptions}
+        yearOptions={modalYearOptions}
+        currentAcademicYear={panelPeriod.academicYear || modalYearOptions[0] || ""}
       />
 
       {/* ════════════════════════════════════════════════════

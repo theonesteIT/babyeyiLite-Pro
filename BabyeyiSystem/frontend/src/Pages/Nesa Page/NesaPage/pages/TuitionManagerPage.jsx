@@ -9,7 +9,10 @@ export default function TuitionManagerPage({
   onHeroActions,
   portalFilters,
   filterVersion,
+  academicPeriod,
   yearOptions,
+  sortedYearOptions,
+  termOptions,
   onAcademicMetaRefresh,
   onAcademicPeriodChange,
 }) {
@@ -21,7 +24,10 @@ export default function TuitionManagerPage({
       onHeroActions={onHeroActions}
       portalFilters={portalFilters}
       filterVersion={filterVersion}
+      academicPeriod={academicPeriod}
       yearOptions={yearOptions}
+      sortedYearOptions={sortedYearOptions}
+      termOptions={termOptions}
       onAcademicMetaRefresh={onAcademicMetaRefresh}
       onAcademicPeriodChange={onAcademicPeriodChange}
     />

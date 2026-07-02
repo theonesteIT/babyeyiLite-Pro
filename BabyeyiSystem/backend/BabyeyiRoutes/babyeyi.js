@@ -1284,6 +1284,18 @@ async function generateBabyeyiHtmlPDF({
   return renderHtmlToPdfFile(html, PDF_DIR, docId);
 }
 
+/** PDFKit Helvetica only supports WinAnsi — strip BOM/CR and normalize punctuation. */
+function sanitizePdfKitText(text) {
+  return String(text ?? "")
+    .replace(/\uFEFF/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+}
+
 // ── Generate PDF ──────────────────────────────────────────────
 const generateBabyeyiPDF = async ({
   babyeyi,
@@ -1414,7 +1426,7 @@ const generateBabyeyiPDF = async ({
       y += 28;
 
       // Parent message
-      const msgText = parentMessage || b.parent_message || "";
+      const msgText = sanitizePdfKitText(parentMessage || b.parent_message || "");
       if (showParentMessage && msgText && msgText.trim()) {
         doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
            .text(D.parentMessageHeading || "Message to Parents", L, y, { characterSpacing: 1.2 });
@@ -1453,7 +1465,7 @@ const generateBabyeyiPDF = async ({
         doc.fontSize(8).font("Helvetica").fillColor(BLACK)
            .text(String(idx + 1), colX[0] + 6, y + 5, { width: colW[0], align: "center" });
         doc.fontSize(8).font("Helvetica").fillColor(BLACK)
-           .text(p.name, colX[1] + 6, y + 5, { width: colW[1] - 10 });
+           .text(sanitizePdfKitText(p.name), colX[1] + 6, y + 5, { width: colW[1] - 10 });
         doc.fontSize(8).font("Helvetica-Bold").fillColor(NAVY)
            .text(amt.toLocaleString(), colX[2] + 6, y + 5, { width: colW[2] - 10, align: "right" });
         y += 18;

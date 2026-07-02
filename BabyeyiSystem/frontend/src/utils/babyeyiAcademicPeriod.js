@@ -81,11 +81,35 @@ export function saveAcademicPeriod(storageKey, { academicYear, term }) {
   }
 }
 
+/** Infer Rwanda-style academic year from calendar date (Sep–Aug). */
+export function inferAcademicYearFromDate(date = new Date()) {
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
+  return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+
 /** Only years NESA has registered (fee limits + manual registry) — no hardcoded mock list. */
 export function mergeYearOptions(apiYears = []) {
   return [...new Set((apiYears || []).map((y) => String(y).trim()).filter(Boolean))].sort((a, b) =>
     String(b).localeCompare(String(a)),
   );
+}
+
+/** Current portal year first, then others newest-first (manager preferences style). */
+export function sortYearOptionsCurrentFirst(years = [], currentYear = '') {
+  const cur = String(currentYear || '').trim();
+  const list = [...new Set((years || []).map((y) => String(y).trim()).filter(Boolean))];
+  list.sort((a, b) => String(b).localeCompare(String(a)));
+  if (cur && !list.includes(cur)) list.unshift(cur);
+  if (cur) return [cur, ...list.filter((y) => y !== cur)];
+  return list;
+}
+
+/** Dropdown options for NESA — always includes current/inferred year at the top. */
+export function buildNesaYearSelectOptions(apiYears = [], currentYear = '') {
+  const cur = String(currentYear || '').trim() || inferAcademicYearFromDate();
+  const sorted = sortYearOptionsCurrentFirst(apiYears, cur);
+  return sorted.length ? sorted : [cur];
 }
 
 export function mergeTermOptions(apiTerms = []) {

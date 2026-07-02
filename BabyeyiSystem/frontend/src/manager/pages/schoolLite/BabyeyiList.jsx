@@ -13,6 +13,11 @@ import { useBabyeyiUiT } from '../../schoolLiteSupport/hooks/useBabyeyiUiT.js';
 import { translateLongText, translateWithLingvaCached } from '../../schoolLiteSupport/lib/lingvaTranslate.js';
 import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../../lib/schoolLiteApi';
 import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml, BABYEYI_PDF_CAPTURE_HOST_STYLE } from './babyeyiPdfExport';
+import {
+  uniqueClassGradesFromLabels,
+  formatBabyeyiDocumentClassLabel,
+  buildBabyeyiDocumentClassHeaderHtml,
+} from '../../../utils/classStreamGroups';
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
 import {
@@ -178,6 +183,14 @@ export async function downloadBabyeyiServerPdf({ babyeyiId, apiLang = "en", file
   URL.revokeObjectURL(url);
 }
 
+/** WYSIWYG PDF — captures the same HTML shown in the View modal (not legacy PDFKit). */
+export async function downloadBabyeyiClientPdf({ rootEl, fileName }) {
+  if (!rootEl) throw new Error("Document not ready — open View first.");
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  await renderBabyeyiPdfFromRoot(rootEl, null, fileName, babyeyiDocHtml2CanvasOptions());
+}
+
 export function openBabyeyiPrintPage({ babyeyiId, apiLang = "en" }) {
   const printUrl = `${API_BASE}/babyeyi/${babyeyiId}/print?lang=${encodeURIComponent(apiLang)}&autoprint=1`;
   window.open(printUrl, "_blank", "noopener,noreferrer");
@@ -194,7 +207,7 @@ function loadScript(src) {
 /** html2canvas: force light white document (no UI chrome / dark-mode tint); matches on-screen View. */
 export function babyeyiDocHtml2CanvasOptions(rootId) {
   return {
-    scale: 2,
+    scale: 3,
     useCORS: true,
     allowTaint: false,
     backgroundColor: "#ffffff",
@@ -203,10 +216,15 @@ export function babyeyiDocHtml2CanvasOptions(rootId) {
     onclone: (doc) => {
       doc.documentElement.style.backgroundColor = "#ffffff";
       doc.body.style.backgroundColor = "#ffffff";
-      const el = doc.getElementById(rootId);
-      if (el) {
-        el.style.backgroundColor = "#ffffff";
-        el.style.color = "#1e293b";
+      doc.querySelectorAll("button").forEach((btn) => {
+        btn.style.display = "none";
+      });
+      if (rootId) {
+        const el = doc.getElementById(rootId);
+        if (el) {
+          el.style.backgroundColor = "#ffffff";
+          el.style.color = "#1e293b";
+        }
       }
     },
   };
@@ -240,6 +258,25 @@ const STATUS_CFG = {
 const BLOCKED_STATUSES = new Set(["pending","draft","submitted"]);
 const isBlocked = (s) => BLOCKED_STATUSES.has(s);
 
+function BabyeyiClassChips({ labels, max = 6, size = "sm" }) {
+  const grades = uniqueClassGradesFromLabels(labels);
+  const shown = grades.slice(0, max);
+  const extra = grades.length - shown.length;
+  const chipCls =
+    size === "md"
+      ? "inline-flex px-2.5 py-1 rounded-full bg-[#eff6ff] border border-[#bfdbfe] text-[11px] font-bold text-[#1e3a5f]"
+      : "inline-flex px-2 py-0.5 rounded-full bg-[#eff6ff] border border-[#bfdbfe] text-[10px] font-bold text-[#1e3a5f]";
+  if (!grades.length) return <span className="text-slate-400 text-[10px]">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1 justify-center">
+      {shown.map((g) => (
+        <span key={g} className={chipCls}>{g}</span>
+      ))}
+      {extra > 0 && <span className="text-[10px] font-semibold text-slate-500 self-center">+{extra}</span>}
+    </div>
+  );
+}
+
 export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T: TOverride, parentMsgOverride }) {
   const T = TOverride || getLegacyBabyeyiUI(lang);
   const parentMsg = parentMsgOverride != null ? parentMsgOverride : getParentMessageForDisplay(rec, lang, T);
@@ -250,8 +287,12 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const leaders = Array.isArray(rec.leaders) ? rec.leaders : [];
   const banks = parseBanks(rec);
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classLabel = formatBabyeyiDocumentClassLabel(classesArr);
+  const classHeaderHtml = buildBabyeyiDocumentClassHeaderHtml(classesArr, T.classLabel || "Class");
   const levelLabel = rec.level || rec.education_level || "";
+  const metaHtml = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]]
+    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
+    .join("");
   const tblStyle = `width:100%;border-collapse:collapse;margin-top:8px`;
   const thS = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent`;
   const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent`;
@@ -273,7 +314,7 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>` : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>` : "";
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
-  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex-1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${classHeaderHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:6px">${metaHtml}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -846,7 +887,7 @@ function OfficialDoc({
   const blocked = isBlocked(rec.status);
   const banks = docBody.banks;
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classLabel = formatBabyeyiDocumentClassLabel(classesArr);
   const levelLabel = rec.level || rec.education_level || "";
   const reqs = Array.isArray(docBody.merged.requirements) ? docBody.merged.requirements : [];
   const otherInfos = Array.isArray(docBody.merged.otherInfos) ? docBody.merged.otherInfos : [];
@@ -893,6 +934,15 @@ function OfficialDoc({
     setDownloading(true);
     try {
       const fileName = `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`;
+      const docEl = document.getElementById("babyeyi-pdf-doc");
+      if (docEl) {
+        try {
+          await downloadBabyeyiClientPdf({ rootEl: docEl, fileName });
+          return;
+        } catch (clientErr) {
+          console.warn("[babyeyi] client PDF capture failed, trying server:", clientErr);
+        }
+      }
       await downloadBabyeyiServerPdf({
         babyeyiId: rec.id,
         apiLang,
@@ -1035,9 +1085,13 @@ function OfficialDoc({
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "—"}</strong></p>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "—"}</strong></p>
-                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
+                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
+                <div style={{ marginBottom: "10px" }}>
+                  <p style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", margin: "0 0 6px" }}>{T.classLabel}</p>
+                  <BabyeyiClassChips labels={classesArr} max={12} size="md" />
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
-                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v], i) => (
+                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]].map(([l, v], i) => (
                     <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "—"}</span>
                   ))}
                   {rec.docId && <span style={{ ...DOC.body, fontFamily: "monospace", fontWeight: 700, color: "#3730a3", border: "1px solid #c7d2fe", padding: "1px 8px" }}>{rec.docId}</span>}
@@ -1345,12 +1399,10 @@ function BabyeyiCard({ rec, onView, onEdit, onDelete, onShare, T, lang }) {
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-              <span className="text-amber-800 font-medium text-[10px] text-center leading-tight">{classes.join(", ")}</span>
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-900 text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="min-w-0 flex-1">
+              <BabyeyiClassChips labels={classes} max={4} />
+              <p className="font-semibold text-slate-900 text-[13px] truncate mt-2">{rec.term} · {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
                 {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}

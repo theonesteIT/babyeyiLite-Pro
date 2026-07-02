@@ -3,6 +3,10 @@
  * Used by Puppeteer PDF generation and the /print route.
  */
 const { getDocStrings } = require("./babyeyiDocI18n");
+const {
+  formatBabyeyiDocumentClassLabel,
+  buildBabyeyiDocumentClassHeaderHtml,
+} = require("./classStreamLabels");
 
 function esc(s) {
   return String(s ?? "")
@@ -44,7 +48,7 @@ function showParentMessageEnabled(rec) {
 }
 
 /** Header meta — class is large and prominent; year/term/level stay compact. */
-function buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classLabel }) {
+function buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classesArr }) {
   const metaItems = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]];
   const metaHtml = metaItems
     .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${esc(l)}:</strong> ${esc(v || "—")}</span>`)
@@ -52,7 +56,7 @@ function buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classLabel }) {
   const docIdHtml = rec.docId
     ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${esc(rec.docId)}</span>`
     : "";
-  const classHtml = `<div style="margin:8px 0 6px;padding:10px 18px;background:#f8fafc;border:2px solid #1e3a5f;border-radius:8px;display:inline-block;max-width:100%;box-sizing:border-box"><span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-right:10px">${esc(T.classLabel)}:</span><span style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:.02em;line-height:1.2">${esc(classLabel || "—")}</span></div>`;
+  const classHtml = buildBabyeyiDocumentClassHeaderHtml(classesArr, T.classLabel || "Class", esc);
   return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">${classHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center">${metaHtml}${docIdHtml}</div></div>`;
 }
 
@@ -128,7 +132,7 @@ function buildBabyeyiDocHtml({
   const allOtherInfos = [...otherInfos, ...extraOther];
   const banks = parseBanks(rec);
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classLabel = formatBabyeyiDocumentClassLabel(classesArr);
   const levelLabel = rec.level || rec.education_level || "";
 
   const tblStyle = "width:100%;border-collapse:collapse;margin-top:8px";
@@ -179,7 +183,7 @@ function buildBabyeyiDocHtml({
 
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
 
-  const headerMeta = buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classLabel });
+  const headerMeta = buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classesArr });
   return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:16px 40px 12px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${esc(T.republic)}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${esc(T.district)}: ${esc(rec.district || "—")}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${esc(T.sector)}: ${esc(rec.sector || "—")}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${esc(rec.schoolName || "")}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:16px 40px 20px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
 }
 

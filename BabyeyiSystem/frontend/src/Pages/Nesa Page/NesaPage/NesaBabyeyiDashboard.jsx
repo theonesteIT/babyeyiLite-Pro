@@ -29,6 +29,7 @@ import {
   saveAcademicPeriod,
   mergeYearOptions,
   mergeTermOptions,
+  buildNesaYearSelectOptions,
   validateAcademicYear,
   STORAGE_KEYS,
 } from '../../../utils/babyeyiAcademicPeriod';
@@ -202,6 +203,10 @@ export default function NesaBabyeyiDashboard() {
     () => mergeYearOptions(academicMeta.academic_years),
     [academicMeta.academic_years],
   );
+  const sortedYearOptions = useMemo(
+    () => buildNesaYearSelectOptions(academicMeta.academic_years, academicPeriod.academicYear),
+    [academicMeta.academic_years, academicPeriod.academicYear],
+  );
   const termOptions = useMemo(
     () => mergeTermOptions(academicMeta.terms),
     [academicMeta.terms],
@@ -282,6 +287,7 @@ export default function NesaBabyeyiDashboard() {
     filterVersion,
     academicPeriod: academicPeriodFromFilters,
     yearOptions,
+    sortedYearOptions,
     termOptions,
     onAcademicPeriodChange: handleAcademicPeriodChange,
     onAcademicMetaRefresh: loadAcademicMeta,
