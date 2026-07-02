@@ -99,7 +99,7 @@ async function ensureBabyeyiCoreSchema() {
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       babyeyi_id INT NOT NULL,
       information TEXT NOT NULL,
-      item VARCHAR(300) NULL,
+      item TEXT NULL,
       details TEXT NULL,
       sort_order INT NULL DEFAULT 0,
       KEY idx_bcr_babyeyi (babyeyi_id)
@@ -133,7 +133,7 @@ async function ensureBabyeyiCoreSchema() {
     CREATE TABLE IF NOT EXISTS babyeyi_student_requirements (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       babyeyi_id INT NOT NULL,
-      item VARCHAR(300) NOT NULL,
+      item TEXT NOT NULL,
       description TEXT NULL,
       quantity VARCHAR(50) NULL,
       cost DECIMAL(12,2) NULL,
@@ -206,6 +206,21 @@ async function ensureBabyeyiCoreSchema() {
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN pdf_name VARCHAR(255) NULL');
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN deleted_at DATETIME NULL');
+
+  await runDDL('ALTER TABLE babyeyi_class_requirements ADD COLUMN item TEXT NULL');
+  await runDDL('ALTER TABLE babyeyi_class_requirements ADD COLUMN details TEXT NULL');
+  await runDDL('ALTER TABLE babyeyi_class_requirements ADD COLUMN sort_order INT NULL DEFAULT 0');
+  try {
+    await promisePool.query('ALTER TABLE babyeyi_class_requirements MODIFY COLUMN item TEXT NULL');
+  } catch (e) {
+    console.warn('[babyeyiSchema] babyeyi_class_requirements.item:', e.message);
+  }
+
+  try {
+    await promisePool.query('ALTER TABLE babyeyi_student_requirements MODIFY COLUMN item TEXT NOT NULL');
+  } catch (e) {
+    console.warn('[babyeyiSchema] babyeyi_student_requirements.item:', e.message);
+  }
 
   try {
     await promisePool.query(

@@ -559,6 +559,16 @@ const parseJSONField = (val) => {
   try { return JSON.parse(val); } catch { return []; }
 };
 
+const normalizeRequirementItem = (val) => {
+  if (val == null) return "";
+  if (typeof val === "object") {
+    if (typeof val.name === "string") return val.name.trim();
+    if (typeof val.item === "string") return val.item.trim();
+    return "";
+  }
+  return String(val).trim();
+};
+
 const classToLevel = (cls) => {
   const raw = String(cls || "").trim();
   if (!raw) return "Primary";
@@ -3041,7 +3051,8 @@ router.post("/", (req, res) => {
       const studentReqs = parseJSONField(body.requirements);
       for (let i = 0; i < studentReqs.length; i++) {
         const r = studentReqs[i] || {};
-        if (r.item) {
+        const itemText = normalizeRequirementItem(r.item);
+        if (itemText) {
           const payCh =
             String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi";
           const lineCost =
@@ -3051,19 +3062,19 @@ router.post("/", (req, res) => {
           const costVal = lineCost && lineCost > 0 ? lineCost : null;
           await query(
             "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel, cost) VALUES (?,?,?,?,?,?,?)",
-            [bid, r.item, r.description || null, r.quantity || null, i, payCh, costVal]
+            [bid, itemText, r.description || null, r.quantity || null, i, payCh, costVal]
           ).catch(async (e) => {
             if (e.code === "ER_BAD_FIELD_ERROR") {
               try {
                 await query(
                   "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel) VALUES (?,?,?,?,?,?)",
-                  [bid, r.item, r.description || null, r.quantity || null, i, payCh]
+                  [bid, itemText, r.description || null, r.quantity || null, i, payCh]
                 );
               } catch (e2) {
                 if (e2.code === "ER_BAD_FIELD_ERROR") {
                   await query(
                     "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)",
-                    [bid, r.item, r.cost ? Number(r.cost) : null, i]
+                    [bid, itemText, r.cost ? Number(r.cost) : null, i]
                   );
                 } else throw e2;
               }
@@ -3078,7 +3089,7 @@ router.post("/", (req, res) => {
 
       const classReqs = parseJSONField(body.classReqs);
       for (let i = 0; i < classReqs.length; i++) {
-        const itemText   = classReqs[i].item    || classReqs[i].information || "";
+        const itemText   = normalizeRequirementItem(classReqs[i].item || classReqs[i].information);
         const detailText = classReqs[i].details || "";
         if (itemText) {
           await query(
@@ -3091,8 +3102,8 @@ router.post("/", (req, res) => {
       const otherInfos      = parseJSONField(body.other_infos);
       const otherInfoOffset = classReqs.length;
       for (let i = 0; i < otherInfos.length; i++) {
-        const itemText = otherInfos[i].item || otherInfos[i].information || "";
-        if (itemText && itemText.trim()) {
+        const itemText = normalizeRequirementItem(otherInfos[i].item || otherInfos[i].information);
+        if (itemText) {
           await query(
             `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
             [bid, itemText, itemText, null, otherInfoOffset + i]
@@ -3629,7 +3640,8 @@ router.put("/:id", (req, res) => {
         await query("DELETE FROM babyeyi_student_requirements WHERE babyeyi_id=?", [id]);
         for (let i = 0; i < studentReqs.length; i++) {
           const r = studentReqs[i] || {};
-          if (r.item) {
+          const itemText = normalizeRequirementItem(r.item);
+          if (itemText) {
             const payCh =
               String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi";
             const lineCost =
@@ -3639,19 +3651,19 @@ router.put("/:id", (req, res) => {
             const costVal = lineCost && lineCost > 0 ? lineCost : null;
             await query(
               "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel, cost) VALUES (?,?,?,?,?,?,?)",
-              [id, r.item, r.description || null, r.quantity || null, i, payCh, costVal]
+              [id, itemText, r.description || null, r.quantity || null, i, payCh, costVal]
             ).catch(async (e) => {
               if (e.code === "ER_BAD_FIELD_ERROR") {
                 try {
                   await query(
                     "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel) VALUES (?,?,?,?,?,?)",
-                    [id, r.item, r.description || null, r.quantity || null, i, payCh]
+                    [id, itemText, r.description || null, r.quantity || null, i, payCh]
                   );
                 } catch (e2) {
                   if (e2.code === "ER_BAD_FIELD_ERROR") {
                     await query("INSERT INTO babyeyi_student_requirements (babyeyi_id, item, cost, sort_order) VALUES (?,?,?,?)", [
                       id,
-                      r.item,
+                      itemText,
                       r.cost ? Number(r.cost) : null,
                       i,
                     ]);
@@ -3669,7 +3681,7 @@ router.put("/:id", (req, res) => {
       if (classReqs.length > 0 || otherInfos.length > 0) {
         await query("DELETE FROM babyeyi_class_requirements WHERE babyeyi_id=?", [id]);
         for (let i = 0; i < classReqs.length; i++) {
-          const itemText = classReqs[i].item || classReqs[i].information || "";
+          const itemText = normalizeRequirementItem(classReqs[i].item || classReqs[i].information);
           if (itemText) {
             await query(
               `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
@@ -3679,8 +3691,8 @@ router.put("/:id", (req, res) => {
         }
         const otherInfoOffset = classReqs.length;
         for (let i = 0; i < otherInfos.length; i++) {
-          const itemText = otherInfos[i].item || otherInfos[i].information || "";
-          if (itemText && itemText.trim()) {
+          const itemText = normalizeRequirementItem(otherInfos[i].item || otherInfos[i].information);
+          if (itemText) {
             await query(
               `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
               [id, itemText, itemText, null, otherInfoOffset + i]
