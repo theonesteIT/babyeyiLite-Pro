@@ -537,9 +537,10 @@ export default function App({ session }) {
   const schoolId = session?.schoolId ?? null;
   const academic = useAcademic();
 
-  const academicYearOptions = academic.academicYears?.length
-    ? academic.academicYears
-    : (academic.academicYear ? [academic.academicYear] : ["2025-2026", "2024-2025", "2026-2027"]);
+  const academicYearOptions = useMemo(
+    () => (academic.academicYears?.length ? academic.academicYears : (academic.academicYear ? [academic.academicYear] : [])),
+    [academic.academicYears, academic.academicYear],
+  );
   const termOptions = academic.activeTerms?.length
     ? academic.activeTerms
     : ["Term 1", "Term 2", "Term 3"];
@@ -647,12 +648,17 @@ export default function App({ session }) {
     };
     setForm((prev) => {
       if (!prev) return buildBlankForm(schoolPayload, undefined, academicDefaults);
-      if (prev._academicFromSettings) return prev;
-      if (!academicDefaults.academicYear) return prev;
+      const validYears = academicYearOptions.length ? academicYearOptions : [academicDefaults.academicYear].filter(Boolean);
+      const nextYear = validYears.includes(prev.academicYear)
+        ? prev.academicYear
+        : (academicDefaults.academicYear || validYears[0] || prev.academicYear);
+      const nextTerm = academicDefaults.term || prev.term;
+      if (prev._academicFromSettings && prev.academicYear === nextYear && prev.term === nextTerm) return prev;
+      if (!academicDefaults.academicYear && !validYears.length) return prev;
       return {
         ...prev,
-        academicYear: academicDefaults.academicYear,
-        term: academicDefaults.term || prev.term,
+        academicYear: nextYear,
+        term: nextTerm,
         _academicFromSettings: true,
       };
     });
@@ -660,10 +666,16 @@ export default function App({ session }) {
     academic.loading,
     academic.academicYear,
     academic.currentTerm,
+    academicYearOptions,
     session?.schoolName,
     session?.schoolProvince,
     session?.schoolDistrict,
   ]);
+
+  useEffect(() => {
+    academic.refresh?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -1515,7 +1527,11 @@ export default function App({ session }) {
                       }}
                       className={inp}
                       style={{ borderColor: C.goldBorder }}>
-                      {f.opts.map(o => <option key={o}>{o}</option>)}
+                      {f.opts.map(o => (
+                        <option key={o} value={o}>
+                          {f.key === "academicYear" && o === academic.academicYear ? `${o} (Current)` : o}
+                        </option>
+                      ))}
                     </select>
                   )}
                 </div>

@@ -186,6 +186,34 @@ async function ensureBabyeyiCoreSchema() {
   await runDDL('ALTER TABLE babyeyi_audit_log ADD COLUMN new_values LONGTEXT NULL');
   await runDDL('ALTER TABLE babyeyi_audit_log ADD COLUMN user_id INT UNSIGNED NULL');
   await runDDL('ALTER TABLE babyeyi_audit_log ADD COLUMN changed_by INT NULL');
+
+  /** Existing DBs created before new columns — IF NOT EXISTS is not on all MySQL/MariaDB builds. */
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN parent_message TEXT NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN show_parent_message TINYINT(1) NOT NULL DEFAULT 1');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN classes_json LONGTEXT NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN education_level VARCHAR(50) NOT NULL DEFAULT \'\'');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN banks_json LONGTEXT NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN total_fee DECIMAL(12,2) NULL DEFAULT 0.00');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN nesa_limit DECIMAL(12,2) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN exceeds_limit TINYINT(1) NOT NULL DEFAULT 0');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN translations_json LONGTEXT NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN content_i18n LONGTEXT NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN translation_status VARCHAR(32) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN integrity_hash VARCHAR(64) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN qr_code_path VARCHAR(500) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN qr_view_url VARCHAR(1000) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN pdf_path VARCHAR(500) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN pdf_name VARCHAR(255) NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN deleted_at DATETIME NULL');
+
+  try {
+    await promisePool.query(
+      "ALTER TABLE school_babyeyi MODIFY COLUMN status ENUM('draft','submitted','approved','rejected','pending') NOT NULL DEFAULT 'draft'"
+    );
+  } catch (e) {
+    console.warn('[babyeyiSchema] school_babyeyi.status enum:', e.message);
+  }
 }
 
 module.exports = { ensureBabyeyiCoreSchema };

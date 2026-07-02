@@ -2872,6 +2872,9 @@ router.post("/", (req, res) => {
   upload(req, res, async (uploadErr) => {
     if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
     try {
+      const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+      await ensureBabyeyiCoreSchema();
+
       const body  = req.body;
       const files = req.files || {};
 
@@ -3523,6 +3526,9 @@ router.put("/:id", (req, res) => {
   upload(req, res, async (uploadErr) => {
     if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
     try {
+      const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+      await ensureBabyeyiCoreSchema();
+
       const { id } = req.params;
       const body   = req.body;
       const files  = req.files || {};
