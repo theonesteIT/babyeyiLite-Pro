@@ -14,6 +14,7 @@ const ROLE_OPTIONS = [
   { code: "DOS", label: "Head of Study (DOS)" },
   { code: "LIBRARIAN", label: "Librarian" },
   { code: "STORE_MANAGER", label: "Store / Stock manager" },
+  { code: "UNIFORM_MANAGER", label: "Uniform Manager" },
   { code: "GATE_OFFICER", label: "Gate officer" },
 ];
 

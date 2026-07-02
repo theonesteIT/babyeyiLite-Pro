@@ -325,8 +325,8 @@ const getNextStaffCode = (roleCode, existingStaff = [], currentStaffId = null) =
 };
 
 const KNOWN_ROLE_CODES = new Set([
-    'TEACHER', 'ACCOUNTANT', 'HR', 'DOS', 'STORE_MANAGER',
-    'LIBRARIAN', 'DISCIPLINE', 'SECRETARY', 'HOD', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
+    'TEACHER', 'ACCOUNTANT', 'HR', 'DOS', 'STORE_MANAGER', 'UNIFORM_MANAGER',
+    'ASSETS_MANAGER', 'LIBRARIAN', 'DISCIPLINE', 'SECRETARY', 'HOD', 'SCHOOL_MANAGER', 'SCHOOL_DIRECTOR',
 ]);
 
 // ── Clean Field Component ──────────────────────────────────────────────────
@@ -818,6 +818,7 @@ const HireModal = ({ isOpen, onClose, onHire, onEdit, editingStaff, existingStaf
                         <option value="HR">HR</option>
                         <option value="DOS">DOS</option>
                         <option value="STORE_MANAGER">Store Manager</option>
+                        <option value="UNIFORM_MANAGER">Uniform Manager</option>
                         <option value="LIBRARIAN">Librarian</option>
                         <option value="DISCIPLINE">Head of Discipline</option>
                         <option value="GATE_KEEPER">Gate Keeper</option>

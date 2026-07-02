@@ -407,7 +407,7 @@ function isTeacherRole(roleCode) {
 
 function isSupportRole(roleCode) {
   const r = String(roleCode || '').toUpperCase();
-  return ['STORE_MANAGER', 'ASSETS_MANAGER', 'LIBRARIAN', 'GATE_KEEPER', 'GATE_OFFICER', 'SECRETARY'].includes(r);
+  return ['STORE_MANAGER', 'UNIFORM_MANAGER', 'ASSETS_MANAGER', 'LIBRARIAN', 'GATE_KEEPER', 'GATE_OFFICER', 'SECRETARY'].includes(r);
 }
 
 // GET /api/school/hr/directory

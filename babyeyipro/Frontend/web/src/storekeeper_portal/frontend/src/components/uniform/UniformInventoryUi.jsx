@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 
-/** KPI card — matches Fabric Planner dashboard style (white card, amber icon top-right). */
+/** KPI card — HR Center / accountant ochre styling. */
 export function UniformKpiCard({
   label,
   value,
@@ -15,24 +15,24 @@ export function UniformKpiCard({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      className={`relative rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm min-w-0 ${className}`}
+      className={`bg-white rounded-2xl border p-4 flex items-start gap-3 hover:border-[#FEBF10]/40 transition-colors min-w-0 ${
+        alert ? 'border-red-200 bg-red-50/50' : 'border-black/[0.06] shadow-sm'
+      } ${className}`}
     >
       {Icon && (
-        <div className="absolute top-4 right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white border border-amber-100 flex items-center justify-center shadow-sm">
-          <Icon size={17} className="text-[#FEBF10]" strokeWidth={2.25} />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          alert ? 'bg-red-100 text-red-600' : 'text-[#c87800] bg-[#FEBF10]/15'
+        }`}>
+          <Icon size={18} strokeWidth={1.75} />
         </div>
       )}
-      <div className="pr-11 sm:pr-12">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#000435]/50 leading-tight">{label}</p>
-        <p
-          className={`text-base sm:text-lg font-bold mt-1.5 tabular-nums leading-tight whitespace-nowrap ${
-            alert ? 'text-red-600' : 'text-[#000435]'
-          }`}
-        >
+      <div className="min-w-0">
+        <p className="text-[11px] text-slate-500 uppercase tracking-wide">{label}</p>
+        <p className={`text-xl text-[#000435] mt-0.5 tabular-nums ${alert ? 'text-red-700' : ''}`} style={{ fontWeight: 500 }}>
           {value}
         </p>
         {sub && (
-          <p className="text-[10px] sm:text-[11px] text-[#000435]/45 mt-1 leading-snug">{sub}</p>
+          <p className={`text-[11px] mt-0.5 ${alert ? 'text-red-600' : 'text-[#c87800]'}`}>{sub}</p>
         )}
       </div>
     </motion.div>
@@ -49,17 +49,17 @@ export function UniformKpiGrid({ children, cols = 'md:grid-cols-3 2xl:grid-cols-
 
 export function UniformSection({ title, subtitle, icon: Icon, action, children, className = '', bodyClassName = '' }) {
   return (
-    <div className={`rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-2xl border border-black/[0.06] shadow-sm overflow-hidden ${className}`}>
       {(title || action) && (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-gray-50 bg-gradient-to-r from-gray-50/80 to-amber-50/20">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-black/[0.05]">
           <div className="min-w-0">
             {title && (
-              <h3 className="text-sm font-bold text-[#000435] flex items-center gap-2">
-                {Icon && <Icon size={15} className="text-amber-500 shrink-0" />}
+              <h3 className="text-sm text-[#000435] tracking-tight flex items-center gap-2" style={{ fontWeight: 500 }}>
+                {Icon && <Icon size={15} className="text-[#c87800] shrink-0" strokeWidth={1.75} />}
                 {title}
               </h3>
             )}
-            {subtitle && <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="text-[11px] text-slate-500 mt-0.5 uppercase tracking-wide">{subtitle}</p>}
           </div>
           {action}
         </div>
@@ -71,7 +71,7 @@ export function UniformSection({ title, subtitle, icon: Icon, action, children, 
 
 export function UniformTableWrap({ children, className = '' }) {
   return (
-    <div className={`overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm ${className}`}>
+    <div className={`overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm ${className}`}>
       {children}
     </div>
   )
@@ -82,11 +82,11 @@ export function UniformTable({ headers, children, minWidth = '640px', className 
     <UniformTableWrap className={className}>
       <table className="w-full text-sm" style={{ minWidth }}>
         <thead>
-          <tr className="bg-gradient-to-r from-gray-50 to-amber-50/30 border-b border-gray-100">
+          <tr className="bg-[#000435] text-white">
             {headers.map((h) => (
               <th
                 key={h.key || h}
-                className={`py-3 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap ${
+                className={`py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
                   h.align === 'right' ? 'text-right' : h.align === 'center' ? 'text-center' : 'text-left'
                 } ${h.className || ''}`}
               >
@@ -107,7 +107,7 @@ export function UniformTableRow({ children, index = 0, className = '' }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: index * 0.02 }}
-      className={`border-b border-gray-50 hover:bg-amber-50/30 transition-colors ${index % 2 === 1 ? 'bg-gray-50/25' : ''} ${className}`}
+      className={`border-b border-gray-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors ${className}`}
     >
       {children}
     </motion.tr>
@@ -117,7 +117,7 @@ export function UniformTableRow({ children, index = 0, className = '' }) {
 export function UniformTableCell({ children, align = 'left', className = '', mono = false }) {
   const alignCls = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
   return (
-    <td className={`py-3 px-4 text-xs ${alignCls} ${mono ? 'font-mono' : ''} ${className}`}>
+    <td className={`py-2.5 px-3 text-[12px] text-gray-700 tabular-nums ${alignCls} ${mono ? 'font-mono' : ''} ${className}`}>
       {children}
     </td>
   )
@@ -125,10 +125,10 @@ export function UniformTableCell({ children, align = 'left', className = '', mon
 
 export function UniformEmptyState({ icon: Icon, title, message, action }) {
   return (
-    <div className="text-center py-14 sm:py-16 rounded-2xl border border-dashed border-gray-200 bg-gray-50/40">
-      {Icon && <Icon size={36} className="mx-auto text-gray-200 mb-3" strokeWidth={1.5} />}
-      <p className="text-sm font-bold text-[#000435]">{title}</p>
-      {message && <p className="text-xs text-gray-400 mt-2 max-w-md mx-auto">{message}</p>}
+    <div className="text-center py-14 sm:py-16 rounded-2xl border border-dashed border-slate-200 bg-slate-50/40">
+      {Icon && <Icon size={36} className="mx-auto text-slate-200 mb-3" strokeWidth={1.5} />}
+      <p className="text-sm text-[#000435]" style={{ fontWeight: 500 }}>{title}</p>
+      {message && <p className="text-xs text-slate-500 mt-2 max-w-md mx-auto">{message}</p>}
       {action}
     </div>
   )
@@ -136,7 +136,7 @@ export function UniformEmptyState({ icon: Icon, title, message, action }) {
 
 export function UniformSlotBadge({ children }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-blue-50 text-blue-800 text-[10px] font-bold ring-1 ring-blue-100">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] border uppercase tracking-wide bg-sky-50 text-sky-700 border-sky-200">
       {children}
     </span>
   )

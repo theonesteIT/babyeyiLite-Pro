@@ -135,7 +135,7 @@ export function pdfHeader(doc, title, subtitle = '', landscape = false, meta = {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(200, 205, 215)
-  doc.text('Babyeyi Storekeeper Portal', w - margin, hasLogo ? 18 : 16, { align: 'right' })
+  doc.text(meta.portalLabel || 'Babyeyi Storekeeper Portal', w - margin, hasLogo ? 18 : 16, { align: 'right' })
   doc.text('Confidential — school use only', w - margin, hasLogo ? 34 : (landscape ? 30 : 31), { align: 'right' })
 
   doc._storePdfMeta = { ...meta, ref }
@@ -164,7 +164,7 @@ export function pdfFooter(doc, pageNum, pageCount, meta = {}) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7)
   doc.setTextColor(...SLATE)
-  doc.text('Babyeyi School Store Management', 14, h - 7)
+  doc.text(meta.footerLeft || 'Babyeyi School Store Management', 14, h - 7)
   doc.text(`Page ${pageNum} of ${pageCount}`, w / 2, h - 7, { align: 'center' })
   doc.text(m, w - 14, h - 7, { align: 'right' })
 }

@@ -1,0 +1,68 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+
+.uniform-portal-root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1f2937;
+}
+
+.uniform-pages-root,
+.uniform-pages-root * {
+  font-family: 'Montserrat', sans-serif;
+}
+
+.uniform-pages-root h1,
+.uniform-pages-root h2,
+.uniform-pages-root h3,
+.uniform-pages-root button,
+.uniform-pages-root label {
+  font-weight: 500;
+}
+
+/* Form controls — match HR Center / accountant HR inputs */
+.uniform-pages-root input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.uniform-pages-root select,
+.uniform-pages-root textarea {
+  border-radius: 0.75rem;
+  border-color: rgb(226 232 240);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.uniform-pages-root input:not([type='checkbox']):not([type='radio']):focus,
+.uniform-pages-root select:focus,
+.uniform-pages-root textarea:focus {
+  outline: none;
+  border-color: rgb(200 120 0 / 0.5);
+  box-shadow: 0 0 0 2px rgb(254 191 16 / 0.2);
+}
+
+.uniform-pages-root button[type='submit'],
+.uniform-pages-root .btn-primary {
+  background-color: #c87800;
+  color: white;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.uniform-pages-root button[type='submit']:hover,
+.uniform-pages-root .btn-primary:hover {
+  background-color: #b36d00;
+}
+
+.uniform-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.uniform-sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.uniform-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}

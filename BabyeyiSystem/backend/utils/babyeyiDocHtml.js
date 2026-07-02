@@ -37,6 +37,25 @@ function splitClassReqs(classNotesRaw) {
   return { classNotes, otherInfos };
 }
 
+function showParentMessageEnabled(rec) {
+  if (rec?.showParentMessage != null) return !!rec.showParentMessage;
+  if (rec?.show_parent_message != null) return !!Number(rec.show_parent_message);
+  return !!(String(rec?.parentMessage || rec?.parent_message || "").trim());
+}
+
+/** Header meta — class is large and prominent; year/term/level stay compact. */
+function buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classLabel }) {
+  const metaItems = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]];
+  const metaHtml = metaItems
+    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${esc(l)}:</strong> ${esc(v || "—")}</span>`)
+    .join("");
+  const docIdHtml = rec.docId
+    ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${esc(rec.docId)}</span>`
+    : "";
+  const classHtml = `<div style="margin:8px 0 6px;padding:10px 18px;background:#f8fafc;border:2px solid #1e3a5f;border-radius:8px;display:inline-block;max-width:100%;box-sizing:border-box"><span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-right:10px">${esc(T.classLabel)}:</span><span style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:.02em;line-height:1.2">${esc(classLabel || "—")}</span></div>`;
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">${classHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center">${metaHtml}${docIdHtml}</div></div>`;
+}
+
 function buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 }) {
   const qrBlock = qrB64
     ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="background:white;border:1px solid #e2e8f0;padding:4px;border-radius:4px"><img src="${qrB64}" style="width:64px;height:64px;object-fit:contain;display:block"/></div><p style="font-size:9px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${esc(T.sigScanVerify)}</p>${rec.docId ? `<p style="font-size:9px;color:#64748b;font-family:monospace;margin:0">ID: ${esc(rec.docId)}</p>` : ""}</div>`
@@ -117,7 +136,7 @@ function buildBabyeyiDocHtml({
   const tdS = "padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent";
   const hdg = (title) => `<div style="padding-bottom:4px;margin-bottom:8px;margin-top:12px"><span style="font-size:13px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${esc(title)}</span></div>`;
 
-  const parentSection = parentMsg
+  const parentSection = showParentMessageEnabled(rec) && parentMsg
     ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:14px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:2px"><p style="font-size:12px;color:#1e293b;line-height:1.6;white-space:pre-line;margin:0">${esc(parentMsg)}</p></div></div>`
     : "";
 
@@ -160,7 +179,8 @@ function buildBabyeyiDocHtml({
 
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
 
-  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:16px 40px 12px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${esc(T.republic)}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${esc(T.district)}: ${esc(rec.district || "—")}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${esc(T.sector)}: ${esc(rec.sector || "—")}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${esc(rec.schoolName || "")}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${esc(l)}:</strong> ${esc(v || "—")}</span>`).join("")}${rec.docId ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${esc(rec.docId)}</span>` : ""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:16px 40px 20px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  const headerMeta = buildBabyeyiDocHeaderMetaHtml({ T, rec, levelLabel, classLabel });
+  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:16px 40px 12px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${esc(T.republic)}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${esc(T.district)}: ${esc(rec.district || "—")}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${esc(T.sector)}: ${esc(rec.sector || "—")}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${esc(rec.schoolName || "")}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:16px 40px 20px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
 }
 
 const PRINT_STYLES = `
@@ -214,6 +234,8 @@ module.exports = {
   esc,
   parseBanks,
   splitClassReqs,
+  showParentMessageEnabled,
+  buildBabyeyiDocHeaderMetaHtml,
   buildBabyeyiDocHtml,
   buildBabyeyiAuthBlockHtml,
   buildBabyeyiPrintPageHtml,

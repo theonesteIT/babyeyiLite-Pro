@@ -13,7 +13,7 @@
 // ================================================================
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { WizardContent } from "./UpdateBabyeyi";
+import { CreateBabyeyiModal } from "./UpdateBabyeyi";
 import { renderBabyeyiPdfFromRoot, buildBabyeyiAuthBlockHtml, BABYEYI_PDF_CAPTURE_HOST_STYLE } from "./babyeyiPdfExport";
 
 const ASSET_BASE = import.meta.env.VITE_API_URL || "https://babyeyi.rw";
@@ -1390,37 +1390,18 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
 // EDIT WIZARD MODAL
 // ════════════════════════════════════════════════════════════
 function EditWizardModal({ rec, session, onClose, onSaved }) {
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
-      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-3xl w-full flex flex-col"
-        style={{ maxWidth: "680px", maxHeight: "94vh", overflowY: "auto", overflowX: "hidden", boxShadow: "0 30px 80px rgba(30,58,95,0.25)", animation: "modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)" }}>
-        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg,#0f172a,#1e293b)", position: "sticky", top: 0, zIndex: 10 }}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(255,255,255,0.15)" }}>
-              <span className="text-base">✏️</span>
-            </div>
-            <div>
-              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Edit Babyeyi</h1>
-              <p className="text-[10px] text-indigo-300">{rec.class} · {rec.term} · {rec.academicYear}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/20 text-white/70">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WizardContent session={session} editRecord={rec} onClose={onClose} onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }} />
-        </div>
-      </div>
-      <style>{`@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+    <CreateBabyeyiModal
+      key={rec.id}
+      session={session}
+      isOpen
+      editRecord={rec}
+      onClose={onClose}
+      onSuccess={() => {
+        onSaved?.(rec);
+        onClose();
+      }}
+    />
   );
 }
 

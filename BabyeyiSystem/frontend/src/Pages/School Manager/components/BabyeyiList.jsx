@@ -48,7 +48,7 @@ import {
   Stamp as StampLucide,
 } from 'lucide-react';
 
-const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
+const FONT = `"Montserrat", sans-serif`;
 /** Apply ensureQRCode result to state (client data URL or server PNG). */
 export async function applyQrToState(result, setQrB64, setVUrl) {
   if (!result) return;
@@ -226,6 +226,24 @@ function parseBanks(rec) {
   return [];
 }
 
+export function parseShowParentMessage(row) {
+  if (row?.showParentMessage != null) return !!row.showParentMessage;
+  if (row?.show_parent_message != null) return !!Number(row.show_parent_message);
+  return !!(String(row?.parentMessage || row?.parent_message || "").trim());
+}
+
+function buildWordDocHeaderMetaHtml({ T, rec, levelLabel, classLabel }) {
+  const metaItems = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]];
+  const metaHtml = metaItems
+    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
+    .join("");
+  const docIdHtml = rec.docId
+    ? `<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`
+    : "";
+  const classHtml = `<div style="margin:8px 0 6px;padding:10px 18px;background:#f8fafc;border:2px solid #1e3a5f;border-radius:8px;display:inline-block;max-width:100%;box-sizing:border-box"><span style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-right:10px">${T.classLabel}:</span><span style="font-size:22px;font-weight:800;color:#1e3a5f;letter-spacing:.02em;line-height:1.2">${classLabel || "—"}</span></div>`;
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px">${classHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center">${metaHtml}${docIdHtml}</div></div>`;
+}
+
 //  Doc HTML builder (re-exported for BabyeyiPdf.jsx) 
 const DOC = {
   heading: { fontSize:"14px", fontWeight:700, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.05em" },
@@ -265,7 +283,7 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent`;
   const hdg = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${title}</span></div>`;
 
-  const parentSection = parentMsg ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
+  const parentSection = parseShowParentMessage(rec) && parentMsg ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
   const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
   const paySection = payments.length > 0 ? `<div data-babyeyi-pdf-section="fees" style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
   const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:40px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"â€”"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"â€”"}</td><td style="${tdS}">${bk.accountName||"â€”"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"":""}</td></tr>`).join("");
@@ -281,7 +299,8 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>` : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
   const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>` : "";
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
-  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${[[T.academicYear,rec.academicYear],[T.termLabel,rec.term],[T.levelLabel,levelLabel],[T.classLabel,classLabel]].map(([l,v])=>`<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v||"—"}</span>`).join("")}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  const headerMeta = buildWordDocHeaderMetaHtml({ T, rec, levelLabel, classLabel });
+  return `<div id="babyeyi-pdf-doc" style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div data-babyeyi-pdf-topbar style="height:3px;background:#1e3a5f"></div><div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:center"><p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${headerMeta}</div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
 }
 
 //  Capture doc image
@@ -839,6 +858,7 @@ export function BabyeyiOfficialDocViewer({
   const [showShare, setShowShare] = useState(false);
   const [qrLoading, setQrLoading] = useState(true);
   const [editRwTarget, setEditRwTarget] = useState(null);
+  const [togglingParentMessage, setTogglingParentMessage] = useState(false);
 
   const [rec, setRec] = useState(originalRec);
   useEffect(() => {
@@ -862,6 +882,7 @@ export function BabyeyiOfficialDocViewer({
   const otherInfos = Array.isArray(docBody.merged.otherInfos) ? docBody.merged.otherInfos : [];
   const leaders = Array.isArray(docBody.merged.leaders) ? docBody.merged.leaders : [];
   const classNotes = Array.isArray(docBody.merged.classNotes) ? docBody.merged.classNotes : [];
+  const showParentMessage = parseShowParentMessage(rec);
   const isRwLocale = !publicVerify && normalizeBabyeyiLang(lang) === "rw";
   const canSaveRwEdits = !publicVerify && canSessionEditKinyarwandaRw(session);
   const openRwEdit = (target) => {
@@ -926,6 +947,28 @@ export function BabyeyiOfficialDocViewer({
   const handlePrint = () => {
     if (blocked) return;
     openBabyeyiPrintPage({ babyeyiId: rec.id, apiLang });
+  };
+
+  const handleToggleParentMessage = async () => {
+    if (publicVerify || togglingParentMessage) return;
+    const next = !showParentMessage;
+    setTogglingParentMessage(true);
+    try {
+      const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/show-parent-message`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ show_parent_message: next }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) throw new Error(json.message || "Update failed");
+      setRec((prev) => ({ ...prev, showParentMessage: next }));
+      onRecordRefresh?.();
+    } catch (e) {
+      alert(e.message || "Could not update parent message setting");
+    } finally {
+      setTogglingParentMessage(false);
+    }
   };
 
   const handleRegen = async () => {
@@ -1001,6 +1044,18 @@ export function BabyeyiOfficialDocViewer({
           ) : (
             <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> {T.locked || "Locked"}</span>
           )}
+          {!publicVerify && (
+            <button
+              type="button"
+              onClick={handleToggleParentMessage}
+              disabled={togglingParentMessage}
+              title={T.useParentMessageHint || "Show or hide Message to Parents on this document"}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0 border transition-colors disabled:opacity-50 ${showParentMessage ? "bg-emerald-500/20 border-emerald-400/40 text-emerald-200" : "bg-white/8 border-white/15 text-white/60"}`}
+            >
+              <span className={`w-2 h-2 rounded-full ${showParentMessage ? "bg-emerald-400" : "bg-white/30"}`} />
+              {T.useParentMessage || "Parent message"}
+            </button>
+          )}
           {!blocked ? (
             <>
               <button onClick={handlePrint}
@@ -1052,9 +1107,13 @@ export function BabyeyiOfficialDocViewer({
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "â€”"}</strong></p>
                 <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "â€”"}</strong></p>
-                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
+                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
+                <div style={{ margin: "8px 0 6px", padding: "10px 18px", background: "#f8fafc", border: "2px solid #1e3a5f", borderRadius: "8px", display: "inline-block", maxWidth: "100%", boxSizing: "border-box" }}>
+                  <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", marginRight: "10px" }}>{T.classLabel}:</span>
+                  <span style={{ fontSize: "22px", fontWeight: 800, color: "#1e3a5f", letterSpacing: ".02em", lineHeight: 1.2 }}>{classLabel || "â€”"}</span>
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
-                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v], i) => (
+                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]].map(([l, v], i) => (
                     <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "â€”"}</span>
                   ))}
                   {rec.docId && <span style={{ ...DOC.body, fontFamily: "monospace", fontWeight: 700, color: "#3730a3", border: "1px solid #c7d2fe", padding: "1px 8px" }}>{rec.docId}</span>}
@@ -1068,7 +1127,7 @@ export function BabyeyiOfficialDocViewer({
 
           {/* Body */}
           <div style={{ padding: "20px 40px 28px" }}>
-            {(parentMsg || isRwLocale) && (
+            {showParentMessage && (parentMsg || (isRwLocale && canSaveRwEdits)) && (
               <div style={DOC.section}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
                   <span style={DOC.heading}>{T.parentMessageHeading}</span>
@@ -1304,8 +1363,8 @@ function OfficialDoc(props) {
   return <BabyeyiOfficialDocViewer {...props} />;
 }
 
-// Edit wizard modal
-function EditWizardModal({ rec, session, onClose, onSaved }) {
+// Edit wizard modal — same multi-step create flow, pre-filled with selected Babyeyi
+function EditWizardModal({ rec, session, lang, onClose, onSaved }) {
   return (
     <CreateBabyeyiModal
       key={rec.id}
@@ -1313,7 +1372,15 @@ function EditWizardModal({ rec, session, onClose, onSaved }) {
       isOpen
       editRecord={rec}
       onClose={onClose}
-      onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }}
+      onSuccess={async () => {
+        try {
+          const fresh = await loadFullRecord(rec, lang);
+          onSaved?.(fresh);
+        } catch {
+          onSaved?.(rec);
+        }
+        onClose();
+      }}
     />
   );
 }
@@ -1473,6 +1540,7 @@ function mapRow(row) {
     bankAccountName: row.bank_account_name || "",
     banksJson: row.banks_json || null,
     parentMessage: row.parent_message || "",
+    showParentMessage: parseShowParentMessage(row),
     docId: row.doc_id || null,
     integrityHash: row.integrity_hash != null ? String(row.integrity_hash) : null,
     schoolLogoPath: row.school_logo_url || null,
@@ -1549,6 +1617,7 @@ export async function loadFullRecord(sumRec, docLang = "en") {
     className: primaryClass,
     classes,
     level: d.level || d.education_level || sumRec.level || "Primary",
+    nesaFeeLimitLevel: d.education_level || d.level || sumRec.level || "Primary",
     term: d.term || sumRec.term || "",
     academicYear: d.academic_year || sumRec.academicYear || "",
     category,
@@ -1591,6 +1660,7 @@ export async function loadFullRecord(sumRec, docLang = "en") {
     integrityHash: d.integrity_hash != null ? String(d.integrity_hash) : sumRec.integrityHash || null,
     totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
     parentMessage: d.parent_message || sumRec.parentMessage || "",
+    showParentMessage: parseShowParentMessage({ ...sumRec, ...d }),
     banksJson: d.banks_json || sumRec.banksJson || null,
     bankName: sumRec.bankName || d.bank_name || "",
     bankAccountNo: sumRec.bankAccountNo || d.bank_account_no || "",
@@ -1696,18 +1766,22 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
   const handleView = async (sumRec) => { try { setViewing(await loadFullRecord(sumRec, lang)); } catch (e) { showToast(e.message || "Failed to open", "error"); } };
 
   const handleEdit = async (sumRec) => {
-    showToast("Loading recordâ€¦", "info");
-    try { const full = await loadFullRecord(sumRec, lang); setToast(null); setEditing(full); }
-    catch (e) { showToast(e.message || "Failed to load", "error"); }
+    try {
+      const full = await loadFullRecord(sumRec, lang);
+      setEditing(full);
+    } catch (e) {
+      showToast(e.message || "Failed to load", "error");
+    }
   };
-
-  const handleSaved = (updatedRec) => { setRecords(r => r.map(x => x.id === updatedRec.id ? { ...x, ...updatedRec } : x)); showToast("Babyeyi updated!"); };
 
   const handleShare = async (sumRec) => {
     if (isBlocked(sumRec.status)) { showToast("Sharing locked until approved.", "error"); return; }
-    showToast("Loading documentâ€¦", "info");
-    try { const full = await loadFullRecord(sumRec, lang); setToast(null); setSharing(full); }
-    catch (e) { showToast(e.message || "Failed", "error"); }
+    try {
+      const full = await loadFullRecord(sumRec, lang);
+      setSharing(full);
+    } catch (e) {
+      showToast(e.message || "Failed", "error");
+    }
   };
 
   useEffect(() => {
@@ -1744,7 +1818,7 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Varela+Round&display=swap'); @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .card-enter{animation:fadeUp .3s ease-out both}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap'); @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}} @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} .card-enter{animation:fadeUp .3s ease-out both}`}</style>
 
       {viewing && (
         <OfficialDoc
@@ -1764,7 +1838,19 @@ export default function BabyeyiList({ session, lang: dashboardLang, setLang: set
           }}
         />
       )}
-      {editing && <EditWizardModal rec={editing} session={session} onClose={() => setEditing(null)} onSaved={u => { handleSaved(u); setEditing(null); }} />}
+      {editing && (
+        <EditWizardModal
+          rec={editing}
+          session={session}
+          lang={lang}
+          onClose={() => setEditing(null)}
+          onSaved={(fresh) => {
+            setRecords((r) => r.map((x) => (x.id === fresh.id ? { ...x, ...fresh, class: fresh.class || fresh.classes?.[0] || x.class } : x)));
+            showToast(T.updatedOk || "Babyeyi updated!");
+            setEditing(null);
+          }}
+        />
+      )}
       {deleting && <DeleteModal rec={deleting} onConfirm={handleDelete} onCancel={() => setDeleting(null)} T={T} />}
       {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
 

@@ -16,6 +16,7 @@ const ROLE_TO_PRO_PATH = {
   LIBRARIAN: '/librarian',
   STOREKEEPER: '/storekeeper',
   STORE_MANAGER: '/storekeeper',
+  UNIFORM_MANAGER: '/uniform-manager',
   ASSETS_MANAGER: '/assets',
   ASSET_MANAGER: '/assets',
   DISCIPLINE: '/discipline',

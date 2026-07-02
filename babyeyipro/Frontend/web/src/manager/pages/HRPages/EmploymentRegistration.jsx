@@ -62,7 +62,7 @@ const INITIAL_FORM = {
 
 /** Positions that use a Babyeyi Pro portal — auto-enable login step when selected */
 const PRO_PORTAL_POSITION_CODES = new Set([
-  'TEACHER', 'ACCOUNTANT', 'DOS', 'STORE_MANAGER', 'ASSETS_MANAGER', 'LIBRARIAN',
+  'TEACHER', 'ACCOUNTANT', 'DOS', 'STORE_MANAGER', 'UNIFORM_MANAGER', 'ASSETS_MANAGER', 'LIBRARIAN',
   'GATE_KEEPER', 'DISCIPLINE', 'SCHOOL_MANAGER', 'HR',
 ]);
 

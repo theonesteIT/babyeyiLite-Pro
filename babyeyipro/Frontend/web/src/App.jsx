@@ -15,6 +15,7 @@ import DisciplinePortalRoutes from './discipline/PortalRoutes'
 import GateKeeperPortalRoutes from './GateKeeper/PortalRoutes'
 import RepresentativePortalRoutes from './Representative/PortalRoutes'
 import AssetsPortalRoutes from './assets_portal/PortalRoutes'
+import UniformManagerPortalRoutes from './uniform_manager_portal/PortalRoutes'
 import StudentMarkReportQR from './pages/StudentMarkReportQR'
 
 const PRO_BASENAME = (() => {
@@ -39,6 +40,7 @@ const ROLE_HOME_PORTAL = {
   ACCOUNTANT: 'accountant',
   STOREKEEPER: 'storekeeper',
   STORE_MANAGER: 'storekeeper',
+  UNIFORM_MANAGER: 'uniform-manager',
   ASSETS_MANAGER: 'assets',
   ASSET_MANAGER: 'assets',
   LIBRARIAN: 'librarian',
@@ -56,6 +58,7 @@ const KNOWN_ROOTS = [
   '/manager',
   '/accountant',
   '/storekeeper',
+  '/uniform-manager',
   '/assets',
   '/librarian',
   '/gatekeeper',
@@ -131,6 +134,14 @@ export default function App() {
             element={
               <ProGate portal="storekeeper">
                 <StorekeeperPortalRoutes />
+              </ProGate>
+            }
+          />
+          <Route
+            path="/uniform-manager/*"
+            element={
+              <ProGate portal="uniform-manager">
+                <UniformManagerPortalRoutes />
               </ProGate>
             }
           />

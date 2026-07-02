@@ -1,10 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  School,
+  DollarSign,
+  ClipboardList,
+  Landmark,
+  PenLine,
+  Layers,
+  Users,
+  Eye,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 import { NESA_LIMITS } from "./utils/constants";
 import { useAcademic } from "../../context/AcademicContext";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
+
+const FONT = `"Montserrat", sans-serif`;
 
 const toAssetUrl = (path) => {
   if (!path) return null;
@@ -240,14 +255,14 @@ const blankLeader = () => ({ name: "", role: "", phone: "", email: "" });
 
 // ── STEPS — now 8 steps ───────────────────────────────────────
 const STEPS = [
-  { id:1, label:"School & Classes", icon:"school"  },
-  { id:2, label:"Payments",         icon:"dollar"  },
-  { id:3, label:"Requirements",     icon:"book"    },
-  { id:4, label:"Bank Account",     icon:"bank"    },
-  { id:5, label:"Authorization",    icon:"pen"     },
-  { id:6, label:"Class Notes",      icon:"layers"  },
-  { id:7, label:"Leaders",          icon:"users"   },  // ← NEW
-  { id:8, label:"Preview & Submit", icon:"eye"     },  // ← was 7
+  { id: 1, label: "School & Classes", Icon: School },
+  { id: 2, label: "Payments", Icon: DollarSign },
+  { id: 3, label: "Requirements", Icon: ClipboardList },
+  { id: 4, label: "Bank Account", Icon: Landmark },
+  { id: 5, label: "Authorization", Icon: PenLine },
+  { id: 6, label: "Class Notes", Icon: Layers },
+  { id: 7, label: "Leaders", Icon: Users },
+  { id: 8, label: "Preview & Submit", Icon: Eye },
 ];
 
 const BANKS = [
@@ -537,6 +552,7 @@ export default function App({ session }) {
 
   const [view,      setView]      = useState("wizard");
   const [step,      setStep]      = useState(1);
+  const stepBtnRefs = useRef({});
   const [form,      setForm]      = useState(null);
   const [saving,    setSaving]    = useState(false);
   const [toast,     setToast]     = useState(null);
@@ -573,6 +589,10 @@ export default function App({ session }) {
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
+
+  useEffect(() => {
+    stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [step]);
 
   useEffect(() => {
     if (academic.loading) return;
@@ -845,7 +865,7 @@ export default function App({ session }) {
 
   if (!form) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: FONT }}>
         <div className="text-center">
           <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-3"
             style={{ borderColor: C.goldBgMid, borderTopColor: C.gold }}/>
@@ -857,7 +877,7 @@ export default function App({ session }) {
 
   if (!schoolId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ fontFamily: FONT }}>
         <div className="bg-white rounded-2xl border-2 border-red-200 p-8 max-w-md text-center shadow-lg">
           <div className="text-4xl mb-4">⚠️</div>
           <h2 className="font-semibold text-lg mb-2" style={{ color: C.red }}>Session Error</h2>
@@ -1043,7 +1063,7 @@ export default function App({ session }) {
   if (submitted) {
     return (
       <div className="min-h-screen flex items-start justify-center p-6 overflow-y-auto"
-        style={{ background: `linear-gradient(135deg, ${C.goldBg}, #fff, ${C.goldBgMid})`, fontFamily: "'Montserrat', sans-serif" }}>
+        style={{ background: `linear-gradient(135deg, ${C.goldBg}, #fff, ${C.goldBgMid})`, fontFamily: FONT }}>
         <div className="text-center max-w-lg w-full py-6">
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-sm"
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, boxShadow: "0 8px 30px rgba(254,191,16,0.45)" }}>
@@ -1155,7 +1175,7 @@ export default function App({ session }) {
 
   if (view === "list") {
     return (
-      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: FONT }}>
         <div className="fixed top-3 left-3 z-50">
           <button onClick={() => setView("wizard")}
             className="flex items-center gap-2 px-3 py-2 bg-white border text-slate-700 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100"
@@ -2474,11 +2494,12 @@ export default function App({ session }) {
   };
 
   const isLast = step === STEPS.length;
+  const CurrentStepIcon = STEPS[step - 1].Icon;
 
   return (
     <>
     <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
-      style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      style={{ fontFamily: FONT }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
@@ -2526,23 +2547,29 @@ export default function App({ session }) {
         {/* Step indicator */}
         <div className="border-b px-3 sm:px-5 py-3 shrink-0"
           style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
-            {STEPS.map((s,i) => (
-              <div key={s.id} className="flex items-center shrink-0">
-                <button onClick={() => step > s.id && setStep(s.id)}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
-                  style={step===s.id
+          <style>{`.babyeyi-step-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}.babyeyi-step-scroll::-webkit-scrollbar{display:none}`}</style>
+          <div className="babyeyi-step-scroll flex items-center gap-1.5 py-0.5">
+            {STEPS.map((s) => {
+              const StepIcon = s.Icon;
+              const done = step > s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  ref={(el) => { stepBtnRefs.current[s.id] = el; }}
+                  onClick={() => step > s.id && setStep(s.id)}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0"
+                  style={step === s.id
                     ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
-                    : step>s.id
+                    : done
                     ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
                     : { background: "#e2e8f0", color: "#94a3b8" }}>
-                  {step > s.id ? <Svg d={ic.check} size={10} color="currentColor" sw={3} /> : <I n={s.icon} size={11} />}
+                  {done ? <Check size={10} strokeWidth={3} aria-hidden /> : <StepIcon size={11} strokeWidth={2.25} aria-hidden />}
                   <span className="hidden sm:inline">{s.label}</span>
                   <span className="sm:hidden">{s.id}</span>
                 </button>
-                {i < STEPS.length-1 && <span className="mx-0.5 text-xs shrink-0" style={{ color: C.goldBorder }}>›</span>}
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
             <div className="h-full rounded-full transition-all duration-500"
@@ -2553,7 +2580,7 @@ export default function App({ session }) {
         {/* Step title */}
         <div className="px-4 sm:px-6 pt-4 pb-2 shrink-0 flex items-center gap-2">
           <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
-            <I n={STEPS[step-1].icon} size={13} color={C.goldDark} />
+            <CurrentStepIcon size={13} color={C.goldDark} strokeWidth={2.25} aria-hidden />
           </span>
           <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
           <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
@@ -2571,7 +2598,7 @@ export default function App({ session }) {
             <button onClick={() => { setErrors({}); setStep(s=>s-1); }}
               className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 border rounded-xl font-semibold text-xs sm:text-sm hover:bg-slate-50"
               style={{ borderColor: C.goldBorder, color: C.darkMid }}>
-              <I n="chevL" size={14} /> <span className="hidden sm:inline">Back</span>
+              <ChevronLeft size={14} strokeWidth={2.25} aria-hidden /> <span className="hidden sm:inline">Back</span>
             </button>
           )}
           <div className="flex-1" />
@@ -2579,7 +2606,7 @@ export default function App({ session }) {
             <button onClick={handleNext}
               className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95"
               style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
-              Next <I n="chevR" size={14} color={C.dark} />
+              Next <ChevronRight size={14} color={C.dark} strokeWidth={2.25} aria-hidden />
             </button>
           ) : (
             <button onClick={handleSave} disabled={saving || qrGenerating}

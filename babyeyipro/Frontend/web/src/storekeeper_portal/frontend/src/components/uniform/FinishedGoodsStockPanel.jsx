@@ -25,6 +25,12 @@ import {
 } from '../../services/finishedGoodsService'
 import UniformNameSearchSelect from './UniformNameSearchSelect'
 import SizeMultiSelect from './SizeMultiSelect'
+import {
+  applyFinishedGoodFilters,
+  buildInventoryFilterOptions,
+} from '../../../../../uniform_manager_portal/utils/inventoryFilterUtils'
+import { useReportFilters } from '../../../../../uniform_manager_portal/hooks/useUniformReportBundle'
+import InventoryFilterShell from '../../../../../uniform_manager_portal/components/InventoryFilterShell'
 
 function FormField({ icon: Icon, label, name, type = 'text', value, onChange, placeholder, disabled }) {
   return (
@@ -121,7 +127,8 @@ function ProfitStatusBadge({ value, soldQty }) {
   )
 }
 
-export default function FinishedGoodsStockPanel({ onGoodsChange }) {
+export default function FinishedGoodsStockPanel({ onGoodsChange, modernLayout = false }) {
+  const { filters, setFilter, resetFilters } = useReportFilters()
   const [goods, setGoods] = useState([])
   const [sheets, setSheets] = useState([])
   const [academic, setAcademic] = useState({ academicYears: [], activeTerms: [], academicYear: '', currentTerm: '' })
@@ -170,6 +177,9 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
   )
 
   const filtered = useMemo(() => {
+    if (modernLayout) {
+      return applyFinishedGoodFilters(goods, filters)
+    }
     const q = search.trim().toLowerCase()
     return goods.filter((g) => {
       if (filterUniform && g.uniform_name !== filterUniform) return false
@@ -180,7 +190,12 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
         (g.size || '').toLowerCase().includes(q)
       )
     })
-  }, [goods, search, filterUniform])
+  }, [goods, search, filterUniform, modernLayout, filters])
+
+  const filterOptions = useMemo(
+    () => buildInventoryFilterOptions({ finishedGoods: goods, fabrics: sheets, academicSettings: academic }),
+    [goods, sheets, academic]
+  )
 
   const lowStockCount = useMemo(
     () => goods.filter((g) => Number(g.stock) < 50).length,
@@ -308,7 +323,21 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
         </div>
       )}
 
+      {modernLayout ? (
+        <div className="mb-4">
+          <InventoryFilterShell
+            filters={filters}
+            setFilter={setFilter}
+            resetFilters={resetFilters}
+            extraOptions={filterOptions}
+            searchPlaceholder="Search uniform, sheet, size…"
+            flat
+          />
+        </div>
+      ) : null}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        {!modernLayout ? (
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20 transition-all">
             <Search size={14} className="text-gray-300" />
@@ -340,6 +369,17 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
             <RefreshCw size={16} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
           </button>
         </div>
+        ) : (
+          <button
+            type="button"
+            onClick={loadAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition text-xs font-semibold text-slate-600"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
+            Refresh
+          </button>
+        )}
         <div className="flex items-center gap-2">
           {lowStockCount > 0 && (
             <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-xl bg-red-50 text-red-600 border border-red-100">
@@ -397,10 +437,10 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <table className="w-full text-sm min-w-[1280px]">
             <thead>
-              <tr className="bg-gray-50/90 border-b border-gray-100">
+              <tr className="bg-[#000435] text-white">
                 {[
                   'Uniform',
                   'Size',
@@ -416,7 +456,7 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
                   'Status',
                   'Actions',
                 ].map((h) => (
-                  <th key={h} className="text-left py-3.5 px-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                  <th key={h} className="text-left py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -431,7 +471,7 @@ export default function FinishedGoodsStockPanel({ onGoodsChange }) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.02 }}
-                    className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors"
+                    className="border-b border-gray-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors"
                   >
                     <td className="py-3.5 px-3 text-xs font-bold text-[#000435]">{g.uniform_name}</td>
                     <td className="py-3.5 px-3 text-xs text-gray-500">{g.size}</td>

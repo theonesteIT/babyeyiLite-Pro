@@ -14,7 +14,7 @@ import {
   UniformModalFooter,
   UniformModalBackdrop,
 } from './uniformModalUi'
-import { useAuth } from '../../context/AuthContext'
+import { useMasterAuth } from '../../../../../context/MasterAuthContext'
 import { fetchStoreAcademicSettings } from '../../services/academicSettingsService'
 import { fetchFinishedGoods } from '../../services/finishedGoodsService'
 import UniformSlotGrid, {
@@ -65,7 +65,7 @@ function formatAmount(n) {
 }
 
 export default function UniformIssuePanel() {
-  const { staff } = useAuth()
+  const { user } = useMasterAuth()
   const [view, setView] = useState('list')
   const [step, setStep] = useState(1)
   const [academic, setAcademic] = useState({ academicYears: [], activeTerms: [], academicYear: '', currentTerm: '' })
@@ -110,7 +110,7 @@ export default function UniformIssuePanel() {
   const [residencyFilter, setResidencyFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState(() => new Set())
 
-  const issuedByName = staff?.full_name || staff?.name || staff?.email || 'Stock Manager'
+  const issuedByName = user?.full_name || user?.name || user?.email || 'Stock Manager'
 
   const loadIssues = useCallback(async () => {
     setListLoading(true)

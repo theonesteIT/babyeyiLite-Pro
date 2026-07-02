@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Shirt, TrendingUp, AlertTriangle, Box, Layers, Scale, DollarSign,
@@ -24,6 +25,8 @@ import {
 } from '../components/uniform/UniformInventoryUi'
 import { fetchFabricReceipts } from '../services/fabricReceiptsService'
 import { fetchFinishedGoods } from '../services/finishedGoodsService'
+import { UniformPageLayout } from '../../../../uniform_manager_portal/components/uniformUi'
+import { uniformHref } from '../../../../uniform_manager_portal/config/portal'
 
 function legacyFabricRow(row) {
   return {
@@ -49,8 +52,11 @@ const tabs = [
   { id: 'sales', label: 'Sales Analytics', icon: BarChart3 },
 ]
 
-export default function UniformInventory() {
-  const [activeTab, setActiveTab] = useState('dashboard')
+export default function UniformInventory({ initialTab = 'dashboard', hrLayout = false }) {
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState(() =>
+    tabs.some((t) => t.id === initialTab) ? initialTab : 'dashboard'
+  )
   const [fabrics, setFabrics] = useState([])
   const [finishedGoods, setFinishedGoods] = useState([])
 
@@ -61,6 +67,23 @@ export default function UniformInventory() {
   const syncFinishedFromApi = useCallback((rows) => {
     setFinishedGoods(rows)
   }, [])
+
+  useEffect(() => {
+    if (initialTab && tabs.some((t) => t.id === initialTab)) {
+      setActiveTab(initialTab)
+    }
+  }, [initialTab])
+
+  const navigateToTab = useCallback((tabId) => {
+    if (hrLayout) {
+      const path = !tabId || tabId === 'dashboard'
+        ? uniformHref('/inventory')
+        : uniformHref(`/inventory?tab=${tabId}`)
+      navigate(path)
+      return
+    }
+    setActiveTab(tabId)
+  }, [hrLayout, navigate])
 
   useEffect(() => {
     Promise.all([fetchFabricReceipts(), fetchFinishedGoods()])
@@ -131,6 +154,210 @@ export default function UniformInventory() {
     [fabrics]
   )
 
+  const heroKpiTiles = useMemo(
+    () => (activeTab === 'dashboard'
+      ? dashboardStats.slice(0, 4).map((s, i) => ({
+          key: s.label,
+          label: s.label,
+          value: s.value,
+          subValue: s.sub,
+          icon: s.icon,
+        }))
+      : []),
+    [activeTab, dashboardStats]
+  )
+
+  const tabContent = (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={activeTab}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.2 }}
+      >
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            <UniformKpiGrid>
+              {dashboardStats.map((stat, i) => (
+                <UniformKpiCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  sub={stat.sub}
+                  icon={stat.icon}
+                  alert={stat.alert}
+                  index={i}
+                />
+              ))}
+            </UniformKpiGrid>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <UniformSection title="Fabric usage" icon={Scale}>
+                {fabrics.length === 0 ? (
+                  <p className="text-xs text-slate-500">No fabric receipts yet. Use Fabric Stock In to register sheets.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {fabrics.slice(0, 4).map((f) => {
+                      const used = Math.max(0, f.meters - f.remaining)
+                      const pct = f.meters > 0 ? (used / f.meters) * 100 : 0
+                      return (
+                        <div key={f.id} className="flex items-center justify-between">
+                          <span className="text-xs text-[#000435]" style={{ fontWeight: 500 }}>{f.type}</span>
+                          <div className="flex items-center gap-3 flex-1 ml-3">
+                            <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 1 }}
+                                className="h-full bg-[#c87800] rounded-full"
+                              />
+                            </div>
+                            <span className="text-[11px] text-slate-500 w-20 text-right tabular-nums">{f.remaining}m left</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </UniformSection>
+
+              <UniformSection title="Top finished stock" icon={Box}>
+                {finishedGoods.length === 0 ? (
+                  <p className="text-xs text-slate-500">No finished goods yet. Add stock under Finished Goods.</p>
+                ) : (
+                  <div className="space-y-0">
+                    {[...finishedGoods]
+                      .sort((a, b) => Number(b.stock) - Number(a.stock))
+                      .slice(0, 5)
+                      .map((g, i) => (
+                        <div key={g.id} className={`flex justify-between text-xs py-2.5 ${i > 0 ? 'border-t border-black/[0.04]' : ''}`}>
+                          <span className="text-[#000435]" style={{ fontWeight: 500 }}>
+                            {g.uniform_name} <span className="text-slate-400 font-normal">({g.size})</span>
+                          </span>
+                          <span className="text-slate-600 tabular-nums">{g.stock} pcs</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </UniformSection>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'fabric-in' && (
+          <FabricStockInPanel onFabricsChange={syncFabricsFromApi} modernLayout={hrLayout} />
+        )}
+
+        {activeTab === 'fabric-out' && (
+          <FabricStockOutPanel onFabricsChange={syncFabricsFromApi} modernLayout={hrLayout} />
+        )}
+
+        {activeTab === 'fabric-stock' && (
+          <div className="space-y-4">
+            <UniformSection
+              title="Current fabric stock"
+              subtitle={`${totalFabricStock} meters total · ${fabrics.length} batch${fabrics.length === 1 ? '' : 'es'}`}
+              icon={Layers}
+              action={
+                <StoreExportBar
+                  disabled={!fabrics.length}
+                  onExportPdf={() => exportFabricStockPdf(fabricExportRows)}
+                  onExportExcel={() => exportFabricStockExcel(fabricExportRows)}
+                />
+              }
+              bodyClassName="p-0"
+            >
+              {fabrics.length === 0 ? (
+                <UniformEmptyState
+                  icon={Layers}
+                  title="No fabric in stock"
+                  message="Receive fabric under Fabric Stock In to see meters and usage here."
+                />
+              ) : (
+                <UniformTable
+                  headers={['Fabric', 'Color', 'Received', 'Used', 'Remaining', 'Usage', 'Status']}
+                  minWidth="720px"
+                  className="border-0 shadow-none rounded-none"
+                >
+                  {fabrics.map((f, i) => {
+                    const used = f.meters - f.remaining
+                    const usagePct = f.meters > 0 ? (used / f.meters) * 100 : 0
+                    return (
+                      <UniformTableRow key={f.id} index={i}>
+                        <UniformTableCell className="text-[#000435] font-medium">{f.type}</UniformTableCell>
+                        <UniformTableCell className="text-slate-500">{f.color}</UniformTableCell>
+                        <UniformTableCell>{f.meters}m</UniformTableCell>
+                        <UniformTableCell>{used}m</UniformTableCell>
+                        <UniformTableCell className="text-[#c87800] font-medium">{f.remaining}m</UniformTableCell>
+                        <UniformTableCell>
+                          <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${usagePct}%` }}
+                              transition={{ duration: 1, delay: i * 0.1 }}
+                              className={`h-full rounded-full ${usagePct > 70 ? 'bg-red-400' : usagePct > 40 ? 'bg-[#c87800]' : 'bg-emerald-500'}`}
+                            />
+                          </div>
+                        </UniformTableCell>
+                        <UniformTableCell>
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-full text-[10px] border uppercase tracking-wide ${
+                              usagePct > 70
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : usagePct > 40
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            }`}
+                            style={{ fontWeight: 500 }}
+                          >
+                            {usagePct.toFixed(0)}% used
+                          </span>
+                        </UniformTableCell>
+                      </UniformTableRow>
+                    )
+                  })}
+                </UniformTable>
+              )}
+            </UniformSection>
+          </div>
+        )}
+
+        {activeTab === 'fabric-planner' && (
+          <UniformFabricPlannerPanel
+            fabrics={fabrics}
+            onFabricsChange={syncFabricsFromApi}
+            onNavigateTab={navigateToTab}
+          />
+        )}
+
+        {activeTab === 'finished-goods' && (
+          <FinishedGoodsStockPanel onGoodsChange={syncFinishedFromApi} modernLayout={hrLayout} />
+        )}
+
+        {activeTab === 'issue' && <UniformIssuePanel />}
+
+        {activeTab === 'sales' && <UniformSalesAnalytics />}
+      </motion.div>
+    </AnimatePresence>
+  )
+
+  if (hrLayout) {
+    const tabLabel = tabs.find((t) => t.id === activeTab)?.label || 'Overview'
+
+    return (
+      <UniformPageLayout
+        eyebrow="Uniform Manager"
+        title={activeTab === 'dashboard' ? 'Uniform Inventory' : tabLabel}
+        subtitle={activeTab === 'dashboard' ? 'Fabric, finished goods & distribution' : 'Uniform Inventory'}
+        HeroIcon={Shirt}
+        kpiTiles={heroKpiTiles}
+        cardBody={<div className="p-4 sm:p-5">{tabContent}</div>}
+        showOverlap
+      />
+    )
+  }
+
   return (
     <StorekeeperPageShell compact className="!px-0 sm:!px-0 lg:!px-0 !pt-0">
       <div className="flex flex-col min-h-[calc(100vh-4rem)]">
@@ -169,177 +396,7 @@ export default function UniformInventory() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
-              {activeTab === 'dashboard' && (
-                <div className="space-y-6">
-                  <UniformKpiGrid>
-                    {dashboardStats.map((stat, i) => (
-                      <UniformKpiCard
-                        key={stat.label}
-                        label={stat.label}
-                        value={stat.value}
-                        sub={stat.sub}
-                        icon={stat.icon}
-                        alert={stat.alert}
-                        index={i}
-                      />
-                    ))}
-                  </UniformKpiGrid>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <UniformSection title="Fabric usage" icon={Scale}>
-                      {fabrics.length === 0 ? (
-                        <p className="text-xs text-gray-400">No fabric receipts yet. Use Fabric Stock In to register sheets.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {fabrics.slice(0, 4).map((f) => {
-                            const used = Math.max(0, f.meters - f.remaining)
-                            const pct = f.meters > 0 ? (used / f.meters) * 100 : 0
-                            return (
-                              <div key={f.id} className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-[#000435]">{f.type}</span>
-                                <div className="flex items-center gap-3 flex-1 ml-3">
-                                  <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                                    <motion.div
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${pct}%` }}
-                                      transition={{ duration: 1 }}
-                                      className="h-full bg-amber-400 rounded-full"
-                                    />
-                                  </div>
-                                  <span className="text-[11px] font-bold text-gray-500 w-20 text-right">{f.remaining}m left</span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </UniformSection>
-
-                    <UniformSection title="Top finished stock" icon={Box}>
-                      {finishedGoods.length === 0 ? (
-                        <p className="text-xs text-gray-400">No finished goods yet. Add stock under Finished Goods.</p>
-                      ) : (
-                        <div className="space-y-0">
-                          {[...finishedGoods]
-                            .sort((a, b) => Number(b.stock) - Number(a.stock))
-                            .slice(0, 5)
-                            .map((g, i) => (
-                              <div key={g.id} className={`flex justify-between text-xs py-2.5 ${i > 0 ? 'border-t border-gray-50' : ''}`}>
-                                <span className="font-bold text-[#000435]">
-                                  {g.uniform_name} <span className="text-gray-400 font-medium">({g.size})</span>
-                                </span>
-                                <span className="text-gray-600 font-semibold">{g.stock} pcs</span>
-                              </div>
-                            ))}
-                        </div>
-                      )}
-                    </UniformSection>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'fabric-in' && (
-                <FabricStockInPanel onFabricsChange={syncFabricsFromApi} />
-              )}
-
-              {activeTab === 'fabric-out' && (
-                <FabricStockOutPanel onFabricsChange={syncFabricsFromApi} />
-              )}
-
-              {activeTab === 'fabric-stock' && (
-                <div className="space-y-4">
-                  <UniformSection
-                    title="Current fabric stock"
-                    subtitle={`${totalFabricStock} meters total · ${fabrics.length} batch${fabrics.length === 1 ? '' : 'es'}`}
-                    icon={Layers}
-                    action={
-                      <StoreExportBar
-                        disabled={!fabrics.length}
-                        onExportPdf={() => exportFabricStockPdf(fabricExportRows)}
-                        onExportExcel={() => exportFabricStockExcel(fabricExportRows)}
-                      />
-                    }
-                    bodyClassName="p-0"
-                  >
-                    {fabrics.length === 0 ? (
-                      <UniformEmptyState
-                        icon={Layers}
-                        title="No fabric in stock"
-                        message="Receive fabric under Fabric Stock In to see meters and usage here."
-                      />
-                    ) : (
-                      <UniformTable
-                        headers={['Fabric', 'Color', 'Received', 'Used', 'Remaining', 'Usage', 'Status']}
-                        minWidth="720px"
-                        className="border-0 shadow-none rounded-none"
-                      >
-                        {fabrics.map((f, i) => {
-                          const used = f.meters - f.remaining
-                          const usagePct = f.meters > 0 ? (used / f.meters) * 100 : 0
-                          return (
-                            <UniformTableRow key={f.id} index={i}>
-                              <UniformTableCell className="font-bold text-[#000435]">{f.type}</UniformTableCell>
-                              <UniformTableCell className="text-gray-500">{f.color}</UniformTableCell>
-                              <UniformTableCell className="text-gray-600">{f.meters}m</UniformTableCell>
-                              <UniformTableCell className="text-gray-600">{used}m</UniformTableCell>
-                              <UniformTableCell className="font-bold text-amber-600">{f.remaining}m</UniformTableCell>
-                              <UniformTableCell>
-                                <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                  <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${usagePct}%` }}
-                                    transition={{ duration: 1, delay: i * 0.1 }}
-                                    className={`h-full rounded-full ${usagePct > 70 ? 'bg-red-400' : usagePct > 40 ? 'bg-amber-400' : 'bg-green-400'}`}
-                                  />
-                                </div>
-                              </UniformTableCell>
-                              <UniformTableCell>
-                                <span
-                                  className={`text-[10px] font-bold px-2.5 py-1 rounded-lg ${
-                                    usagePct > 70
-                                      ? 'bg-red-50 text-red-600'
-                                      : usagePct > 40
-                                        ? 'bg-amber-50 text-amber-600'
-                                        : 'bg-green-50 text-green-600'
-                                  }`}
-                                >
-                                  {usagePct.toFixed(0)}% used
-                                </span>
-                              </UniformTableCell>
-                            </UniformTableRow>
-                          )
-                        })}
-                      </UniformTable>
-                    )}
-                  </UniformSection>
-                </div>
-              )}
-
-              {activeTab === 'fabric-planner' && (
-                <UniformFabricPlannerPanel
-                  fabrics={fabrics}
-                  onFabricsChange={syncFabricsFromApi}
-                  onNavigateTab={setActiveTab}
-                />
-              )}
-
-              {activeTab === 'finished-goods' && (
-                <FinishedGoodsStockPanel onGoodsChange={syncFinishedFromApi} />
-              )}
-
-              {activeTab === 'issue' && <UniformIssuePanel />}
-
-              {activeTab === 'sales' && <UniformSalesAnalytics />}
-            </motion.div>
-          </AnimatePresence>
+          {tabContent}
         </div>
       </div>
     </StorekeeperPageShell>

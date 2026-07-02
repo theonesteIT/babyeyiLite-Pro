@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './frontend/src/context/AuthContext'
 import Layout from './frontend/src/components/Layout'
 import StockDashboard from './frontend/src/pages/StockDashboard'
-import UniformInventory from './frontend/src/pages/UniformInventory'
 import FoodInventory from './frontend/src/pages/FoodInventory'
 import FoodReportPage from './frontend/src/pages/FoodReport'
 import OtherInventory from './frontend/src/pages/OtherInventory'
@@ -47,7 +46,6 @@ function StorekeeperRoutesInner() {
       <Route path="suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
       <Route path="purchase-requests" element={<ProtectedRoute><StorekeeperRequestOrder /></ProtectedRoute>} />
       <Route path="purchase-orders" element={<Navigate to="purchase-requests" replace />} />
-      <Route path="uniform-inventory" element={<ProtectedRoute><UniformInventory /></ProtectedRoute>} />
       <Route path="student-requirements" element={<ProtectedRoute><StudentRequirements /></ProtectedRoute>} />
       <Route path="food-inventory" element={<ProtectedRoute><FoodInventory /></ProtectedRoute>} />
       <Route path="food-reports" element={<ProtectedRoute><FoodReportPage /></ProtectedRoute>} />

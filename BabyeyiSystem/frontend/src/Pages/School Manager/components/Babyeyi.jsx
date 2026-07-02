@@ -1,4 +1,32 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import {
+  School,
+  DollarSign,
+  ClipboardList,
+  Landmark,
+  PenLine,
+  Layers,
+  Users,
+  Eye,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  QrCode,
+  Copy,
+  Sparkles,
+  Shield,
+  AlertTriangle,
+  Plus,
+  X,
+  Send,
+  Info,
+  User,
+  Phone,
+  Mail,
+  Pencil,
+  ClipboardPen,
+} from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
 import ClassStreamPicker from "./ClassStreamPicker";
 import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
@@ -114,7 +142,40 @@ const ic = {
   mail:    "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
   user:    "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
 };
-const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
+const LUCIDE_ICONS = {
+  school: School,
+  dollar: DollarSign,
+  book: ClipboardList,
+  pen: PenLine,
+  eye: Eye,
+  chevR: ChevronRight,
+  chevL: ChevronLeft,
+  plus: Plus,
+  x: X,
+  upload: Upload,
+  alert: AlertTriangle,
+  shield: Shield,
+  bank: Landmark,
+  send: Send,
+  layers: Layers,
+  info: Info,
+  check: Check,
+  qr: QrCode,
+  copy: Copy,
+  sparkle: Sparkles,
+  users: Users,
+  phone: Phone,
+  mail: Mail,
+  user: User,
+  list: ClipboardList,
+};
+const I = ({ n, size = 16, color, sw }) => {
+  const LucideIcon = LUCIDE_ICONS[n];
+  if (LucideIcon) {
+    return <LucideIcon size={size} color={color} strokeWidth={sw || 2.25} aria-hidden className="shrink-0" />;
+  }
+  return <Svg d={ic[n] || ic.info} size={size} color={color} sw={sw || 2} />;
+};
 
 // ── NESA fee_limits `level` must match national fee table labels (same as NESA Fee Limits UI + backend classToLevel) ─
 const NESA_FEE_LIMIT_LEVELS = ["Nursery", "Primary", "Secondary", "University"];
@@ -229,14 +290,14 @@ const blankLeader = () => ({ name: "", role: "", phone: "", email: "" });
 
 // ── STEPS — now 8 steps ───────────────────────────────────────
 const STEPS = [
-  { id:1, label:"School & Classes", icon:"school"  },
-  { id:2, label:"Payments",         icon:"dollar"  },
-  { id:3, label:"Requirements",     icon:"book"    },
-  { id:4, label:"Bank Account",     icon:"bank"    },
-  { id:5, label:"Authorization",    icon:"pen"     },
-  { id:6, label:"Class Notes",      icon:"layers"  },
-  { id:7, label:"Leaders",          icon:"users"   },  // ← NEW
-  { id:8, label:"Preview & Submit", icon:"eye"     },  // ← was 7
+  { id: 1, label: "School & Classes", Icon: School },
+  { id: 2, label: "Payments", Icon: DollarSign },
+  { id: 3, label: "Requirements", Icon: ClipboardList },
+  { id: 4, label: "Bank Account", Icon: Landmark },
+  { id: 5, label: "Authorization", Icon: PenLine },
+  { id: 6, label: "Class Notes", Icon: Layers },
+  { id: 7, label: "Leaders", Icon: Users },
+  { id: 8, label: "Preview & Submit", Icon: Eye },
 ];
 
 const BANKS = [
@@ -246,6 +307,21 @@ const BANKS = [
 ];
 
 const blankBank = () => ({ bankName: "", accountNumber: "", accountName: "" });
+
+function resolveUseParentMessage(rec) {
+  if (rec?.showParentMessage != null) return !!rec.showParentMessage;
+  if (rec?.show_parent_message != null) return !!Number(rec.show_parent_message);
+  return !!(String(rec?.parentMessage || rec?.parent_message || "").trim());
+}
+
+function normalizeLeaderRow(l) {
+  return {
+    name:  String(l?.name || l?.leader_name || "").trim(),
+    role:  String(l?.role || l?.leader_role || "").trim(),
+    phone: String(l?.phone || "").trim(),
+    email: String(l?.email || "").trim(),
+  };
+}
 
 const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) => ({
   schoolName:           school.name      || "",
@@ -259,6 +335,7 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   otherLogo:            null,
   includeSchoolDetails: true,
   classes:              [],
+  useParentMessage:     true,
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
   academicYear:         academicDefaults.academicYear || "2025-2026",
   term:                 academicDefaults.term || "Term 1",
@@ -514,7 +591,7 @@ function DocPreview({ form, previews }) {
 // ════════════════════════════════════════════════════════════
 // WIZARD (create + edit — shared by full page and modals)
 // ════════════════════════════════════════════════════════════
-export function WizardContent({ session, onClose, onSuccess, editRecord = null, embedded = false }) {
+export function WizardContent({ session, onClose, onSuccess, editRecord = null, embedded = false, listTheme = false }) {
   const schoolId = session?.schoolId ?? null;
   const academic = useAcademic();
 
@@ -531,6 +608,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   const [toast,     setToast]     = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [errors,    setErrors]    = useState({});
+  const stepBtnRefs = useRef({});
 
   const [previews, setPreviews] = useState({
     schoolLogo:        null,
@@ -564,6 +642,10 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
   const [editId, setEditId] = useState(editRecord?.id ?? null);
+
+  useEffect(() => {
+    stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [step]);
 
   const classGroups = useMemo(
     () => buildClassGroupsFromRows(registeredClassRows, registeredClassOptions),
@@ -649,7 +731,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
           const raw = rec.leaders;
           if (!raw) return [blankLeader()];
           const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-          return Array.isArray(arr) && arr.length ? arr : [blankLeader()];
+          if (!Array.isArray(arr) || !arr.length) return [blankLeader()];
+          return arr.map(normalizeLeaderRow);
         } catch { return [blankLeader()]; }
       })();
       const primaryBank = parsedBanks[0] || {};
@@ -672,6 +755,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         category:      rec.category      || "Public",
         language:      rec.language      || "en",
         classes:       clsList,
+        useParentMessage: resolveUseParentMessage(rec),
         parentMessage: rec.parentMessage || "",
         payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
         requirements:  parsedReqs,
@@ -963,11 +1047,13 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 
   if (!form) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{fontFamily: "'Montserrat', sans-serif" }}>
+      <div className={embedded ? "flex flex-1 items-center justify-center min-h-[240px]" : "min-h-screen flex items-center justify-center"} style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <div className="text-center">
           <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-3"
             style={{ borderColor: C.goldBgMid, borderTopColor: C.gold }}/>
-          <p className="text-sm font-semibold" style={{ color: C.goldDark }}>Loading school data…</p>
+          <p className="text-sm font-semibold" style={{ color: C.goldDark }}>
+            {editRecord ? "Loading Babyeyi…" : "Loading school data…"}
+          </p>
         </div>
       </div>
     );
@@ -1036,7 +1122,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       showToast("Select at least one class before submitting.", "error");
       return;
     }
-    const classesToCreate = editId ? [allClasses[0]] : allClasses;
+    const classesToCreate = allClasses;
     const feeLimitLevel =
       form.nesaFeeLimitLevel ||
       inferNesaFeeLimitLevelFromClass(classesToCreate[0] || "");
@@ -1087,7 +1173,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       fd.append("cell",              form.cell      || "");
       fd.append("village",          form.village   || "");
       fd.append("language",          form.language  || "en");
-      fd.append("parent_message",    form.parentMessage || "");
+      fd.append("parent_message",    form.useParentMessage ? (form.parentMessage || "") : "");
+      fd.append("show_parent_message", form.useParentMessage ? "1" : "0");
       fd.append("bank_name",         form.bankName      || "");
       fd.append("bank_account_no",   form.accountNumber || "");
       fd.append("bank_account_name", form.accountName   || "");
@@ -1326,6 +1413,24 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 
         return (
           <div className="space-y-4">
+            {editId && (
+              <div
+                className="rounded-2xl border px-4 py-3"
+                style={{
+                  background: listTheme ? "linear-gradient(135deg, #000435, #0a1142)" : C.goldBg,
+                  borderColor: listTheme ? "rgba(251,191,36,0.35)" : C.goldBorder,
+                }}
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: listTheme ? "#FBBF24" : C.goldDark }}>
+                  Editing existing Babyeyi
+                </p>
+                <p className="text-xs mt-1" style={{ color: listTheme ? "rgba(255,255,255,0.85)" : C.darkMid }}>
+                  All {STEPS.length} steps are open — your saved data is loaded below, including{" "}
+                  <strong>{form.classes?.length ? form.classes.join(", ") : "selected classes"}</strong>.
+                  {editRecord?.docId ? ` Document ${editRecord.docId}.` : ""}
+                </p>
+              </div>
+            )}
             <Toggle value={form.includeSchoolDetails} onChange={v => up("includeSchoolDetails", v)}
               label="Include School Details"
               sublabel="Display school name, location and logo on the printed document" />
@@ -1678,15 +1783,25 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold uppercase mb-1 flex items-center gap-1.5" style={{ color: C.darkMid }}>
-                Parent Message
-                <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
-                  style={{ background: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
-                  Saved to DB ✓
-                </span>
-              </label>
-              <textarea value={form.parentMessage} onChange={e => up("parentMessage", e.target.value)}
-                rows={5} className={`${inp} resize-none`} style={{ borderColor: C.goldBorder }} />
+              <Toggle
+                value={!!form.useParentMessage}
+                onChange={(v) => up("useParentMessage", v)}
+                label="Include Message to Parents / Guardians"
+                sublabel="Turn off to skip this section on the printed Babyeyi document"
+              />
+              {form.useParentMessage && (
+                <>
+                  <label className="block text-[10px] font-bold uppercase mb-1 mt-3 flex items-center gap-1.5" style={{ color: C.darkMid }}>
+                    Parent Message
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
+                      style={{ background: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
+                      Saved to DB ✓
+                    </span>
+                  </label>
+                  <textarea value={form.parentMessage} onChange={e => up("parentMessage", e.target.value)}
+                    rows={5} className={`${inp} resize-none`} style={{ borderColor: C.goldBorder }} />
+                </>
+              )}
             </div>
           </div>
         );
@@ -2591,7 +2706,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
               <p className="text-[9px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.goldDark }}>Validation Checklist</p>
               {[
                 { ok:form.payments.some(p=>p.name&&p.amount),                              label:"At least one payment item",         req:true },
-                { ok:!!form.parentMessage?.trim(),                                          label:"Parent message",                    req:false },
+                { ok:form.useParentMessage ? !!form.parentMessage?.trim() : true,                  label:"Parent message",                    req:false },
                 { ok:!exceeds||!form.requestIncrease||form.requestTitle.trim().length>0,   label:"Request title (if increase)",       req:exceeds&&form.requestIncrease },
                 { ok:!exceeds||!form.requestIncrease||!!form.parentApprovalDoc,            label:"Parent approval document",          req:exceeds&&form.requestIncrease },
                 { ok:!!previews.directorSignature,                                          label:"Head Teacher signature",            req:false },
@@ -2621,6 +2736,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   };
 
   const isLast = step === STEPS.length;
+  const CurrentStepIcon = STEPS[step - 1].Icon;
 
   const goToStep = (targetId) => {
     if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
@@ -2631,16 +2747,14 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   return (
     <>
     <div
-      className={embedded ? "flex flex-col h-full min-h-0" : "min-h-screen flex items-center justify-center p-2 sm:p-4"}
+      className={embedded ? "flex flex-col flex-1 min-h-0 overflow-hidden w-full" : "min-h-screen flex items-center justify-center p-2 sm:p-4"}
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {!embedded && (
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }
       `}</style>
-      )}
 
       {toast && (
         <div className={`fixed top-4 right-4 ${embedded ? "z-[9999]" : "z-50"} px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs`}
@@ -2686,23 +2800,32 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         {/* Step indicator */}
         <div className="border-b px-3 sm:px-5 py-3 shrink-0"
           style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
-            {STEPS.map((s,i) => (
-              <div key={s.id} className="flex items-center shrink-0">
-                <button type="button" onClick={() => (embedded ? goToStep(s.id) : (step > s.id && setStep(s.id)))}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
-                  style={step===s.id
+          <style>{`.babyeyi-step-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}.babyeyi-step-scroll::-webkit-scrollbar{display:none}`}</style>
+          <div className="babyeyi-step-scroll flex items-center gap-1.5 py-0.5">
+            {STEPS.map((s) => {
+              const StepIcon = s.Icon;
+              const done = step > s.id;
+              const jumpAny = embedded || editId;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  ref={(el) => { stepBtnRefs.current[s.id] = el; }}
+                  onClick={() => (jumpAny ? goToStep(s.id) : (step > s.id && setStep(s.id)))}
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0"
+                  style={step === s.id
                     ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
-                    : step>s.id
+                    : done
                     ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
+                    : jumpAny
+                    ? { background: "#e2e8f0", color: "#64748b", cursor: "pointer" }
                     : { background: "#e2e8f0", color: "#94a3b8" }}>
-                  {step > s.id ? <Svg d={ic.check} size={10} color="currentColor" sw={3} /> : <I n={s.icon} size={11} />}
+                  {done ? <Check size={10} strokeWidth={3} aria-hidden /> : <StepIcon size={11} strokeWidth={2.25} aria-hidden />}
                   <span className="hidden sm:inline">{s.label}</span>
                   <span className="sm:hidden">{s.id}</span>
                 </button>
-                {i < STEPS.length-1 && <span className="mx-0.5 text-xs shrink-0" style={{ color: C.goldBorder }}>›</span>}
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
             <div className="h-full rounded-full transition-all duration-500"
@@ -2713,14 +2836,14 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         {/* Step title */}
         <div className="px-4 sm:px-6 pt-4 pb-2 shrink-0 flex items-center gap-2">
           <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
-            <I n={STEPS[step-1].icon} size={13} color={C.goldDark} />
+            <CurrentStepIcon size={13} color={C.goldDark} strokeWidth={2.25} aria-hidden />
           </span>
           <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
           <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
         </div>
 
         {/* Step content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 step-anim" key={step}>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-4 step-anim" key={step}>
           {renderStep()}
         </div>
 
@@ -2731,7 +2854,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             <button onClick={() => { setErrors({}); setStep(s=>s-1); }}
               className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 border rounded-xl font-semibold text-xs sm:text-sm hover:bg-slate-50"
               style={{ borderColor: C.goldBorder, color: C.darkMid }}>
-              <I n="chevL" size={14} /> <span className="hidden sm:inline">Back</span>
+              <ChevronLeft size={14} strokeWidth={2.25} aria-hidden /> <span className="hidden sm:inline">Back</span>
             </button>
           )}
           <div className="flex-1" />
@@ -2739,7 +2862,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             <button onClick={handleNext}
               className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95"
               style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
-              Next <I n="chevR" size={14} color={C.dark} />
+              Next <ChevronRight size={14} color={C.dark} strokeWidth={2.25} aria-hidden />
             </button>
           ) : (
             <button onClick={handleSave} disabled={saving || qrGenerating}
@@ -2912,7 +3035,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 // ════════════════════════════════════════════════════════════
 // MODAL WRAPPER
 // ════════════════════════════════════════════════════════════
-export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null }) {
+export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null, listTheme = false }) {
   useEffect(() => {
     if (isOpen) { document.body.style.overflow = "hidden"; }
     else { document.body.style.overflow = ""; }
@@ -2921,45 +3044,66 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
 
   if (!isOpen) return null;
 
+  const editClasses = editRecord
+    ? (Array.isArray(editRecord.classes) && editRecord.classes.length ? editRecord.classes : [editRecord.class]).filter(Boolean)
+    : [];
+  const editSubtitle = editRecord
+    ? [editClasses.join(", "), editRecord.term, editRecord.academicYear, editRecord.docId].filter(Boolean).join(" · ")
+    : null;
+  const modalMaxWidth = listTheme ? "780px" : "680px";
+  const headerStyle = listTheme
+    ? { background: "linear-gradient(135deg, #000435, #0a1142)" }
+    : { background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` };
+  const subtitleColor = listTheme ? "#FBBF24" : "#FED44A";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
-      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
+      className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4"
+      style={{ background: listTheme ? "rgba(0,4,53,0.82)" : "rgba(10,8,0,0.75)", backdropFilter: "blur(8px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden"
+        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden min-h-0"
         style={{
-          maxWidth: "680px",
+          maxWidth: modalMaxWidth,
+          height: "min(94vh, calc(100dvh - 1rem))",
           maxHeight: "94vh",
-          boxShadow: "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
+          boxShadow: listTheme
+            ? "0 30px 80px rgba(0,4,53,0.45), 0 0 0 1px rgba(251,191,36,0.2)"
+            : "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
           animation: "modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
         }}
       >
-        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
-          style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(254,191,16,0.2)" }}>
-              <span className="text-base">📋</span>
+        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between" style={headerStyle}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: listTheme ? "rgba(251,191,36,0.18)" : "rgba(254,191,16,0.2)" }}>
+              {editRecord
+                ? <Pencil size={16} color="#FED44A" strokeWidth={2.25} aria-hidden />
+                : <ClipboardPen size={16} color="#FED44A" strokeWidth={2.25} aria-hidden />}
             </div>
-            <div>
-              <h1 className="font-black text-white text-sm sm:text-base leading-tight">{editRecord ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
-              <p className="text-[10px]" style={{ color: "#FED44A" }}>
-                {session?.schoolName || "School"} — {editRecord ? "Update document" : "New document"}
+            <div className="min-w-0">
+              <h1 className="font-black text-white text-sm sm:text-base leading-tight truncate">
+                {editRecord ? "Edit Babyeyi" : "Create Babyeyi"}
+              </h1>
+              <p className="text-[10px] truncate" style={{ color: subtitleColor }}>
+                {session?.schoolName || "School"}
+                {editRecord ? (editSubtitle ? ` — ${editSubtitle}` : " — Update document") : " — New document"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20"
+            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20 shrink-0"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Close">
-            <Svg d={ic.x} size={16} color="currentColor" />
+            <X size={16} strokeWidth={2.25} aria-hidden />
           </button>
         </div>
 
-        <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} embedded />
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} embedded listTheme={listTheme} />
+        </div>
       </div>
 
       <style>{`

@@ -809,6 +809,19 @@ const normalisePaymentsForHash = (payments) =>
     }))
     .filter(p => p.name !== "");
 
+const parseShowParentMessageInput = (body, fallback = true) => {
+  if (body == null || (body.show_parent_message === undefined && body.showParentMessage === undefined)) {
+    return fallback;
+  }
+  const v = body.show_parent_message ?? body.showParentMessage;
+  return v === true || v === 1 || v === "1" || v === "true";
+};
+
+const resolveShowParentMessage = (row) => {
+  if (row?.show_parent_message != null) return !!Number(row.show_parent_message);
+  return !!(String(row?.parent_message || "").trim());
+};
+
 // ════════════════════════════════════════════════════════════
 // AUTO-RUN MIGRATIONS AT STARTUP
 // ════════════════════════════════════════════════════════════
@@ -818,6 +831,7 @@ const runMigrations = async () => {
   const migrations = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS parent_message TEXT NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS show_parent_message TINYINT(1) NOT NULL DEFAULT 1`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS qr_view_url VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS qr_code_path VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS pdf_path VARCHAR(500) NULL`,
@@ -1087,6 +1101,7 @@ async function loadBabyeyiDocBundle(bid, documentLanguage = "en") {
     classes,
     docId: babyeyi.doc_id || null,
     parentMessage: merged.parentMessage,
+    showParentMessage: resolveShowParentMessage(babyeyi),
     payments: merged.payments,
     requirements: merged.requirements,
     classNotes: merged.classNotes,
@@ -1167,6 +1182,7 @@ async function generateBabyeyiHtmlPDF({
     classes,
     docId,
     parentMessage,
+    showParentMessage: resolveShowParentMessage(nb),
     payments,
     requirements,
     classNotes,
@@ -1203,6 +1219,7 @@ const generateBabyeyiPDF = async ({
   qrFilePath,
   docId,
   parentMessage,
+  showParentMessage = true,
   leaders = [],
   documentLang = "en",
 }) => {
@@ -1323,7 +1340,7 @@ const generateBabyeyiPDF = async ({
 
       // Parent message
       const msgText = parentMessage || b.parent_message || "";
-      if (msgText && msgText.trim()) {
+      if (showParentMessage && msgText && msgText.trim()) {
         doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
            .text(D.parentMessageHeading || "Message to Parents", L, y, { characterSpacing: 1.2 });
         doc.moveTo(L + 135, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
@@ -1712,6 +1729,7 @@ const generateDocuments = async ({
       qrFilePath: qr.fullPath,
       docId,
       parentMessage: merged.parentMessage,
+      showParentMessage: resolveShowParentMessage(nb),
       leaders: merged.leaders,
       documentLang: docLang,
     });
@@ -2815,6 +2833,10 @@ router.post("/", (req, res) => {
       const payments      = parseJSONField(body.payments);
       const totalFee      = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
       const parentMessage = body.parent_message || "";
+      const showParentMessage = parseShowParentMessageInput(
+        body,
+        !!(parentMessage && String(parentMessage).trim()),
+      );
 
       const banksJsonRaw  = body.banks_json || body.banks || null;
       const banks         = parseJSONField(banksJsonRaw);
@@ -2856,8 +2878,8 @@ router.post("/", (req, res) => {
             school_category, education_level,
             payments, total_amount,
             bank_name, bank_account_no, bank_branch, banks_json,
-            parent_message, total_fee, nesa_limit, exceeds_limit, status, doc_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            parent_message, show_parent_message, total_fee, nesa_limit, exceeds_limit, status, doc_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           schoolId, schoolName, schoolCode,
           schoolProvince, schoolDistrict, schoolSector,
@@ -2865,7 +2887,7 @@ router.post("/", (req, res) => {
           categoryForRow, level,
           JSON.stringify(payments), totalFee,
           bankName, bankAccountNo, bankBranch, banksJson,
-          parentMessage, totalFee, nesaLimit, exceeds ? 1 : 0, status, preDocId,
+          parentMessage, showParentMessage ? 1 : 0, totalFee, nesaLimit, exceeds ? 1 : 0, status, preDocId,
         ]
       );
       const bid = result.insertId;
@@ -3168,6 +3190,24 @@ router.post("/:id/regenerate-docs", async (req, res) => {
   }
 });
 
+// PATCH /api/babyeyi/:id/show-parent-message — toggle parent message on document
+router.patch("/:id/show-parent-message", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const rows = await query("SELECT id FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const show = parseShowParentMessageInput(req.body, true);
+    await query("UPDATE school_babyeyi SET show_parent_message=? WHERE id=?", [show ? 1 : 0, id]);
+    res.json({
+      success: true,
+      data: { show_parent_message: show ? 1 : 0, showParentMessage: show },
+    });
+  } catch (err) {
+    console.error(`[PATCH show-parent-message] id=${id}:`, err.message);
+    res.status(500).json({ success: false, message: err.message || "Update failed" });
+  }
+});
+
 // ════════════════════════════════════════════════════════════
 // PATCH /api/babyeyi/:id/content-i18n/rw — manager Kinyarwanda overrides
 // ════════════════════════════════════════════════════════════
@@ -3417,15 +3457,21 @@ router.put("/:id", (req, res) => {
       const schoolDistrict = fv(body.district, old.district || null);
       const schoolSector   = fv(body.sector,   old.sector   || null);
 
-      const newClass =
-        String(body.class || body.class_name || old.class || old.class_name || "").trim() || old.class_name;
+      const classesArrRaw = body.classes || body.classes_json || null;
+      const classesArr    = parseJSONField(classesArrRaw);
+      const fallbackClass = String(body.class || body.class_name || old.class || old.class_name || "").trim();
+      const resolvedClass = (classesArr[0] || fallbackClass || old.class_name || "").toString().trim() || old.class_name;
+      const classesJson   = classesArr.length ? JSON.stringify(classesArr) : (old.classes_json || null);
       const newTerm  = body.term          || old.term;
       const newYear  = body.academic_year || old.academic_year;
-      const level    = body.level || classToLevel(newClass);
+      const level    = body.level || classToLevel(resolvedClass);
 
       const payments      = parseJSONField(body.payments);
       const totalFee      = payments.length ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) : old.total_fee || 0;
       const parentMessage = body.parent_message !== undefined ? body.parent_message : (old.parent_message || "");
+      const showParentMessage = (body.show_parent_message !== undefined || body.showParentMessage !== undefined)
+        ? parseShowParentMessageInput(body, false)
+        : resolveShowParentMessage(old);
 
       const banksJsonRaw  = body.banks_json || body.banks || null;
       const banks         = parseJSONField(banksJsonRaw);
@@ -3452,19 +3498,19 @@ router.put("/:id", (req, res) => {
       await query(
         `UPDATE school_babyeyi SET
            school_id=?, school_province=?, school_district=?, school_sector=?,
-           academic_year=?, term=?, class_name=?,
+           academic_year=?, term=?, class_name=?, classes_json=?,
            school_category=?, education_level=?,
            payments=?, total_amount=?,
            bank_name=?, bank_account_no=?, bank_branch=?, banks_json=?,
-           parent_message=?, total_fee=?, nesa_limit=?, exceeds_limit=?, status=?
+           parent_message=?, show_parent_message=?, total_fee=?, nesa_limit=?, exceeds_limit=?, status=?
          WHERE id=?`,
         [
           schoolId, schoolProvince, schoolDistrict, schoolSector,
-          newYear, newTerm, newClass,
+          newYear, newTerm, resolvedClass, classesJson,
           categoryForRow, level,
           JSON.stringify(payments.length ? payments : parseJSONField(old.payments)), totalFee,
           bankName, bankAccountNo, bankBranch, banksJson,
-          parentMessage, totalFee, nesaLimit, exceeds ? 1 : 0, status, id,
+          parentMessage, showParentMessage ? 1 : 0, totalFee, nesaLimit, exceeds ? 1 : 0, status, id,
         ]
       );
 

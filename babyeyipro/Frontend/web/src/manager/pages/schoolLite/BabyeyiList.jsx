@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { WizardContent } from "./UpdateBabyeyi";
+import { CreateBabyeyiModal } from "./UpdateBabyeyi";
 import { parseTranslationsJson } from '../../schoolLiteSupport/utils/applyBabyeyiTranslations';
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getParentMessageForMachineTranslation, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
 import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../../schoolLiteSupport/babyeyiTranslateLangs.js';
@@ -1318,32 +1318,20 @@ function OfficialDoc({
   );
 }
 
-// ── Edit wizard modal ─────────────────────────────────────────
+// ── Edit wizard modal — same design as Create Babyeyi ─────────
 function EditWizardModal({ rec, session, onClose, onSaved }) {
-  useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#000435]/85 backdrop-blur-md"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[#000435] border-2 border-amber-400/30 rounded-3xl w-full flex flex-col shadow-sm"
-        style={{ maxWidth: "680px", maxHeight: "94vh", overflowY: "auto", animation: "modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)", fontFamily: FONT }}>
-        <div className="px-5 py-4 shrink-0 flex items-center justify-between sticky top-0 z-10 bg-[#000435] border-b border-amber-400/20">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-amber-400"><Pencil className="w-4 h-4" strokeWidth={2.25} aria-hidden /></div>
-            <div>
-              <h1 className="font-semibold text-white text-[14px]">Edit Babyeyi</h1>
-              <p className="text-[10px] text-amber-400/60">{rec.class} · {rec.term} · {rec.academicYear}</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-white hover:bg-white/14" aria-label="Close">
-            <X className="w-3.5 h-3.5" strokeWidth={2} />
-          </button>
-        </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WizardContent session={session} editRecord={rec} onClose={onClose} onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }} />
-        </div>
-      </div>
-      <style>{`@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+    <CreateBabyeyiModal
+      key={rec.id}
+      session={session}
+      isOpen
+      editRecord={rec}
+      onClose={onClose}
+      onSuccess={() => {
+        onSaved?.(rec);
+        onClose();
+      }}
+    />
   );
 }
 

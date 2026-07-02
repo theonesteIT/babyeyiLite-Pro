@@ -37,6 +37,10 @@ export default function ProHome() {
     return <Navigate to="/assets" replace />
   }
 
+  if (roleCode === 'UNIFORM_MANAGER') {
+    return <Navigate to="/uniform-manager" replace />
+  }
+
   if (roleCode === 'SCHOOL_REPRESENTATIVE' || roleCode === 'NETWORK_REPRESENTATIVE') {
     return <Navigate to="/representative" replace />
   }
@@ -51,6 +55,7 @@ export default function ProHome() {
     { to: '/manager', label: 'School Manager', desc: 'Registry, finance, HR, reports' },
     { to: '/accountant', label: 'Accountant', desc: 'Fees, invoices, expenses, requisitions, payroll' },
     { to: '/storekeeper', label: 'Storekeeper', desc: 'Inventory, suppliers, stock movements, requisitions' },
+    { to: '/uniform-manager', label: 'Uniform Manager', desc: 'Fabric, finished goods, uniform issuing & sales' },
     { to: '/assets', label: 'Assets Manager', desc: 'School asset register, maintenance, depreciation, audit' },
     { to: '/librarian', label: 'Librarian', desc: 'Books, members, borrowing, returns, reports' },
     { to: '/discipline-staff', label: 'Discipline Staff', desc: 'Conduct, discipline reports, student permissions' },

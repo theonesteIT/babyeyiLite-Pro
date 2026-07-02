@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  LayoutDashboard, Shirt, Apple, Package, Truck, ShoppingCart, AlertTriangle,
+  LayoutDashboard, Apple, Package, Truck, ShoppingCart, AlertTriangle,
   FileBarChart, Settings, ChevronLeft, ChevronRight, BarChart3, Bell, X, ClipboardList,
   LogOut, User,
 } from 'lucide-react'
@@ -55,7 +55,6 @@ export default function Sidebar({
   const navInventory = [
     { to: h('/suppliers'), label: 'Suppliers', icon: Truck },
     { to: h('/purchase-requests'), label: 'Purchase Requests', icon: ShoppingCart },
-    { to: h('/uniform-inventory'), label: 'Uniform Inventory', icon: Shirt },
     { to: h('/student-requirements'), label: 'Student Requirements', icon: ClipboardList },
     { to: h('/food-inventory'), label: 'Food Inventory', icon: Apple },
     { to: h('/other-inventory'), label: 'Other Inventory', icon: Package },

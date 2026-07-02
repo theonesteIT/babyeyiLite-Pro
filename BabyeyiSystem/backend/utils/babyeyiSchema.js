@@ -31,6 +31,7 @@ async function ensureBabyeyiCoreSchema() {
       ownership_type VARCHAR(50) NULL,
       payments LONGTEXT NOT NULL,
       parent_message TEXT NULL,
+      show_parent_message TINYINT(1) NOT NULL DEFAULT 1,
       total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
       bank_name VARCHAR(255) NOT NULL DEFAULT '',
       bank_account_no VARCHAR(100) NOT NULL DEFAULT '',
