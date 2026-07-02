@@ -2856,17 +2856,17 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                 {STEPS.map((s) => {
                   const StepIcon = s.Icon;
                   const done = step > s.id;
-                  const jumpAny = embedded || editId;
                   const active = step === s.id;
                   return (
                     <button
                       key={s.id}
                       type="button"
                       ref={(el) => { stepBtnRefs.current[s.id] = el; }}
-                      onClick={() => (jumpAny ? goToStep(s.id) : (step > s.id && setStep(s.id)))}
-                      className={`flex-1 min-w-[4.5rem] md:min-w-0 flex flex-col items-center px-1 py-2 rounded-xl transition-colors ${
-                        active ? "bg-amber-50" : jumpAny || done ? "hover:bg-slate-50" : "opacity-60"
+                      onClick={() => goToStep(s.id)}
+                      className={`flex-1 min-w-[4.5rem] md:min-w-0 flex flex-col items-center px-1 py-2 rounded-xl transition-colors cursor-pointer ${
+                        active ? "bg-amber-50" : "hover:bg-slate-50"
                       }`}
+                      title={s.label}
                     >
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border-2 transition-all ${
                         active ? "bg-[#c87800] border-[#c87800] text-white" : done ? "bg-amber-50 border-[#c87800] text-[#c87800]" : "bg-white border-slate-200 text-slate-400"

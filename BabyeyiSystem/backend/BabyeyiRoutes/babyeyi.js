@@ -3673,7 +3673,7 @@ router.put("/:id", (req, res) => {
             });
           }
         }
-        await seedRequirementPricesFromDefaults(id, schoolId, newYear, newTerm, newClass);
+        await seedRequirementPricesFromDefaults(id, schoolId, newYear, newTerm, resolvedClass);
       }
 
       const classReqs  = parseJSONField(body.classReqs);
