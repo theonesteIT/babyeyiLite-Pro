@@ -562,18 +562,21 @@ const parseJSONField = (val) => {
 const classToLevel = (cls) => {
   const raw = String(cls || "").trim();
   if (!raw) return "Primary";
-  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-3])\b/i);
+  const compact = raw.toUpperCase().replace(/[\s-]+/g, "");
+  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-6])\b/i);
   if (code) {
     const c = code[1].toUpperCase();
     if (/^N[123]$/.test(c)) return "Nursery";
     if (/^P[1-6]$/.test(c)) return "Primary";
     if (/^S[1-6]$/.test(c)) return "Secondary";
-    if (/^L[1-3]$/.test(c)) return "University";
+    if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO)\b/i.test(raw)) return "TSS";
+    if (/^L[1-6]/.test(compact)) return "TSS";
   }
   if (["N1", "N2", "N3"].includes(raw)) return "Nursery";
   if (["P1", "P2", "P3", "P4", "P5", "P6"].includes(raw)) return "Primary";
   if (["S1", "S2", "S3", "S4", "S5", "S6"].includes(raw)) return "Secondary";
-  if (["L1", "L2", "L3"].includes(raw)) return "University";
+  if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO)\b/i.test(raw)) return "TSS";
+  if (["L1", "L2", "L3"].includes(raw)) return "TSS";
   return "Primary";
 };
 

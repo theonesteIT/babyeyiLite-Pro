@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   School,
   DollarSign,
@@ -11,8 +11,24 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardPen,
 } from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
+import ClassStreamPicker from "../../components/ClassStreamPicker";
+import EducationLevelPicker from "../../components/EducationLevelPicker";
+import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
+import {
+  EDUCATION_LEVEL_OPTIONS,
+  inferNesaFeeLimitLevelFromClass,
+  mapToNesaLimitLevel,
+  buildClassRowMap,
+  filterClassGroupsByLevel,
+  filterLabelsByLevel,
+  pruneSelectedToLevel,
+  levelsPresentInCatalog,
+  normalizeEducationLevel,
+  mergeWithDefaultClassCatalog,
+} from "../../../utils/educationLevelClasses";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 import { NESA_LIMITS } from "./utils/constants";
 import { useAcademic } from "../../context/AcademicContext";
@@ -63,7 +79,7 @@ const C = {
   goldBg:      "#FFFDF3",
   goldBgMid:   "#FFF6CC",
   goldBorder:  "#FFE58A",
-  dark:        "#1F2937",
+  dark:        "#000435",
   darkMid:     "#4B5563",
   emerald:     "#10B981",
   emeraldDark: "#047857",
@@ -141,28 +157,6 @@ function inferEducationLevelFromClassLabel(label) {
   if (/\bS[1-3]\b/.test(u)) return "Lower Secondary Education (O'Level)";
   if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
   return "Primary Education";
-}
-
-const NESA_FEE_LIMIT_LEVELS = ["Nursery", "Primary", "Secondary", "University"];
-
-/** Map class label → fee_limits.level (must match NESA Fee Limits table). */
-function inferNesaFeeLimitLevelFromClass(label) {
-  const raw = String(label || "").trim();
-  if (!raw) return "Primary";
-  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-3])\b/i);
-  if (code) {
-    const c = code[1].toUpperCase();
-    if (/^N[123]$/.test(c)) return "Nursery";
-    if (/^P[1-6]$/.test(c)) return "Primary";
-    if (/^S[1-6]$/.test(c)) return "Secondary";
-    if (/^L[1-3]$/.test(c)) return "University";
-  }
-  const u = raw.toUpperCase();
-  if (/^(N[123]|NURSERY|PRE[- ]?PRIMARY)/.test(u) || /\bN[123]\b/.test(u)) return "Nursery";
-  if (/\bP[1-6]\b/.test(u) || /^P[1-6]$/i.test(raw)) return "Primary";
-  if (/\bS[1-6]\b/.test(u)) return "Secondary";
-  if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
-  return "Primary";
 }
 
 /** Keep multi-select order aligned with the school catalog list. */
@@ -588,11 +582,57 @@ export default function App({ session }) {
   const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
+  const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
 
   useEffect(() => {
     stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [step]);
+
+  const classRowMap = useMemo(() => {
+    const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
+    return buildClassRowMap(merged.rows, merged.options);
+  }, [registeredClassRows, registeredClassOptions]);
+
+  const classOptions = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).options,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classRows = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).rows,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classGroups = useMemo(
+    () => buildClassGroupsFromRows(classRows, classOptions),
+    [classRows, classOptions],
+  );
+
+  const levelOptions = useMemo(
+    () => levelsPresentInCatalog(registeredClassOptions, registeredClassRows),
+    [registeredClassOptions, registeredClassRows],
+  );
+
+  const filteredClassGroups = useMemo(
+    () => filterClassGroupsByLevel(classGroups, form?.nesaFeeLimitLevel, classRowMap),
+    [classGroups, form?.nesaFeeLimitLevel, classRowMap],
+  );
+
+  const handleEducationLevelChange = useCallback((levelId) => {
+    const level = normalizeEducationLevel(levelId);
+    setForm((prev) => {
+      if (!prev) return prev;
+      const pruned = pruneSelectedToLevel(prev.classes || [], level, classOptions, classRowMap);
+      const levelLabels = filterLabelsByLevel(classOptions, level, classRowMap);
+      const nextClasses = pruned.length ? pruned : (levelLabels[0] ? [levelLabels[0]] : []);
+      return {
+        ...prev,
+        nesaFeeLimitLevel: mapToNesaLimitLevel(level),
+        classes: nextClasses,
+      };
+    });
+  }, [classOptions, classRowMap]);
 
   useEffect(() => {
     if (academic.loading) return;
@@ -709,20 +749,28 @@ export default function App({ session }) {
       .then((json) => {
         if (cancelled) return;
         const opts = Array.isArray(json.class_name_options) ? json.class_name_options : [];
+        const rows = Array.isArray(json.data) ? json.data : [];
         setRegisteredClassOptions(opts);
-        if (!opts.length) return;
+        setRegisteredClassRows(rows);
+        const merged = mergeWithDefaultClassCatalog(opts, rows);
+        const catalog = merged.options;
+        if (!catalog.length) return;
         setForm((prev) => {
           if (!prev) return prev;
           const prevArr = Array.isArray(prev.classes) ? prev.classes : [];
-          const kept = sortSelectedClassesByCatalog(prevArr, opts);
+          const kept = sortSelectedClassesByCatalog(prevArr, catalog);
           if (kept.length) {
             return { ...prev, classes: kept, nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(kept[0]) };
           }
-          return { ...prev, classes: [opts[0]], nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(opts[0]) };
+          const first = catalog[0];
+          return { ...prev, classes: [first], nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first) };
         });
       })
       .catch(() => {
-        if (!cancelled) setRegisteredClassOptions([]);
+        if (!cancelled) {
+          setRegisteredClassOptions([]);
+          setRegisteredClassRows([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setRegisteredClassesLoading(false);
@@ -916,10 +964,6 @@ export default function App({ session }) {
     if (step === 1) {
       if (registeredClassesLoading) {
         showToast("Still loading your school classes…", "error");
-        return;
-      }
-      if (!registeredClassOptions.length) {
-        showToast("No registered classes found. Add classes in School Registry or enrol students first.", "error");
         return;
       }
       if (!form?.classes?.length) {
@@ -1415,7 +1459,9 @@ export default function App({ session }) {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-700">
                   <I n="school" size={16} color="#fff" />
                 </div>
-                
+                <p className="text-[11px] font-semibold leading-snug" style={{ color: C.darkMid }}>
+                  Private school — national NESA fee limit checker is not used for this Babyeyi.
+                </p>
               </div>
             )}
 
@@ -1474,65 +1520,46 @@ export default function App({ session }) {
               ))}
             </div>
 
+            <EducationLevelPicker
+              value={normalizeEducationLevel(form.nesaFeeLimitLevel)}
+              onChange={handleEducationLevelChange}
+              options={levelOptions.length ? levelOptions : EDUCATION_LEVEL_OPTIONS}
+              title="Education level"
+              hint="Select a level to filter classes. Use Public, Boarding, or TVET with this level — same labels as NESA Tuition Manager."
+            />
 
-            <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
-                Select classes
-                <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — tick all that apply (registered at your school)
-                </span>
-              </label>
+            <div>
               {registeredClassesLoading ? (
-                <p className="text-xs font-semibold flex items-center gap-2" style={{ color: C.darkMid }}>
+                <p className="text-xs font-semibold flex items-center gap-2 py-8 justify-center" style={{ color: C.darkMid }}>
                   <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
                   Loading classes…
                 </p>
-              ) : !registeredClassOptions.length ? (
-                <p className="text-xs font-semibold leading-relaxed rounded-xl px-3 py-2.5 border"
-                  style={{ background: C.amberBg, color: C.darkMid, borderColor: C.amberBord }}>
-                  No classes found. Add classes under <strong>School Registry</strong> or ensure students are enrolled so classes appear here.
-                </p>
               ) : (
                 <>
-                  {(() => {
-                    const selectedSet = new Set(form.classes || []);
-                    return (
-                  <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-0.5"
-                    style={{ borderColor: C.goldBorder, background: C.goldBg }}>
-                    {registeredClassOptions.map((c) => {
-                      const checked = selectedSet.has(c);
-                      return (
-                        <label
-                          key={c}
-                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer text-sm font-semibold transition-colors hover:bg-white/80"
-                          style={{ color: C.dark }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const cur = Array.isArray(form.classes) ? [...form.classes] : [];
-                              let next;
-                              if (checked) {
-                                if (cur.length <= 1) return;
-                                next = sortSelectedClassesByCatalog(cur.filter((x) => x !== c), registeredClassOptions);
-                              } else {
-                                next = sortSelectedClassesByCatalog([...cur, c], registeredClassOptions);
-                              }
-                              up("classes", next);
-                              if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0]));
-                            }}
-                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                          />
-                          <span className="min-w-0 break-words">{c}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                    );
-                  })()}
+                  <ClassStreamPicker
+                    groups={filteredClassGroups}
+                    selected={form.classes || []}
+                    onChange={(next) => {
+                      up("classes", next);
+                      if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0], classRowMap.get(next[0])));
+                    }}
+                    sortSelected={sortSelectedClassesByCatalog}
+                    catalogOrder={classOptions}
+                    minSelected={1}
+                    colors={C}
+                    levelLabel={EDUCATION_LEVEL_OPTIONS.find((o) => o.id === normalizeEducationLevel(form.nesaFeeLimitLevel))?.label || form.nesaFeeLimitLevel}
+                    onSelectAllLevel={() => {
+                      const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
+                      up("classes", sortSelectedClassesByCatalog(labels, classOptions));
+                    }}
+                    onClearLevel={() => {
+                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
+                      up("classes", first ? [first] : []);
+                    }}
+                  />
                   {form.classes.length > 1 && (
                     <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
                       style={{ background: C.goldBg, color: C.goldDark }}>
@@ -2494,124 +2521,137 @@ export default function App({ session }) {
   };
 
   const isLast = step === STEPS.length;
-  const CurrentStepIcon = STEPS[step - 1].Icon;
+
+  const goToStep = (targetId) => {
+    if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
+    setErrors({});
+    setStep(targetId);
+  };
 
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
-      style={{ fontFamily: FONT }}>
+    <div
+      className="flex flex-col flex-1 min-h-0 overflow-hidden w-full -mx-4 md:-mx-6 bg-slate-50/60"
+      style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }
+        .babyeyi-step-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+        .babyeyi-step-scroll::-webkit-scrollbar{display:none}
       `}</style>
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs"
+        <div className="fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 max-w-xs border"
           style={{
-            background: toast.type==="success" ? C.emerald : toast.type==="error" ? C.red : C.gold,
-            color: toast.type==="info" ? C.dark : "#fff",
+            background: toast.type==="success" ? C.emeraldBg : toast.type==="error" ? C.red50 : C.goldBg,
+            color: toast.type==="success" ? C.emeraldDark : toast.type==="error" ? C.red700 : C.dark,
+            borderColor: toast.type==="success" ? C.emeraldBord : toast.type==="error" ? C.redBorder : C.goldBorder,
             animation: "slideIn 0.3s ease-out",
           }}>
-          {toast.type==="success"?"✅":toast.type==="error"?"❌":"ℹ️"} {toast.msg}
+          {toast.type==="success"?"✓":toast.type==="error"?"✕":"ℹ"} {toast.msg}
         </div>
       )}
 
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"
-        style={{ boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
+      <div className="flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full border border-slate-200/80 rounded-2xl shadow-sm">
 
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-4 shrink-0"
-          style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(254,191,16,0.2)" }}>
-                <span className="text-base"></span>
+        <div className="px-4 sm:px-8 py-5 shrink-0 border-b border-slate-100 bg-gradient-to-r from-[#000435] to-[#0a1142]">
+          <div className="flex items-center justify-between max-w-5xl mx-auto w-full">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#FEBF10]/15 border border-[#FEBF10]/25">
+                <ClipboardPen size={18} color="#FEBF10" strokeWidth={2.25} aria-hidden />
               </div>
-              <div>
-                <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Create Babyeyi</h1>
-                <p className="text-[10px]" style={{ color: C.goldLight }}>
-                  {form.schoolName || session?.schoolName || "School"} · {(form.classes && form.classes.length) ? form.classes.join(", ") : "—"} · {form.term}
+              <div className="min-w-0">
+                <h1 className="font-semibold text-white text-base sm:text-lg leading-tight truncate">Create Babyeyi</h1>
+                <p className="text-[11px] text-[#FEBF10]/90 truncate mt-0.5">
+                  {form.schoolName || session?.schoolName || "School"} · {form.term} · {form.academicYear}
                 </p>
               </div>
             </div>
             <button onClick={() => setView("list")}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-white rounded-xl text-[10px] font-bold"
-              style={{ background: "rgba(254,191,16,0.15)", border: "1px solid rgba(254,191,16,0.25)" }}>
-              <I n="eye" size={11} color="white" /> View Records
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider border border-white/15 hover:bg-white/10">
+              <Eye size={13} strokeWidth={2} aria-hidden /> View Records
             </button>
           </div>
         </div>
 
-        {/* Step indicator */}
-        <div className="border-b px-3 sm:px-5 py-3 shrink-0"
-          style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-          <style>{`.babyeyi-step-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}.babyeyi-step-scroll::-webkit-scrollbar{display:none}`}</style>
-          <div className="babyeyi-step-scroll flex items-center gap-1.5 py-0.5">
-            {STEPS.map((s) => {
-              const StepIcon = s.Icon;
-              const done = step > s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  ref={(el) => { stepBtnRefs.current[s.id] = el; }}
-                  onClick={() => step > s.id && setStep(s.id)}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0"
-                  style={step === s.id
-                    ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
-                    : done
-                    ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
-                    : { background: "#e2e8f0", color: "#94a3b8" }}>
-                  {done ? <Check size={10} strokeWidth={3} aria-hidden /> : <StepIcon size={11} strokeWidth={2.25} aria-hidden />}
-                  <span className="hidden sm:inline">{s.label}</span>
-                  <span className="sm:hidden">{s.id}</span>
-                </button>
-              );
-            })}
+        <div className="border-b px-4 sm:px-8 py-4 shrink-0 bg-white">
+          <div className="max-w-5xl mx-auto w-full">
+            <div className="overflow-x-auto pb-2 -mx-1 px-1 babyeyi-step-scroll">
+              <div className="flex min-w-[42rem] md:min-w-0 gap-1 md:gap-0">
+                {STEPS.map((s) => {
+                  const StepIcon = s.Icon;
+                  const done = step > s.id;
+                  const active = step === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      ref={(el) => { stepBtnRefs.current[s.id] = el; }}
+                      onClick={() => (step > s.id ? goToStep(s.id) : null)}
+                      className={`flex-1 min-w-[4.5rem] md:min-w-0 flex flex-col items-center px-1 py-2 rounded-xl transition-colors ${
+                        active ? "bg-amber-50" : done ? "hover:bg-slate-50 cursor-pointer" : "opacity-60"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border-2 transition-all ${
+                        active ? "bg-[#c87800] border-[#c87800] text-white" : done ? "bg-amber-50 border-[#c87800] text-[#c87800]" : "bg-white border-slate-200 text-slate-400"
+                      }`}>
+                        {done ? <Check size={14} strokeWidth={2} aria-hidden /> : <StepIcon size={14} strokeWidth={2} aria-hidden />}
+                      </div>
+                      <span className={`mt-2 text-[9px] md:text-[10px] text-center leading-tight line-clamp-2 ${active ? "text-[#c87800] font-semibold" : "text-slate-500"}`}>
+                        <span className="md:hidden">{s.id}</span>
+                        <span className="hidden md:inline">{s.label}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
+              <div className="h-full bg-gradient-to-r from-[#c87800] to-[#FEBF10] transition-all duration-500" style={{ width: `${(step / STEPS.length) * 100}%` }} />
+            </div>
           </div>
-          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width:`${(step/STEPS.length)*100}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.goldDark})` }} />
+        </div>
+
+        <div className="px-4 sm:px-8 pt-5 pb-2 shrink-0 border-b border-slate-50 bg-white">
+          <div className="max-w-5xl mx-auto w-full flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-400 uppercase tracking-[0.14em]">Step {step} of {STEPS.length}</p>
+              <h3 className="text-lg sm:text-xl text-[#000435] mt-1 font-semibold tracking-tight">{STEPS[step - 1].label}</h3>
+              <p className="text-sm text-slate-500 mt-1 hidden sm:block">
+                {step === 1 ? "Set academic context, education level, and classes for this Babyeyi." : "Complete this section to continue."}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold shrink-0 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">{step}/{STEPS.length}</span>
           </div>
         </div>
 
-        {/* Step title */}
-        <div className="px-4 sm:px-6 pt-4 pb-2 shrink-0 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
-            <CurrentStepIcon size={13} color={C.goldDark} strokeWidth={2.25} aria-hidden />
-          </span>
-          <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
-          <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 step-anim bg-slate-50/40" key={step}>
+          <div className="max-w-5xl mx-auto w-full">
+            {renderStep()}
+          </div>
         </div>
 
-        {/* Step content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 step-anim" key={step}>
-          {renderStep()}
-        </div>
-
-        {/* Navigation */}
-        <div className="border-t px-4 sm:px-6 py-3 flex items-center gap-2 shrink-0 bg-white"
-          style={{ borderColor: C.goldBorder }}>
+        <div className="border-t px-4 sm:px-8 py-4 flex items-center gap-3 shrink-0 bg-white">
+          <div className="max-w-5xl mx-auto w-full flex items-center gap-3">
           {step > 1 && (
             <button onClick={() => { setErrors({}); setStep(s=>s-1); }}
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 border rounded-xl font-semibold text-xs sm:text-sm hover:bg-slate-50"
-              style={{ borderColor: C.goldBorder, color: C.darkMid }}>
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs uppercase tracking-wider hover:bg-slate-50 font-semibold">
               <ChevronLeft size={14} strokeWidth={2.25} aria-hidden /> <span className="hidden sm:inline">Back</span>
             </button>
           )}
           <div className="flex-1" />
           {!isLast ? (
             <button onClick={handleNext}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95"
-              style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
-              Next <ChevronRight size={14} color={C.dark} strokeWidth={2.25} aria-hidden />
+              className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider active:scale-95 text-[#000435]"
+              style={{ background: `linear-gradient(135deg, #FEBF10, #c87800)`, boxShadow: "0 4px 15px rgba(200,120,0,0.25)" }}>
+              Next <ChevronRight size={14} strokeWidth={2.25} aria-hidden />
             </button>
           ) : (
             <button onClick={handleSave} disabled={saving || qrGenerating}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95 disabled:opacity-60"
-              style={{ background: `linear-gradient(135deg, #059669, #047857)`, color: "#fff", boxShadow: "0 4px 15px rgba(5,150,105,0.4)" }}>
+              className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider active:scale-95 disabled:opacity-60 text-white"
+              style={{ background: `linear-gradient(135deg, #059669, #047857)`, boxShadow: "0 4px 15px rgba(5,150,105,0.35)" }}>
               {saving ? (
                 <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Generating…</>
               ) : (
@@ -2625,6 +2665,7 @@ export default function App({ session }) {
               )}
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>

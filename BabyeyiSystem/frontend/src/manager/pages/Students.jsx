@@ -10,6 +10,7 @@ import {
 import api from '../services/api';
 import ConductMarksModal from '../components/ConductMarksModal';
 import StudentWizardModal from '../components/StudentWizardModal';
+import StudentImportModal from '../components/StudentImportModal';
 import studentService from '../services/studentService';
 import schoolService from '../services/schoolService';
 import { useAuth } from '../context/AuthContext';
@@ -196,6 +197,7 @@ const Students = () => {
     const [editingStudent, setEditingStudent] = useState(null);
     const [isClassSelected, setIsClassSelected] = useState(window.innerWidth >= 768);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     // Conduct Modal State
     const [isConductModalOpen, setIsConductModalOpen] = useState(false);
@@ -287,6 +289,12 @@ const Students = () => {
                 editStudent={editingStudent}
                 onSuccess={fetchContent}
                 session={manager}
+            />
+            <StudentImportModal
+                open={showImportModal}
+                onClose={() => setShowImportModal(false)}
+                onImported={fetchContent}
+                schoolId={manager?.school_id}
             />
             <StudentModal
                 student={selectedStudent}
@@ -435,7 +443,10 @@ const Students = () => {
                                             >
                                                 <UserPlus size={14} /> Register New Student
                                             </button>
-                                            <button className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5">
+                                            <button
+                                                onClick={() => { setShowImportModal(true); setActiveDropdown(null); }}
+                                                className="w-full text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-widest text-re-text hover:bg-re-bg transition-colors flex items-center gap-2.5 border-t border-black/5"
+                                            >
                                                 <Upload size={14} style={{ color: "#FEBF10" }} /> Import Excel
                                             </button>
                                         </div>

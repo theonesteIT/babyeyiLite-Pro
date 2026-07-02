@@ -73,7 +73,7 @@ async function ensureFeeLimitsTable() {
     CREATE TABLE IF NOT EXISTS fee_limits (
       id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       category ENUM('Public','Private','Boarding','TVET') NOT NULL,
-      level ENUM('Nursery','Primary','Secondary','University') NOT NULL,
+      level ENUM('Nursery','Primary','Secondary','TSS') NOT NULL,
       term ENUM('Term 1','Term 2','Term 3','Full Year') NOT NULL DEFAULT 'Term 1',
       academic_year VARCHAR(20) NOT NULL DEFAULT '2024-2025',
       max_amount DECIMAL(12,2) NOT NULL,
@@ -95,6 +95,14 @@ async function ensureFeeLimitsTable() {
   `);
 }
 
+/** Allow TSS level (matches school Babyeyi smart checker); keeps legacy University rows if present. */
+async function migrateFeeLimitsLevelEnum() {
+  await runDDL(`
+    ALTER TABLE fee_limits
+    MODIFY COLUMN level ENUM('Nursery','Primary','Secondary','TSS','University') NOT NULL
+  `);
+}
+
 async function ensureNesaAcademicYearsTable() {
   await promisePool.query(`
     CREATE TABLE IF NOT EXISTS nesa_academic_years (
@@ -110,6 +118,7 @@ async function ensureNesaBabyeyiSchema() {
   await ensureBabyeyiCoreSchema();
   await ensureBabyeyiIncreaseRequestsTable();
   await ensureFeeLimitsTable();
+  await migrateFeeLimitsLevelEnum();
   await ensureNesaAcademicYearsTable();
   await runDDL(`
     CREATE TABLE IF NOT EXISTS fee_limit_audit_log (

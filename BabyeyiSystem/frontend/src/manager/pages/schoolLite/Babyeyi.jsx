@@ -1,7 +1,22 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import BabyeyiList from "./BabyeyiList";
 import ClassStreamPicker from "../../../Pages/School Manager/components/ClassStreamPicker";
+import EducationLevelPicker from "../../../Pages/School Manager/components/EducationLevelPicker";
 import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
+import {
+  NESA_FEE_LIMIT_LEVELS,
+  EDUCATION_LEVEL_OPTIONS,
+  inferEducationLevelFromClass,
+  inferNesaFeeLimitLevelFromClass,
+  mapToNesaLimitLevel,
+  buildClassRowMap,
+  filterClassGroupsByLevel,
+  filterLabelsByLevel,
+  pruneSelectedToLevel,
+  levelsPresentInCatalog,
+  normalizeEducationLevel,
+  mergeWithDefaultClassCatalog,
+} from "../../../utils/educationLevelClasses";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 import { NESA_LIMITS } from "./utils/constants";
 
@@ -127,28 +142,6 @@ function inferEducationLevelFromClassLabel(label) {
   if (/\bS[1-3]\b/.test(u)) return "Lower Secondary Education (O'Level)";
   if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
   return "Primary Education";
-}
-
-const NESA_FEE_LIMIT_LEVELS = ["Nursery", "Primary", "Secondary", "University"];
-
-/** Map class label → fee_limits.level (must match NESA Fee Limits table). */
-function inferNesaFeeLimitLevelFromClass(label) {
-  const raw = String(label || "").trim();
-  if (!raw) return "Primary";
-  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-3])\b/i);
-  if (code) {
-    const c = code[1].toUpperCase();
-    if (/^N[123]$/.test(c)) return "Nursery";
-    if (/^P[1-6]$/.test(c)) return "Primary";
-    if (/^S[1-6]$/.test(c)) return "Secondary";
-    if (/^L[1-3]$/.test(c)) return "University";
-  }
-  const u = raw.toUpperCase();
-  if (/^(N[123]|NURSERY|PRE[- ]?PRIMARY)/.test(u) || /\bN[123]\b/.test(u)) return "Nursery";
-  if (/\bP[1-6]\b/.test(u) || /^P[1-6]$/i.test(raw)) return "Primary";
-  if (/\bS[1-6]\b/.test(u)) return "Secondary";
-  if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
-  return "Primary";
 }
 
 /** Keep multi-select order aligned with the school catalog list. */
@@ -568,10 +561,50 @@ export default function App({ session }) {
   const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
 
-  const classGroups = useMemo(
-    () => buildClassGroupsFromRows(registeredClassRows, registeredClassOptions),
+  const classRowMap = useMemo(() => {
+    const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
+    return buildClassRowMap(merged.rows, merged.options);
+  }, [registeredClassRows, registeredClassOptions]);
+
+  const classOptions = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).options,
     [registeredClassRows, registeredClassOptions],
   );
+
+  const classRows = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).rows,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classGroups = useMemo(
+    () => buildClassGroupsFromRows(classRows, classOptions),
+    [classRows, classOptions],
+  );
+
+  const levelOptions = useMemo(
+    () => levelsPresentInCatalog(registeredClassOptions, registeredClassRows),
+    [registeredClassOptions, registeredClassRows],
+  );
+
+  const filteredClassGroups = useMemo(
+    () => filterClassGroupsByLevel(classGroups, form?.nesaFeeLimitLevel, classRowMap),
+    [classGroups, form?.nesaFeeLimitLevel, classRowMap],
+  );
+
+  const handleEducationLevelChange = useCallback((levelId) => {
+    const level = normalizeEducationLevel(levelId);
+    setForm((prev) => {
+      if (!prev) return prev;
+      const pruned = pruneSelectedToLevel(prev.classes || [], level, classOptions, classRowMap);
+      const levelLabels = filterLabelsByLevel(classOptions, level, classRowMap);
+      const nextClasses = pruned.length ? pruned : (levelLabels[0] ? [levelLabels[0]] : []);
+      return {
+        ...prev,
+        nesaFeeLimitLevel: mapToNesaLimitLevel(level),
+        classes: nextClasses,
+      };
+    });
+  }, [classOptions, classRowMap]);
 
   useEffect(() => {
     setForm(buildBlankForm({
@@ -863,10 +896,6 @@ export default function App({ session }) {
     if (step === 1) {
       if (registeredClassesLoading) {
         showToast("Still loading your school classes…", "error");
-        return;
-      }
-      if (!registeredClassOptions.length) {
-        showToast("No registered classes found. Add classes in School Registry or enrol students first.", "error");
         return;
       }
       if (!form?.classes?.length) {
@@ -1396,49 +1425,45 @@ export default function App({ session }) {
               ))}
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Language</label>
-              <select value={form.language} onChange={e => up("language", e.target.value)}
-                className={`${inp} w-48`} style={{ borderColor: C.goldBorder }}>
-                <option value="en">English</option>
-                <option value="rw">Kinyarwanda</option>
-                <option value="fr">Français</option>
-              </select>
-            </div>
+            <EducationLevelPicker
+              value={normalizeEducationLevel(form.nesaFeeLimitLevel)}
+              onChange={handleEducationLevelChange}
+              options={levelOptions.length ? levelOptions : EDUCATION_LEVEL_OPTIONS}
+              title="Education level"
+              hint="Select a level to filter classes. Use Public, Boarding, or TVET with this level — same labels as NESA Tuition Manager."
+            />
 
-            <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
-                Select classes
-                <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — choose a grade (e.g. P1) for all streams, or expand to pick P1 A, P1 B…
-                </span>
-              </label>
+            <div>
               {registeredClassesLoading ? (
-                <p className="text-xs font-semibold flex items-center gap-2" style={{ color: C.darkMid }}>
+                <p className="text-xs font-semibold flex items-center gap-2 py-8 justify-center" style={{ color: C.darkMid }}>
                   <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
                   Loading classes…
                 </p>
-              ) : !registeredClassOptions.length ? (
-                <p className="text-xs font-semibold leading-relaxed rounded-xl px-3 py-2.5 border"
-                  style={{ background: C.amberBg, color: C.darkMid, borderColor: C.amberBord }}>
-                  No classes found. Add classes under <strong>School Registry</strong> or ensure students are enrolled so classes appear here.
-                </p>
               ) : (
                 <>
                   <ClassStreamPicker
-                    groups={classGroups}
+                    groups={filteredClassGroups}
                     selected={form.classes || []}
                     onChange={(next) => {
                       up("classes", next);
-                      if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0]));
+                      if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0], classRowMap.get(next[0])));
                     }}
                     sortSelected={sortSelectedClassesByCatalog}
-                    catalogOrder={registeredClassOptions}
+                    catalogOrder={classOptions}
                     minSelected={1}
                     colors={C}
+                    levelLabel={EDUCATION_LEVEL_OPTIONS.find((o) => o.id === normalizeEducationLevel(form.nesaFeeLimitLevel))?.label || form.nesaFeeLimitLevel}
+                    onSelectAllLevel={() => {
+                      const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
+                      up("classes", sortSelectedClassesByCatalog(labels, classOptions));
+                    }}
+                    onClearLevel={() => {
+                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
+                      up("classes", first ? [first] : []);
+                    }}
                   />
                   {form.classes.length > 1 && (
                     <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
@@ -1448,6 +1473,16 @@ export default function App({ session }) {
                   )}
                 </>
               )}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Language</label>
+              <select value={form.language} onChange={e => up("language", e.target.value)}
+                className={`${inp} w-48`} style={{ borderColor: C.goldBorder }}>
+                <option value="en">English</option>
+                <option value="rw">Kinyarwanda</option>
+                <option value="fr">Français</option>
+              </select>
             </div>
 
             <div>
@@ -2396,7 +2431,7 @@ export default function App({ session }) {
 
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
+    <div className="flex flex-col flex-1 min-h-0 w-full min-h-[calc(100vh-5rem)]"
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
@@ -2416,8 +2451,7 @@ export default function App({ session }) {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"
-        style={{ boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
+      <div className="flex flex-col flex-1 min-h-0 w-full bg-white overflow-hidden">
 
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 shrink-0"

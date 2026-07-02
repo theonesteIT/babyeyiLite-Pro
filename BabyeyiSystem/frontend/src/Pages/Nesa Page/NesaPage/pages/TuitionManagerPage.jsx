@@ -1,7 +1,7 @@
-import FeeLimitsView from '../../NESAPages/FeeLimitsView';
+import NesaFeesLimit from '../../NESAPages/NesaFeesLimit';
 
 /**
- * Dedicated Tuition Manager page — content only; amber hero lives in the shell.
+ * Dedicated Tuition Manager page — national fee limits (NesaFeesLimit).
  */
 export default function TuitionManagerPage({
   toast,
@@ -14,7 +14,7 @@ export default function TuitionManagerPage({
   onAcademicPeriodChange,
 }) {
   return (
-    <FeeLimitsView
+    <NesaFeesLimit
       toast={toast}
       embedded
       onStatsChange={onStatsChange}

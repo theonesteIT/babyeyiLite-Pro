@@ -73,24 +73,44 @@ const writeAudit = async (feeLimitId, action, oldValues, newValues, req) => {
 };
 
 // ── Validation helper ──────────────────────────────────────
-const VALID_CATEGORIES = ['Public', 'Private', 'Boarding', 'TVET'];
-const VALID_LEVELS     = ['Nursery', 'Primary', 'Secondary', 'University'];
+const VALID_CATEGORIES = ['Public', 'Boarding', 'TVET'];
+const VALID_LEVELS     = ['Nursery', 'Primary', 'Secondary', 'TSS'];
 const VALID_TERMS      = ['Term 1', 'Term 2', 'Term 3', 'Full Year'];
 
+/** Normalize multipart body before validation (legacy University → Secondary, trim strings). */
+function normalizeFeeLimitPayload(body = {}) {
+  const out = { ...body };
+  if (out.category != null) {
+    out.category = String(out.category).trim();
+    if (out.category === 'Private') out.category = 'Public';
+  }
+  if (out.level != null) {
+    out.level = String(out.level).trim();
+    if (out.level === 'University') out.level = 'Secondary';
+  }
+  if (out.term != null) out.term = String(out.term).trim();
+  if (out.academic_year != null) out.academic_year = String(out.academic_year).trim();
+  if (out.max_amount != null && out.max_amount !== '') {
+    out.max_amount = String(out.max_amount).trim();
+  }
+  return out;
+}
+
 function validatePayload(body) {
+  const b = normalizeFeeLimitPayload(body);
   const errors = [];
-  if (!body.category || !VALID_CATEGORIES.includes(body.category))
+  if (!b.category || !VALID_CATEGORIES.includes(b.category))
     errors.push(`category must be one of: ${VALID_CATEGORIES.join(', ')}`);
-  if (!body.level || !VALID_LEVELS.includes(body.level))
+  if (!b.level || !VALID_LEVELS.includes(b.level))
     errors.push(`level must be one of: ${VALID_LEVELS.join(', ')}`);
-  if (!body.term || !VALID_TERMS.includes(body.term))
+  if (!b.term || !VALID_TERMS.includes(b.term))
     errors.push(`term must be one of: ${VALID_TERMS.join(', ')}`);
-  if (!body.academic_year || !/^\d{4}-\d{4}$/.test(body.academic_year))
+  if (!b.academic_year || !/^\d{4}-\d{4}$/.test(b.academic_year))
     errors.push('academic_year must match format YYYY-YYYY (e.g. 2024-2025)');
-  const amt = Number(body.max_amount);
-  if (!body.max_amount || isNaN(amt) || amt <= 0)
+  const amt = Number(b.max_amount);
+  if (!b.max_amount || isNaN(amt) || amt <= 0)
     errors.push('max_amount must be a positive number');
-  return errors;
+  return { errors, normalized: b };
 }
 
 // ================================================================
@@ -221,20 +241,22 @@ router.post('/', (req, res) => {
     if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
 
     try {
-      const body   = req.body;
-      const errors = validatePayload(body);
-      if (errors.length) return res.status(422).json({ success: false, errors });
+      const body   = normalizeFeeLimitPayload(req.body);
+      const { errors, normalized } = validatePayload(body);
+      if (errors.length) {
+        return res.status(422).json({ success: false, message: errors[0], errors });
+      }
 
       // Check for duplicate active limit
       const [existing] = await query(
         `SELECT id FROM fee_limits
          WHERE category = ? AND level = ? AND term = ? AND academic_year = ? AND is_active = 1`,
-        [body.category, body.level, body.term, body.academic_year]
+        [normalized.category, normalized.level, normalized.term, normalized.academic_year]
       );
       if (existing) {
         return res.status(409).json({
           success: false,
-          message: `An active fee limit for ${body.category} ${body.level} ${body.term} (${body.academic_year}) already exists. Use PUT to update it.`,
+          message: `An active fee limit for ${normalized.category} ${normalized.level} ${normalized.term} (${normalized.academic_year}) already exists. Use PUT to update it.`,
           existing_id: existing.id,
         });
       }
@@ -248,10 +270,10 @@ router.post('/', (req, res) => {
            effective_date, notes, document_path, document_name, created_by)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          body.category, body.level, body.term, body.academic_year,
-          Number(body.max_amount),
-          body.regulation_ref || null, body.effective_date || null,
-          body.notes || null, docPath, docName,
+          normalized.category, normalized.level, normalized.term, normalized.academic_year,
+          Number(normalized.max_amount),
+          normalized.regulation_ref || null, normalized.effective_date || null,
+          normalized.notes || null, docPath, docName,
           req.user?.id || null,
         ]
       );
@@ -280,25 +302,27 @@ router.put('/:id', (req, res) => {
 
     try {
       const { id } = req.params;
-      const body    = req.body;
+      const body    = normalizeFeeLimitPayload(req.body);
 
       const [old] = await query('SELECT * FROM fee_limits WHERE id = ? AND is_active = 1', [id]);
       if (!old) return res.status(404).json({ success: false, message: 'Fee limit not found' });
 
-      const errors = validatePayload(body);
-      if (errors.length) return res.status(422).json({ success: false, errors });
+      const { errors, normalized } = validatePayload(body);
+      if (errors.length) {
+        return res.status(422).json({ success: false, message: errors[0], errors });
+      }
 
       // Check for conflict with a different record
       const [conflict] = await query(
         `SELECT id FROM fee_limits
          WHERE category = ? AND level = ? AND term = ? AND academic_year = ?
            AND is_active = 1 AND id != ?`,
-        [body.category, body.level, body.term, body.academic_year, id]
+        [normalized.category, normalized.level, normalized.term, normalized.academic_year, id]
       );
       if (conflict) {
         return res.status(409).json({
           success: false,
-          message: `Another fee limit for ${body.category} ${body.level} ${body.term} (${body.academic_year}) already exists.`,
+          message: `Another fee limit for ${normalized.category} ${normalized.level} ${normalized.term} (${normalized.academic_year}) already exists.`,
         });
       }
 
@@ -312,10 +336,10 @@ router.put('/:id', (req, res) => {
           document_path=?, document_name=?, updated_by=?
          WHERE id=?`,
         [
-          body.category, body.level, body.term, body.academic_year,
-          Number(body.max_amount),
-          body.regulation_ref || null, body.effective_date || null,
-          body.notes || null, docPath, docName,
+          normalized.category, normalized.level, normalized.term, normalized.academic_year,
+          Number(normalized.max_amount),
+          normalized.regulation_ref || null, normalized.effective_date || null,
+          normalized.notes || null, docPath, docName,
           req.user?.id || null, id,
         ]
       );

@@ -334,7 +334,7 @@ export default function NesaBabyeyiDashboard() {
           className="inline-flex cursor-pointer items-center gap-2 rounded-xl border-none bg-[#000435] px-4 py-2.5 text-[13px] font-bold text-amber-400 shadow-md transition-opacity hover:opacity-95"
         >
           <Plus size={16} />
-          Set New Limit
+          Set new fee limit
         </button>
       </>
     ) : null;
