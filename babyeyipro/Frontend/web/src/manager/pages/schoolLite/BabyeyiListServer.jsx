@@ -168,7 +168,7 @@ const UI = {
     secClassNotes:      "Amabwiriza y'Icyiciro",
     secAuth:            "Uburenganzira n'Umukono",
     thNo:               "N°",
-    thPaymentItem:      "Igice cy'Amafaranga",
+    thPaymentItem:      "Ibikenewe",
     thAmount:           "Amafaranga (RWF)",
     thTotalLabel:       "IGITERANYO",
     thBank:             "Izina rya Banki",

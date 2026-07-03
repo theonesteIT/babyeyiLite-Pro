@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Loader2, RefreshCw, Package, Banknote, TrendingDown,
-  Calendar, Layers, Trash2, Upload, Sparkles, FileSpreadsheet,
+  Calendar, Layers, Trash2, Upload, Sparkles, FileSpreadsheet, Calculator,
 } from 'lucide-react'
 import QRCode from '../../../assets_portal/components/AssetQrCode'
 import AddAsset2 from '../components/AddAsset2'
@@ -42,6 +42,7 @@ const rowFin = (a) => enrichRegisterFinancials(a) || a
 
 const TABLE_COLUMNS = [
   { key: 'sn', label: 'S/N', render: (_, idx) => idx + 1 },
+  { key: 'year', label: 'YEAR', render: (a) => (a.register_year != null ? String(a.register_year) : '—') },
   { key: 'name', label: 'ASSET NAME', render: (a) => a.asset_name || a.name || '—' },
   { key: 'category', label: 'CATEGORY', render: (a) => a.category || '—' },
   { key: 'opening', label: 'OPENING STOCK', num: true, render: (a) => fmt(rowFin(a).opening_amount) },
@@ -79,6 +80,8 @@ export default function AssetAddTest() {
   const [filterOldNotReplaced, setFilterOldNotReplaced] = useState(false)
   const [datePeriod, setDatePeriod] = useState(EMPTY_DATE_PERIOD)
   const [exporting, setExporting] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
+  const [recalcMsg, setRecalcMsg] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [wizardOpen, setWizardOpen] = useState(false)
   const [editAssetId, setEditAssetId] = useState(null)
@@ -231,6 +234,32 @@ export default function AssetAddTest() {
     return [...new Set([...fromStats, ...fromAssets].filter(Boolean))].sort((a, b) => b - a)
   }, [stats, assets])
 
+  const handleRecalculateRegister = async () => {
+    if (!window.confirm(
+      'Recalculate the full asset register for all years?\n\n'
+      + 'This will recompute opening amounts, accumulated depreciation, and totals for every category in every register year. '
+      + 'Existing assets are not deleted.'
+    )) return
+    setRecalculating(true)
+    setError('')
+    setRecalcMsg('')
+    try {
+      const result = await assetTestApi.recalcAllRegisterChains()
+      const count = result?.assets_recalculated ?? 0
+      const yearCount = result?.years?.length ?? 0
+      setRecalcMsg(
+        yearCount
+          ? `Recalculated ${count} asset(s) across ${yearCount} register year${yearCount === 1 ? '' : 's'}.`
+          : (result?.message || 'Register recalculation complete.')
+      )
+      await refreshAll()
+    } catch (err) {
+      setError(err?.message || 'Failed to recalculate register')
+    } finally {
+      setRecalculating(false)
+    }
+  }
+
   const handleExportExcel = async () => {
     setExporting(true)
     setError('')
@@ -263,6 +292,7 @@ export default function AssetAddTest() {
         })
         return {
           ...o,
+          year: a.register_year != null ? String(a.register_year) : '',
           name: a.asset_name || a.name,
           opening: rowFin(a).opening_amount,
           purchase: rowFin(a).unit_price,
@@ -279,6 +309,7 @@ export default function AssetAddTest() {
         title: 'Asset Register Export',
         columns: [
           { label: 'S/N', field: 'sn' },
+          { label: 'YEAR', field: 'year' },
           { label: 'ASSET NAME', field: 'name' },
           { label: 'CATEGORY', field: 'category' },
           { label: 'OPENING STOCK', field: 'opening' },
@@ -472,6 +503,16 @@ export default function AssetAddTest() {
             </button>
             <button
               type="button"
+              onClick={handleRecalculateRegister}
+              disabled={recalculating || loading}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/20 disabled:opacity-50"
+              title="Recompute opening, accumulated depreciation, and totals for all register years"
+            >
+              {recalculating ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
+              Recalculate register
+            </button>
+            <button
+              type="button"
               onClick={handleExportExcel}
               disabled={exporting || loading}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/20 disabled:opacity-50"
@@ -524,6 +565,10 @@ export default function AssetAddTest() {
 
       {importMsg && !error && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{importMsg}</div>
+      )}
+
+      {recalcMsg && !error && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">{recalcMsg}</div>
       )}
 
       {/* Filters */}

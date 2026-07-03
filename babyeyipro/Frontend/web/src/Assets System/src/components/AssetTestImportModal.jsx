@@ -317,7 +317,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                   </p>
                   <ul className="text-xs text-blue-900/80 space-y-1 list-disc list-inside">
                     <li>First row per category uses year-start opening + accumulated depreciation.</li>
-                    <li>Next rows: <strong>Opening</strong> = prior row TOTAL BALANCE · <strong>Acc. dep.</strong> = prior TOTAL DEPRECIATION · <strong>Annual dep.</strong> = total balance × depreciation rate.</li>
+                    <li>Next rows: <strong>Opening</strong> = prior row TOTAL BALANCE · <strong>Acc. dep.</strong> = same value for all assets in that category &amp; year · <strong>Annual dep.</strong> = total balance × depreciation rate.</li>
                     <li>Required columns: <strong>name</strong>, <strong>type</strong> (or <strong>category</strong>), <strong>purchase_unit_price</strong>.</li>
                     <li><strong>type</strong> (e.g. BUILDING) maps to your Year Setup category (e.g. Buildings) for opening balances.</li>
                     <li><strong>SKU</strong> is optional when auto-generate is enabled (default).</li>

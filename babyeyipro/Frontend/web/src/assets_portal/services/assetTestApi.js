@@ -84,6 +84,10 @@ const assetTestApi = {
     })
   ),
 
+  recalcAllRegisterChains: async () => unwrap(
+    await api.post('/school/assets/test/recalc-chain', { all_years: true }, { timeout: 300000 })
+  ),
+
   getAsset: async (id) => unwrap(await api.get(`/school/assets/${id}`)),
 
   getAssetPanel: async (id) => unwrap(await api.get(`/school/assets/${id}/panel`)),

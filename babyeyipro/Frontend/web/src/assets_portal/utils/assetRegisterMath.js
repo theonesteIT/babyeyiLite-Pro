@@ -86,17 +86,17 @@ export function computeAssetRegisterMath({
 
 
 
-/** Next row in same category: opening = prior TOTAL BALANCE, accumulated = prior TOTAL DEPRECIATION */
+/** Next row in same category/year: opening = prior TOTAL BALANCE; accumulated stays at category year-start */
 
-export function rollCategoryStateAfterAsset(math) {
+export function rollCategoryStateAfterAsset(math, priorState = {}) {
 
-  if (!math) return { opening: 0, accumulated: 0 }
+  if (!math) return { opening: 0, accumulated: priorState.accumulated ?? 0 }
 
   return {
 
     opening: math.totalBalance,
 
-    accumulated: math.totalDep,
+    accumulated: priorState.accumulated ?? math.accumulatedDepreciation,
 
   }
 

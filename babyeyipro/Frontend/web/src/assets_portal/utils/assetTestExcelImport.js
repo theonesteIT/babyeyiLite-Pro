@@ -297,7 +297,7 @@ export function buildAssetTestImportPreview(
         accumulatedDepreciation: state.accumulated,
         depRatePercent: rate,
       });
-      categoryState[cat] = rollCategoryStateAfterAsset(math);
+      categoryState[cat] = rollCategoryStateAfterAsset(math, state);
     }
 
     let status = 'ready';

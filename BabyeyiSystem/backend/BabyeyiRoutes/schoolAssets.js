@@ -862,14 +862,14 @@ async function recalcRegisterChainInCategory(schoolId, year, categoryName) {
 
   const yearStart = await resolveYearStartOpening(schoolId, yr, cat);
   let rollingOpening = yearStart.opening;
-  let rollingAccumulated = yearStart.accumulated;
+  const categoryYearAccumulated = yearStart.accumulated;
 
   for (const row of rows) {
     const depRate = toMoney(row.dep_rate ?? 5);
     const math = computeAssetRegisterMath({
       openingAmount: rollingOpening,
       unitPrice: row.unit_price,
-      accumulatedDepreciation: rollingAccumulated,
+      accumulatedDepreciation: categoryYearAccumulated,
       depRatePercent: depRate,
     });
 
@@ -892,25 +892,32 @@ async function recalcRegisterChainInCategory(schoolId, year, categoryName) {
     );
 
     rollingOpening = math.totalBalance;
-    rollingAccumulated = math.totalDep;
   }
 
   return rows.length;
 }
 
-/** Opening for next asset — always from last register row when any exist in year/category. */
+/** Opening for next asset — last row TOTAL BALANCE; accumulated fixed at category year-start for the register year. */
 async function resolveRegisterRollingOpening(schoolId, year, categoryName) {
   const yr = Number(year);
   const cat = trimStr(categoryName);
   if (!Number.isFinite(yr) || !cat) return null;
 
+  const yearStart = await resolveYearStartOpening(schoolId, yr, cat);
+  const categoryYearAccumulated = yearStart.accumulated;
   const assetsInYear = await countRegisterAssetsInCategory(schoolId, yr, cat);
-  const lastAsset = assetsInYear > 0
+  const lastInYear = assetsInYear > 0
     ? await getLastRegisterAssetInCategory(schoolId, yr, cat)
-    : await getLastRegisterAssetInCategory(schoolId, yr - 1, cat);
+    : null;
+  const priorYearLast = assetsInYear === 0
+    ? await getLastRegisterAssetInCategory(schoolId, yr - 1, cat)
+    : null;
 
-  const effectiveOpening = lastAsset ? toMoney(lastAsset.total_balance) : 0;
-  const effectiveAccumulated = lastAsset ? toMoney(lastAsset.total_dep) : 0;
+  const effectiveOpening = lastInYear
+    ? toMoney(lastInYear.total_balance)
+    : yearStart.opening;
+  const effectiveAccumulated = categoryYearAccumulated;
+  const priorAsset = lastInYear || priorYearLast;
 
   return {
     year: yr,
@@ -918,18 +925,21 @@ async function resolveRegisterRollingOpening(schoolId, year, categoryName) {
     assets_in_year: assetsInYear,
     effective_opening: effectiveOpening,
     effective_accumulated_depreciation: effectiveAccumulated,
-    last_year_total_depreciation: assetsInYear === 0 ? effectiveAccumulated : 0,
-    prior_asset_id: lastAsset?.id ?? null,
-    prior_asset_name: lastAsset?.asset_name ?? null,
-    prior_asset_code: lastAsset?.asset_code ?? null,
+    category_year_accumulated_depreciation: categoryYearAccumulated,
+    last_year_total_depreciation: assetsInYear === 0
+      ? (priorYearLast ? toMoney(priorYearLast.total_dep) : categoryYearAccumulated)
+      : categoryYearAccumulated,
+    prior_asset_id: priorAsset?.id ?? yearStart.prior_asset_id ?? null,
+    prior_asset_name: priorAsset?.asset_name ?? yearStart.prior_asset_name ?? null,
+    prior_asset_code: priorAsset?.asset_code ?? yearStart.prior_asset_code ?? null,
     prior_asset_total_balance: effectiveOpening,
-    prior_asset_total_dep: effectiveAccumulated,
-    source: assetsInYear > 0 ? 'ledger' : (lastAsset ? 'last_year' : 'none'),
+    prior_asset_total_dep: priorAsset ? toMoney(priorAsset.total_dep) : categoryYearAccumulated,
+    source: assetsInYear > 0 ? 'ledger' : (priorYearLast || yearStart.source === 'prior_year_last_asset' ? 'last_year' : 'year_setup'),
     source_label: assetsInYear > 0
-      ? `Continues from last asset (${lastAsset?.asset_name || 'register'}) — opening = TOTAL BALANCE, accumulated = TOTAL DEPRECIATION`
-      : lastAsset
-        ? `Carried from ${yr - 1} last asset — opening = TOTAL BALANCE, accumulated = TOTAL DEPRECIATION`
-        : 'First asset in this category — opening from Year Setup',
+      ? `Continues from last asset (${lastInYear?.asset_name || 'register'}) — opening = TOTAL BALANCE, accumulated = same for all ${cat} in ${yr}`
+      : priorYearLast
+        ? `Carried from ${yr - 1} last asset — opening = TOTAL BALANCE, accumulated = category year-start`
+        : 'First asset in this category — opening & accumulated from Year Setup',
   };
 }
 
@@ -4287,7 +4297,7 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
         if (result?.calculation) {
           batchRollingByCategory[catKey] = {
             opening: toMoney(result.calculation.total_balance),
-            accumulated: toMoney(result.calculation.total_depreciation),
+            accumulated: rollState.accumulated,
           };
         }
         categoriesTouched.add(categoryName);
@@ -4353,41 +4363,74 @@ router.post('/school/assets/test/recalc-chain', requireRole(ASSETS_WRITE_ROLES),
   try {
     const { schoolId } = req.ctx;
     const body = req.body || {};
+    const allYears = body.all_years === true || body.allYears === true;
     const year = Number(body.register_year ?? body.registerYear ?? req.query.register_year);
     const category = trimStr(body.category ?? req.query.category);
-    if (!Number.isFinite(year)) {
-      return res.status(400).json({ success: false, message: 'register_year is required' });
+
+    async function recalcYearCategories(registerYear) {
+      if (category) {
+        const count = await recalcRegisterChainInCategory(schoolId, registerYear, category);
+        return { register_year: registerYear, categories: [category], assets_recalculated: count };
+      }
+      const [catRows] = await promisePool.query(
+        `SELECT DISTINCT category FROM school_assets
+         WHERE school_id = ? AND deleted_at IS NULL AND status != 'Draft' AND register_year = ?
+         ORDER BY category ASC`,
+        [schoolId, registerYear]
+      );
+      let total = 0;
+      const categories = [];
+      for (const row of catRows) {
+        const cat = trimStr(row.category);
+        if (!cat) continue;
+        const n = await recalcRegisterChainInCategory(schoolId, registerYear, cat);
+        total += n;
+        categories.push(cat);
+      }
+      return { register_year: registerYear, categories, assets_recalculated: total };
     }
 
-    if (category) {
-      const count = await recalcRegisterChainInCategory(schoolId, year, category);
+    if (allYears) {
+      const [yearRows] = await promisePool.query(
+        `SELECT DISTINCT register_year AS yr FROM school_assets
+         WHERE school_id = ? AND deleted_at IS NULL AND status != 'Draft' AND register_year IS NOT NULL
+         ORDER BY register_year ASC`,
+        [schoolId]
+      );
+      const years = yearRows.map((r) => Number(r.yr)).filter((y) => Number.isFinite(y));
+      if (!years.length) {
+        return res.json({
+          success: true,
+          message: 'No register years found to recalculate',
+          data: { years: [], assets_recalculated: 0, by_year: [] },
+        });
+      }
+      const byYear = [];
+      let grandTotal = 0;
+      for (const yr of years) {
+        const result = await recalcYearCategories(yr);
+        grandTotal += result.assets_recalculated;
+        byYear.push(result);
+      }
       return res.json({
         success: true,
-        message: `Recalculated ${count} asset(s) in ${category} for FY ${year}`,
-        data: { register_year: year, categories: [category], assets_recalculated: count },
+        message: `Recalculated ${grandTotal} asset(s) across ${years.length} register year${years.length === 1 ? '' : 's'}`,
+        data: { years, assets_recalculated: grandTotal, by_year: byYear },
       });
     }
 
-    const [catRows] = await promisePool.query(
-      `SELECT DISTINCT category FROM school_assets
-       WHERE school_id = ? AND deleted_at IS NULL AND status != 'Draft' AND register_year = ?
-       ORDER BY category ASC`,
-      [schoolId, year]
-    );
-    let total = 0;
-    const categories = [];
-    for (const row of catRows) {
-      const cat = trimStr(row.category);
-      if (!cat) continue;
-      const n = await recalcRegisterChainInCategory(schoolId, year, cat);
-      total += n;
-      categories.push(cat);
+    if (!Number.isFinite(year)) {
+      return res.status(400).json({ success: false, message: 'register_year is required (or set all_years: true)' });
     }
 
+    const result = await recalcYearCategories(year);
+    const catCount = result.categories.length;
     res.json({
       success: true,
-      message: `Recalculated ${total} asset(s) across ${categories.length} categor${categories.length === 1 ? 'y' : 'ies'} for FY ${year}`,
-      data: { register_year: year, categories, assets_recalculated: total },
+      message: category
+        ? `Recalculated ${result.assets_recalculated} asset(s) in ${category} for FY ${year}`
+        : `Recalculated ${result.assets_recalculated} asset(s) across ${catCount} categor${catCount === 1 ? 'y' : 'ies'} for FY ${year}`,
+      data: result,
     });
   } catch (err) {
     console.error('POST /school/assets/test/recalc-chain:', err);
