@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { computeAssetRegisterMath, parseRegisterNum, rollCategoryStateAfterAsset } from './assetRegisterMath';
+import { computeAssetRegisterMath, parseRegisterNum, rollCategoryStateAfterAsset, resolveCategoryYearStartState, categoryYearPriorKey, categoryYearRollKey } from './assetRegisterMath';
 
 /** Minimal import columns (matches user spreadsheet layout) */
 export const ASSET_TEST_IMPORT_HEADERS = [
@@ -125,6 +125,25 @@ function buildPurchaseDate(y, m, d) {
   return `${yr}-${mm}-${dd}`;
 }
 
+/** Per row: purchase_year → register_year → purchase_date year → batch fallback */
+export function resolveRowRegisterYear(row, fallbackYear) {
+  const purchaseYear = parseRegisterNum(row?.purchase_year ?? row?.purchaseYear);
+  if (purchaseYear >= 1900 && purchaseYear <= 2100) return Math.floor(purchaseYear);
+  const fromRegister = parseRegisterNum(row?.register_year ?? row?.registerYear);
+  if (fromRegister >= 1900 && fromRegister <= 2100) return Math.floor(fromRegister);
+  const dateStr = cellStr(row?.purchase_date);
+  if (dateStr) {
+    const y = Number(dateStr.slice(0, 4));
+    if (Number.isFinite(y) && y >= 1900 && y <= 2100) return y;
+  }
+  const fb = Number(fallbackYear);
+  return Number.isFinite(fb) && fb >= 1900 && fb <= 2100 ? Math.floor(fb) : new Date().getFullYear();
+}
+
+export function categoryYearRollKeyFromRow(row, fallbackYear) {
+  return categoryYearRollKey(resolveRowRegisterYear(row, fallbackYear), row.category);
+}
+
 export function excelRowToTestImportRow(row, knownCategories = []) {
   const r = mapRowKeys(row);
   const category = resolveImportCategoryName({
@@ -213,15 +232,18 @@ function validateRow(row, { autoGenerateSku = false } = {}) {
   return issues;
 }
 
-function analyzeSku(row, existingSkus, fileSeenSkus, rowIndex, { autoGenerateSku = false } = {}) {
+function analyzeSku(row, existingSkusByYear, fileSeenSkusByYear, rowIndex, fallbackYear, { autoGenerateSku = false } = {}) {
   const issues = [];
   const sku = cellStr(row.sku).toUpperCase();
+  const year = resolveRowRegisterYear(row, fallbackYear);
+  const existingSkus = existingSkusByYear.get(year) || new Set();
+  const fileSeenSkus = fileSeenSkusByYear.get(year) || new Map();
   if (!sku) {
     if (!autoGenerateSku) issues.push('SKU is required');
     return issues;
   }
   if (existingSkus.has(sku)) {
-    issues.push(`SKU "${row.sku}" already exists in this register year`);
+    issues.push(`SKU "${row.sku}" already exists in FY ${year}`);
   }
   if (fileSeenSkus.has(sku)) {
     if (fileSeenSkus.get(sku) !== rowIndex) {
@@ -229,75 +251,103 @@ function analyzeSku(row, existingSkus, fileSeenSkus, rowIndex, { autoGenerateSku
     }
   } else {
     fileSeenSkus.set(sku, rowIndex);
+    fileSeenSkusByYear.set(year, fileSeenSkus);
   }
   return issues;
 }
 
 /**
- * Build preview with rolling opening / depreciation per category (file row order).
+ * Build preview with rolling opening / depreciation per category+year (file row order).
  * @param {object[]} parsedRows
- * @param {Record<string, { effective_opening, effective_accumulated_depreciation, depreciation_rate? }>} openingByCategory
+ * @param {Record<string, { effective_opening, effective_accumulated_depreciation, depreciation_rate? }>} openingByCategoryYear — key `${year}:${category}`
  * @param {Record<string, number>} depRateByCategory
- * @param {Set<string>} existingSkus — uppercase SKUs already in DB for selected year
+ * @param {Map<number, Set<string>>} existingSkusByYear — uppercase SKUs per register year
  */
 export function buildAssetTestImportPreview(
   parsedRows,
-  openingByCategory = {},
+  openingByCategoryYear = {},
   depRateByCategory = {},
-  existingSkus = new Set(),
+  existingSkusByYear = new Map(),
   options = {},
 ) {
   const {
     autoGenerateSku = true,
     schoolAbbr = 'SCH',
+    fallbackYear = new Date().getFullYear(),
   } = options;
   const categoryState = {};
-  const fileSeenSkus = new Map();
+  const yearEndByCategory = {};
+  const fileSeenSkusByYear = new Map();
   const prefixCounters = new Map();
+  const allExistingSkus = new Set();
+  existingSkusByYear.forEach((set) => set.forEach((s) => allExistingSkus.add(s)));
 
   return parsedRows.map((row, idx) => {
     const rowIndex = idx + 1;
+    const registerYear = resolveRowRegisterYear(row, fallbackYear);
     let effectiveRow = row;
     let autoSku = false;
     if (autoGenerateSku && !cellStr(row.sku)) {
       const generated = allocateImportPreviewSku(
         { ...row, rowIndex },
-        { schoolAbbr, prefixCounters, existingSkus, fileSeenSkus },
+        { schoolAbbr, prefixCounters, existingSkus: allExistingSkus, fileSeenSkus: new Map() },
       );
       effectiveRow = { ...row, sku: generated };
       autoSku = true;
     }
     const validationIssues = validateRow(effectiveRow, { autoGenerateSku });
-    const skuIssues = analyzeSku(effectiveRow, existingSkus, fileSeenSkus, rowIndex, { autoGenerateSku });
+    const skuIssues = analyzeSku(
+      effectiveRow,
+      existingSkusByYear,
+      fileSeenSkusByYear,
+      rowIndex,
+      fallbackYear,
+      { autoGenerateSku },
+    );
     const issues = [...validationIssues, ...skuIssues];
 
     const cat = cellStr(row.category);
-    const rate = depRateByCategory[cat] ?? openingByCategory[cat]?.depreciation_rate ?? 5;
+    const rollKey = categoryYearRollKey(registerYear, cat);
+    const isLand = String(cat).trim().toLowerCase() === 'land';
+    const rate = isLand
+      ? 0
+      : (depRateByCategory[cat] ?? openingByCategoryYear[rollKey]?.depreciation_rate ?? 5);
 
-    if (!categoryState[cat]) {
-      const ctx = openingByCategory[cat] || {};
-      categoryState[cat] = {
-        opening: parseRegisterNum(
-          ctx.effective_opening ?? ctx.year_setup_opening ?? ctx.year_opening_balance
-        ),
-        accumulated: parseRegisterNum(
-          ctx.effective_accumulated_depreciation
-          ?? ctx.year_setup_accumulated_depreciation
-          ?? ctx.accumulated_depreciation
-        ),
-      };
+    if (!categoryState[rollKey]) {
+      const priorKey = categoryYearPriorKey(registerYear, cat);
+      const priorYearEnd = priorKey ? yearEndByCategory[priorKey] : null;
+      const ctx = openingByCategoryYear[rollKey] || {};
+      categoryState[rollKey] = resolveCategoryYearStartState({
+        priorYearEnd,
+        openingContext: ctx,
+        category: cat,
+      });
     }
 
-    const state = categoryState[cat];
+    const state = categoryState[rollKey];
     let math = null;
     if (!validationIssues.length) {
       math = computeAssetRegisterMath({
         openingAmount: state.opening,
         unitPrice: effectiveRow.unit_price,
-        accumulatedDepreciation: state.accumulated,
+        accumulatedDepreciation: state.fixedAccumulated,
         depRatePercent: rate,
+        category: cat,
+        buildingStatus: effectiveRow.building_status,
+        previousProgressPurchase: state.lastProgressPurchase,
+        priorYearNetBookValue: state.priorYearNetBook ?? null,
       });
-      categoryState[cat] = rollCategoryStateAfterAsset(math, state);
+      categoryState[rollKey] = rollCategoryStateAfterAsset(math, state, {
+        category: cat,
+        buildingStatus: effectiveRow.building_status,
+        unitPrice: effectiveRow.unit_price,
+      });
+      yearEndByCategory[rollKey] = {
+        totalBalance: math.totalBalance,
+        totalDep: math.totalDep,
+        netBook: math.netBookValue,
+        lastProgressPurchase: categoryState[rollKey]?.lastProgressPurchase ?? null,
+      };
     }
 
     let status = 'ready';
@@ -308,6 +358,7 @@ export function buildAssetTestImportPreview(
     return {
       rowIndex,
       row,
+      register_year: registerYear,
       payload: {
         asset_name: effectiveRow.asset_name,
         category: effectiveRow.category,
@@ -320,6 +371,10 @@ export function buildAssetTestImportPreview(
         sku_mode: autoSku ? 'auto' : 'manual',
         material: effectiveRow.material,
         purchase_date: effectiveRow.purchase_date,
+        purchase_year: effectiveRow.purchase_year,
+        purchase_month: effectiveRow.purchase_month,
+        purchase_day: effectiveRow.purchase_day,
+        register_year: registerYear,
         purchase_price: effectiveRow.unit_price,
         unit_price: effectiveRow.unit_price,
         reference_no: effectiveRow.cba || null,

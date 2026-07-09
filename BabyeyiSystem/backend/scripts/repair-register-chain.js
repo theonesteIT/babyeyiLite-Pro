@@ -24,7 +24,8 @@ function computeAssetRegisterMath({
   const rate = toMoney(depRatePercent);
   const decimalDep = rate > 0 ? rate / 100 : 0;
   const totalBalance = opening + purchase;
-  const annualDep = Math.round(totalBalance * decimalDep);
+  const depreciableBase = Math.max(0, totalBalance - accumulated);
+  const annualDep = Math.round(depreciableBase * decimalDep);
   const totalDep = accumulated + annualDep;
   const netBookValue = Math.max(0, totalBalance - totalDep);
   return { opening, purchase, accumulated, totalBalance, annualDep, totalDep, netBookValue, decimalDep };

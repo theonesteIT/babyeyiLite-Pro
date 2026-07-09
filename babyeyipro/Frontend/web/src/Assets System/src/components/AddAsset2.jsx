@@ -6,7 +6,7 @@ import {
 import assetTestApi from '../../../assets_portal/services/assetTestApi'
 import { formatRwfPlain, yearOptionsFrom1900 } from '../../../assets_portal/utils/financialYearUtils'
 import { computeAssetRegisterMath } from '../../../assets_portal/utils/assetRegisterMath'
-import { ASSET_HEALTH_STATUS_OPTIONS, DEFAULT_ASSET_HEALTH_STATUS } from '../../../assets_portal/utils/assetsConstants'
+import { ASSET_HEALTH_STATUS_OPTIONS, DEFAULT_ASSET_HEALTH_STATUS, BUILDING_STATUS_OPTIONS, DEFAULT_BUILDING_STATUS, isBuildingsCategory, isBuildingWorkingProgress, isLandCategory } from '../../../assets_portal/utils/assetsConstants'
 import {
   abbreviateSchoolName,
   manualSkuForIndex,
@@ -23,6 +23,7 @@ const EMPTY = {
   purchasePrice: '', purchaseDate: '', condition: 'Good',
   sdNumber: '', receiptNumber: '', referenceNo: '', applyTax: true,
   selectedYear: '', isFirstEntry: true, assetHealthStatus: DEFAULT_ASSET_HEALTH_STATUS,
+  buildingStatus: DEFAULT_BUILDING_STATUS,
 }
 
 function conditionFromDb(code) {
@@ -58,6 +59,7 @@ function assetToForm(asset) {
     selectedYear: asset?.register_year != null ? String(asset.register_year) : '',
     isFirstEntry: true,
     assetHealthStatus: asset?.asset_health_status || DEFAULT_ASSET_HEALTH_STATUS,
+    buildingStatus: asset?.building_status || DEFAULT_BUILDING_STATUS,
   }
 }
 
@@ -88,7 +90,7 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
 
   const legacyYears = useMemo(() => yearOptionsFrom1900(), [])
 
-  const loadOpeningContext = useCallback(async (year, category, isFirstEntry) => {
+  const loadOpeningContext = useCallback(async (year, category, isFirstEntry, editingAssetId = null) => {
     if (!year || !category) {
       setOpeningContext(null)
       return
@@ -96,8 +98,9 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
     setLoadingOpening(true)
     try {
       const ctx = await assetTestApi.getOpening(year, category, {
-        firstTime: isFirstEntry,
-        entryMode: isFirstEntry ? 'year_setup' : 'legacy',
+        firstTime: editingAssetId ? false : isFirstEntry,
+        entryMode: editingAssetId ? 'legacy' : (isFirstEntry ? 'year_setup' : 'legacy'),
+        editAssetId: editingAssetId,
       })
       setOpeningContext(ctx)
     } catch {
@@ -168,30 +171,52 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
 
   useEffect(() => {
     if (!open) return
-    loadOpeningContext(form.selectedYear, form.category, form.isFirstEntry)
-  }, [open, form.selectedYear, form.category, form.isFirstEntry, loadOpeningContext])
+    const editContextApplies = isEdit && editAsset
+      && String(form.selectedYear) === String(editAsset.register_year)
+      && form.category === editAsset.category
+    loadOpeningContext(
+      form.selectedYear,
+      form.category,
+      form.isFirstEntry,
+      editContextApplies ? editAssetId : null,
+    )
+  }, [open, form.selectedYear, form.category, form.isFirstEntry, loadOpeningContext, isEdit, editAsset, editAssetId])
 
-  const rate = Number(openingContext?.depreciation_rate ?? 5)
+  const rate = isLandCategory(form.category)
+    ? 0
+    : Number(openingContext?.depreciation_rate ?? 5)
 
   const calc = useMemo(() => {
     const price = Number(form.purchasePrice) || 0
     const taxAmount = form.applyTax ? Math.round(price * 0.18) : 0
     const priceInclTax = price + taxAmount
 
-    const useStoredOpening = isEdit && editAsset
+    const editContextApplies = isEdit && editAsset
       && String(form.selectedYear) === String(editAsset.register_year)
       && form.category === editAsset.category
 
-    const accumulatedStart = useStoredOpening
-      ? Number(editAsset.accumulated_depreciation ?? 0)
+    const useStoredOpening = editContextApplies
+
+    // Acc. Dep. start must always be prior-year last asset TOTAL DEPRECIATION
+    // (category year-start), not a stale stored row value from a bad save.
+    // Land has no depreciation — force accumulated start to 0.
+    const accumulatedStart = isLandCategory(form.category)
+      ? 0
       : Number(
-        openingContext?.effective_accumulated_depreciation
+        openingContext?.category_year_accumulated_depreciation
+        ?? openingContext?.effective_accumulated_depreciation
         ?? openingContext?.year_setup_accumulated_depreciation
-        ?? openingContext?.accumulated_depreciation ?? 0
+        ?? openingContext?.accumulated_depreciation
+        ?? (useStoredOpening ? editAsset.accumulated_depreciation : 0)
+        ?? 0
       )
-    const lastYearTotalDep = useStoredOpening
-      ? Number(editAsset.total_dep ?? 0)
-      : Number(openingContext?.last_year_total_depreciation ?? 0)
+    const lastYearTotalDep = isLandCategory(form.category)
+      ? 0
+      : Number(
+        openingContext?.last_year_total_depreciation
+        ?? openingContext?.prior_asset_total_dep
+        ?? accumulatedStart
+      )
     const categoryOpening = useStoredOpening
       ? Number(editAsset.opening_amount ?? 0)
       : Number(
@@ -201,14 +226,36 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
         ?? 0
       )
 
+    const priorProgressPurchase = openingContext?.source === 'ledger'
+      && Number(openingContext?.prior_progress_purchase ?? 0) > 0
+      ? Number(openingContext.prior_progress_purchase)
+      : null
+    const priorYearNetBookValue = openingContext?.source !== 'ledger'
+      && Number(openingContext?.prior_asset_net_book ?? 0) > 0
+      ? Number(openingContext.prior_asset_net_book)
+      : null
+
     const math = computeAssetRegisterMath({
       openingAmount: categoryOpening,
       unitPrice: price,
       accumulatedDepreciation: accumulatedStart,
       depRatePercent: rate,
+      category: form.category,
+      buildingStatus: form.buildingStatus,
+      previousProgressPurchase: priorProgressPurchase,
+      priorYearNetBookValue,
     })
+    const buildingWip = isBuildingsCategory(form.category) && isBuildingWorkingProgress(form.buildingStatus)
+    const buildingCategory = isBuildingsCategory(form.category)
+    const buildingFinished = buildingCategory && !buildingWip
     return {
       rate,
+      buildingWip,
+      buildingCategory,
+      buildingFinished,
+      priorProgressPurchase,
+      priorYearNetBookValue,
+      constructionCost: math.constructionCost,
       taxAmount,
       priceInclTax,
       categoryOpening,
@@ -288,7 +335,11 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
   }
 
   const handleCategoryChange = (name) => {
-    set('category', name)
+    setForm((f) => ({
+      ...f,
+      category: name,
+      buildingStatus: isBuildingsCategory(name) ? (f.buildingStatus || DEFAULT_BUILDING_STATUS) : DEFAULT_BUILDING_STATUS,
+    }))
   }
 
   const handleSave = async () => {
@@ -316,6 +367,7 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
         reference_no: form.referenceNo || null,
         apply_tax: form.applyTax,
         asset_health_status: form.assetHealthStatus || 'Used',
+        building_status: isBuildingsCategory(form.category) ? form.buildingStatus : null,
       }
       if (isEdit) {
         await assetTestApi.updateAsset(editAssetId, payload)
@@ -457,7 +509,9 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
                     </select>
                   )}
                   <p className="text-[10px] text-gray-500 mt-1">
-                    {form.isFirstEntry
+                    {isLandCategory(form.category)
+                      ? <>Land: select year → Opening = Year Setup opening or last year’s TOTAL BALANCE. Enter purchase → TOTAL BALANCE = Opening + Purchase (no depreciation).</>
+                      : form.isFirstEntry
                       ? <>Only <strong>Active</strong> years accept new assets.</>
                       : <>Year does not need to be in Year Setup. Opening = last asset net book in {form.selectedYear ? Number(form.selectedYear) - 1 : 'prior year'}; accumulated = its total depreciation.</>}
                   </p>
@@ -479,11 +533,43 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
                       <option value="">Select category…</option>
                       {categories.map((c) => (
                         <option key={c.id || c.name} value={c.name}>
-                          {c.name}{c.depreciation_rate != null ? ` (${c.depreciation_rate}% dep.)` : ''}
+                          {c.name}{isLandCategory(c.name) || Number(c.depreciation_rate) === 0
+                            ? ' (no depreciation)'
+                            : (c.depreciation_rate != null ? ` (${c.depreciation_rate}% dep.)` : '')}
                         </option>
                       ))}
                     </select>
+                    {isLandCategory(form.category) && (
+                      <p className="text-[10px] text-emerald-700 mt-1 col-span-2">
+                        Land: Year Setup Opening only → register Opening + Purchase = TOTAL BALANCE.
+                        Next year Opening = last year TOTAL BALANCE. No depreciation.
+                      </p>
+                    )}
                   </div>
+                  {isBuildingsCategory(form.category) && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">Building status</label>
+                      <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+                        {BUILDING_STATUS_OPTIONS.map((o) => (
+                          <button
+                            key={o.value}
+                            type="button"
+                            onClick={() => set('buildingStatus', o.value)}
+                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-all ${
+                              form.buildingStatus === o.value
+                                ? 'bg-[#000435] text-white shadow-sm'
+                                : 'text-gray-500 hover:text-gray-800'
+                            }`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        Working Progress: year-carry uses (Opening − Acc. dep.) for annual and NET BOOK = Opening − Acc. dep. − Annual; same-year progress chain uses purchase/prior-progress formulas. Finished: annual dep. on (PP − TD); NBV = TB − total depreciation.
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Location *</label>
                     <input type="text" className="assets-wizard-input w-full text-sm" placeholder="Building A - Room 201"
@@ -707,11 +793,23 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
                     <div className="h-px bg-amber-200/60 my-1" />
                     <div className="flex justify-between"><span className="text-gray-600">Annual depreciation</span><span className="font-mono text-red-600">RWF {formatRwfPlain(calc.annualDep)}</span></div>
                     <p className="text-[10px] text-amber-800/70 text-right -mt-1">
-                      = Total balance ({formatRwfPlain(calc.totalBalance)}) × {calc.rate}%
+                      {isLandCategory(form.category)
+                        ? 'Land is not depreciated (rate 0%)'
+                        : calc.buildingWip && calc.priorProgressPurchase
+                        ? `= (Purchase ${formatRwfPlain(form.purchasePrice)} − Prior progress ${formatRwfPlain(calc.priorProgressPurchase)} − Acc. dep. ${formatRwfPlain(calc.accumulatedStart)}) × ${calc.rate}%`
+                        : calc.buildingWip && calc.priorYearNetBookValue
+                          ? `= (Prior year NBV ${formatRwfPlain(calc.priorYearNetBookValue)}) × ${calc.rate}%`
+                        : calc.buildingWip && calc.categoryOpening > 0
+                          ? `= (Opening ${formatRwfPlain(calc.categoryOpening)} − Acc. dep. ${formatRwfPlain(calc.accumulatedStart)}) × ${calc.rate}%`
+                        : calc.buildingCategory
+                          ? `= (Purchase ${formatRwfPlain(form.purchasePrice)} − Acc. dep. ${formatRwfPlain(calc.accumulatedStart)}) × ${calc.rate}%`
+                          : `= (Total balance ${formatRwfPlain(calc.totalBalance)} − Acc. dep. ${formatRwfPlain(calc.accumulatedStart)}) × ${calc.rate}%`}
                     </p>
                     <div className="flex justify-between font-semibold"><span>TOTAL DEPRECIATION</span><span className="font-mono text-red-600">RWF {formatRwfPlain(calc.totalDep)}</span></div>
                     <p className="text-[10px] text-amber-800/70 text-right -mt-1">
-                      = Total balance ({formatRwfPlain(calc.totalBalance)}) − Annual ({formatRwfPlain(calc.annualDep)})
+                      {calc.buildingWip
+                        ? `= Total balance (${formatRwfPlain(calc.totalBalance)}) − Net book (${formatRwfPlain(calc.netBook)})`
+                        : `= Acc. dep. start (${formatRwfPlain(calc.accumulatedStart)}) + Annual (${formatRwfPlain(calc.annualDep)})`}
                     </p>
                     <div className="flex justify-between"><span className="text-gray-600">Closing / next accumulated</span><span className="font-mono">RWF {formatRwfPlain(calc.newAccDep)}</span></div>
                     <div className="flex justify-between bg-amber-100/60 rounded-lg p-2 -mx-1">
@@ -719,7 +817,17 @@ export default function AddAsset2({ open, onClose, onSuccess, editAssetId = null
                       <span className="font-bold font-mono">RWF {formatRwfPlain(calc.netBook)}</span>
                     </div>
                     <p className="text-[10px] text-amber-800/80 text-center pt-1">
-                      CLOSING / NET BOOK = TOTAL DEPRECIATION ({formatRwfPlain(calc.totalDep)})
+                      {isLandCategory(form.category)
+                        ? 'Land: NET BOOK = Total balance (no depreciation)'
+                        : calc.buildingWip && calc.priorProgressPurchase
+                        ? 'NET BOOK = TB − PP − TD − Prior progress PP (Case 2, same year)'
+                        : calc.buildingWip && calc.priorYearNetBookValue
+                          ? 'NET BOOK = Prior year NBV − Annual dep. (KPS year-carry)'
+                        : calc.buildingWip && calc.categoryOpening > 0
+                          ? 'NET BOOK = Opening − Acc. dep. − Annual dep. (KPS year-carry)'
+                        : calc.buildingWip
+                          ? 'NET BOOK = TB − PP − TD (Case 1)'
+                          : 'NET BOOK = Total balance − Total depreciation'}
                     </p>
                   </div>
                 </div>

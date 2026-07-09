@@ -17,6 +17,7 @@ import RepresentativePortalRoutes from './Representative/PortalRoutes'
 import AssetsPortalRoutes from './assets_portal/PortalRoutes'
 import UniformManagerPortalRoutes from './uniform_manager_portal/PortalRoutes'
 import StudentMarkReportQR from './pages/StudentMarkReportQR'
+import ModernUiDemo from './shared/components/modern-ui/ModernUiDemo'
 
 const PRO_BASENAME = (() => {
   const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
@@ -66,6 +67,7 @@ const KNOWN_ROOTS = [
   '/teacher',
   '/discipline',
   '/student-mark-report',
+  '/dev/modern-ui',
 ]
 
 function RoleAwareFallback() {
@@ -186,6 +188,7 @@ export default function App() {
             }
           />
           <Route path="/student-mark-report/:snapshotId" element={<StudentMarkReportQR />} />
+          <Route path="/dev/modern-ui" element={<ModernUiDemo />} />
           <Route path="*" element={<RoleAwareFallback />} />
         </Routes>
       </MasterAuthProvider>

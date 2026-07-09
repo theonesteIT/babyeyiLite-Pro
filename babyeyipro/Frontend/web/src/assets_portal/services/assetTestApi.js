@@ -31,7 +31,10 @@ const assetTestApi = {
 
   getOpening: async (year, category, options = {}) => {
     const params = { year, category };
-    if (options.entryMode === 'legacy' || options.firstTime === false) {
+    if (options.editAssetId != null) {
+      params.edit_asset_id = options.editAssetId;
+    }
+    if (options.entryMode === 'legacy' || options.firstTime === false || options.editAssetId != null) {
       params.entry_mode = 'legacy';
     } else {
       params.entry_mode = 'year_setup';

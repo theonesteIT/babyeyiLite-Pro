@@ -12,7 +12,7 @@ import AssetPreviewPanel from '../components/AssetPreviewPanel'
 import AssetHealthStatusMenu, { AssetHealthStatusBadge } from '../components/AssetHealthStatusMenu'
 import assetTestApi from '../../../assets_portal/services/assetTestApi'
 import { formatRwfPlain } from '../../../assets_portal/utils/financialYearUtils'
-import { enrichRegisterFinancials } from '../../../assets_portal/utils/assetRegisterMath'
+import { enrichRegisterChainFinancials, getEnrichedRegisterRow } from '../../../assets_portal/utils/assetRegisterMath'
 import { buildAssetScanUrl } from '../../../assets_portal/utils/assetsQr'
 import { ASSET_HEALTH_STATUS_OPTIONS, ASSET_HEALTH_STATUS_NOT_USED_OLD } from '../../../assets_portal/utils/assetsConstants'
 import { assetsHref } from '../../../assets_portal/config/portal'
@@ -38,9 +38,8 @@ function assetDetailLink(asset) {
 const fmt = (v) => (v != null && v !== '' ? `RWF ${formatRwfPlain(v)}` : '—')
 const fmtPct = (v) => (v != null && v !== '' ? `${v}%` : '—')
 
-const rowFin = (a) => enrichRegisterFinancials(a) || a
-
-const TABLE_COLUMNS = [
+function buildTableColumns(rowFin) {
+  return [
   { key: 'sn', label: 'S/N', render: (_, idx) => idx + 1 },
   { key: 'year', label: 'YEAR', render: (a) => (a.register_year != null ? String(a.register_year) : '—') },
   { key: 'name', label: 'ASSET NAME', render: (a) => a.asset_name || a.name || '—' },
@@ -65,7 +64,8 @@ const TABLE_COLUMNS = [
       <QRCode value={buildAssetScanUrl(a)} size={36} level="M" />
     </Link>
   ) },
-]
+  ]
+}
 
 export default function AssetAddTest() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -228,6 +228,21 @@ export default function AssetAddTest() {
 
   const pageStartIndex = (page - 1) * PAGE_SIZE
 
+  const registerFinById = useMemo(
+    () => enrichRegisterChainFinancials(assets),
+    [assets],
+  )
+
+  const rowFin = useCallback(
+    (a) => getEnrichedRegisterRow(a, registerFinById),
+    [registerFinById],
+  )
+
+  const tableColumns = useMemo(
+    () => buildTableColumns(rowFin),
+    [rowFin],
+  )
+
   const years = useMemo(() => {
     const fromStats = (stats?.by_year ?? []).map((y) => y.year)
     const fromAssets = assets.map((a) => a.register_year)
@@ -272,18 +287,12 @@ export default function AssetAddTest() {
       if (search.trim()) params.q = search.trim()
       const result = await assetTestApi.listAssets(params)
       const items = result.items ?? []
-      const columns = TABLE_COLUMNS.filter((c) => c.key !== 'sn').map((c) => ({
-        label: c.label,
-        field: c.key,
-        exportValue: (row) => {
-          const idx = items.indexOf(row)
-          if (c.key === 'sn') return idx + 1
-          return c.render(row, idx)
-        },
-      }))
+      const exportFinById = enrichRegisterChainFinancials(items)
+      const exportRowFin = (a) => getEnrichedRegisterRow(a, exportFinById)
+      const exportColumns = buildTableColumns(exportRowFin)
       const rows = items.map((a, idx) => {
         const o = { ...a }
-        TABLE_COLUMNS.forEach((col) => {
+        exportColumns.forEach((col) => {
           if (col.key === 'sn') o.sn = idx + 1
           else if (col.render) {
             const v = col.render(a, idx)
@@ -294,14 +303,14 @@ export default function AssetAddTest() {
           ...o,
           year: a.register_year != null ? String(a.register_year) : '',
           name: a.asset_name || a.name,
-          opening: rowFin(a).opening_amount,
-          purchase: rowFin(a).unit_price,
-          total_balance: rowFin(a).total_balance,
-          accumulated: rowFin(a).accumulated_depreciation,
+          opening: exportRowFin(a).opening_amount,
+          purchase: exportRowFin(a).unit_price,
+          total_balance: exportRowFin(a).total_balance,
+          accumulated: exportRowFin(a).accumulated_depreciation,
           dep_rate: a.dep_rate,
-          annual_dep: rowFin(a).annual_dep,
-          total_dep: rowFin(a).total_dep,
-          net_book: rowFin(a).net_book_value,
+          annual_dep: exportRowFin(a).annual_dep,
+          total_dep: exportRowFin(a).total_dep,
+          net_book: exportRowFin(a).net_book_value,
           health: a.asset_health_status,
         }
       })
@@ -353,8 +362,11 @@ export default function AssetAddTest() {
       const created = result?.created ?? 0
       const failed = result?.failed ?? 0
       const skipped = result?.skipped ?? 0
+      const yearsImported = result?.register_years?.length
+        ? result.register_years.join(', ')
+        : String(registerYear)
       const errSample = (result?.errors ?? []).slice(0, 3).map((e) => `Row ${e.row}: ${e.message}`).join(' · ')
-      let msg = `Imported ${created} of ${rows.length} asset(s) into FY ${registerYear}.`
+      let msg = `Imported ${created} of ${rows.length} asset(s) into FY ${yearsImported}.`
       if (skipped) msg += ` ${skipped} skipped (duplicate SKU).`
       if (failed) msg += ` ${failed} failed.${errSample ? ` ${errSample}` : ''}`
       setImportMsg(msg)
@@ -687,7 +699,7 @@ export default function AssetAddTest() {
                       aria-label="Select all"
                     />
                   </th>
-                  {TABLE_COLUMNS.map((col) => (
+                  {tableColumns.map((col) => (
                     <th
                       key={col.key}
                       className={`px-3 py-2.5 text-left whitespace-nowrap font-bold uppercase tracking-wide text-[10px] text-white ${col.total ? 'text-amber-300' : ''}`}
@@ -716,7 +728,7 @@ export default function AssetAddTest() {
                         aria-label={`Select ${asset.asset_name || asset.name}`}
                       />
                     </td>
-                    {TABLE_COLUMNS.map((col) => (
+                    {tableColumns.map((col) => (
                       <td
                         key={col.key}
                         className={`px-3 py-2.5 whitespace-nowrap tabular-nums ${col.num ? 'font-mono text-[11px]' : 'text-[11px]'} ${col.total ? 'font-bold' : ''} ${col.highlight ? 'text-emerald-800' : ''}`}

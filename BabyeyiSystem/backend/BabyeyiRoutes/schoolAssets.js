@@ -251,6 +251,7 @@ async function ensureAssetsTable() {
     'ADD COLUMN replacement_id INT UNSIGNED NULL AFTER replaces_asset_id',
     'ADD COLUMN warranty_start DATE NULL AFTER replacement_id',
     'ADD COLUMN warranty_end DATE NULL AFTER warranty_start',
+    'ADD COLUMN building_status VARCHAR(40) NULL AFTER asset_health_status',
   ];
   for (const clause of alters) {
     try {
@@ -458,17 +459,26 @@ function mapFinancialYearRow(row, categoryBalances = []) {
 
 async function loadCategoryBalancesForYear(financialYearId, schoolId) {
   const [rows] = await promisePool.query(
-    `SELECT * FROM school_asset_year_category_balances
-     WHERE financial_year_id = ? AND school_id = ?
-     ORDER BY category_name`,
+    `SELECT b.*, c.depreciation_rate AS live_depreciation_rate
+     FROM school_asset_year_category_balances b
+     LEFT JOIN school_asset_categories c
+       ON c.school_id = b.school_id
+      AND c.deleted_at IS NULL
+      AND LOWER(TRIM(c.name)) = LOWER(TRIM(b.category_name))
+     WHERE b.financial_year_id = ? AND b.school_id = ?
+     ORDER BY b.category_name`,
     [financialYearId, schoolId]
   );
-  return rows.map((r) => ({
+  return rows.map((r) => {
+    const liveRate = r.live_depreciation_rate != null ? Number(r.live_depreciation_rate) : null;
+    const storedRate = r.depreciation_rate != null ? Number(r.depreciation_rate) : null;
+    const depreciation_rate = liveRate != null ? liveRate : storedRate;
+    return {
     id: r.id,
     category_id: r.category_id,
     category: r.category_name,
     category_name: r.category_name,
-    depreciation_rate: r.depreciation_rate != null ? Number(r.depreciation_rate) : null,
+    depreciation_rate,
     opening_balance: Number(r.opening_balance || 0),
     opening: Number(r.opening_balance || 0),
     last_year_closing: Number(r.last_year_closing || 0),
@@ -483,7 +493,8 @@ async function loadCategoryBalancesForYear(financialYearId, schoolId) {
     ),
     annual_depreciation: Number(r.annual_depreciation || 0),
     closing_balance: Number(r.closing_balance || 0),
-  }));
+  };
+  });
 }
 
 async function recalcFinancialYearTotals(financialYearId, schoolId) {
@@ -561,7 +572,7 @@ async function getYearSetupCategoryBalance(schoolId, year, categoryName) {
   return bal || null;
 }
 
-async function resolveCategoryOpeningContext(schoolId, year, categoryName) {
+async function resolveCategoryOpeningContext(schoolId, year, categoryName, options = {}) {
   await ensureFinancialYearsTable();
   const yr = Number(year);
   const cat = trimStr(categoryName);
@@ -569,7 +580,7 @@ async function resolveCategoryOpeningContext(schoolId, year, categoryName) {
 
   const finYear = await getFinancialYearByYear(schoolId, yr);
   const setupBal = await getYearSetupCategoryBalance(schoolId, yr, cat);
-  const rolling = await resolveRegisterRollingOpening(schoolId, yr, cat);
+  const rolling = await resolveRegisterRollingOpening(schoolId, yr, cat, options);
   const assetsInYear = rolling?.assets_in_year ?? 0;
 
   let lastYearClosing = toMoney(setupBal?.last_year_closing);
@@ -617,14 +628,33 @@ async function resolveCategoryOpeningContext(schoolId, year, categoryName) {
   } else if (setupBal) {
     const yearStart = categoryYearStartFromBalance(setupBal);
     effectiveOpening = yearStart.opening;
-    effectiveAccumulated = yearStart.accumulated;
+    effectiveAccumulated = isLandCategory(cat) ? 0 : yearStart.accumulated;
     source = 'year_setup';
-    sourceLabel = 'First asset in year — opening & accumulated from Year Setup';
+    sourceLabel = isLandCategory(cat)
+      ? 'First Land asset — opening from Year Setup Opening amount only (no depreciation)'
+      : 'First asset in year — opening & accumulated from Year Setup';
   } else {
     effectiveOpening = yearOpening || lastYearClosing;
-    effectiveAccumulated = prevAccDep;
+    effectiveAccumulated = isLandCategory(cat) ? 0 : prevAccDep;
     source = 'none';
     sourceLabel = 'No Year Setup balance for this category — configure in Year Setup Step 2';
+  }
+
+  // Prefer register chain: Acc. Dep. start = prior-year last asset TOTAL DEPRECIATION.
+  if (!isLandCategory(cat) && rolling?.category_year_accumulated_depreciation != null) {
+    effectiveAccumulated = toMoney(rolling.category_year_accumulated_depreciation);
+  }
+  if (!isLandCategory(cat) && rolling?.last_year_total_depreciation != null) {
+    lastYearTotalDep = toMoney(rolling.last_year_total_depreciation);
+  } else if (!isLandCategory(cat) && rolling?.prior_asset_total_dep != null) {
+    lastYearTotalDep = toMoney(rolling.prior_asset_total_dep);
+  }
+  if (isLandCategory(cat)) {
+    effectiveAccumulated = 0;
+    lastYearTotalDep = 0;
+  }
+  if (rolling?.effective_opening != null && (assetsInYear > 0 || rolling?.prior_asset_id)) {
+    effectiveOpening = toMoney(rolling.effective_opening);
   }
 
   return {
@@ -632,23 +662,27 @@ async function resolveCategoryOpeningContext(schoolId, year, categoryName) {
     category: cat,
     financial_year_id: finYear?.id ?? null,
     financial_year_status: finYear?.status ?? null,
-    last_year_closing: lastYearClosing,
+    last_year_closing: lastYearClosing || effectiveOpening,
     last_year_total_depreciation: lastYearTotalDep,
     year_opening_balance: yearOpening || effectiveOpening,
     year_setup_opening: categoryYearStartFromBalance(setupBal).opening,
     year_setup_accumulated_depreciation: categoryYearStartFromBalance(setupBal).accumulated,
     effective_opening: effectiveOpening,
     effective_accumulated_depreciation: effectiveAccumulated,
+    category_year_accumulated_depreciation: rolling?.category_year_accumulated_depreciation ?? effectiveAccumulated,
     current_closing: currentClosing,
     purchases_in_year: purchases,
     assets_in_year: assetsInYear,
     accumulated_depreciation: effectiveAccumulated,
     annual_depreciation_in_year: annualDepInYear,
-    source,
-    source_label: sourceLabel,
+    source: rolling?.source || source,
+    source_label: rolling?.source_label || sourceLabel,
     prior_asset_id: rolling?.prior_asset_id ?? null,
     prior_asset_name: rolling?.prior_asset_name ?? null,
     prior_asset_code: rolling?.prior_asset_code ?? null,
+    prior_asset_net_book: rolling?.prior_asset_net_book ?? null,
+    prior_asset_total_dep: rolling?.prior_asset_total_dep ?? lastYearTotalDep,
+    prior_progress_purchase: rolling?.prior_progress_purchase ?? null,
   };
 }
 
@@ -669,9 +703,12 @@ async function buildOpeningPreview(schoolId, year) {
   return categories.map((cat) => {
     const prev = prevMap.get(cat.name);
     const lastClosing = prev ? prev.closing_balance : 0;
-    const prevAccDep = prev ? prev.accumulated_depreciation : 0;
-    const rate = cat.depreciation_rate ?? 5;
-    const yearStartAnnual = Math.round(prevAccDep * (rate / 100));
+    const isLand = isLandCategory(cat.name);
+    const prevAccDep = isLand ? 0 : (prev ? prev.accumulated_depreciation : 0);
+    const rate = isLand ? 0 : (cat.depreciation_rate ?? 5);
+    const yearStartAnnual = isLand
+      ? 0
+      : Math.round(Math.max(0, lastClosing - prevAccDep) * (rate / 100));
     return {
       category_id: cat.id,
       category: cat.name,
@@ -688,7 +725,9 @@ async function buildOpeningPreview(schoolId, year) {
       total_depreciation_start: prevAccDep,
       year_start_annual_depreciation: yearStartAnnual,
       annual_depreciation: 0,
+      // Land closing tracks stock value (opening + purchases), not net of depreciation.
       closing_balance: lastClosing,
+      no_depreciation: isLand,
     };
   });
 }
@@ -719,6 +758,24 @@ function resolveRegisterYear(body, fallback) {
   return fallback ?? currentCalendarYear();
 }
 
+/** Per import row: purchase_year → register_year → purchase_date year → batch fallback */
+function resolveRowRegisterYear(row, fallbackYear) {
+  const purchaseYear = Number(row?.purchase_year ?? row?.purchaseYear);
+  if (Number.isFinite(purchaseYear) && purchaseYear >= 1900 && purchaseYear <= 2100) {
+    return Math.floor(purchaseYear);
+  }
+  const fromRegister = Number(row?.register_year ?? row?.registerYear);
+  if (Number.isFinite(fromRegister) && fromRegister >= 1900 && fromRegister <= 2100) {
+    return Math.floor(fromRegister);
+  }
+  const dateStr = trimStr(row?.purchase_date || row?.purchaseDate);
+  if (dateStr) {
+    const y = Number(dateStr.slice(0, 4));
+    if (Number.isFinite(y) && y >= 1900 && y <= 2100) return y;
+  }
+  return resolveRegisterYear(row, fallbackYear);
+}
+
 function resolveAssetEntryMode(body) {
   const raw = trimStr(body?.entry_mode || body?.entryMode).toLowerCase();
   if (raw === 'legacy' || raw === 'free_year' || raw === 'free') return 'legacy';
@@ -731,16 +788,77 @@ function resolveAssetEntryMode(body) {
 
 function registerTotalsFromDbRow(row) {
   if (!row) return null;
-  const opening = toMoney(row.opening_amount);
-  const purchase = toMoney(row.unit_price);
-  const totalBalance = toMoney(row.total_balance) || opening + purchase;
-  const accumulated = toMoney(row.accumulated_depreciation);
-  const annualDep = toMoney(row.annual_dep);
+
+  // Prefer stored register totals for year-to-year carry-forward:
+  // next year's Accumulated Depreciation = previous asset TOTAL DEPRECIATION.
+  // Only recompute when totals were never saved.
+  const storedBalance = toMoney(row.total_balance);
   const storedTotalDep = toMoney(row.total_dep);
-  const totalDep = storedTotalDep > 0
-    ? storedTotalDep
-    : accumulated + annualDep;
-  return { totalBalance, totalDep };
+  if (storedBalance > 0 || storedTotalDep > 0) {
+    return {
+      totalBalance: storedBalance,
+      totalDep: storedTotalDep,
+    };
+  }
+
+  const derived = applyDepreciationMath({
+    ...row,
+    category: row.category,
+    building_status: row.building_status,
+    previous_progress_purchase: row.previous_progress_purchase ?? null,
+  });
+
+  return {
+    totalBalance: toMoney(derived?.total_balance),
+    totalDep: toMoney(derived?.total_dep),
+  };
+}
+
+async function getLastProgressBuildingPurchaseInCategory(schoolId, year, categoryName, beforeAssetId = null) {
+  const yr = Number(year);
+  const cat = trimStr(categoryName);
+  if (!Number.isFinite(yr) || !cat) return null;
+  const params = [schoolId, yr, cat];
+  let beforeSql = '';
+  if (beforeAssetId != null) {
+    beforeSql = ' AND id < ?';
+    params.push(Number(beforeAssetId));
+  }
+  const [[row]] = await promisePool.query(
+    `SELECT unit_price FROM school_assets
+     WHERE school_id = ? AND deleted_at IS NULL AND status != 'Draft'
+       AND register_year = ? AND LOWER(TRIM(category)) = LOWER(TRIM(?))
+       AND LOWER(TRIM(COALESCE(building_status, ''))) IN ('working progress', 'working_progress', 'wip', 'in progress', 'progress')
+     ${beforeSql}
+     ORDER BY id DESC LIMIT 1`,
+    params
+  );
+  if (row) return toMoney(row.unit_price);
+  return null;
+}
+
+async function getPriorRegisterAssetInCategory(schoolId, year, categoryName, beforeAssetId) {
+  const yr = Number(year);
+  const cat = trimStr(categoryName);
+  const beforeId = Number(beforeAssetId);
+  if (!Number.isFinite(yr) || !cat || !Number.isFinite(beforeId) || beforeId <= 0) return null;
+  const [[row]] = await promisePool.query(
+    `SELECT * FROM school_assets
+     WHERE school_id = ? AND deleted_at IS NULL AND status != 'Draft'
+       AND register_year = ? AND LOWER(TRIM(category)) = LOWER(TRIM(?))
+       AND id < ?
+     ORDER BY id DESC LIMIT 1`,
+    [schoolId, yr, cat, beforeId]
+  );
+  if (!row) return null;
+  const mapped = mapAssetRow(row);
+  if (!mapped) return null;
+  const totals = registerTotalsFromDbRow(row);
+  return enrichRegisterFinancialsRow({
+    ...mapped,
+    total_balance: totals.totalBalance,
+    total_dep: totals.totalDep,
+  });
 }
 
 async function getLastRegisterAssetInCategory(schoolId, year, categoryName) {
@@ -783,12 +901,14 @@ async function resolveYearStartOpening(schoolId, year, categoryName) {
   const yr = Number(year);
   const cat = trimStr(categoryName);
   if (!Number.isFinite(yr) || !cat) return { opening: 0, accumulated: 0, source: 'none' };
+  const isLand = isLandCategory(cat);
 
   const priorLast = await getLastRegisterAssetInCategory(schoolId, yr - 1, cat);
   if (priorLast) {
     return {
+      // Land & all categories: next-year opening = prior year last TOTAL BALANCE.
       opening: toMoney(priorLast.total_balance),
-      accumulated: toMoney(priorLast.total_dep),
+      accumulated: isLand ? 0 : toMoney(priorLast.total_dep),
       source: 'prior_year_last_asset',
       prior_asset_id: priorLast.id,
       prior_asset_name: priorLast.asset_name,
@@ -810,7 +930,8 @@ async function resolveYearStartOpening(schoolId, year, categoryName) {
     );
     const yearStart = categoryYearStartFromBalance(bal);
     opening = yearStart.opening;
-    accumulated = yearStart.accumulated;
+    // Land Year Setup only stores Opening — never seed accumulated depreciation.
+    accumulated = isLand ? 0 : yearStart.accumulated;
   }
   return { opening, accumulated, source: 'year_setup' };
 }
@@ -852,7 +973,7 @@ async function recalcRegisterChainInCategory(schoolId, year, categoryName) {
   await repairCorruptedCategoryYearStart(schoolId, yr, cat);
 
   const [rows] = await promisePool.query(
-    `SELECT id, unit_price, dep_rate FROM school_assets
+    `SELECT id, unit_price, dep_rate, building_status FROM school_assets
      WHERE school_id = ? AND deleted_at IS NULL AND status != 'Draft'
        AND register_year = ? AND LOWER(TRIM(category)) = LOWER(TRIM(?))
      ORDER BY id ASC`,
@@ -861,22 +982,30 @@ async function recalcRegisterChainInCategory(schoolId, year, categoryName) {
   if (!rows.length) return 0;
 
   const yearStart = await resolveYearStartOpening(schoolId, yr, cat);
+  const priorYearLast = await getLastRegisterAssetInCategory(schoolId, yr - 1, cat);
+  const priorYearNetBook = priorYearLast ? toMoney(priorYearLast.net_book_value) : null;
   let rollingOpening = yearStart.opening;
   const categoryYearAccumulated = yearStart.accumulated;
+  let lastProgressPurchase = null;
 
-  for (const row of rows) {
-    const depRate = toMoney(row.dep_rate ?? 5);
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    const depRate = isLandCategory(cat) ? 0 : toMoney(row.dep_rate ?? 5);
     const math = computeAssetRegisterMath({
       openingAmount: rollingOpening,
       unitPrice: row.unit_price,
       accumulatedDepreciation: categoryYearAccumulated,
       depRatePercent: depRate,
+      category: cat,
+      buildingStatus: row.building_status,
+      previousProgressPurchase: lastProgressPurchase,
+      priorYearNetBookValue: i === 0 ? priorYearNetBook : null,
     });
 
     await promisePool.query(
       `UPDATE school_assets SET
         opening_amount = ?, total_balance = ?, accumulated_depreciation = ?,
-        annual_dep = ?, total_dep = ?, net_book_value = ?, decimal_dep = ?
+        annual_dep = ?, total_dep = ?, net_book_value = ?, decimal_dep = ?, dep_rate = ?
        WHERE id = ? AND school_id = ?`,
       [
         math.openingAmount,
@@ -886,10 +1015,17 @@ async function recalcRegisterChainInCategory(schoolId, year, categoryName) {
         math.totalDep,
         math.netBookValue,
         math.decimalDep,
+        depRate,
         row.id,
         schoolId,
       ]
     );
+
+    if (isBuildingsCategory(cat) && isBuildingWorkingProgress(row.building_status)) {
+      lastProgressPurchase = toMoney(row.unit_price);
+    } else if (isBuildingsCategory(cat)) {
+      lastProgressPurchase = null;
+    }
 
     rollingOpening = math.totalBalance;
   }
@@ -898,26 +1034,53 @@ async function recalcRegisterChainInCategory(schoolId, year, categoryName) {
 }
 
 /** Opening for next asset — last row TOTAL BALANCE; accumulated fixed at category year-start for the register year. */
-async function resolveRegisterRollingOpening(schoolId, year, categoryName) {
+async function resolveRegisterRollingOpening(schoolId, year, categoryName, options = {}) {
   const yr = Number(year);
   const cat = trimStr(categoryName);
   if (!Number.isFinite(yr) || !cat) return null;
 
+  const beforeAssetId = Number(options.beforeAssetId);
+  const hasBeforeAsset = Number.isFinite(beforeAssetId) && beforeAssetId > 0;
+
   const yearStart = await resolveYearStartOpening(schoolId, yr, cat);
-  const categoryYearAccumulated = yearStart.accumulated;
   const assetsInYear = await countRegisterAssetsInCategory(schoolId, yr, cat);
-  const lastInYear = assetsInYear > 0
-    ? await getLastRegisterAssetInCategory(schoolId, yr, cat)
-    : null;
-  const priorYearLast = assetsInYear === 0
-    ? await getLastRegisterAssetInCategory(schoolId, yr - 1, cat)
-    : null;
+  let lastInYear = null;
+  if (hasBeforeAsset) {
+    lastInYear = await getPriorRegisterAssetInCategory(schoolId, yr, cat, beforeAssetId);
+  } else if (assetsInYear > 0) {
+    lastInYear = await getLastRegisterAssetInCategory(schoolId, yr, cat);
+  }
+
+  // Always read prior-year last asset so Acc. Dep. start = that row's TOTAL DEPRECIATION
+  // (including when editing the first Buildings asset of the year).
+  const priorYearLast = await getLastRegisterAssetInCategory(schoolId, yr - 1, cat);
+  const isLand = isLandCategory(cat);
+
+  // Category year-start Accumulated Depreciation = previous year last asset TOTAL DEPRECIATION.
+  // Land never carries accumulated depreciation.
+  const categoryYearAccumulated = isLand
+    ? 0
+    : (priorYearLast
+      ? toMoney(priorYearLast.total_dep)
+      : yearStart.accumulated);
 
   const effectiveOpening = lastInYear
     ? toMoney(lastInYear.total_balance)
-    : yearStart.opening;
+    : (priorYearLast ? toMoney(priorYearLast.total_balance) : yearStart.opening);
   const effectiveAccumulated = categoryYearAccumulated;
   const priorAsset = lastInYear || priorYearLast;
+  // Case 2 applies only when a prior Progress building exists in the SAME year.
+  const priorProgressPurchase = (lastInYear && isBuildingsCategory(cat))
+    ? await getLastProgressBuildingPurchaseInCategory(
+      schoolId,
+      yr,
+      cat,
+      hasBeforeAsset ? beforeAssetId : null,
+    )
+    : null;
+
+  const isEditContext = hasBeforeAsset;
+  const hasPriorInYear = Boolean(lastInYear);
 
   return {
     year: yr,
@@ -926,26 +1089,50 @@ async function resolveRegisterRollingOpening(schoolId, year, categoryName) {
     effective_opening: effectiveOpening,
     effective_accumulated_depreciation: effectiveAccumulated,
     category_year_accumulated_depreciation: categoryYearAccumulated,
-    last_year_total_depreciation: assetsInYear === 0
-      ? (priorYearLast ? toMoney(priorYearLast.total_dep) : categoryYearAccumulated)
+    last_year_total_depreciation: priorYearLast
+      ? toMoney(priorYearLast.total_dep)
       : categoryYearAccumulated,
     prior_asset_id: priorAsset?.id ?? yearStart.prior_asset_id ?? null,
     prior_asset_name: priorAsset?.asset_name ?? yearStart.prior_asset_name ?? null,
     prior_asset_code: priorAsset?.asset_code ?? yearStart.prior_asset_code ?? null,
     prior_asset_total_balance: effectiveOpening,
     prior_asset_total_dep: priorAsset ? toMoney(priorAsset.total_dep) : categoryYearAccumulated,
-    source: assetsInYear > 0 ? 'ledger' : (priorYearLast || yearStart.source === 'prior_year_last_asset' ? 'last_year' : 'year_setup'),
-    source_label: assetsInYear > 0
-      ? `Continues from last asset (${lastInYear?.asset_name || 'register'}) — opening = TOTAL BALANCE, accumulated = same for all ${cat} in ${yr}`
-      : priorYearLast
-        ? `Carried from ${yr - 1} last asset — opening = TOTAL BALANCE, accumulated = category year-start`
-        : 'First asset in this category — opening & accumulated from Year Setup',
+    prior_asset_net_book: lastInYear
+      ? toMoney(lastInYear.net_book_value)
+      : (priorYearLast ? toMoney(priorYearLast.net_book_value) : null),
+    prior_progress_purchase: priorProgressPurchase,
+    source: isEditContext
+      ? (hasPriorInYear ? 'ledger' : (priorYearLast || yearStart.source === 'prior_year_last_asset' ? 'last_year' : 'year_setup'))
+      : (assetsInYear > 0 ? 'ledger' : (priorYearLast || yearStart.source === 'prior_year_last_asset' ? 'last_year' : 'year_setup')),
+    source_label: isLand
+      ? (isEditContext
+        ? (hasPriorInYear
+          ? `Edit Land — opening = prior Land TOTAL BALANCE in ${yr}`
+          : (priorYearLast
+            ? `Edit Land — first in ${yr}; opening = ${yr - 1} last TOTAL BALANCE`
+            : 'Edit Land — first asset; opening from Year Setup'))
+        : (assetsInYear > 0
+          ? `Land — opening = last Land TOTAL BALANCE in ${yr}; enter purchase; TOTAL BALANCE = Opening + Purchase (no depreciation)`
+          : priorYearLast
+            ? `Land — opening = ${yr - 1} last TOTAL BALANCE; enter purchase; TOTAL BALANCE = Opening + Purchase (no depreciation)`
+            : 'Land — opening from Year Setup Opening amount only; enter purchase; TOTAL BALANCE = Opening + Purchase (no depreciation)'))
+      : (isEditContext
+      ? (hasPriorInYear
+        ? `Edit — continues from prior register row (${lastInYear?.asset_name || 'register'})`
+        : (priorYearLast
+          ? `Edit — first in ${yr}; Acc. Dep. = ${yr - 1} last asset TOTAL DEPRECIATION`
+          : 'Edit — first asset in this category/year for register chain'))
+      : (assetsInYear > 0
+        ? `Continues from last asset (${lastInYear?.asset_name || 'register'}) — opening = TOTAL BALANCE, Acc. Dep. = ${yr - 1} last TOTAL DEPRECIATION`
+        : priorYearLast
+          ? `Carried from ${yr - 1} last asset — opening = TOTAL BALANCE, Acc. Dep. = prior TOTAL DEPRECIATION`
+          : 'First asset in this category — opening & accumulated from Year Setup')),
   };
 }
 
 /** Opening from prior register assets — falls back to Year Setup when no register history. */
-async function resolveAssetBasedOpeningContext(schoolId, year, categoryName) {
-  const ctx = await resolveCategoryOpeningContext(schoolId, year, categoryName);
+async function resolveAssetBasedOpeningContext(schoolId, year, categoryName, options = {}) {
+  const ctx = await resolveCategoryOpeningContext(schoolId, year, categoryName, options);
   if (!ctx) return null;
   return { ...ctx, entry_mode: 'legacy' };
 }
@@ -2069,6 +2256,191 @@ function mapConditionToCode(label) {
   return l.toUpperCase() || 'GOOD';
 }
 
+const BUILDING_STATUS_FINISHED = 'Finished';
+const BUILDING_STATUS_WORKING_PROGRESS = 'Working Progress';
+
+function isBuildingsCategory(category) {
+  const norm = String(category || '').trim().toLowerCase().replace(/s$/, '');
+  return norm === 'building';
+}
+
+function isLandCategory(category) {
+  return String(category || '').trim().toLowerCase() === 'land';
+}
+
+function isBuildingWorkingProgress(buildingStatus) {
+  const s = String(buildingStatus || '').trim().toLowerCase();
+  return s === 'working progress' || s === 'working_progress' || s === 'wip' || s === 'in progress' || s === 'progress';
+}
+
+function normalizeBuildingStatus(buildingStatus) {
+  if (isBuildingWorkingProgress(buildingStatus)) return BUILDING_STATUS_WORKING_PROGRESS;
+  return BUILDING_STATUS_FINISHED;
+}
+
+function resolveBuildingStatus(body, category) {
+  if (!isBuildingsCategory(category)) return null;
+  const raw = body?.building_status ?? body?.buildingStatus;
+  if (raw === null || raw === undefined || String(raw).trim() === '') {
+    return BUILDING_STATUS_FINISHED;
+  }
+  return normalizeBuildingStatus(raw);
+}
+
+function resolveBuildingAnnualDepreciableBase({
+  unitPrice = 0,
+  opening = 0,
+  totalBalance = 0,
+  accumulated = 0,
+  buildingStatus = null,
+  previousProgressPurchase = null,
+  priorYearNetBookValue = null,
+} = {}) {
+  const PP = toMoney(unitPrice);
+  const open = toMoney(opening);
+  const TB = toMoney(totalBalance) || open + PP;
+  const TD = toMoney(accumulated);
+  const PTP = previousProgressPurchase != null ? toMoney(previousProgressPurchase) : 0;
+  const priorNBV = priorYearNetBookValue != null ? toMoney(priorYearNetBookValue) : 0;
+
+  if (isBuildingWorkingProgress(buildingStatus)) {
+    if (open > 0 && priorNBV > 0) {
+      return Math.max(0, priorNBV);
+    }
+    if (PTP > 0) {
+      return Math.max(0, PP - PTP - TD);
+    }
+    const purchaseBase = PP - TD;
+    if (purchaseBase > 0) {
+      return purchaseBase;
+    }
+    if (open > 0) {
+      return Math.max(0, open - TD);
+    }
+    return 0;
+  }
+
+  const purchaseBase = PP - TD;
+  if (purchaseBase > 0) {
+    return purchaseBase;
+  }
+  return Math.max(0, TB - TD);
+}
+
+function resolveBuildingNetBookValue({
+  totalBalance = 0,
+  unitPrice = 0,
+  opening = 0,
+  accumulated = 0,
+  buildingStatus = null,
+  previousProgressPurchase = null,
+  annualDep = 0,
+  priorYearNetBookValue = null,
+} = {}) {
+  const TB = toMoney(totalBalance);
+  const PP = toMoney(unitPrice);
+  const open = toMoney(opening);
+  const TD = toMoney(accumulated);
+  const annual = toMoney(annualDep);
+  const PTP = previousProgressPurchase != null ? toMoney(previousProgressPurchase) : 0;
+  const priorNBV = priorYearNetBookValue != null ? toMoney(priorYearNetBookValue) : 0;
+
+  if (isBuildingWorkingProgress(buildingStatus)) {
+    if (open > 0 && priorNBV > 0) {
+      return Math.max(0, priorNBV - annual);
+    }
+    if (PTP > 0) {
+      return Math.max(0, TB - PP - TD - PTP);
+    }
+    if (open > 0) {
+      // KPS year-carry rows.
+      return Math.max(0, open - TD - annual);
+    }
+    // First Progress, no opening stock.
+    return Math.max(0, TB - PP - TD);
+  }
+
+  return Math.max(0, TB - TD - annual);
+}
+
+function computeBuildingRegisterMath({
+  totalBalance = 0,
+  unitPrice = 0,
+  openingAmount = 0,
+  accumulatedDepreciation = 0,
+  depRatePercent = 0,
+  buildingStatus = null,
+  previousProgressPurchase = null,
+  priorYearNetBookValue = null,
+} = {}) {
+  const TB = toMoney(totalBalance);
+  const PP = toMoney(unitPrice);
+  const open = toMoney(openingAmount);
+  const TD = toMoney(accumulatedDepreciation);
+  const rate = toMoney(depRatePercent);
+  const decimalDep = rate > 0 ? rate / 100 : 0;
+  const PTP = previousProgressPurchase != null ? toMoney(previousProgressPurchase) : 0;
+  const priorNBV = priorYearNetBookValue != null ? toMoney(priorYearNetBookValue) : 0;
+
+  const depreciableBase = resolveBuildingAnnualDepreciableBase({
+    unitPrice: PP,
+    opening: open,
+    totalBalance: TB,
+    accumulated: TD,
+    buildingStatus,
+    previousProgressPurchase: PTP > 0 ? PTP : null,
+    priorYearNetBookValue: priorNBV > 0 ? priorNBV : null,
+  });
+
+  const annualDep = Math.round(depreciableBase * decimalDep);
+
+  const netBookValue = resolveBuildingNetBookValue({
+    totalBalance: TB,
+    unitPrice: PP,
+    opening: open,
+    accumulated: TD,
+    buildingStatus,
+    previousProgressPurchase: PTP > 0 ? PTP : null,
+    annualDep,
+    priorYearNetBookValue: priorNBV > 0 ? priorNBV : null,
+  });
+
+  const totalDep = (isBuildingWorkingProgress(buildingStatus) && PTP <= 0 && open > 0)
+    || !isBuildingWorkingProgress(buildingStatus)
+    ? TD + annualDep
+    : Math.max(0, TB - netBookValue);
+
+  return {
+    decimalDep,
+    annualDep,
+    totalDep,
+    netBookValue,
+    depreciableBase,
+  };
+}
+
+function resolveRegisterDepreciableBase({
+  opening = 0,
+  totalBalance = 0,
+  accumulated = 0,
+  unitPrice = 0,
+  category = null,
+  buildingStatus = null,
+  previousProgressPurchase = null,
+} = {}) {
+  if (isBuildingsCategory(category)) {
+    return resolveBuildingAnnualDepreciableBase({
+      unitPrice,
+      opening,
+      totalBalance,
+      accumulated,
+      buildingStatus,
+      previousProgressPurchase,
+    });
+  }
+  return Math.max(0, toMoney(totalBalance) - toMoney(accumulated));
+}
+
 function mapAssetRow(row) {
   if (!row) return null;
   return {
@@ -2121,6 +2493,7 @@ function mapAssetRow(row) {
     status: row.status,
     assets_status: row.assets_status || 'Active',
     asset_health_status: row.asset_health_status || DEFAULT_ASSET_HEALTH_STATUS,
+    building_status: row.building_status || null,
     register_year: row.register_year != null ? Number(row.register_year) : null,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -2146,16 +2519,55 @@ function computeAssetRegisterMath({
   unitPrice = 0,
   accumulatedDepreciation = 0,
   depRatePercent = 0,
+  category = null,
+  buildingStatus = null,
+  previousProgressPurchase = null,
+  priorYearNetBookValue = null,
 }) {
   const opening = toMoney(openingAmount);
   const purchase = toMoney(unitPrice);
   const accumulated = toMoney(accumulatedDepreciation);
-  const rate = toMoney(depRatePercent);
+  // Land never depreciates — ignore any stored / fallback rate.
+  const rate = isLandCategory(category) ? 0 : toMoney(depRatePercent);
   const decimalDep = rate > 0 ? rate / 100 : 0;
   const totalBalance = opening + purchase;
-  const annualDep = Math.round(totalBalance * decimalDep);
-  const totalDep = accumulated + annualDep;
-  const netBookValue = Math.max(0, totalBalance - totalDep);
+  let annualDep = 0;
+  let totalDep = 0;
+  let netBookValue = 0;
+
+  if (isLandCategory(category)) {
+    annualDep = 0;
+    totalDep = 0;
+    netBookValue = Math.max(0, totalBalance);
+  } else if (isBuildingsCategory(category)) {
+    const buildingMath = computeBuildingRegisterMath({
+      totalBalance,
+      unitPrice: purchase,
+      openingAmount: opening,
+      accumulatedDepreciation: accumulated,
+      depRatePercent: rate,
+      buildingStatus,
+      previousProgressPurchase,
+      priorYearNetBookValue,
+    });
+    annualDep = buildingMath.annualDep;
+    totalDep = buildingMath.totalDep;
+    netBookValue = buildingMath.netBookValue;
+  } else {
+    const depreciableBase = resolveRegisterDepreciableBase({
+      opening,
+      totalBalance,
+      accumulated,
+      unitPrice: purchase,
+      category,
+      buildingStatus,
+      previousProgressPurchase,
+    });
+    annualDep = Math.round(depreciableBase * decimalDep);
+    totalDep = accumulated + annualDep;
+    netBookValue = Math.max(0, totalBalance - totalDep);
+  }
+
   const newAccumulatedDep = totalDep;
   return {
     openingAmount: opening,
@@ -2172,21 +2584,73 @@ function computeAssetRegisterMath({
 }
 
 function applyDepreciationMath(p) {
-  const totalBalance = toMoney(p.total_balance) || toMoney(p.unit_price) + toMoney(p.opening_amount);
+  const opening = toMoney(p.opening_amount);
+  const totalBalance = toMoney(p.total_balance) || toMoney(p.unit_price) + opening;
   const accumulated = toMoney(p.accumulated_depreciation);
-  const rate = toMoney(p.dep_rate);
-  const decimalDep = p.decimal_dep != null && p.decimal_dep !== ''
-    ? toMoney(p.decimal_dep)
-    : (rate > 0 ? rate / 100 : 0);
-  const annualDep = p.annual_dep != null && toMoney(p.annual_dep) > 0
+  const isLand = isLandCategory(p.category);
+  const rate = isLand ? 0 : toMoney(p.dep_rate);
+  const decimalDep = isLand
+    ? 0
+    : (p.decimal_dep != null && p.decimal_dep !== ''
+      ? toMoney(p.decimal_dep)
+      : (rate > 0 ? rate / 100 : 0));
+
+  if (isLand) {
+    return {
+      ...p,
+      total_balance: totalBalance || null,
+      accumulated_depreciation: 0,
+      dep_rate: 0,
+      decimal_dep: 0,
+      annual_dep: 0,
+      total_dep: 0,
+      net_book_value: Math.max(0, totalBalance) || null,
+    };
+  }
+
+  const isBuilding = isBuildingsCategory(p.category);
+
+  // For Buildings always recompute from current business rules.
+  let annualDep = !isBuilding && p.annual_dep != null && toMoney(p.annual_dep) > 0
     ? toMoney(p.annual_dep)
-    : Math.round(totalBalance * decimalDep);
-  const totalDep = p.total_dep != null && toMoney(p.total_dep) > 0
+    : null;
+  let totalDep = !isBuilding && p.total_dep != null && toMoney(p.total_dep) > 0
     ? toMoney(p.total_dep)
-    : accumulated + annualDep;
-  const netBookValue = p.net_book_value != null && toMoney(p.net_book_value) >= 0
+    : null;
+  let netBookValue = !isBuilding && p.net_book_value != null && toMoney(p.net_book_value) >= 0
     ? toMoney(p.net_book_value)
-    : Math.max(0, totalBalance - totalDep);
+    : null;
+
+  if (annualDep == null || totalDep == null || netBookValue == null) {
+    if (isBuilding) {
+      const buildingMath = computeBuildingRegisterMath({
+        totalBalance,
+        unitPrice: toMoney(p.unit_price),
+        openingAmount: opening,
+        accumulatedDepreciation: accumulated,
+        depRatePercent: rate,
+        buildingStatus: p.building_status,
+        previousProgressPurchase: p.previous_progress_purchase,
+      });
+      annualDep = buildingMath.annualDep;
+      totalDep = buildingMath.totalDep;
+      netBookValue = buildingMath.netBookValue;
+    } else {
+      const depreciableBase = resolveRegisterDepreciableBase({
+        opening,
+        totalBalance,
+        accumulated,
+        unitPrice: toMoney(p.unit_price),
+        category: p.category,
+        buildingStatus: p.building_status,
+        previousProgressPurchase: p.previous_progress_purchase,
+      });
+      if (annualDep == null) annualDep = Math.round(depreciableBase * decimalDep);
+      if (totalDep == null) totalDep = accumulated + annualDep;
+      if (netBookValue == null) netBookValue = Math.max(0, totalBalance - totalDep);
+    }
+  }
+
   return {
     ...p,
     total_balance: totalBalance || null,
@@ -2237,6 +2701,7 @@ function payloadFromBody(body, { draft = false, defaultRegisterYear, isCreate = 
   const assetsStatus = resolveAssetsStatus(body, { isCreate });
   const fundingRaw = trimStr(body.funding_source || body.fundingSource);
   const fundingOther = trimStr(body.funding_source_other || body.fundingOther);
+  const categoryName = trimStr(body.category) || null;
 
   const base = {
     asset_code: trimStr(body.asset_code) || null,
@@ -2244,7 +2709,7 @@ function payloadFromBody(body, { draft = false, defaultRegisterYear, isCreate = 
     label_tag: trimStr(body.label_tag || body.labelTag) || null,
     asset_type: assetType || null,
     asset_type_other: typeRaw === 'OTHER' ? typeOther || null : null,
-    category: trimStr(body.category) || null,
+    category: categoryName,
     description: trimStr(body.description) || null,
     location: location || null,
     location_label: trimStr(body.location_label || body.locationLabel) || null,
@@ -2282,6 +2747,7 @@ function payloadFromBody(body, { draft = false, defaultRegisterYear, isCreate = 
     status: draft ? 'Draft' : trimStr(body.status) || 'Active',
     assets_status: assetsStatus,
     asset_health_status: resolveAssetHealthStatus(body, { isCreate }),
+    building_status: resolveBuildingStatus(body, categoryName),
     register_year: resolveRegisterYear(body, defaultRegisterYear),
   };
   return applyDepreciationMath(base);
@@ -2334,6 +2800,7 @@ async function insertAssetRecord(schoolId, userId, p) {
     status: p.status ?? 'Active',
     assets_status: p.assets_status ?? 'Active',
     asset_health_status: p.asset_health_status ?? DEFAULT_ASSET_HEALTH_STATUS,
+    building_status: p.building_status ?? null,
     register_year: p.register_year ?? null,
     created_by: userId ?? null,
   };
@@ -2361,6 +2828,9 @@ function enrichRegisterFinancialsRow(base) {
       unitPrice: purchase,
       accumulatedDepreciation: accumulated,
       depRatePercent: depRate,
+      category: base.category,
+      buildingStatus: base.building_status,
+      previousProgressPurchase: base.previous_progress_purchase,
     });
     return {
       ...base,
@@ -2393,7 +2863,8 @@ function enrichRegisterFinancialsRow(base) {
 function mapAssetTestListRow(row) {
   const base = mapAssetRow(row);
   if (!base) return null;
-  return enrichRegisterFinancialsRow({
+  // Return stored register values — display chain enrichment runs on the client.
+  return {
     id: base.id,
     asset_code: base.asset_code,
     code: base.asset_code,
@@ -2414,6 +2885,7 @@ function mapAssetTestListRow(row) {
     opening_amount: base.opening_amount,
     total_balance: base.total_balance,
     accumulated_depreciation: base.accumulated_depreciation,
+    building_status: base.building_status,
     quantity: base.quantity,
     decimal_dep: base.decimal_dep,
     serial_number: base.serial_number,
@@ -2427,7 +2899,7 @@ function mapAssetTestListRow(row) {
     reference_no: base.reference_no,
     created_at: base.created_at,
     qr_value: base.qr_value,
-  });
+  };
 }
 
 async function updateTestAssetWithLedger(schoolId, userId, assetId, body) {
@@ -2494,10 +2966,18 @@ async function updateTestAssetWithLedger(schoolId, userId, assetId, body) {
      WHERE school_id = ? AND deleted_at IS NULL AND name = ? LIMIT 1`,
     [schoolId, categoryName]
   );
-  const depRate = toMoney(catRow?.depreciation_rate ?? existing.dep_rate ?? 5);
+  const depRate = isLandCategory(categoryName)
+    ? 0
+    : toMoney(catRow?.depreciation_rate ?? existing.dep_rate ?? 5);
   const healthStatus = resolveAssetHealthStatus(body, { isCreate: false })
     ?? existing.asset_health_status
     ?? DEFAULT_ASSET_HEALTH_STATUS;
+  const buildingStatus = resolveBuildingStatus(
+    {
+      building_status: body.building_status ?? body.buildingStatus ?? existing.building_status,
+    },
+    categoryName
+  );
 
   const nextTagSku = trimStr(
     body.sku || body.serial_number || body.serialNumber || body.label_tag || body.labelTag
@@ -2512,7 +2992,7 @@ async function updateTestAssetWithLedger(schoolId, userId, assetId, body) {
       serial_number = ?, sku = ?,
       purchase_date = ?, unit_price = ?, tax_amount = ?, price_incl_tax = ?,
       condition_code = ?, sd_number = ?, receipt_number = ?, reference_no = ?,
-      asset_health_status = ?, register_year = ?, dep_rate = ?, updated_at = NOW()
+      asset_health_status = ?, building_status = ?, register_year = ?, dep_rate = ?, updated_at = NOW()
      WHERE id = ? AND school_id = ?`,
     [
       assetName,
@@ -2531,6 +3011,7 @@ async function updateTestAssetWithLedger(schoolId, userId, assetId, body) {
       trimStr(body.receipt_number || body.receiptNumber) || null,
       trimStr(body.reference_no || body.referenceNo) || null,
       healthStatus,
+      buildingStatus,
       registerYear,
       depRate,
       id,
@@ -2556,7 +3037,7 @@ async function updateTestAssetWithLedger(schoolId, userId, assetId, body) {
 
 async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
   await ensureFinancialYearsTable();
-  const entryMode = resolveAssetEntryMode(body);
+  const entryMode = body._batch_rolling === true ? 'legacy' : resolveAssetEntryMode(body);
   const yearRaw = body.register_year ?? body.registerYear ?? body.financial_year ?? body.financialYear;
   let finYear = null;
   let registerYear = null;
@@ -2647,7 +3128,9 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
      WHERE school_id = ? AND deleted_at IS NULL AND name = ? LIMIT 1`,
     [schoolId, categoryName]
   );
-  const depRate = toMoney(catRow?.depreciation_rate ?? body.dep_rate ?? 5);
+  const depRate = isLandCategory(categoryName)
+    ? 0
+    : toMoney(catRow?.depreciation_rate ?? body.dep_rate ?? 5);
 
   let catBalance = null;
   if (activeYear.id) {
@@ -2669,7 +3152,12 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
 
   if (useBatchRolling) {
     categoryOpening = toMoney(body.rolling_opening);
-    accumulatedStart = toMoney(body.rolling_accumulated_dep ?? body.rolling_accumulated);
+    accumulatedStart = toMoney(
+      body.rolling_fixed_accumulated
+      ?? body.rolling_fixed_accumulated_dep
+      ?? body.rolling_accumulated_dep
+      ?? body.rolling_accumulated
+    );
   } else {
     categoryOpening = toMoney(openingCtx?.effective_opening);
     accumulatedStart = toMoney(
@@ -2680,11 +3168,34 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
   }
   const assetsInYearBefore = Number(openingCtx?.assets_in_year ?? 0);
 
+  const buildingStatus = resolveBuildingStatus(body, categoryName);
+
+  let previousProgressPurchase = null;
+  if (body.rolling_last_progress_purchase != null || body.rollingLastProgressPurchase != null) {
+    const raw = toMoney(body.rolling_last_progress_purchase ?? body.rollingLastProgressPurchase);
+    previousProgressPurchase = raw > 0 ? raw : null;
+  } else if (!useBatchRolling && openingCtx?.source === 'ledger') {
+    const raw = toMoney(openingCtx?.prior_progress_purchase);
+    previousProgressPurchase = raw > 0 ? raw : null;
+  }
+
+  let priorYearNetBookValue = null;
+  if (body.rolling_prior_year_net_book != null || body.rollingPriorYearNetBook != null) {
+    const raw = toMoney(body.rolling_prior_year_net_book ?? body.rollingPriorYearNetBook);
+    priorYearNetBookValue = raw > 0 ? raw : null;
+  } else if (!useBatchRolling && openingCtx?.source !== 'ledger') {
+    priorYearNetBookValue = toMoney(openingCtx?.prior_asset_net_book) || null;
+  }
+
   const math = computeAssetRegisterMath({
     openingAmount: categoryOpening,
     unitPrice: purchasePrice,
     accumulatedDepreciation: accumulatedStart,
     depRatePercent: depRate,
+    category: categoryName,
+    buildingStatus,
+    previousProgressPurchase,
+    priorYearNetBookValue,
   });
 
   const skuMode = trimStr(body.sku_mode || body.skuMode || 'manual').toLowerCase();
@@ -2745,6 +3256,8 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
     receipt_number: body.receipt_number || body.receiptNumber,
     reference_no: body.reference_no || body.referenceNo,
     register_year: activeYear.year,
+    building_status: buildingStatus,
+    asset_health_status: resolveAssetHealthStatus(body, { isCreate: true }),
   }, { isCreate: true, defaultRegisterYear: activeYear.year });
 
   const asset = await insertAssetRecord(schoolId, userId, p);
@@ -2754,8 +3267,9 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
     if (!balanceRow) {
       const setupBal = await getYearSetupCategoryBalance(schoolId, activeYear.year, categoryName);
       const yearStart = categoryYearStartFromBalance(setupBal);
+      const isLand = isLandCategory(categoryName);
       const insOpening = yearStart.opening || categoryOpening;
-      const insAccStart = yearStart.accumulated || accumulatedStart;
+      const insAccStart = isLand ? 0 : (yearStart.accumulated || accumulatedStart);
       const [ins] = await promisePool.query(
         `INSERT INTO school_asset_year_category_balances (
           financial_year_id, school_id, category_id, category_name, depreciation_rate,
@@ -2764,7 +3278,7 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           activeYear.id, schoolId, catRow?.id || null, categoryName, depRate,
-          insOpening, insOpening, 0, insAccStart, insAccStart, 0, insOpening - insAccStart,
+          insOpening, insOpening, 0, insAccStart, insAccStart, 0, insOpening,
         ]
       );
       const [[created]] = await promisePool.query(
@@ -2776,15 +3290,31 @@ async function registerAssetWithLedger(schoolId, userId, body, options = {}) {
 
     if (balanceRow) {
       const opening = toMoney(balanceRow.opening_balance);
-      const accStart = toMoney(balanceRow.accumulated_depreciation_start ?? balanceRow.accumulated_depreciation);
+      const accStart = isLandCategory(categoryName)
+        ? 0
+        : toMoney(balanceRow.accumulated_depreciation_start ?? balanceRow.accumulated_depreciation);
       const newPurchases = toMoney(balanceRow.purchases) + purchasePrice;
-      const newAnnualDep = toMoney(balanceRow.annual_depreciation) + math.annualDep;
-      const newClosing = Math.max(0, opening + newPurchases - accStart - newAnnualDep);
+      const newAnnualDep = isLandCategory(categoryName)
+        ? 0
+        : toMoney(balanceRow.annual_depreciation) + math.annualDep;
+      // Land closing tracks stock value: Opening + Purchases (= last TOTAL BALANCE chain).
+      const newClosing = isLandCategory(categoryName)
+        ? Math.max(0, opening + newPurchases)
+        : Math.max(0, opening + newPurchases - accStart - newAnnualDep);
       await promisePool.query(
         `UPDATE school_asset_year_category_balances SET
-          purchases = ?, annual_depreciation = ?, closing_balance = ?
+          purchases = ?, annual_depreciation = ?,
+          accumulated_depreciation = ?, accumulated_depreciation_start = ?,
+          closing_balance = ?
          WHERE id = ?`,
-        [newPurchases, newAnnualDep, newClosing, balanceRow.id]
+        [
+          newPurchases,
+          newAnnualDep,
+          isLandCategory(categoryName) ? 0 : accStart,
+          isLandCategory(categoryName) ? 0 : accStart,
+          newClosing,
+          balanceRow.id,
+        ]
       );
     }
 
@@ -3001,6 +3531,8 @@ async function registerAssetsBulkWithLedger(schoolId, userId, body, quantity) {
   const created = [];
   let rollingOpening = null;
   let rollingAccumulated = null;
+  let rollingLastProgressPurchase = null;
+  const bulkBuildingStatus = resolveBuildingStatus(body, categoryName);
 
   for (let i = 0; i < qty; i += 1) {
     const itemBody = { ...body, quantity: 1 };
@@ -3021,6 +3553,7 @@ async function registerAssetsBulkWithLedger(schoolId, userId, body, quantity) {
     if (i > 0 && rollingOpening != null) {
       itemBody.rolling_opening = rollingOpening;
       itemBody.rolling_accumulated_dep = rollingAccumulated;
+      itemBody.rolling_last_progress_purchase = rollingLastProgressPurchase;
       itemBody._batch_rolling = true;
     }
 
@@ -3030,6 +3563,11 @@ async function registerAssetsBulkWithLedger(schoolId, userId, body, quantity) {
     });
     rollingOpening = result.calculation?.total_balance ?? result.calculation?.totalBalance;
     rollingAccumulated = result.calculation?.total_depreciation ?? result.calculation?.totalDep;
+    if (isBuildingsCategory(categoryName) && isBuildingWorkingProgress(bulkBuildingStatus)) {
+      rollingLastProgressPurchase = toMoney(body.purchase_price ?? body.purchasePrice ?? body.unitPrice);
+    } else if (isBuildingsCategory(categoryName)) {
+      rollingLastProgressPurchase = null;
+    }
     created.push(result);
   }
 
@@ -3361,6 +3899,13 @@ router.patch('/school/assets/categories/:id', requireRole(ASSETS_WRITE_ROLES), a
        WHERE id = ? AND school_id = ?`,
       [newName, newIcon, newDesc, newDepRate, id, schoolId]
     );
+    if (depRateInput !== undefined && newDepRate != null) {
+      await promisePool.query(
+        `UPDATE school_asset_year_category_balances SET depreciation_rate = ?
+         WHERE school_id = ? AND (category_id = ? OR LOWER(TRIM(category_name)) = LOWER(TRIM(?)))`,
+        [newDepRate, schoolId, id, newName]
+      );
+    }
     if (newName !== existing.name) {
       await promisePool.query(
         `UPDATE school_assets SET category = ? WHERE school_id = ? AND category = ? AND deleted_at IS NULL`,
@@ -3578,12 +4123,16 @@ router.post('/school/assets/financial-years', requireRole(ASSETS_WRITE_ROLES), a
       const catName = trimStr(b.category || b.category_name);
       if (!catName) continue;
       const fromPreview = previewMap.get(catName);
+      const isLand = isLandCategory(catName);
       const opening = autoCarry
         ? toMoney(b.opening_balance ?? b.opening ?? fromPreview?.opening_balance)
         : toMoney(b.opening_balance ?? b.opening);
       const lastClosing = toMoney(b.last_year_closing ?? b.lastYearClosing ?? fromPreview?.last_year_closing);
-      const rate = toMoney(b.depreciation_rate ?? fromPreview?.depreciation_rate ?? 5);
-      const prevAccDep = toMoney(b.previous_accumulated_depreciation ?? b.accumulated_depreciation ?? fromPreview?.accumulated_depreciation);
+      const rate = isLand ? 0 : toMoney(b.depreciation_rate ?? fromPreview?.depreciation_rate ?? 5);
+      // Land Year Setup: Opening amount only — no accumulated depreciation.
+      const prevAccDep = isLand
+        ? 0
+        : toMoney(b.previous_accumulated_depreciation ?? b.accumulated_depreciation ?? fromPreview?.accumulated_depreciation);
       await promisePool.query(
         `INSERT INTO school_asset_year_category_balances (
           financial_year_id, school_id, category_id, category_name, depreciation_rate,
@@ -3592,7 +4141,7 @@ router.post('/school/assets/financial-years', requireRole(ASSETS_WRITE_ROLES), a
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           financialYearId, schoolId, b.category_id || fromPreview?.category_id || null, catName, rate,
-          opening, lastClosing, 0, prevAccDep, prevAccDep, 0, opening - prevAccDep,
+          opening, lastClosing, 0, prevAccDep, prevAccDep, 0, opening,
         ]
       );
     }
@@ -3662,19 +4211,27 @@ router.patch('/school/assets/financial-years/:id', requireRole(ASSETS_WRITE_ROLE
         if (!catName) continue;
         const opening = toMoney(b.opening_balance ?? b.opening);
         const lastClosing = toMoney(b.last_year_closing ?? b.lastYearClosing);
-        const rate = b.depreciation_rate != null ? toMoney(b.depreciation_rate) : null;
+        const isLand = isLandCategory(catName);
+        const rate = isLand
+          ? 0
+          : (b.depreciation_rate != null ? toMoney(b.depreciation_rate) : null);
         const [[existing]] = await promisePool.query(
           `SELECT * FROM school_asset_year_category_balances
            WHERE financial_year_id = ? AND school_id = ? AND category_name = ? LIMIT 1`,
           [id, schoolId, catName]
         );
-        const accDepInput = toMoney(
-          b.accumulated_depreciation ?? b.previous_accumulated_depreciation ?? b.total_depreciation_start
-        );
+        const accDepInput = isLand
+          ? 0
+          : toMoney(
+            b.accumulated_depreciation ?? b.previous_accumulated_depreciation ?? b.total_depreciation_start
+          );
         if (existing) {
           const purchases = toMoney(existing.purchases);
-          const accDep = accDepInput || toMoney(existing.accumulated_depreciation);
-          const newClosing = opening + purchases - accDep;
+          const accDep = isLand ? 0 : (accDepInput || toMoney(existing.accumulated_depreciation));
+          // Land closing = Opening + Purchases (stock value); others net of dep.
+          const newClosing = isLand
+            ? Math.max(0, opening + purchases)
+            : opening + purchases - accDep;
           await promisePool.query(
             `UPDATE school_asset_year_category_balances SET
               opening_balance = ?,
@@ -3682,9 +4239,10 @@ router.patch('/school/assets/financial-years/:id', requireRole(ASSETS_WRITE_ROLE
               depreciation_rate = COALESCE(?, depreciation_rate),
               accumulated_depreciation = ?,
               accumulated_depreciation_start = ?,
+              annual_depreciation = ?,
               closing_balance = ?
              WHERE id = ?`,
-            [opening, lastClosing || null, rate, accDep, accDep, newClosing, existing.id]
+            [opening, lastClosing || null, rate, accDep, accDep, isLand ? 0 : toMoney(existing.annual_depreciation), newClosing, existing.id]
           );
         } else {
           const accDep = accDepInput;
@@ -3695,8 +4253,8 @@ router.patch('/school/assets/financial-years/:id', requireRole(ASSETS_WRITE_ROLE
               accumulated_depreciation_start, annual_depreciation, closing_balance
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
             [
-              id, schoolId, b.category_id || null, catName, rate ?? 5,
-              opening, lastClosing, 0, accDep, accDep, 0, opening + 0 - accDep,
+              id, schoolId, b.category_id || null, catName, rate ?? (isLand ? 0 : 5),
+              opening, lastClosing, 0, accDep, accDep, 0, opening,
             ]
           );
         }
@@ -3933,9 +4491,13 @@ router.get('/school/assets/test/opening', requireRole(ASSETS_READ_ROLES), async 
     if (!Number.isFinite(year) || !category) {
       return res.status(400).json({ success: false, message: 'Year and category are required' });
     }
+    const editAssetId = Number(req.query.edit_asset_id || req.query.editAssetId);
+    const openingOptions = Number.isFinite(editAssetId) && editAssetId > 0
+      ? { beforeAssetId: editAssetId }
+      : {};
     const ctx = entryMode === 'legacy'
-      ? await resolveAssetBasedOpeningContext(schoolId, year, category)
-      : await resolveCategoryOpeningContext(schoolId, year, category);
+      ? await resolveAssetBasedOpeningContext(schoolId, year, category, openingOptions)
+      : await resolveCategoryOpeningContext(schoolId, year, category, openingOptions);
     const [[catRow]] = await promisePool.query(
       `SELECT depreciation_rate FROM school_asset_categories
        WHERE school_id = ? AND deleted_at IS NULL AND name = ? LIMIT 1`,
@@ -4183,6 +4745,7 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
     const skipDuplicates = body.skip_duplicates !== false;
     const autoGenerateSku = body.auto_generate_sku !== false;
     const entryMode = resolveAssetEntryMode(body);
+    const importEntryMode = 'legacy';
     const registerYear = resolveRegisterYear(body, null);
 
     if (!registerYear) {
@@ -4195,22 +4758,42 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
       return res.status(400).json({ success: false, message: 'Maximum 500 rows per import' });
     }
 
-    const skuSet = await loadSchoolSkuSet(schoolId, registerYear);
-    const fileSeenSkus = new Set();
+    const skuSetByYear = new Map();
+    const getSkuSetForYear = async (yr) => {
+      if (!skuSetByYear.has(yr)) {
+        skuSetByYear.set(yr, await loadSchoolSkuSet(schoolId, yr));
+      }
+      return skuSetByYear.get(yr);
+    };
+    const fileSeenSkusByYear = new Map();
+    const getFileSeenForYear = (yr) => {
+      if (!fileSeenSkusByYear.has(yr)) fileSeenSkusByYear.set(yr, new Set());
+      return fileSeenSkusByYear.get(yr);
+    };
     const schoolCategories = await loadCategoriesWithCounts(schoolId);
     const knownCategoryNames = schoolCategories.map((c) => c.name).filter(Boolean);
+    rows.sort((a, b) => {
+      const catA = trimStr(resolveImportCategoryName(a.category, a.type || a.asset_type, knownCategoryNames)).toLowerCase();
+      const catB = trimStr(resolveImportCategoryName(b.category, b.type || b.asset_type, knownCategoryNames)).toLowerCase();
+      if (catA !== catB) return catA.localeCompare(catB);
+      return resolveRowRegisterYear(a, registerYear) - resolveRowRegisterYear(b, registerYear);
+    });
     const created = [];
     const errors = [];
     const skipped = [];
-    const categoriesTouched = new Set();
-    let finYearIdForRecalc = null;
+    const chainTouched = new Set();
+    const finYearsTouched = new Set();
     let assetCodeSeq = await getMaxAssetCodeSeq(schoolId);
     const batchRollingByCategory = {};
+    const yearEndByCategory = {};
+    const registerYearsUsed = new Set();
 
     for (let i = 0; i < rows.length; i += 1) {
       const row = rows[i] || {};
       const rowNo = i + 1;
       try {
+        const rowRegisterYear = resolveRowRegisterYear(row, registerYear);
+        registerYearsUsed.add(rowRegisterYear);
         const assetName = trimStr(row.asset_name || row.name);
         const categoryName = resolveImportCategoryName(
           row.category,
@@ -4233,7 +4816,7 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
         }
 
         if (!sku && autoGenerateSku) {
-          const autoSku = await resolveAutoSkuForBody(schoolId, registerYear, {
+          const autoSku = await resolveAutoSkuForBody(schoolId, rowRegisterYear, {
             location: rowLocation,
             label_tag: row.label_tag || row.label || null,
             asset_name: assetName,
@@ -4241,6 +4824,8 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
           sku = autoSku.sku;
         }
 
+        const skuSet = await getSkuSetForYear(rowRegisterYear);
+        const fileSeenSkus = getFileSeenForYear(rowRegisterYear);
         const dupIssues = findSkuDuplicateIssues({ sku }, skuSet, fileSeenSkus);
         if (dupIssues.length) {
           if (skipDuplicates) {
@@ -4252,29 +4837,49 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
         }
 
         assetCodeSeq += 1;
-        const catKey = categoryName.toLowerCase();
-        if (!batchRollingByCategory[catKey]) {
-          const openingCtx = entryMode === 'legacy'
-            ? await resolveAssetBasedOpeningContext(schoolId, registerYear, categoryName)
-            : await resolveCategoryOpeningContext(schoolId, registerYear, categoryName);
-          batchRollingByCategory[catKey] = {
-            opening: toMoney(openingCtx?.effective_opening),
-            accumulated: toMoney(
-              openingCtx?.effective_accumulated_depreciation
-              ?? openingCtx?.accumulated_depreciation
-            ),
-          };
+        const rollKey = `${rowRegisterYear}:${categoryName.toLowerCase()}`;
+        const priorKey = `${rowRegisterYear - 1}:${categoryName.toLowerCase()}`;
+        if (!batchRollingByCategory[rollKey]) {
+          const priorYearEnd = yearEndByCategory[priorKey];
+          if (priorYearEnd && (priorYearEnd.totalBalance > 0 || priorYearEnd.totalDep > 0)) {
+            batchRollingByCategory[rollKey] = {
+              opening: toMoney(priorYearEnd.totalBalance),
+              fixedAccumulated: toMoney(priorYearEnd.totalDep),
+              accumulated: toMoney(priorYearEnd.totalDep),
+              lastProgressPurchase: null,
+              priorYearNetBook: toMoney(priorYearEnd.netBook) || null,
+            };
+          } else {
+            const yearStart = await resolveYearStartOpening(schoolId, rowRegisterYear, categoryName);
+            const openingCtx = entryMode === 'legacy'
+              ? await resolveAssetBasedOpeningContext(schoolId, rowRegisterYear, categoryName)
+              : await resolveCategoryOpeningContext(schoolId, rowRegisterYear, categoryName);
+            const fixedAccumulated = toMoney(yearStart.accumulated);
+            batchRollingByCategory[rollKey] = {
+              opening: toMoney(openingCtx?.effective_opening ?? yearStart.opening),
+              fixedAccumulated,
+              accumulated: fixedAccumulated,
+              lastProgressPurchase: null,
+              priorYearNetBook: toMoney(openingCtx?.prior_asset_net_book) || null,
+            };
+          }
         }
-        const rollState = batchRollingByCategory[catKey];
+        const rollState = batchRollingByCategory[rollKey];
+        const rowFixedAccumulated = toMoney(rollState.fixedAccumulated ?? rollState.accumulated);
+        const importBuildingStatus = resolveBuildingStatus(row, categoryName);
 
         const importBody = {
           asset_code: `AST-${String(assetCodeSeq).padStart(5, '0')}`,
-          register_year: registerYear,
-          entry_mode: entryMode,
-          first_time: entryMode === 'year_setup',
+          register_year: rowRegisterYear,
+          entry_mode: importEntryMode,
+          first_time: false,
           _batch_rolling: true,
           rolling_opening: rollState.opening,
-          rolling_accumulated_dep: rollState.accumulated,
+          rolling_accumulated_dep: rowFixedAccumulated,
+          rolling_fixed_accumulated: rowFixedAccumulated,
+          rolling_last_progress_purchase: rollState.lastProgressPurchase ?? null,
+          rolling_prior_year_net_book: rollState.priorYearNetBook ?? null,
+          building_status: importBuildingStatus,
           asset_name: assetName,
           category: categoryName,
           location: rowLocation,
@@ -4285,6 +4890,9 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
           material: row.material || null,
           purchase_price: purchasePrice,
           purchase_date: row.purchase_date || buildPurchaseDate(row),
+          purchase_year: row.purchase_year ?? row.purchaseYear,
+          purchase_month: row.purchase_month ?? row.purchaseMonth,
+          purchase_day: row.purchase_day ?? row.purchaseDay,
           reference_no: row.reference_no || row.cba || null,
           apply_tax: row.apply_tax !== false && row.applyTax !== false,
           condition: row.condition || 'Good',
@@ -4295,21 +4903,33 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
           skipChainRecalc: true,
         });
         if (result?.calculation) {
-          batchRollingByCategory[catKey] = {
-            opening: toMoney(result.calculation.total_balance),
-            accumulated: rollState.accumulated,
+          const totalBal = toMoney(result.calculation.total_balance);
+          const totalDep = toMoney(result.calculation.total_depreciation ?? result.calculation.total_dep);
+          batchRollingByCategory[rollKey] = {
+            opening: totalBal,
+            fixedAccumulated: rowFixedAccumulated,
+            accumulated: rowFixedAccumulated,
+            lastProgressPurchase: isBuildingsCategory(categoryName) && isBuildingWorkingProgress(importBuildingStatus)
+              ? purchasePrice
+              : (isBuildingsCategory(categoryName) ? null : rollState.lastProgressPurchase ?? null),
+            priorYearNetBook: null,
+          };
+          yearEndByCategory[rollKey] = {
+            totalBalance: totalBal,
+            totalDep,
+            netBook: toMoney(result.calculation.net_book_value ?? result.calculation.netBookValue),
+            lastProgressPurchase: batchRollingByCategory[rollKey]?.lastProgressPurchase ?? null,
           };
         }
-        categoriesTouched.add(categoryName);
-        if (result?.calculation?.financial_year) {
-          const fy = await getFinancialYearByYear(schoolId, registerYear);
-          if (fy?.id) finYearIdForRecalc = fy.id;
-        }
+        chainTouched.add(rollKey);
+        const fy = await getFinancialYearByYear(schoolId, rowRegisterYear);
+        if (fy?.id) finYearsTouched.add(fy.id);
         created.push({
           id: result.asset?.id,
           asset_name: result.asset?.asset_name,
           sku: result.asset?.sku,
           asset_code: result.asset?.asset_code,
+          register_year: rowRegisterYear,
         });
         const skuKey = trimStr(sku).toUpperCase();
         if (skuKey) skuSet.add(skuKey);
@@ -4331,19 +4951,30 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
       }
     }
 
-    if (finYearIdForRecalc) {
-      await recalcFinancialYearTotals(finYearIdForRecalc, schoolId);
+    for (const fyId of finYearsTouched) {
+      await recalcFinancialYearTotals(fyId, schoolId);
     }
 
-    for (const cat of categoriesTouched) {
-      await recalcRegisterChainInCategory(schoolId, registerYear, cat);
+    for (const rollKey of chainTouched) {
+      const sep = rollKey.indexOf(':');
+      const yr = Number(rollKey.slice(0, sep));
+      const cat = rollKey.slice(sep + 1);
+      if (Number.isFinite(yr) && cat) {
+        await recalcRegisterChainInCategory(schoolId, yr, cat);
+      }
     }
+
+    const yearsList = [...registerYearsUsed].sort((a, b) => a - b);
+    const yearsLabel = yearsList.length > 1
+      ? `FY ${yearsList.join(', ')}`
+      : `FY ${yearsList[0] ?? registerYear}`;
 
     res.json({
       success: true,
-      message: `Imported ${created.length} of ${rows.length} assets into FY ${registerYear}`,
+      message: `Imported ${created.length} of ${rows.length} assets into ${yearsLabel}`,
       data: {
         register_year: registerYear,
+        register_years: yearsList,
         created: created.length,
         failed: errors.length,
         skipped: skipped.length,

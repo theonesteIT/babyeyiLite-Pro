@@ -9,6 +9,7 @@ import {
   parseAssetTestExcelFile,
   buildAssetTestImportPreview,
   downloadAssetTestImportTemplate,
+  resolveRowRegisterYear,
   ASSET_TEST_IMPORT_HEADERS,
 } from '../../../assets_portal/utils/assetTestExcelImport'
 
@@ -88,40 +89,62 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     [categories],
   )
 
-  const loadOpeningContexts = useCallback(async (year, rows, firstTime) => {
-    const cats = [...new Set(rows.map((r) => r.category).filter(Boolean))]
+  const loadOpeningContexts = useCallback(async (rows, firstTime, fallbackYear) => {
+    const pairs = new Map()
+    rows.forEach((r) => {
+      const cat = r.category
+      if (!cat) return
+      const year = resolveRowRegisterYear(r, fallbackYear)
+      const rollKey = `${year}:${String(cat).trim().toLowerCase()}`
+      pairs.set(rollKey, { year, cat, rollKey })
+    })
     const openings = {}
     await Promise.all(
-      cats.map(async (cat) => {
+      [...pairs.values()].map(async ({ year, cat, rollKey }) => {
         try {
           const ctx = await assetTestApi.getOpening(year, cat, {
             firstTime,
             entryMode: firstTime ? 'year_setup' : 'legacy',
           })
-          openings[cat] = ctx
+          openings[rollKey] = { ...ctx, _category: cat, _year: year }
         } catch {
-          openings[cat] = { effective_opening: 0, effective_accumulated_depreciation: 0, depreciation_rate: depRateByCategory[cat] ?? 5 }
+          openings[rollKey] = {
+            effective_opening: 0,
+            effective_accumulated_depreciation: 0,
+            depreciation_rate: depRateByCategory[cat] ?? 5,
+            _category: cat,
+            _year: year,
+          }
         }
-      })
+      }),
     )
     return openings
   }, [depRateByCategory])
 
   const rebuildPreview = useCallback(async (rows, year, firstTime, autoSku = autoGenerateSku) => {
-    const [openings, identifiers] = await Promise.all([
-      loadOpeningContexts(year, rows, firstTime),
-      assetTestApi.getIdentifiers(year).catch(() => ({ skus: [] })),
+    const yearsInFile = [...new Set(rows.map((r) => resolveRowRegisterYear(r, year)))]
+    const [openings, identifierResults] = await Promise.all([
+      loadOpeningContexts(rows, firstTime, year),
+      Promise.all(
+        yearsInFile.map((y) => assetTestApi.getIdentifiers(y).catch(() => ({ skus: [] }))),
+      ),
     ])
     setOpeningByCategory(openings)
-    const existingSkus = new Set(
-      (identifiers?.skus ?? []).map((s) => String(s).trim().toUpperCase()).filter(Boolean)
-    )
+    const existingSkusByYear = new Map()
+    yearsInFile.forEach((y, idx) => {
+      const skus = new Set(
+        (identifierResults[idx]?.skus ?? [])
+          .map((s) => String(s).trim().toUpperCase())
+          .filter(Boolean),
+      )
+      existingSkusByYear.set(y, skus)
+    })
     return buildAssetTestImportPreview(
       rows,
       openings,
       depRateByCategory,
-      existingSkus,
-      { autoGenerateSku: autoSku },
+      existingSkusByYear,
+      { autoGenerateSku: autoSku, fallbackYear: Number(year) },
     )
   }, [autoGenerateSku, depRateByCategory, loadOpeningContexts])
 
@@ -137,7 +160,13 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
         throw new Error('No data rows found. Check column headers match the template.')
       }
       setParsedRows(parsed.rows)
-      const preview = await rebuildPreview(parsed.rows, selectedYear, isFirstEntry)
+      const sortedRows = [...parsed.rows].sort((a, b) => {
+        const catA = String(a.category || '').toLowerCase();
+        const catB = String(b.category || '').toLowerCase();
+        if (catA !== catB) return catA.localeCompare(catB);
+        return resolveRowRegisterYear(a, selectedYear) - resolveRowRegisterYear(b, selectedYear);
+      });
+      const preview = await rebuildPreview(sortedRows, selectedYear, isFirstEntry)
       setPreviewRows(preview)
       setPhase('preview')
     } catch (err) {
@@ -170,8 +199,26 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
   }, [previewRows])
 
   const categoryOpeningSummary = useMemo(() => {
-    return Object.entries(openingByCategory).map(([cat, ctx]) => ({
-      category: cat,
+    const fromPreview = new Map()
+    previewRows.forEach((row) => {
+      if (row.status !== 'ready' || !row.category) return
+      const key = `${row.register_year}:${String(row.category).trim().toLowerCase()}`
+      if (fromPreview.has(key)) return
+      fromPreview.set(key, {
+        year: row.register_year,
+        category: row.category,
+        opening: Number(row.opening_amount ?? 0),
+        accumulated: Number(row.accumulated_depreciation ?? 0),
+        source: 'excel_carry_forward',
+        priorAssetName: null,
+        priorAssetCode: null,
+        assetsInYear: 0,
+      })
+    })
+    if (fromPreview.size > 0) return [...fromPreview.values()]
+    return Object.entries(openingByCategory).map(([rollKey, ctx]) => ({
+      year: ctx?._year ?? (rollKey.includes(':') ? rollKey.slice(0, rollKey.indexOf(':')) : selectedYear),
+      category: ctx?._category ?? rollKey.slice(rollKey.indexOf(':') + 1),
       opening: Number(ctx?.effective_opening ?? ctx?.year_setup_opening ?? ctx?.year_opening_balance ?? 0),
       accumulated: Number(
         ctx?.effective_accumulated_depreciation
@@ -184,7 +231,12 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
       priorAssetCode: ctx?.prior_asset_code || null,
       assetsInYear: Number(ctx?.assets_in_year ?? 0),
     }))
-  }, [openingByCategory])
+  }, [previewRows, openingByCategory, selectedYear])
+
+  const detectedYears = useMemo(() => {
+    const yrs = new Set(previewRows.map((r) => r.register_year).filter(Boolean))
+    return [...yrs].sort((a, b) => a - b)
+  }, [previewRows])
 
   const handleYearContinue = () => {
     if (!yearValid) return
@@ -199,13 +251,14 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
 
   const handleConfirm = () => {
     const rows = previewRows.filter((r) => r.status === 'ready').map((r) => r.payload)
+    const multiYear = detectedYears.length > 1
     onSuccess?.({
       rows,
       skipDuplicates,
       autoGenerateSku,
       registerYear: Number(selectedYear),
-      entryMode: isFirstEntry ? 'year_setup' : 'legacy',
-      firstTime: isFirstEntry,
+      entryMode: multiYear ? 'legacy' : (isFirstEntry ? 'year_setup' : 'legacy'),
+      firstTime: multiYear ? false : isFirstEntry,
     })
   }
 
@@ -316,8 +369,11 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                     <Layers size={14} /> How opening works on import
                   </p>
                   <ul className="text-xs text-blue-900/80 space-y-1 list-disc list-inside">
-                    <li>First row per category uses year-start opening + accumulated depreciation.</li>
-                    <li>Next rows: <strong>Opening</strong> = prior row TOTAL BALANCE · <strong>Acc. dep.</strong> = same value for all assets in that category &amp; year · <strong>Annual dep.</strong> = total balance × depreciation rate.</li>
+                    <li>Each row uses its <strong>purchase_year</strong> column as register year (falls back to selected FY when blank).</li>
+                    <li><strong>KPS carry-forward:</strong> next year <strong>Opening</strong> = prior year TOTAL BALANCE · next year <strong>Acc. dep.</strong> = prior year TOTAL DEPRECIATION.</li>
+                    <li>Same purchase year + category: <strong>Acc. dep.</strong> stays fixed; <strong>Opening</strong> chains within the year.</li>
+                    <li><strong>Total dep.</strong> = Acc. dep. + Annual dep. · <strong>Annual dep.</strong> = (Total balance − Acc. dep.) × rate.</li>
+                    <li>Next rows: <strong>Opening</strong> = prior row TOTAL BALANCE · <strong>Acc. dep.</strong> = same value for all assets in that category &amp; year · <strong>Annual dep.</strong> = (Total balance − Acc. dep.) × depreciation rate.</li>
                     <li>Required columns: <strong>name</strong>, <strong>type</strong> (or <strong>category</strong>), <strong>purchase_unit_price</strong>.</li>
                     <li><strong>type</strong> (e.g. BUILDING) maps to your Year Setup category (e.g. Buildings) for opening balances.</li>
                     <li><strong>SKU</strong> is optional when auto-generate is enabled (default).</li>
@@ -419,14 +475,19 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
               <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-blue-50/80 to-emerald-50/50 shrink-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1">
                   <TrendingUp size={12} />
-                  {categoryOpeningSummary.some((c) => c.assetsInYear > 0)
-                    ? `Continues from last register asset (FY ${selectedYear})`
-                    : `Year-start opening by category (FY ${selectedYear})`}
+                  Year-start opening by category
+                  {detectedYears.length > 0 && (
+                    <span className="normal-case font-semibold text-[#000435]">
+                      — FY {detectedYears.join(', ')}
+                    </span>
+                  )}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {categoryOpeningSummary.map((c) => (
-                    <div key={c.category} className="rounded-lg bg-white border border-gray-100 px-3 py-2 text-[10px] min-w-[160px]">
-                      <p className="font-bold truncate" style={{ color: NAVY }}>{c.category}</p>
+                    <div key={`${c.year}:${c.category}`} className="rounded-lg bg-white border border-gray-100 px-3 py-2 text-[10px] min-w-[160px]">
+                      <p className="font-bold truncate" style={{ color: NAVY }}>
+                        {c.category} <span className="text-amber-600">· {c.year}</span>
+                      </p>
                       {c.priorAssetName && (
                         <p className="text-emerald-800 mt-0.5 truncate">
                           After: <strong>{c.priorAssetName}</strong>
@@ -445,7 +506,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
               <table className="w-full text-[11px] min-w-[1280px]">
                 <thead className="sticky top-0 z-10" style={{ background: NAVY }}>
                   <tr>
-                    {['#', 'Status', 'Name', 'Type', 'SKU', 'Location', 'Purchase', 'Opening', 'Acc. Dep.', 'TOTAL BAL.', 'TOTAL DEP.', 'NET BOOK', 'Notes'].map((h) => (
+                    {['#', 'Status', 'Year', 'Name', 'Type', 'SKU', 'Location', 'Purchase', 'Opening', 'Acc. Dep.', 'TOTAL BAL.', 'TOTAL DEP.', 'NET BOOK', 'Notes'].map((h) => (
                       <th key={h} className="px-2 py-2.5 text-left font-bold uppercase tracking-wide text-[10px] text-white whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -462,6 +523,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                           {row.status}
                         </span>
                       </td>
+                      <td className="px-2 py-2 font-bold tabular-nums text-amber-700">{row.register_year ?? '—'}</td>
                       <td className="px-2 py-2 font-medium max-w-[120px] truncate">{row.name || '—'}</td>
                       <td className="px-2 py-2">{row.category || '—'}</td>
                       <td className="px-2 py-2 font-mono">
@@ -490,7 +552,10 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
               </button>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-500">
-                  Import <strong style={{ color: NAVY }}>{summary.toImport}</strong> into FY {selectedYear}
+                  Import <strong style={{ color: NAVY }}>{summary.toImport}</strong>
+                  {detectedYears.length > 1
+                    ? <> into FY {detectedYears.join(', ')}</>
+                    : <> into FY {detectedYears[0] ?? selectedYear}</>}
                 </span>
                 <button
                   type="button"

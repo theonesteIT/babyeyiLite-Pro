@@ -24,6 +24,36 @@ export const FUNDING_SOURCES = [
 
 export const DEPRECIATION_MODES = ['Diminishing', 'Straight Line']
 
+export const BUILDING_STATUS_FINISHED = 'Finished'
+export const BUILDING_STATUS_WORKING_PROGRESS = 'Working Progress'
+
+export const BUILDING_STATUS_OPTIONS = [
+  { value: BUILDING_STATUS_WORKING_PROGRESS, label: 'Working Progress' },
+  { value: BUILDING_STATUS_FINISHED, label: 'Finished' },
+]
+
+export const DEFAULT_BUILDING_STATUS = BUILDING_STATUS_FINISHED
+
+export function isBuildingsCategory(category) {
+  const norm = String(category || '').trim().toLowerCase().replace(/s$/, '')
+  return norm === 'building'
+}
+
+/** Land is never depreciated (rate 0; annual = 0; NBV = total balance). */
+export function isLandCategory(category) {
+  return String(category || '').trim().toLowerCase() === 'land'
+}
+
+export function isBuildingWorkingProgress(buildingStatus) {
+  const s = String(buildingStatus || '').trim().toLowerCase()
+  return s === 'working progress' || s === 'working_progress' || s === 'wip' || s === 'in progress' || s === 'progress'
+}
+
+export function normalizeBuildingStatus(buildingStatus) {
+  if (isBuildingWorkingProgress(buildingStatus)) return BUILDING_STATUS_WORKING_PROGRESS
+  return BUILDING_STATUS_FINISHED
+}
+
 export const ASSET_HEALTH_STATUS_USED = 'Used'
 export const ASSET_HEALTH_STATUS_NOT_USED_OLD = 'Not Used (Old)'
 
