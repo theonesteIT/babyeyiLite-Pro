@@ -32,6 +32,8 @@ async function ensureBabyeyiCoreSchema() {
       payments LONGTEXT NOT NULL,
       parent_message TEXT NULL,
       show_parent_message TINYINT(1) NOT NULL DEFAULT 1,
+      school_description TEXT NULL,
+      include_school_description TINYINT(1) NOT NULL DEFAULT 1,
       total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
       bank_name VARCHAR(255) NOT NULL DEFAULT '',
       bank_account_no VARCHAR(100) NOT NULL DEFAULT '',
@@ -190,6 +192,8 @@ async function ensureBabyeyiCoreSchema() {
   /** Existing DBs created before new columns — IF NOT EXISTS is not on all MySQL/MariaDB builds. */
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN parent_message TEXT NULL');
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN show_parent_message TINYINT(1) NOT NULL DEFAULT 1');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN school_description TEXT NULL');
+  await runDDL('ALTER TABLE school_babyeyi ADD COLUMN include_school_description TINYINT(1) NOT NULL DEFAULT 1');
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN classes_json LONGTEXT NULL');
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN education_level VARCHAR(50) NOT NULL DEFAULT \'\'');
   await runDDL('ALTER TABLE school_babyeyi ADD COLUMN banks_json LONGTEXT NULL');

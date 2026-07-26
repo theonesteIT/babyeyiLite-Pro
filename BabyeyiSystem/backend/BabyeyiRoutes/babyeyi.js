@@ -885,13 +885,16 @@ const normalisePaymentsForHash = (payments) =>
     .filter(p => p.name !== "");
 
 async function persistSchoolDescriptionFields(babyeyiId, body, fv) {
+  const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+  await ensureBabyeyiCoreSchema();
+
   const schoolDescription = String(fv(body.school_description, "") || "").trim() || null;
   const includeSchoolDescription =
     body.include_school_description === "false" || body.include_school_description === false ? 0 : 1;
   await query(
     `UPDATE school_babyeyi SET school_description=?, include_school_description=? WHERE id=?`,
     [schoolDescription, includeSchoolDescription, babyeyiId]
-  ).catch(() => {});
+  );
 }
 
 async function insertBabyeyiStudentRequirementRow(babyeyiId, r, sortOrder) {
