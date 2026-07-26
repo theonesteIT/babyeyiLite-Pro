@@ -29,8 +29,8 @@ import {
   formatBabyeyiDocumentClassLabel,
   buildBabyeyiDocumentClassHeaderHtml,
 } from '../../../utils/classStreamGroups';
-import { wrapBabyeyiDocHtml } from './babyeyiDocFrame';
-import BabyeyiDocFrame from './babyeyiDocFrameView.jsx';
+import { wrapBabyeyiDocHtml, buildBabyeyiPdfHeaderHtml, buildBabyeyiTotalPaymentsSectionHtml, BABYEYI_DOC_FONT, BABYEYI_DOC_FRAME_PRINT_CSS } from './babyeyiDocFrame';
+import BabyeyiDocFrame, { BabyeyiDocumentHeader, BabyeyiTotalPaymentsSection } from './babyeyiDocFrameView.jsx';
 import { WizardContent } from './UpdateBabyeyi';
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
@@ -206,6 +206,108 @@ export async function downloadBabyeyiClientPdf({ rootEl, fileName }) {
   await renderBabyeyiPdfFromRoot(rootEl, null, fileName, babyeyiDocHtml2CanvasOptions());
 }
 
+/** WYSIWYG print — same document as View modal; uses hidden iframe (no pop-up). */
+export function printBabyeyiClientDoc({
+  rootEl,
+  rec,
+  totalFee,
+  today,
+  schoolLogoB64,
+  otherLogoB64,
+  sigB64,
+  stampB64,
+  qrB64,
+  vUrl,
+  lang = "en",
+  T,
+  parentMsgOverride,
+}) {
+  let bodyHtml;
+  if (rootEl) {
+    const clone = rootEl.cloneNode(true);
+    clone.querySelectorAll("button").forEach((btn) => {
+      btn.remove();
+    });
+    bodyHtml = clone.outerHTML;
+  } else {
+    bodyHtml = buildWordDocHTML({
+      rec,
+      totalFee,
+      today,
+      schoolLogoB64,
+      otherLogoB64,
+      sigB64,
+      stampB64,
+      qrB64,
+      vUrl,
+      lang,
+      T,
+      parentMsgOverride,
+    });
+  }
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("title", "Babyeyi print");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  document.body.appendChild(iframe);
+
+  const win = iframe.contentWindow;
+  const doc = win?.document;
+  if (!doc) {
+    iframe.remove();
+    throw new Error("Print failed — could not prepare the document.");
+  }
+
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Babyeyi</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap">
+<style>
+  @page { size: A4; margin: 8mm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  ${BABYEYI_DOC_FRAME_PRINT_CSS}
+  button { display: none !important; }
+</style></head><body>${bodyHtml}</body></html>`);
+  doc.close();
+
+  const cleanup = () => {
+    setTimeout(() => {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 1000);
+  };
+
+  let printed = false;
+  const triggerPrint = () => {
+    if (printed) return;
+    printed = true;
+    try {
+      win.focus();
+      win.print();
+    } finally {
+      cleanup();
+    }
+  };
+
+  const imgs = doc.querySelectorAll("img");
+  if (!imgs.length) {
+    triggerPrint();
+    return;
+  }
+
+  let pending = imgs.length;
+  const onReady = () => {
+    pending -= 1;
+    if (pending <= 0) triggerPrint();
+  };
+  imgs.forEach((img) => {
+    if (img.complete) onReady();
+    else {
+      img.addEventListener("load", onReady, { once: true });
+      img.addEventListener("error", onReady, { once: true });
+    }
+  });
+  setTimeout(triggerPrint, 2500);
+}
+
 export function openBabyeyiPrintPage({ babyeyiId, apiLang = "en" }) {
   const printUrl = `${API_BASE}/babyeyi/${babyeyiId}/print?lang=${encodeURIComponent(apiLang)}&autoprint=1`;
   window.open(printUrl, "_blank", "noopener,noreferrer");
@@ -253,11 +355,11 @@ function parseBanks(rec) {
 
 // ── Doc HTML builder (re-exported for BabyeyiPdf.jsx) ────────
 const DOC = {
-  heading: { fontSize:"14px", fontWeight:700, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.05em" },
-  body:    { fontSize:"12px", color:"#1e293b", lineHeight:"1.7" },
-  label:   { fontSize:"12px", color:"#64748b", fontWeight:600 },
-  th:      { padding:"8px 12px", fontSize:"12px", fontWeight:700, color:"#1e3a5f", borderBottom:"2px solid #1e3a5f", textAlign:"left", background:"transparent" },
-  td:      { padding:"7px 12px", fontSize:"12px", color:"#1e293b", borderBottom:"1px solid #e2e8f0", background:"transparent" },
+  heading: { fontSize:"14px", fontWeight:700, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.05em", fontFamily: BABYEYI_DOC_FONT },
+  body:    { fontSize:"12px", color:"#1e293b", lineHeight:"1.7", fontFamily: BABYEYI_DOC_FONT },
+  label:   { fontSize:"12px", color:"#64748b", fontWeight:600, fontFamily: BABYEYI_DOC_FONT },
+  th:      { padding:"8px 12px", fontSize:"12px", fontWeight:700, color:"#1e3a5f", borderBottom:"2px solid #1e3a5f", textAlign:"left", background:"transparent", fontFamily: BABYEYI_DOC_FONT },
+  td:      { padding:"7px 12px", fontSize:"12px", color:"#1e293b", borderBottom:"1px solid #e2e8f0", background:"transparent", fontFamily: BABYEYI_DOC_FONT },
   section: { marginBottom:"22px" },
 };
 
@@ -331,12 +433,12 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const classHeaderHtml = buildBabyeyiDocumentClassHeaderHtml(classesArr, T.classLabel || "Class");
   const levelLabel = rec.level || rec.education_level || "";
   const metaHtml = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]]
-    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
+    .map(([l, v]) => `<span style="font-size:11px;color:#1e293b;line-height:1.35"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
     .join("");
-  const tblStyle = `width:100%;border-collapse:collapse;margin-top:8px`;
-  const thS = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent`;
-  const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent`;
-  const hdg = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${title}</span></div>`;
+  const tblStyle = `width:100%;border-collapse:collapse;margin-top:8px;font-family:${BABYEYI_DOC_FONT}`;
+  const thS = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent;font-family:${BABYEYI_DOC_FONT}`;
+  const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent;font-family:${BABYEYI_DOC_FONT}`;
+  const hdg = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px;font-family:${BABYEYI_DOC_FONT}"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${title}</span></div>`;
 
   const parentSection = parentMsg ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
   const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
@@ -363,6 +465,7 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
     ? `<th style="${thS};text-align:right">Unit (RWF)</th><th style="${thS};text-align:right">Total (RWF)</th>`
     : "";
   const reqSection = reqs.length > 0 ? `<div data-babyeyi-pdf-section="requirements" style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th>${reqHeadExtra}</tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
+  const totalPaySection = buildBabyeyiTotalPaymentsSectionHtml({ payments, requirements: reqs, T });
   const otherRows = otherInfos.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||""}</td></tr>`).join("");
   const otherSection = otherInfos.length > 0 ? `<div data-babyeyi-pdf-section="other" style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
   const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px;font-size:11px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"—"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"—"}</td><td style="${tdS};font-family:monospace;font-size:11px">${l.phone?`+250 ${l.phone}`:"—"}</td><td style="${tdS};font-size:11px;color:#2563eb">${l.email||"—"}</td></tr>`).join("");
@@ -370,13 +473,22 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
   const notesSection = classNotes.length > 0 ? `<div data-babyeyi-pdf-section="notes" style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
   const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>` : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
-  const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>` : "";
+  const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:100px;height:100px;object-fit:contain;display:block"/>` : "";
   const schoolDescBlock =
     rec.includeSchoolDescription !== false
       ? formatSchoolDescriptionHtml(rec.schoolDescription)
       : "";
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
-  return wrapBabyeyiDocHtml(`<div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex-1;text-align:center">${schoolDescBlock}<p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${classHeaderHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:6px">${metaHtml}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
+  const headerHtml = buildBabyeyiPdfHeaderHtml({
+    rec,
+    T,
+    schoolLogoHtml,
+    otherLogoHtml,
+    schoolDescBlock,
+    classHeaderHtml,
+    metaHtml,
+  });
+  return wrapBabyeyiDocHtml(`${headerHtml}<div id="babyeyi-pdf-body" style="padding:20px 40px 28px;font-family:${BABYEYI_DOC_FONT}">${parentSection}${paySection}${banksSection}${reqSection}${totalPaySection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -1030,7 +1142,26 @@ function OfficialDoc({
 
   const handlePrint = () => {
     if (blocked) return;
-    openBabyeyiPrintPage({ babyeyiId: rec.id, apiLang });
+    try {
+      const docEl = document.getElementById("babyeyi-pdf-doc");
+      printBabyeyiClientDoc({
+        rootEl: docEl,
+        rec: docBody.merged,
+        totalFee,
+        today,
+        schoolLogoB64,
+        otherLogoB64,
+        sigB64,
+        stampB64,
+        qrB64,
+        vUrl,
+        lang,
+        T,
+        parentMsgOverride: parentMsg,
+      });
+    } catch (e) {
+      alert("Print error: " + (e.message || e));
+    }
   };
 
   const handleRegen = async () => {
@@ -1132,7 +1263,7 @@ function OfficialDoc({
         </div>
 
         {/* Doc body — white background for official doc look */}
-        <div className="relative bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: "Georgia,'Times New Roman',serif" }}>
+        <div className="relative bg-white shadow-sm rounded-b-2xl overflow-hidden" style={{ fontFamily: BABYEYI_DOC_FONT }}>
           {docBody.busy && !isCoreBabyeyiLang(lang) && (
             <div className="absolute inset-0 z-10 bg-white/75 backdrop-blur-[2px] flex items-center justify-center p-4">
               <div className="flex flex-col items-center gap-2 text-[#000435]">
@@ -1144,41 +1275,17 @@ function OfficialDoc({
           <div className="overflow-x-auto overscroll-x-contain">
             <div style={{ minWidth: "760px" }}>
             <BabyeyiDocFrame>
-          {/* Header */}
-          <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-              <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                {schoolLogoB64 ? <img src={schoolLogoB64} style={{ width: "110px", height: "110px", objectFit: "contain" }} alt="Logo" /> : <span style={{ fontSize: "8px", color: "#64748b", textAlign: "center", fontWeight: 700, padding: "4px" }}>{T.schoolLogoPlaceholder || "SCHOOL LOGO"}</span>}
-              </div>
-              <div style={{ flex: 1, textAlign: "center" }}>
-                {rec.includeSchoolDescription !== false && parseSchoolDescriptionLines(rec.schoolDescription).length > 0 && (
-                  <div
-                    style={{ margin: "0 0 8px", textAlign: "center" }}
-                    dangerouslySetInnerHTML={{ __html: formatSchoolDescriptionHtml(rec.schoolDescription) }}
-                  />
-                )}
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "—"}</strong></p>
-                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "—"}</strong></p>
-                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
-                <div style={{ marginBottom: "10px" }}>
-                  <p style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", margin: "0 0 6px" }}>{T.classLabel}</p>
-                  <BabyeyiClassChips labels={classesArr} max={12} size="md" />
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
-                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]].map(([l, v], i) => (
-                    <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "—"}</span>
-                  ))}
-                </div>
-              </div>
-              <div style={{ flexShrink: 0, width: "84px", height: "84px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {otherLogoB64 && <img src={otherLogoB64} style={{ width: "80px", height: "80px", objectFit: "contain" }} alt="Other Logo" />}
-              </div>
-            </div>
-          </div>
+          <BabyeyiDocumentHeader
+            rec={rec}
+            T={T}
+            schoolLogoB64={schoolLogoB64}
+            otherLogoB64={otherLogoB64}
+            levelLabel={levelLabel}
+            classesArr={classesArr}
+          />
 
           {/* Body */}
-          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px" }}>
+          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px", fontFamily: BABYEYI_DOC_FONT }}>
             {(parentMsg || isRwLocale) && (
               <div data-babyeyi-pdf-section="parent" style={DOC.section}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
@@ -1287,6 +1394,7 @@ function OfficialDoc({
                 </table>
               </div>
             )}
+            <BabyeyiTotalPaymentsSection payments={payments} requirements={reqs} T={T} />
             {otherInfos.length > 0 && (
               <div data-babyeyi-pdf-section="other" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secOtherInfo}</span></div>

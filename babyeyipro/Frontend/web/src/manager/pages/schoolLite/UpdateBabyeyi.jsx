@@ -1917,7 +1917,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                     onChange={e => {
                       const v = e.target.value;
                       up("bankName", v);
-                      if (v !== BANK_OTHERS_VALUE) up("bankNameOther", "");
+                      up("bankNameOther", "");
                     }}
                     className={inp}
                     style={{ borderColor: C.goldBorder }}
@@ -1930,7 +1930,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                     <input
                       value={form.bankNameOther || bankCustomName(form.bankName, BANKS) || ""}
                       onChange={(e) => { up("bankNameOther", e.target.value); up("bankName", BANK_OTHERS_VALUE); }}
-                      placeholder="Enter bank name"
+                      placeholder="e.g. Bank of Africa"
                       className={`${inp} mt-2`}
                       style={{ borderColor: C.goldBorder }}
                     />
@@ -1979,7 +1979,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                           onChange={e => {
                             const v = e.target.value;
                             updateExtraBank(idx, "bankName", v);
-                            if (v !== BANK_OTHERS_VALUE) updateExtraBank(idx, "bankNameOther", "");
+                            updateExtraBank(idx, "bankNameOther", "");
                           }}
                           className={inp}
                           style={{ borderColor: C.goldBorder }}
@@ -1995,7 +1995,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                               updateExtraBank(idx, "bankNameOther", e.target.value);
                               updateExtraBank(idx, "bankName", BANK_OTHERS_VALUE);
                             }}
-                            placeholder="Enter bank name"
+                            placeholder="e.g. Bank of Africa"
                             className={inp}
                             style={{ borderColor: C.goldBorder }}
                           />

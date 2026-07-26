@@ -2361,7 +2361,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
                     onChange={e => {
                       const v = e.target.value;
                       up("bankName", v);
-                      if (v !== BANK_OTHERS_VALUE) up("bankNameOther", "");
+                      up("bankNameOther", "");
                     }}
                     className={inp}
                     style={{ borderColor: C.goldBorder }}
@@ -2377,7 +2377,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
                         up("bankNameOther", e.target.value);
                         up("bankName", BANK_OTHERS_VALUE);
                       }}
-                      placeholder="Enter bank name"
+                      placeholder="e.g. Bank of Africa"
                       className={`${inp} mt-2`}
                       style={{ borderColor: C.goldBorder }}
                     />
@@ -2445,7 +2445,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
                           onChange={e => {
                             const v = e.target.value;
                             updateExtraBank(idx, "bankName", v);
-                            if (v !== BANK_OTHERS_VALUE) updateExtraBank(idx, "bankNameOther", "");
+                            updateExtraBank(idx, "bankNameOther", "");
                           }}
                           className={inp}
                           style={{ borderColor: C.goldBorder }}
@@ -2461,7 +2461,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
                               updateExtraBank(idx, "bankNameOther", e.target.value);
                               updateExtraBank(idx, "bankName", BANK_OTHERS_VALUE);
                             }}
-                            placeholder="Enter bank name"
+                            placeholder="e.g. Bank of Africa"
                             className={inp}
                             style={{ borderColor: C.goldBorder }}
                           />

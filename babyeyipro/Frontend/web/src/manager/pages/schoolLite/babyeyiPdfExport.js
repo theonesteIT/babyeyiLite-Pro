@@ -219,13 +219,14 @@ export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canv
 }
 
 export function buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 }) {
+  const font = '"Montserrat", sans-serif';
   const qrBlock = qrB64
     ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="background:white;border:1px solid #e2e8f0;padding:4px;border-radius:4px"><img src="${qrB64}" style="width:64px;height:64px;object-fit:contain;display:block"/></div><p style="font-size:9px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId ? `<p style="font-size:9px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}</div>`
     : `<div style="width:64px;height:64px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;opacity:.1">&#9635;</span></div>`;
 
   const footerLeft = T.docFooterLeft != null ? T.docFooterLeft : "Doc";
 
-  return `<div id="babyeyi-pdf-auth-block" style="margin-top:14px;padding-top:4px;page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;-webkit-column-break-inside:avoid">
+  return `<div id="babyeyi-pdf-auth-block" style="margin-top:14px;padding-top:4px;font-family:${font};page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;-webkit-column-break-inside:avoid">
     <div style="margin-bottom:10px">
       <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:4px;margin-bottom:8px">
         <span style="font-size:13px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span>

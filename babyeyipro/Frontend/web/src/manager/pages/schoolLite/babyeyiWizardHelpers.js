@@ -69,7 +69,7 @@ export function bankSelectValue(bankName, banksList) {
 
 export function bankCustomName(bankName, banksList) {
   const name = String(bankName || "").trim();
-  if (!name || banksList.includes(name)) return "";
+  if (!name || name === BANK_OTHERS_VALUE || banksList.includes(name)) return "";
   return name;
 }
 
@@ -102,17 +102,52 @@ export function serializeSchoolDescriptionLines(lines) {
   return JSON.stringify(parseSchoolDescriptionLines(lines));
 }
 
+const BABYEYI_DESC_LINE_STYLE =
+  'font-family:"Montserrat",sans-serif;font-size:11px;color:#64748b;margin:0 0 2px;line-height:1.35;letter-spacing:0.01em;font-weight:500';
+
+export function isPaidAtSchoolChannel(payChannel) {
+  return String(payChannel || "").toLowerCase() === "school";
+}
+
+/** Fee + requirement lines marked pay at school (for parent total summary). */
+export function collectPaidAtSchoolPaymentLines(payments = [], requirements = []) {
+  const lines = [];
+  for (const p of payments) {
+    if (!isPaidAtSchoolChannel(p?.pay_channel)) continue;
+    const amt = Number(p.amount) || 0;
+    if (amt > 0) lines.push({ kind: "fee", name: p.name || "—", amount: amt });
+  }
+  for (const r of requirements) {
+    if (!isPaidAtSchoolChannel(r?.pay_channel)) continue;
+    const unitPrice = Number(r?.unit_price) || Number(deriveRequirementUnitPrice(r?.quantity, r?.cost)) || 0;
+    const lineTotal = Number(r?.cost) || computeRequirementLineTotal(r?.quantity, unitPrice);
+    if (lineTotal > 0) {
+      lines.push({
+        kind: "requirement",
+        name: r.item || "—",
+        qty: r.quantity,
+        amount: lineTotal,
+      });
+    }
+  }
+  return lines;
+}
+
+export function sumPaidAtSchoolLines(lines) {
+  return (lines || []).reduce((s, l) => s + (Number(l.amount) || 0), 0);
+}
+
+export function sumPaidAtSchoolTotal(payments = [], requirements = []) {
+  return sumPaidAtSchoolLines(collectPaidAtSchoolPaymentLines(payments, requirements));
+}
+
 export function formatSchoolDescriptionHtml(linesOrText) {
   const lines = parseSchoolDescriptionLines(linesOrText);
   if (!lines.length) return "";
   return lines
-    .map((line, i) => {
+    .map((line) => {
       const esc = String(line).replace(/</g, "&lt;");
-      const style =
-        i === 0
-          ? "font-size:11px;color:#64748b;margin:0 0 3px;line-height:1.55;letter-spacing:0.06em;text-transform:uppercase;font-weight:600"
-          : "font-size:10px;color:#64748b;margin:0 0 2px;line-height:1.55;letter-spacing:0.02em";
-      return `<p style="${style}">${esc}</p>`;
+      return `<p style="${BABYEYI_DESC_LINE_STYLE}">${esc}</p>`;
     })
     .join("");
 }
