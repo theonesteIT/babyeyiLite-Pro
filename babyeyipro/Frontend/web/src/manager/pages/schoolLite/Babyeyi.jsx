@@ -402,6 +402,11 @@ function hydrateFormFromEditRecord(rec, session = {}) {
     nesaFeeLimitLevel: mapToNesaLimitLevel(
       normalizeEducationLevel(rec.level || inferEducationLevelFromClassLabel(firstClass)),
     ),
+    schoolDescriptionLines: (() => {
+      const lines = parseSchoolDescriptionLines(rec.schoolDescription);
+      return lines.length ? lines.map((text) => ({ text })) : [blankSchoolDescriptionLine()];
+    })(),
+    includeSchoolDescription: rec.includeSchoolDescription !== false,
     parentMessage: rec.parentMessage || "",
     payments: parsedPayments.length
       ? parsedPayments

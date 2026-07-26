@@ -191,7 +191,7 @@ export function BabyeyiTotalPaymentsSection({ payments = [], requirements = [], 
             letterSpacing: ".04em",
           }}
         >
-          {T.secTotalPayments || "Paid at School Account"}
+          {T.secTotalPayments || "Total Paid at School Account"}
         </span>
         <span
           style={{

@@ -76,6 +76,6 @@ export function buildBabyeyiTotalPaymentsSectionHtml({
 }) {
   const total = sumPaidAtSchoolTotal(payments, requirements);
   if (!total) return "";
-  const title = T.secTotalPayments || "Paid at School Account";
+  const title = T.secTotalPayments || "Total Paid at School Account";
   return `<div data-babyeyi-pdf-section="total-payments" style="margin-bottom:22px"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border:2px solid #1e3a5f;border-radius:10px;background:#f8fafc;font-family:${BABYEYI_DOC_FONT}"><span style="font-size:13px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:.04em">${title}</span><span style="font-size:18px;font-weight:700;font-family:monospace;color:#1e3a5f">RWF ${total.toLocaleString()}</span></div></div>`;
 }

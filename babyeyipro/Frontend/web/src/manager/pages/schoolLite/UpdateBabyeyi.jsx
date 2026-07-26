@@ -791,6 +791,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         dateSigned: "",
         leaders: parsedLeaders,
         feeTargetStudents: "public",
+        _isEditHydrated: true,
       });
       const logoPreview = toAssetUrl(rec.schoolLogoPath || rec.logoUrl);
       const otherPreview = toAssetUrl(rec.otherLogoPath);
@@ -865,8 +866,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             cell:        info.cell          || base.cell        || "",
             village:     info.village       || base.village     || "",
             accountName: base.accountName   || info.school_name || "",
-            feeTargetStudents,
-            category:    nextCategory,
+            feeTargetStudents: base._isEditHydrated ? base.feeTargetStudents : feeTargetStudents,
+            category:    base._isEditHydrated ? base.category : nextCategory,
           };
         });
         const logoUrl = toAssetUrl(info.logo_url);
