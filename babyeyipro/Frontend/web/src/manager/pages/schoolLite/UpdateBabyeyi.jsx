@@ -782,6 +782,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
         accountName:   primaryBank.accountName   || rec.bankAccountName || "",
         extraBankAccounts: extraBanks.map((b) => ({
+          ...blankBank(),
           ...b,
           bankName: bankSelectValue(b.bankName, BANKS),
           bankNameOther: bankCustomName(b.bankName, BANKS),
@@ -816,7 +817,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         district: session?.schoolDistrict ?? "",
       }));
     }
-  }, [editRecord?.id, duplicateFrom, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+  }, [editRecord?.id, duplicateFrom?.class, duplicateFrom?.term, duplicateFrom?.academicYear, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -901,7 +902,28 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
     }
   }, [schoolKind, form?.feeTargetStudents, form?.category, step]);
 
-  const up = useCallback((k, v) => setForm(f => ({ ...f, [k]: v })), []);
+  const up = useCallback((k, v) => setForm((f) => (f ? { ...f, [k]: v } : f)), []);
+  const patchForm = useCallback((patch) => setForm((f) => (f ? { ...f, ...patch } : f)), []);
+  const addExtraBank = useCallback(() => {
+    setForm((f) => ({
+      ...f,
+      extraBankAccounts: [...(f?.extraBankAccounts || []), blankBank()],
+    }));
+  }, []);
+  const removeExtraBank = useCallback((idx) => {
+    setForm((f) => ({
+      ...f,
+      extraBankAccounts: (f?.extraBankAccounts || []).filter((_, i) => i !== idx),
+    }));
+  }, []);
+  const updateExtraBank = useCallback((idx, patch) => {
+    setForm((f) => ({
+      ...f,
+      extraBankAccounts: (f?.extraBankAccounts || []).map((b, i) =>
+        i === idx ? { ...b, ...patch } : b
+      ),
+    }));
+  }, []);
 
   const showToast = (msg, type = "info") => {
     setToast({ msg, type });
@@ -1931,12 +1953,6 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 
       case 4: {
         const extraBanks = form.extraBankAccounts || [];
-        const addExtraBank = () => up("extraBankAccounts", [...extraBanks, blankBank()]);
-        const removeExtraBank = (idx) => up("extraBankAccounts", extraBanks.filter((_,i)=>i!==idx));
-        const updateExtraBank = (idx, field, val) => {
-          const updated = extraBanks.map((b,i) => i===idx ? {...b,[field]:val} : b);
-          up("extraBankAccounts", updated);
-        };
         return (
           <div className="space-y-4">
             <div className="rounded-2xl p-4 border-2" style={{ background: C.goldBg, borderColor: C.goldBorder }}>
@@ -1957,8 +1973,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                     value={bankSelectValue(form.bankName, BANKS)}
                     onChange={e => {
                       const v = e.target.value;
-                      up("bankName", v);
-                      up("bankNameOther", "");
+                      patchForm({ bankName: v, bankNameOther: "" });
                     }}
                     className={inp}
                     style={{ borderColor: C.goldBorder }}
@@ -1970,7 +1985,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                   {bankSelectValue(form.bankName, BANKS) === BANK_OTHERS_VALUE && (
                     <input
                       value={form.bankNameOther || bankCustomName(form.bankName, BANKS) || ""}
-                      onChange={(e) => { up("bankNameOther", e.target.value); up("bankName", BANK_OTHERS_VALUE); }}
+                      onChange={(e) => { patchForm({ bankNameOther: e.target.value, bankName: BANK_OTHERS_VALUE }); }}
                       placeholder="e.g. Bank of Africa"
                       className={`${inp} mt-2`}
                       style={{ borderColor: C.goldBorder }}
@@ -2019,8 +2034,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                           value={bankSelectValue(bank.bankName, BANKS)}
                           onChange={e => {
                             const v = e.target.value;
-                            updateExtraBank(idx, "bankName", v);
-                            updateExtraBank(idx, "bankNameOther", "");
+                            updateExtraBank(idx, { bankName: v, bankNameOther: "" });
                           }}
                           className={inp}
                           style={{ borderColor: C.goldBorder }}
@@ -2033,8 +2047,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                           <input
                             value={bank.bankNameOther || bankCustomName(bank.bankName, BANKS) || ""}
                             onChange={(e) => {
-                              updateExtraBank(idx, "bankNameOther", e.target.value);
-                              updateExtraBank(idx, "bankName", BANK_OTHERS_VALUE);
+                              updateExtraBank(idx, { bankNameOther: e.target.value, bankName: BANK_OTHERS_VALUE });
                             }}
                             placeholder="e.g. Bank of Africa"
                             className={inp}
@@ -2042,8 +2055,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                           />
                         )}
                         <div className="grid grid-cols-2 gap-2">
-                          <input value={bank.accountNumber} onChange={e => updateExtraBank(idx, "accountNumber", e.target.value)} placeholder="Account number" className={`${inp} font-mono`} style={{ borderColor: C.goldBorder }} />
-                          <input value={bank.accountName} onChange={e => updateExtraBank(idx, "accountName", e.target.value)} placeholder="Account name" className={inp} style={{ borderColor: C.goldBorder }} />
+                          <input value={bank.accountNumber} onChange={e => updateExtraBank(idx, { accountNumber: e.target.value })} placeholder="Account number" className={`${inp} font-mono`} style={{ borderColor: C.goldBorder }} />
+                          <input value={bank.accountName} onChange={e => updateExtraBank(idx, { accountName: e.target.value })} placeholder="Account name" className={inp} style={{ borderColor: C.goldBorder }} />
                         </div>
                       </div>
                     </div>
