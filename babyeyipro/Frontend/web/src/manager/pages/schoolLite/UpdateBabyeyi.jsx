@@ -1,6 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import {
+  BANK_OTHERS_VALUE,
+  blankRequirement,
+  blankSchoolDescriptionLine,
+  bankCustomName,
+  bankSelectValue,
+  computeRequirementLineTotal,
+  deriveRequirementUnitPrice,
+  normalizeRequirementForSave,
+  parseSchoolDescriptionLines,
+  resolveBankNameForSave,
+  serializeSchoolDescriptionLines,
+} from "./babyeyiWizardHelpers";
 
 // ── API CONFIG ────────────────────────────────────────────────
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
@@ -265,7 +278,7 @@ const BANKS = [
   "BPR Bank Rwanda","KCB Bank Rwanda","Urwego Bank",
 ];
 
-const blankBank = () => ({ bankName: "", accountNumber: "", accountName: "" });
+const blankBank = () => ({ bankName: "", bankNameOther: "", accountNumber: "", accountName: "" });
 
 const buildBlankForm = (school = {}) => ({
   schoolName:           school.name      || "",
@@ -278,6 +291,8 @@ const buildBlankForm = (school = {}) => ({
   schoolLogo:           null,
   otherLogo:            null,
   includeSchoolDetails: true,
+  schoolDescriptionLines: [blankSchoolDescriptionLine()],
+  includeSchoolDescription: true,
   level:                "Primary",
   classes:              ["P1"],
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
@@ -294,8 +309,9 @@ const buildBlankForm = (school = {}) => ({
   requestDescription:   "",
   parentApprovalDoc:    null,
   schoolBudgetDoc:      null,
-  requirements:         [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
+  requirements:         [blankRequirement()],
   bankName:             "",
+  bankNameOther:        "",
   accountNumber:        "",
   accountName:          school.name || "",
   extraBankAccounts:    [],
@@ -554,7 +570,7 @@ function DocPreview({ form, previews }) {
 // ════════════════════════════════════════════════════════════
 // WIZARD CONTENT (all steps rendered here — used inside modal)
 // ════════════════════════════════════════════════════════════
-export function WizardContent({ session, onClose, onSuccess, editRecord = null }) {
+export function WizardContent({ session, onClose, onSuccess, editRecord = null, duplicateFrom = null }) {
   const schoolId = session?.schoolId ?? null;
 
   const [step,      setStep]      = useState(1);
@@ -591,8 +607,9 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
   const [editId, setEditId] = useState(editRecord?.id ?? null);
 
   useEffect(() => {
-    if (editRecord) {
-      const rec = editRecord;
+    const source = editRecord || duplicateFrom;
+    if (source) {
+      const rec = source;
       const parsedPayments = (() => {
         try {
           const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
@@ -616,6 +633,9 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         description: r?.description ?? "",
         quantity: r?.quantity ?? "",
         pay_channel: String(r?.pay_channel ?? r?.payChannel ?? "").toLowerCase() === "school" ? "school" : "babyeyi",
+        unit_price: r?.unit_price != null && r.unit_price !== ""
+          ? String(r.unit_price)
+          : deriveRequirementUnitPrice(r?.quantity, r?.cost),
         cost: r?.cost != null && r.cost !== "" ? String(r.cost) : "",
       }));
       const parsedOtherInfos = (() => {
@@ -639,9 +659,15 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
       })();
       const primaryBank = parsedBanks[0] || {};
       const extraBanks  = parsedBanks.slice(1);
+      const primaryName = primaryBank.bankName || rec.bankName || "";
       setForm({
         ...buildBlankForm({ name: rec.schoolName || session?.schoolName || "" }),
         schoolName:    rec.schoolName    || session?.schoolName || "",
+        schoolDescriptionLines: (() => {
+          const lines = parseSchoolDescriptionLines(rec.schoolDescription);
+          return lines.length ? lines.map((text) => ({ text })) : [blankSchoolDescriptionLine()];
+        })(),
+        includeSchoolDescription: rec.includeSchoolDescription !== false,
         province:      rec.province      || "",
         district:      rec.district      || "",
         sector:        rec.sector        || "",
@@ -652,15 +678,22 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         level:         rec.level         || "Primary",
         category:      rec.category      || "Public",
         language:      rec.language      || "en",
-        classes:       rec.className ? [rec.className] : ["P1"],
+        classes:       Array.isArray(rec.classes) && rec.classes.length
+          ? rec.classes
+          : (rec.class ? [rec.class] : (rec.className ? [rec.className] : ["P1"])),
         parentMessage: rec.parentMessage || "",
         payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
-        requirements:  parsedReqs.length ? parsedReqs : [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
+        requirements:  parsedReqs.length ? parsedReqs : [blankRequirement()],
         otherInfos:    parsedOtherInfos,
-        bankName:      primaryBank.bankName      || rec.bankName      || "",
+        bankName:      bankSelectValue(primaryName, BANKS),
+        bankNameOther: bankCustomName(primaryName, BANKS),
         accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
         accountName:   primaryBank.accountName   || rec.bankAccountName || "",
-        extraBankAccounts: extraBanks,
+        extraBankAccounts: extraBanks.map((b) => ({
+          ...b,
+          bankName: bankSelectValue(b.bankName, BANKS),
+          bankNameOther: bankCustomName(b.bankName, BANKS),
+        })),
         schoolLogo: null, otherLogo: null, directorSignature: null, stamp: null,
         requestIncrease: false, requestTitle: "", requestReasons: [], requestDescription: "",
         classReqs: [], dateSigned: "",
@@ -671,7 +704,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
       if (rec.signatureUrl) setPreviews(p => ({ ...p, directorSignature: rec.signatureUrl }));
       if (rec.stampUrl)     setPreviews(p => ({ ...p, stamp: rec.stampUrl }));
       setDbAssets({ schoolLogo: !!rec.logoUrl, directorSignature: !!rec.signatureUrl, stamp: !!rec.stampUrl });
-      setEditId(rec.id);
+      setEditId(duplicateFrom ? null : (editRecord?.id ?? null));
     } else {
       setForm(buildBlankForm({
         name:     session?.schoolName     ?? "",
@@ -679,7 +712,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         district: session?.schoolDistrict ?? "",
       }));
     }
-  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+  }, [editRecord?.id, duplicateFrom, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -868,11 +901,25 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
     const createdIds = [];
 
     const allBanks = [];
-    if (form.bankName || form.accountNumber) {
-      allBanks.push({ bankName: form.bankName || "", accountNumber: form.accountNumber || "", accountName: form.accountName || "", isPrimary: true });
+    const primaryBankName = resolveBankNameForSave(form.bankName, form.bankNameOther);
+    if (primaryBankName || form.accountNumber) {
+      allBanks.push({
+        bankName: primaryBankName,
+        accountNumber: form.accountNumber || "",
+        accountName: form.accountName || "",
+        isPrimary: true,
+      });
     }
     (form.extraBankAccounts || []).forEach(b => {
-      if (b.bankName || b.accountNumber) allBanks.push({ ...b, isPrimary: false });
+      const name = resolveBankNameForSave(b.bankName, b.bankNameOther);
+      if (name || b.accountNumber) {
+        allBanks.push({
+          bankName: name,
+          accountNumber: b.accountNumber || "",
+          accountName: b.accountName || "",
+          isPrimary: false,
+        });
+      }
     });
 
     const validLeaders = (form.leaders || []).filter(l => l.name?.trim() || l.role?.trim());
@@ -910,13 +957,19 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
         fd.append("village",          form.village   || "");
         fd.append("language",          form.language  || "en");
         fd.append("parent_message",    form.parentMessage || "");
-        fd.append("bank_name",         form.bankName      || "");
+        fd.append("school_description", serializeSchoolDescriptionLines(form.schoolDescriptionLines));
+        fd.append("include_school_description", form.includeSchoolDescription ? "true" : "false");
+        fd.append("bank_name",         primaryBankName || "");
         fd.append("bank_account_no",   form.accountNumber || "");
         fd.append("bank_account_name", form.accountName   || "");
         fd.append("banks_json",        JSON.stringify(allBanks));
         fd.append("extra_bank_accounts", JSON.stringify(form.extraBankAccounts || []));
         fd.append("payments",          JSON.stringify(form.payments   || []));
-        fd.append("requirements",      JSON.stringify(form.requirements || []));
+        fd.append("requirements",      JSON.stringify(
+          (form.requirements || [])
+            .filter((r) => r.item?.trim())
+            .map(normalizeRequirementForSave)
+        ));
         fd.append("classReqs",         JSON.stringify(form.classReqs  || []));
         fd.append("other_infos",       JSON.stringify(form.otherInfos || []));
         fd.append("request_increase",  form.requestIncrease ? "true" : "false");
@@ -1139,6 +1192,60 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                       placeholder="e.g. GS Kimironko" className={inp}
                       style={{ borderColor: C.goldBorder }} />
                   </div>
+                  <div className="sm:col-span-2">
+                    <Toggle
+                      value={form.includeSchoolDescription}
+                      onChange={(v) => up("includeSchoolDescription", v)}
+                      label="Include School Description on Document"
+                      sublabel="Shown at the top of view, print and PDF (replaces the default ministry header)"
+                    />
+                  </div>
+                  {form.includeSchoolDescription && (
+                    <div className="sm:col-span-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[10px] font-bold uppercase" style={{ color: C.darkMid }}>
+                          School Description Lines
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => up("schoolDescriptionLines", [...(form.schoolDescriptionLines || []), blankSchoolDescriptionLine()])}
+                          className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
+                          style={{ color: C.goldDark, background: C.goldBg }}
+                        >
+                          <I n="plus" size={12} /> Add line
+                        </button>
+                      </div>
+                      {(form.schoolDescriptionLines || []).map((row, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-semibold shrink-0"
+                            style={{ background: C.goldBgMid, color: C.goldDark }}>
+                            {i + 1}
+                          </span>
+                          <input
+                            value={row.text || ""}
+                            onChange={(e) => {
+                              const lines = [...(form.schoolDescriptionLines || [])];
+                              lines[i] = { ...lines[i], text: e.target.value };
+                              up("schoolDescriptionLines", lines);
+                            }}
+                            placeholder="Description line"
+                            className={`${inp} flex-1 text-[11px]`}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                          {(form.schoolDescriptionLines || []).length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => up("schoolDescriptionLines", (form.schoolDescriptionLines || []).filter((_, j) => j !== i))}
+                              className="p-1.5 hover:bg-red-50 rounded-xl shrink-0"
+                              style={{ color: C.red }}
+                            >
+                              <I n="x" size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Province</label>
                     <select value={form.province}
@@ -1626,48 +1733,51 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                       style={{ borderColor: "#E5E7EB" }}
                     />
                   </div>
-                  <div className="pl-7">
-                    <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate }}>Where parents pay</label>
-                    <select
-                      value={r.pay_channel === "school" ? "school" : "babyeyi"}
-                      onChange={(e) => {
+                  <div className="pl-7 space-y-2">
+                    <Toggle
+                      value={r.pay_channel === "school"}
+                      onChange={(school) => {
                         const rs = [...(form.requirements || [])];
-                        const school = e.target.value === "school";
                         rs[i] = {
                           ...rs[i],
                           pay_channel: school ? "school" : "babyeyi",
-                          ...(school ? {} : { cost: "" }),
+                          ...(school ? {} : { unit_price: "", cost: "" }),
                         };
                         up("requirements", rs);
                       }}
-                      className={`${inp} text-[13px] font-semibold`}
-                      style={{ borderColor: C.goldBorder }}
-                    >
-                      <option value="babyeyi">Pay via Babyeyi (online / MoMo)</option>
-                      <option value="school">Paid at school (counter / cash at office)</option>
-                    </select>
-                    <p className="text-[10px] mt-1 leading-snug" style={{ color: C.slate }}>
-                      Counter lines group with tuition on the public pay page.
-                    </p>
+                      label="Paid to School Account"
+                      sublabel="When on, enter unit price — total = quantity × unit price"
+                    />
                     {r.pay_channel === "school" && (
-                      <div className="mt-2.5">
-                        <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate }}>
-                          Amount at school (RWF)
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          value={r.cost ?? ""}
-                          onChange={(e) => {
-                            const rs = [...(form.requirements || [])];
-                            rs[i] = { ...rs[i], cost: e.target.value };
-                            up("requirements", rs);
-                          }}
-                          placeholder="Total for this line at the office"
-                          className={`${inp} text-[13px] font-semibold font-mono`}
-                          style={{ borderColor: C.goldBorder }}
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate }}>Unit Price (RWF)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            value={r.unit_price ?? ""}
+                            onChange={(e) => {
+                              const rs = [...(form.requirements || [])];
+                              const unitPrice = e.target.value;
+                              const lineTotal = computeRequirementLineTotal(rs[i].quantity, unitPrice);
+                              rs[i] = { ...rs[i], unit_price: unitPrice, cost: lineTotal > 0 ? String(lineTotal) : "" };
+                              up("requirements", rs);
+                            }}
+                            placeholder="Price per item"
+                            className={`${inp} text-[13px] font-semibold font-mono`}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate }}>Line Total (RWF)</label>
+                          <div className={`${inp} text-[13px] font-bold font-mono bg-slate-50`} style={{ borderColor: C.goldBorder, color: C.dark }}>
+                            {(() => {
+                              const total = computeRequirementLineTotal(r.quantity, r.unit_price) || Number(r.cost) || 0;
+                              return total > 0 ? `RWF ${total.toLocaleString()}` : "—";
+                            })()}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1736,10 +1846,29 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Bank Name</label>
-                  <select value={form.bankName} onChange={e => up("bankName", e.target.value)} className={inp} style={{ borderColor: C.goldBorder }}>
+                  <select
+                    value={bankSelectValue(form.bankName, BANKS)}
+                    onChange={e => {
+                      const v = e.target.value;
+                      up("bankName", v);
+                      if (v !== BANK_OTHERS_VALUE) up("bankNameOther", "");
+                    }}
+                    className={inp}
+                    style={{ borderColor: C.goldBorder }}
+                  >
                     <option value="">— Select Bank —</option>
-                    {BANKS.map(b => <option key={b}>{b}</option>)}
+                    {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                    <option value={BANK_OTHERS_VALUE}>Others</option>
                   </select>
+                  {bankSelectValue(form.bankName, BANKS) === BANK_OTHERS_VALUE && (
+                    <input
+                      value={form.bankNameOther || bankCustomName(form.bankName, BANKS) || ""}
+                      onChange={(e) => { up("bankNameOther", e.target.value); up("bankName", BANK_OTHERS_VALUE); }}
+                      placeholder="Enter bank name"
+                      className={`${inp} mt-2`}
+                      style={{ borderColor: C.goldBorder }}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Account Number</label>
@@ -1779,10 +1908,32 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                         </button>
                       </div>
                       <div className="space-y-2.5">
-                        <select value={bank.bankName} onChange={e => updateExtraBank(idx, "bankName", e.target.value)} className={inp} style={{ borderColor: C.goldBorder }}>
+                        <select
+                          value={bankSelectValue(bank.bankName, BANKS)}
+                          onChange={e => {
+                            const v = e.target.value;
+                            updateExtraBank(idx, "bankName", v);
+                            if (v !== BANK_OTHERS_VALUE) updateExtraBank(idx, "bankNameOther", "");
+                          }}
+                          className={inp}
+                          style={{ borderColor: C.goldBorder }}
+                        >
                           <option value="">— Select Bank —</option>
-                          {BANKS.map(b => <option key={b}>{b}</option>)}
+                          {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                          <option value={BANK_OTHERS_VALUE}>Others</option>
                         </select>
+                        {bankSelectValue(bank.bankName, BANKS) === BANK_OTHERS_VALUE && (
+                          <input
+                            value={bank.bankNameOther || bankCustomName(bank.bankName, BANKS) || ""}
+                            onChange={(e) => {
+                              updateExtraBank(idx, "bankNameOther", e.target.value);
+                              updateExtraBank(idx, "bankName", BANK_OTHERS_VALUE);
+                            }}
+                            placeholder="Enter bank name"
+                            className={inp}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                        )}
                         <div className="grid grid-cols-2 gap-2">
                           <input value={bank.accountNumber} onChange={e => updateExtraBank(idx, "accountNumber", e.target.value)} placeholder="Account number" className={`${inp} font-mono`} style={{ borderColor: C.goldBorder }} />
                           <input value={bank.accountName} onChange={e => updateExtraBank(idx, "accountName", e.target.value)} placeholder="Account name" className={inp} style={{ borderColor: C.goldBorder }} />
@@ -1905,6 +2056,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
                 <p className="text-xs font-bold" style={{ color: C.goldDark }}>School Leadership Contacts</p>
                 <p className="text-[10px] mt-0.5" style={{ color: C.goldDeep }}>
                   Saved in <span className="font-mono font-bold">babyeyi_leaders</span> and printed on the document so parents know who to reach.
+                  {duplicateFrom && !editId && <span className="ml-1 text-amber-700 font-bold">Duplicated — edit then save as a new Babyeyi.</span>}
                   {editId && <span className="ml-1 text-emerald-700 font-bold">Pre-filled from existing record.</span>}
                 </p>
               </div>

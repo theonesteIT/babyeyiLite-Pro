@@ -1,6 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import {
+  BANK_OTHERS_VALUE,
+  blankRequirement,
+  bankCustomName,
+  bankSelectValue,
+  computeRequirementLineTotal,
+  deriveRequirementUnitPrice,
+  blankSchoolDescriptionLine,
+  formatSchoolDescriptionHtml,
+  normalizeRequirementForSave,
+  parseSchoolDescriptionLines,
+  resolveBankNameForSave,
+  serializeSchoolDescriptionLines,
+} from "./babyeyiWizardHelpers";
 import { useAcademic } from "../../context/AcademicContext";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
@@ -233,7 +247,7 @@ const BANKS = [
   "BPR Bank Rwanda","KCB Bank Rwanda","Urwego Bank",
 ];
 
-const blankBank = () => ({ bankName: "", accountNumber: "", accountName: "" });
+const blankBank = () => ({ bankName: "", bankNameOther: "", accountNumber: "", accountName: "" });
 
 const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) => ({
   schoolName:           school.name      || "",
@@ -246,6 +260,8 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   schoolLogo:           null,
   otherLogo:            null,
   includeSchoolDetails: true,
+  schoolDescriptionLines: [blankSchoolDescriptionLine()],
+  includeSchoolDescription: true,
   classes:              [],
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
   academicYear:         academicDefaults.academicYear || "2025-2026",
@@ -262,8 +278,9 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   requestDescription:   "",
   parentApprovalDoc:    null,
   schoolBudgetDoc:      null,
-  requirements:         [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
+  requirements:         [blankRequirement()],
   bankName:             "",
+  bankNameOther:        "",
   accountNumber:        "",
   accountName:          school.name || "",
   extraBankAccounts:    [],
@@ -382,9 +399,13 @@ function DocPreview({ form, previews }) {
           <div className="flex-1 text-center">
             {form.includeSchoolDetails ? (
               <>
-                <p className="text-[8px] uppercase tracking-widest text-slate-500 font-bold">Republic of Rwanda</p>
+                {form.includeSchoolDescription &&
+                  parseSchoolDescriptionLines(form.schoolDescriptionLines).map((line, i) => (
+                    <p key={i} className={`text-[8px] text-slate-500 leading-snug ${i === 0 ? "font-bold uppercase mb-0.5" : "mb-0.5"}`}>
+                      {line}
+                    </p>
+                  ))}
                 <p className="font-semibold text-sm uppercase text-slate-900 leading-tight">{form.schoolName || "School Name"}</p>
-                <p className="text-[8px] text-slate-500">{[form.district, form.sector, form.cell].filter(Boolean).join(" / ")}</p>
               </>
             ) : (
               <p className="font-semibold text-sm uppercase text-slate-900">BABYEYI DOCUMENT</p>
@@ -861,11 +882,25 @@ export default function App({ session }) {
     const createdIds = [];
 
     const allBanks = [];
-    if (form.bankName || form.accountNumber) {
-      allBanks.push({ bankName: form.bankName || "", accountNumber: form.accountNumber || "", accountName: form.accountName || "", isPrimary: true });
+    const primaryBankName = resolveBankNameForSave(form.bankName, form.bankNameOther);
+    if (primaryBankName || form.accountNumber) {
+      allBanks.push({
+        bankName: primaryBankName,
+        accountNumber: form.accountNumber || "",
+        accountName: form.accountName || "",
+        isPrimary: true,
+      });
     }
     (form.extraBankAccounts || []).forEach(b => {
-      if (b.bankName || b.accountNumber) allBanks.push({ ...b, isPrimary: false });
+      const name = resolveBankNameForSave(b.bankName, b.bankNameOther);
+      if (name || b.accountNumber) {
+        allBanks.push({
+          bankName: name,
+          accountNumber: b.accountNumber || "",
+          accountName: b.accountName || "",
+          isPrimary: false,
+        });
+      }
     });
 
     // Filter valid leaders (must have at least name or role)
@@ -905,13 +940,19 @@ export default function App({ session }) {
       fd.append("village",          form.village   || "");
       fd.append("language",          form.language  || "en");
       fd.append("parent_message",    form.parentMessage || "");
-      fd.append("bank_name",         form.bankName      || "");
+      fd.append("school_description", serializeSchoolDescriptionLines(form.schoolDescriptionLines));
+      fd.append("include_school_description", form.includeSchoolDescription ? "true" : "false");
+      fd.append("bank_name",         primaryBankName || "");
       fd.append("bank_account_no",   form.accountNumber || "");
       fd.append("bank_account_name", form.accountName   || "");
       fd.append("banks_json",        JSON.stringify(allBanks));
       fd.append("extra_bank_accounts", JSON.stringify(form.extraBankAccounts || []));
       fd.append("payments",          JSON.stringify(form.payments   || []));
-      fd.append("requirements",      JSON.stringify(form.requirements || []));
+      fd.append("requirements",      JSON.stringify(
+        (form.requirements || [])
+          .filter((r) => r.item?.trim())
+          .map(normalizeRequirementForSave)
+      ));
       fd.append("classReqs",         JSON.stringify(form.classReqs  || []));
       fd.append("other_infos",       JSON.stringify(form.otherInfos || []));
       fd.append("request_increase",  form.requestIncrease ? "true" : "false");
@@ -1177,6 +1218,63 @@ export default function App({ session }) {
                       placeholder="e.g. GS Kimironko" className={inp}
                       style={{ borderColor: C.goldBorder }} />
                   </div>
+                  <div className="sm:col-span-2">
+                    <Toggle
+                      value={form.includeSchoolDescription}
+                      onChange={(v) => up("includeSchoolDescription", v)}
+                      label="Include School Description on Document"
+                      sublabel="Each line appears at the top of view, print and PDF (replaces the default ministry header)"
+                    />
+                  </div>
+                  {form.includeSchoolDescription && (
+                    <div className="sm:col-span-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[10px] font-bold uppercase" style={{ color: C.darkMid }}>
+                          School Description Lines
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => up("schoolDescriptionLines", [...(form.schoolDescriptionLines || []), blankSchoolDescriptionLine()])}
+                          className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
+                          style={{ color: C.goldDark, background: C.goldBg }}
+                        >
+                          <I n="plus" size={12} /> Add line
+                        </button>
+                      </div>
+                      <p className="text-[10px]" style={{ color: C.goldDark }}>
+                        Each line appears at the top of the printed Babyeyi (e.g. church, P.O. Box, phone, email).
+                      </p>
+                      {(form.schoolDescriptionLines || []).map((row, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                          <span className="w-5 h-5 rounded-lg flex items-center justify-center text-[9px] font-semibold shrink-0"
+                            style={{ background: C.goldBgMid, color: C.goldDark }}>
+                            {i + 1}
+                          </span>
+                          <input
+                            value={row.text || ""}
+                            onChange={(e) => {
+                              const lines = [...(form.schoolDescriptionLines || [])];
+                              lines[i] = { ...lines[i], text: e.target.value };
+                              up("schoolDescriptionLines", lines);
+                            }}
+                            placeholder={i === 0 ? "e.g. ANGLICAN CHURCH OF RWANDA | DIOCESE OF CYANGUGU" : "e.g. P.O.BOX 52 CYANGUGU · TEL: (+250) 788 260 529"}
+                            className={`${inp} flex-1 text-[11px]`}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                          {(form.schoolDescriptionLines || []).length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => up("schoolDescriptionLines", (form.schoolDescriptionLines || []).filter((_, j) => j !== i))}
+                              className="p-1.5 hover:bg-red-50 rounded-xl shrink-0"
+                              style={{ color: C.red }}
+                            >
+                              <I n="x" size={13} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Province</label>
                     <select value={form.province}
@@ -1655,12 +1753,10 @@ export default function App({ session }) {
       // ════════════════════════════════════════════════
     case 3: {
         const selectedNames = (form.requirements||[]).map(r=>r.item).filter(Boolean);
-        const rowFromCatalog = (row) => ({
+        const rowFromCatalog = (row) => blankRequirement({
           item: row.name,
           description: row.description != null && String(row.description).trim() !== "" ? String(row.description) : "",
           quantity: row.quantity != null && String(row.quantity).trim() !== "" ? String(row.quantity) : "",
-          pay_channel: "babyeyi",
-          cost: "",
         });
         const toggleReq = (row) => {
           const name = row.name;
@@ -1744,7 +1840,7 @@ export default function App({ session }) {
             </div>
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: C.darkMid }}>Custom Requirements</label>
-              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]), { item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }])}
+              <button type="button" onClick={() => up("requirements", [...(form.requirements||[]), blankRequirement()])}
                 className="flex items-center gap-1 text-xs font-bold hover:opacity-80 px-2 py-1 rounded-lg"
                 style={{ color: C.goldDark, background: C.goldBg }}>
                 <I n="plus" size={12} /> Add
@@ -1798,7 +1894,15 @@ export default function App({ session }) {
                         value={r.quantity || ""}
                         onChange={e=>{
                           const rs=[...(form.requirements||[])];
-                          rs[i] = { ...rs[i], quantity:e.target.value };
+                          const quantity = e.target.value;
+                          const lineTotal = computeRequirementLineTotal(quantity, rs[i].unit_price);
+                          rs[i] = {
+                            ...rs[i],
+                            quantity,
+                            ...(rs[i].pay_channel === "school" && rs[i].unit_price
+                              ? { cost: lineTotal > 0 ? String(lineTotal) : "" }
+                              : {}),
+                          };
                           up("requirements",rs);
                         }}
                         placeholder="Qty (e.g. 2 per term)"
@@ -1806,46 +1910,61 @@ export default function App({ session }) {
                         style={{ borderColor: "#E5E7EB" }}
                       />
                     </div>
-                    <div className="pl-7">
-                      <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>Where parents pay</label>
-                      <select
-                        value={r.pay_channel === "school" ? "school" : "babyeyi"}
-                        onChange={(e) => {
+                    <div className="pl-7 space-y-2">
+                      <Toggle
+                        value={r.pay_channel === "school"}
+                        onChange={(school) => {
                           const rs = [...(form.requirements || [])];
-                          const school = e.target.value === "school";
                           rs[i] = {
                             ...rs[i],
                             pay_channel: school ? "school" : "babyeyi",
-                            ...(school ? {} : { cost: "" }),
+                            ...(school ? {} : { unit_price: "", cost: "" }),
                           };
                           up("requirements", rs);
                         }}
-                        className={`${inp} text-[13px] font-semibold`}
-                        style={{ borderColor: C.goldBorder }}
-                      >
-                        <option value="babyeyi">Other requirements </option>
-                        <option value="school">Paid to School Account</option>
-                      </select>
+                        label="Paid to School Account"
+                        sublabel="When on, parents pay this item at the school office — enter unit price below"
+                      />
 
                       {r.pay_channel === "school" && (
-                        <div className="mt-2.5">
-                          <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
-                            Amount at school (RWF)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={r.cost ?? ""}
-                            onChange={(e) => {
-                              const rs = [...(form.requirements || [])];
-                              rs[i] = { ...rs[i], cost: e.target.value };
-                              up("requirements", rs);
-                            }}
-                            placeholder="Total paid at the office for this line"
-                            className={`${inp} text-[13px] font-semibold font-mono`}
-                            style={{ borderColor: C.goldBorder }}
-                          />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
+                              Unit Price (RWF)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={r.unit_price ?? ""}
+                              onChange={(e) => {
+                                const rs = [...(form.requirements || [])];
+                                const unitPrice = e.target.value;
+                                const lineTotal = computeRequirementLineTotal(rs[i].quantity, unitPrice);
+                                rs[i] = {
+                                  ...rs[i],
+                                  unit_price: unitPrice,
+                                  cost: lineTotal > 0 ? String(lineTotal) : "",
+                                };
+                                up("requirements", rs);
+                              }}
+                              placeholder="Price per item"
+                              className={`${inp} text-[13px] font-semibold font-mono`}
+                              style={{ borderColor: C.goldBorder }}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.slate500 }}>
+                              Line Total (RWF)
+                            </label>
+                            <div className={`${inp} text-[13px] font-bold font-mono bg-slate-50`}
+                              style={{ borderColor: C.goldBorder, color: C.dark }}>
+                              {(() => {
+                                const total = computeRequirementLineTotal(r.quantity, r.unit_price) || Number(r.cost) || 0;
+                                return total > 0 ? `RWF ${total.toLocaleString()}` : "—";
+                              })()}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1909,10 +2028,16 @@ export default function App({ session }) {
         };
         const allBanksPreview = [];
         if (form.bankName || form.accountNumber) {
-          allBanksPreview.push({ bankName:form.bankName, accountNumber:form.accountNumber, accountName:form.accountName, primary:true });
+          allBanksPreview.push({
+            bankName: resolveBankNameForSave(form.bankName, form.bankNameOther),
+            accountNumber: form.accountNumber,
+            accountName: form.accountName,
+            primary: true,
+          });
         }
         extraBanks.forEach((b,i) => {
-          if (b.bankName || b.accountNumber) allBanksPreview.push({ ...b, primary:false, idx:i });
+          const name = resolveBankNameForSave(b.bankName, b.bankNameOther);
+          if (name || b.accountNumber) allBanksPreview.push({ ...b, bankName: name, primary:false, idx:i });
         });
 
         return (
@@ -1932,11 +2057,32 @@ export default function App({ session }) {
               <div className="space-y-3">
                 <div>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Bank Name</label>
-                  <select value={form.bankName} onChange={e => up("bankName", e.target.value)}
-                    className={inp} style={{ borderColor: C.goldBorder }}>
+                  <select
+                    value={bankSelectValue(form.bankName, BANKS)}
+                    onChange={e => {
+                      const v = e.target.value;
+                      up("bankName", v);
+                      if (v !== BANK_OTHERS_VALUE) up("bankNameOther", "");
+                    }}
+                    className={inp}
+                    style={{ borderColor: C.goldBorder }}
+                  >
                     <option value="">— Select Bank —</option>
-                    {BANKS.map(b => <option key={b}>{b}</option>)}
+                    {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                    <option value={BANK_OTHERS_VALUE}>Others</option>
                   </select>
+                  {bankSelectValue(form.bankName, BANKS) === BANK_OTHERS_VALUE && (
+                    <input
+                      value={form.bankNameOther || bankCustomName(form.bankName, BANKS) || ""}
+                      onChange={(e) => {
+                        up("bankNameOther", e.target.value);
+                        up("bankName", BANK_OTHERS_VALUE);
+                      }}
+                      placeholder="Enter bank name"
+                      className={`${inp} mt-2`}
+                      style={{ borderColor: C.goldBorder }}
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Account Number</label>
@@ -1960,7 +2106,7 @@ export default function App({ session }) {
                   <span className="px-2 py-0.5 rounded text-[8px] font-bold border"
                     style={{ background: "rgba(254,191,16,0.2)", color: C.gold, borderColor: "rgba(254,191,16,0.3)" }}>Bank 1</span>
                 </div>
-                <p className="font-bold text-lg mb-1 text-white">{form.bankName}</p>
+                <p className="font-bold text-lg mb-1 text-white">{resolveBankNameForSave(form.bankName, form.bankNameOther) || "—"}</p>
                 <p className="font-mono text-2xl tracking-widest mb-2" style={{ color: C.gold }}>{form.accountNumber}</p>
                 <p className="text-[10px] uppercase tracking-wider" style={{ color: C.goldLight }}>Account Name</p>
                 <p className="font-bold text-white">{form.accountName || "—"}</p>
@@ -1995,10 +2141,32 @@ export default function App({ session }) {
                         </button>
                       </div>
                       <div className="space-y-2.5">
-                        <select value={bank.bankName} onChange={e => updateExtraBank(idx, "bankName", e.target.value)} className={inp} style={{ borderColor: C.goldBorder }}>
+                        <select
+                          value={bankSelectValue(bank.bankName, BANKS)}
+                          onChange={e => {
+                            const v = e.target.value;
+                            updateExtraBank(idx, "bankName", v);
+                            if (v !== BANK_OTHERS_VALUE) updateExtraBank(idx, "bankNameOther", "");
+                          }}
+                          className={inp}
+                          style={{ borderColor: C.goldBorder }}
+                        >
                           <option value="">— Select Bank —</option>
-                          {BANKS.map(b => <option key={b}>{b}</option>)}
+                          {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                          <option value={BANK_OTHERS_VALUE}>Others</option>
                         </select>
+                        {bankSelectValue(bank.bankName, BANKS) === BANK_OTHERS_VALUE && (
+                          <input
+                            value={bank.bankNameOther || bankCustomName(bank.bankName, BANKS) || ""}
+                            onChange={(e) => {
+                              updateExtraBank(idx, "bankNameOther", e.target.value);
+                              updateExtraBank(idx, "bankName", BANK_OTHERS_VALUE);
+                            }}
+                            placeholder="Enter bank name"
+                            className={inp}
+                            style={{ borderColor: C.goldBorder }}
+                          />
+                        )}
                         <div className="grid grid-cols-2 gap-2">
                           <input value={bank.accountNumber} onChange={e => updateExtraBank(idx, "accountNumber", e.target.value)}
                             placeholder="Account number" className={`${inp} font-mono`} style={{ borderColor: C.goldBorder }} />
