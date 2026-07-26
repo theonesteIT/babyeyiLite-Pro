@@ -114,7 +114,9 @@ export default function NotificationDrawer() {
                 const copyTarget = portable || sameDevice;
 
                 const hasResume =
-                  n.kind === "incomplete_kit_order" || Boolean(copyTarget);
+                  n.kind === "incomplete_kit_order" ||
+                  n.kind === "discipline" ||
+                  Boolean(copyTarget);
 
                 const markReadThen = () => markNotificationRead(n.id);
 
@@ -124,6 +126,7 @@ export default function NotificationDrawer() {
                 if (hasResume && copyTarget) {
                   const continueTo = portable ? toRouterPath(portable) : toRouterPath(sameDevice);
                   const wa = whatsappShareHref(`${n.title}\n${n.body}`, portable || sameDevice);
+                  const isDiscipline = n.kind === "discipline";
 
                   return (
                     <li key={n.id}>
@@ -150,35 +153,41 @@ export default function NotificationDrawer() {
                             }}
                             className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-2 text-[11px] font-bold text-white hover:bg-orange-700"
                           >
-                            <LinkIcon size={13} aria-hidden /> Continue order
+                            <LinkIcon size={13} aria-hidden /> {isDiscipline ? "View discipline" : "Continue order"}
                           </Link>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                            onClick={async () => {
-                              markReadThen();
-                              try {
-                                await navigator.clipboard.writeText(copyTarget);
-                                toastCopy(true);
-                              } catch {
-                                toastCopy(false);
-                              }
-                            }}
-                          >
-                            <Copy size={13} aria-hidden /> Copy link
-                          </button>
-                          <a
-                            href={wa}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
-                            onClick={() => markReadThen()}
-                          >
-                            <MessageCircle size={13} aria-hidden /> WhatsApp
-                          </a>
+                          {!isDiscipline ? (
+                            <>
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                onClick={async () => {
+                                  markReadThen();
+                                  try {
+                                    await navigator.clipboard.writeText(copyTarget);
+                                    toastCopy(true);
+                                  } catch {
+                                    toastCopy(false);
+                                  }
+                                }}
+                              >
+                                <Copy size={13} aria-hidden /> Copy link
+                              </button>
+                              <a
+                                href={wa}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200"
+                                onClick={() => markReadThen()}
+                              >
+                                <MessageCircle size={13} aria-hidden /> WhatsApp
+                              </a>
+                            </>
+                          ) : null}
                         </div>
 
-                        <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 break-all leading-snug">{copyTarget}</p>
+                        {!isDiscipline ? (
+                          <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 break-all leading-snug">{copyTarget}</p>
+                        ) : null}
                       </div>
                     </li>
                   );

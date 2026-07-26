@@ -9,11 +9,14 @@ import {
   Lock, Shield, User, Edit, Trash2, Plus, Search,
   Stamp, ZoomIn, ZoomOut, X,
 } from "lucide-react";
-import { Badge, Modal, THead, StatCard, LineAreaChart, DonutChart, HBarChart, Empty } from "../components/UI";
+import { Badge, Modal, THead, LineAreaChart, DonutChart, HBarChart, ModernBarChart } from "../components/UI";
 import { useAuth } from "../../../context/AuthContext";
 import AcademicPreferencesPanel from "./AcademicPreferencesPanel";
+import { schoolIdFromSessionUser } from "../../../utils/schoolId";
+import { SM_FONT } from "../utils/schoolManagerTheme";
+import SmStatCard from "./SmStatCard";
 
-const API_BASE = "http://localhost:5100/api";
+const API_BASE = `${import.meta.env.VITE_API_URL || "http://localhost:5100"}/api`;
 const SERVER_BASE = API_BASE.replace(/\/api\/?$/, "") || "http://localhost:5100";
 function profilePhotoUrl(photo) {
   if (!photo || typeof photo !== "string") return "";
@@ -673,220 +676,281 @@ export function DocumentsPage({ toast, session }) {
 }
 
 // ════════════════════════════════════════════════════
-// ANALYTICS PAGE
+// ANALYTICS PAGE — live data from GET /api/babyeyi/analytics
 // ════════════════════════════════════════════════════
+const NAVY = "#000435";
+const AMBER = "#fbbf24";
+
+function downloadComplianceCsv(rows, schoolName) {
+  const headers = ["Academic Year", "Term", "Class", "Your Fee (RWF)", "NESA Limit (RWF)", "Status", "Rate %"];
+  const lines = (rows || []).map((r) =>
+    [r.year, r.term, r.class, r.fee, r.limit, r.status, r.rate]
+      .map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`)
+      .join(",")
+  );
+  const blob = new Blob([[headers.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `babyeyi-analytics-${(schoolName || "school").replace(/\s+/g, "-").toLowerCase()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function AnalyticsPage({ toast, session }) {
-  const schoolId = session?.schoolId ?? session?.school_id ?? session?.school?.id ?? null;
-  const [loading,      setLoading]      = useState(true);
-  const [termData,     setTermData]     = useState([]);
-  const [classData,    setClassData]    = useState([]);
-  const [statusDonut,  setStatusDonut]  = useState([]);
-  const [payBreakdown] = useState([
-    { label: "Tuition",   value: 62, color: C.gold    },
-    { label: "Materials", value: 18, color: C.emerald },
-    { label: "Sports",    value: 12, color: C.amber   },
-    { label: "Other",     value:  8, color: C.violet  },
-  ]);
-  const [summary, setSummary] = useState({ totalIncome: "RWF 0", complianceRate: "0%", avgIncrease: "0%" });
+  const schoolId = schoolIdFromSessionUser(session) ?? schoolIdFromSessionUser(session?.user) ?? null;
+  const schoolName = session?.schoolName || session?.school?.school_name || "School";
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const printRef = useRef(null);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    let cancelled = false;
+    (async () => {
       setLoading(true);
       try {
-        const statsRes  = await fetch(`${API_BASE}/babyeyi/stats${schoolId ? `?school_id=${schoolId}` : ""}`, { credentials: "include" });
-        const statsJson = await statsRes.json().catch(() => ({}));
-        if (!statsRes.ok || statsJson.success === false) throw new Error(statsJson.message || "Failed");
-        const s = statsJson.data || {};
-
-        const listParams = new URLSearchParams({ limit: "200" });
-        if (schoolId) listParams.set("school_id", String(schoolId));
-        const listRes  = await fetch(`${API_BASE}/babyeyi?${listParams}`, { credentials: "include" });
-        const listJson = await listRes.json().catch(() => ({}));
-        if (!listRes.ok || listJson.success === false) throw new Error(listJson.message || "Failed");
-        const rows = Array.isArray(listJson.data) ? listJson.data : [];
-
-        const totalIncomeNumber = rows.reduce((sum, b) => sum + Number(b.total_fee || 0), 0);
-        const exceeded          = Number(s.exceeds_count || 0);
-        const total             = Number(s.total || rows.length || 0);
-        const complianceRate    = total > 0 ? Math.round(((total - exceeded) / total) * 100) : 100;
-        setSummary({
-          totalIncome:    `RWF ${totalIncomeNumber.toLocaleString()}`,
-          complianceRate: `${complianceRate}%`,
-          avgIncrease:    `${(exceeded > 0 ? 12.4 : 0).toFixed(1)}%`,
-        });
-
-        const termMap = new Map();
-        rows.forEach(b => {
-          const label = `${b.term || ""} '${String(b.academic_year || "").slice(-2)}`.trim();
-          if (!label) return;
-          const prev = termMap.get(label) || { value: 0, limit: 0, count: 0 };
-          prev.value += Number(b.total_fee || 0);
-          prev.limit += Number(b.nesa_limit || 0);
-          prev.count += 1;
-          termMap.set(label, prev);
-        });
-        setTermData(Array.from(termMap.entries()).map(([label, v]) => ({
-          label,
-          value: Math.round((v.value / Math.max(1, v.count)) / 1000),
-          limit: Math.round((v.limit / Math.max(1, v.count)) / 1000),
-        })));
-
-        const classMap = new Map();
-        rows.forEach(b => {
-          const cls = b.class || b.class_name;
-          if (!cls) return;
-          classMap.set(cls, (classMap.get(cls) || 0) + Number(b.total_fee || 0));
-        });
-        setClassData(Array.from(classMap.entries())
-          .map(([label, totalFee]) => ({ label, value: Math.round(totalFee / 1000) }))
-          .sort((a, b) => b.value - a.value).slice(0, 8));
-
-        setStatusDonut([
-          { label: "Approved", value: Number(s.approved || 0), color: C.emerald },
-          { label: "Pending",  value: Number(s.pending  || 0), color: C.gold    },
-          { label: "Rejected", value: Number(s.rejected || 0), color: C.red     },
-        ]);
+        const params = new URLSearchParams();
+        if (schoolId != null) params.set("school_id", String(schoolId));
+        const res = await fetch(`${API_BASE}/babyeyi/analytics?${params}`, { credentials: "include" });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) throw new Error(json.message || "Failed to load analytics");
+        if (!cancelled) setData(json.data || null);
       } catch (e) {
-        if (toast) toast(e.message || "Failed to load analytics", "error");
-      } finally { setLoading(false); }
-    };
-    fetchAnalytics();
+        if (!cancelled) {
+          setData(null);
+          toast?.(e.message || "Failed to load analytics", "error");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [toast, schoolId]);
 
-  const chartCard = (title, subtitle, children) => (
-    <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, padding: 20, boxShadow: "0 2px 8px rgba(254,191,16,0.07)" }}>
-      <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>{title}</h4>
-      {subtitle && <p style={{ fontSize: 10, color: C.goldDark, margin: "0 0 12px" }}>{subtitle}</p>}
-      {children}
-    </div>
-  );
+  const summary = data?.summary || {};
+  const termTrend = data?.termTrend || [];
+  const classBreakdown = data?.classBreakdown || [];
+  const paymentBreakdown = data?.paymentBreakdown || [];
+  const statusOverview = (data?.statusOverview || []).filter((d) => d.value > 0);
+  const complianceHistory = data?.complianceHistory || [];
+  const monthlyActivity = data?.monthlyActivity || [];
+
+  const totalStatus = statusOverview.reduce((s, d) => s + d.value, 0);
+
+  const handlePrint = () => {
+    if (!printRef.current) return;
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast?.("Allow pop-ups to print the report.", "warning");
+      return;
+    }
+    w.document.write(`
+      <html><head><title>Babyeyi Analytics — ${schoolName}</title>
+      <style>body{font-family:Montserrat,sans-serif;padding:24px;color:#000435}
+      h1{font-size:20px} table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}
+      th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#000435;color:#fbbf24}</style>
+      </head><body>${printRef.current.innerHTML}</body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, fontFamily: font }} className="anim">
-      <style>{globalStyles}</style>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+    <div className="space-y-5 sm:space-y-6 anim" style={{ fontFamily: SM_FONT }}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <SectionTitle>📊 Financial Analytics</SectionTitle>
-          <SubTitle>School fee trends and NESA compliance history (live data)</SubTitle>
+          <h1 className="text-2xl sm:text-[26px] font-black text-[#000435] tracking-tight">Financial Analytics</h1>
+          <p className="text-sm text-[#000435]/50 mt-1">
+            Live Babyeyi fees, NESA compliance, and payment breakdown for {schoolName}.
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          {[
-            { label: "PDF Report", bg: "white",  color: C.darkMid,   border: C.goldBorder },
-            { label: "Excel",      bg: C.dark,   color: C.gold,      border: C.dark       },
-          ].map(({ label, bg, color, border }) => (
-            <button key={label} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "8px 14px",
-              background: bg, border: `1px solid ${border}`, borderRadius: 12,
-              fontSize: 12, fontWeight: 700, color, cursor: "pointer", fontFamily: font,
-            }}>
-              <Download style={{ width: 14, height: 14 }}/> {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            disabled={loading || !data}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#000435]/15 bg-white text-sm font-bold text-[#000435] hover:bg-amber-50 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" /> PDF Report
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadComplianceCsv(complianceHistory, schoolName)}
+            disabled={loading || !complianceHistory.length}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-400 text-[#000435] text-sm font-bold shadow-md shadow-amber-500/20 hover:bg-amber-300 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" /> Excel
+          </button>
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-        {[
-          { icon: DollarSign, label: "Total Projected Income", value: summary.totalIncome,    sub: "All Babyeyi",            color: C.emerald },
-          { icon: Activity,   label: "Avg Compliance Rate",    value: summary.complianceRate, sub: "All years",              color: C.gold    },
-          { icon: TrendingUp, label: "Avg Fee Increase",       value: summary.avgIncrease,    sub: "Year over year (approx)",color: C.amber   },
-        ].map(({ icon: Icon, label, value, sub, color }) => (
-          <div key={label} style={{
-            background: "white", border: `1px solid ${C.goldBorder}`,
-            borderRadius: 16, padding: "14px 16px", boxShadow: "0 2px 8px rgba(254,191,16,0.08)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 10, background: color + "22", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Icon style={{ width: 16, height: 16, color }}/>
-              </div>
-              <p style={{ fontSize: 10, fontWeight: 700, color: C.goldDark, margin: 0, textTransform: "uppercase" }}>{label}</p>
-            </div>
-            <p style={{ fontSize: 22, fontWeight: 900, color: C.dark, margin: "0 0 2px" }}>{value}</p>
-            <p style={{ fontSize: 10, color: C.goldDark, margin: 0 }}>{sub}</p>
+      {loading ? (
+        <div className="flex items-center justify-center py-20 gap-2 text-[#000435]/50">
+          <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+          <span className="text-sm font-medium">Loading analytics…</span>
+        </div>
+      ) : !data ? (
+        <div className="rounded-2xl border border-[#000435]/10 bg-white p-12 text-center">
+          <BarChart3 className="w-12 h-12 mx-auto text-[#000435]/20 mb-3" />
+          <p className="font-bold text-[#000435]">No analytics data</p>
+          <p className="text-sm text-[#000435]/45 mt-1">Create Babyeyi documents to see fee trends here.</p>
+        </div>
+      ) : (
+        <div ref={printRef}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+            <SmStatCard
+              label="Total projected income"
+              value={`RWF ${Number(summary.totalIncome || 0).toLocaleString()}`}
+              sub={`${summary.babyeyiCount || 0} Babyeyi · ${summary.studentCount || 0} students`}
+            />
+            <SmStatCard
+              label="NESA compliance rate"
+              value={`${summary.complianceRate ?? 0}%`}
+              sub={summary.exceedsCount ? `${summary.exceedsCount} over limit` : "All within limits"}
+            />
+            <SmStatCard
+              label="Avg over-limit increase"
+              value={`${summary.avgFeeIncrease ?? 0}%`}
+              sub="Where fee exceeds NESA cap"
+            />
+            <SmStatCard
+              label="Babyeyi status"
+              value={String(totalStatus)}
+              sub={`${summary.approved || 0} approved · ${summary.pending || 0} pending`}
+            />
           </div>
-        ))}
-      </div>
 
-      {loading && <div style={{ display: "flex", justifyContent: "center", padding: "32px 0" }}><Spinner/></div>}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+            <div className="lg:col-span-2 rounded-2xl border border-[#000435]/10 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-black text-[#000435] flex items-center gap-2 mb-1">
+                <TrendingUp className="w-4 h-4 text-amber-500" />
+                Fee trend vs NESA limit
+              </h3>
+              <p className="text-[11px] text-[#000435]/45 mb-4">Average fee and NESA cap per term (×1000 RWF)</p>
+              {termTrend.length ? (
+                <ModernBarChart
+                  data={termTrend}
+                  labelKey="label"
+                  valueKey="value"
+                  secondaryKey="limit"
+                  color={AMBER}
+                  secondaryColor={NAVY}
+                  height={160}
+                />
+              ) : (
+                <p className="text-sm text-[#000435]/40 py-12 text-center">No term data yet</p>
+              )}
+            </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-        {chartCard(
-          <><TrendingUp style={{ width: 16, height: 16, color: C.gold }}/> Fee Trend vs NESA Limit (×1000 RWF)</>,
-          "Historical fee comparison across terms",
-          <LineAreaChart data={termData} labelKey="label" valueKey="value" color={C.gold} height={145}/>
-        )}
-        {chartCard(
-          <><Activity style={{ width: 16, height: 16, color: C.goldDark }}/> Request Status</>,
-          null,
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
-            <DonutChart data={statusDonut} size={120}/>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {statusDonut.map(d => (
-                <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: d.color }}/>
-                  <div>
-                    <p style={{ fontSize: 12, fontWeight: 900, color: C.dark, margin: 0 }}>{d.value}</p>
-                    <p style={{ fontSize: 9, color: C.goldDark, margin: 0 }}>{d.label}</p>
+            <div className="rounded-2xl border border-[#000435]/10 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-black text-[#000435] mb-4">Request status</h3>
+              {totalStatus > 0 ? (
+                <div className="flex flex-col items-center gap-4">
+                  <DonutChart data={statusOverview} size={130} />
+                  <div className="w-full space-y-2">
+                    {statusOverview.map((d) => (
+                      <div key={d.label} className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-2 text-[#000435]/70">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+                          {d.label}
+                        </span>
+                        <span className="font-black text-[#000435]">{d.value}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              ) : (
+                <p className="text-sm text-[#000435]/40 py-8 text-center">No Babyeyi records</p>
+              )}
             </div>
           </div>
-        )}
-      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {chartCard(
-          <><BarChart3 style={{ width: 16, height: 16, color: C.gold }}/> Fee by Class (×1000 RWF)</>,
-          null,
-          <HBarChart data={classData} valueKey="value" labelKey="label"/>
-        )}
-        {chartCard(
-          <><Activity style={{ width: 16, height: 16, color: C.goldDark }}/> Payment Category Breakdown (%)</>,
-          null,
-          <HBarChart data={payBreakdown} valueKey="value" labelKey="label"/>
-        )}
-      </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <div className="rounded-2xl border border-[#000435]/10 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-black text-[#000435] mb-4">Fee by class (×1000 RWF)</h3>
+              {classBreakdown.length ? (
+                <HBarChart data={classBreakdown} valueKey="value" labelKey="label" />
+              ) : (
+                <p className="text-sm text-[#000435]/40 py-8 text-center">No class data</p>
+              )}
+            </div>
+            <div className="rounded-2xl border border-[#000435]/10 bg-white p-5 shadow-sm">
+              <h3 className="text-sm font-black text-[#000435] mb-4">Payment category breakdown</h3>
+              {paymentBreakdown.length ? (
+                <HBarChart
+                  data={paymentBreakdown.map((p) => ({ label: p.label, value: p.value }))}
+                  valueKey="value"
+                  labelKey="label"
+                />
+              ) : (
+                <p className="text-sm text-[#000435]/40 py-8 text-center">No payment lines recorded</p>
+              )}
+            </div>
+          </div>
 
-      {/* Compliance table */}
-      <div style={{ background: "white", border: `1px solid ${C.goldBorder}`, borderRadius: 20, overflow: "hidden", boxShadow: "0 2px 8px rgba(254,191,16,0.07)" }}>
-        <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.goldBorder}`, background: C.goldBg }}>
-          <h4 style={{ fontWeight: 700, color: C.dark, fontSize: 13, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
-            <ShieldCheck style={{ width: 16, height: 16, color: C.emerald }}/> NESA Compliance History
-          </h4>
+          <div className="rounded-2xl border border-[#000435]/10 bg-white p-5 shadow-sm mt-4">
+            <h3 className="text-sm font-black text-[#000435] mb-4">Babyeyi activity ({new Date().getFullYear()})</h3>
+            {monthlyActivity.some((m) => m.value > 0) ? (
+              <LineAreaChart data={monthlyActivity} labelKey="label" valueKey="value" color={AMBER} height={120} />
+            ) : (
+              <p className="text-sm text-[#000435]/40 py-6 text-center">No documents created this year</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-[#000435]/10 bg-white shadow-sm overflow-hidden mt-4">
+            <div className="px-5 py-4 border-b border-[#000435]/8 bg-[#000435] flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-amber-400" />
+              <h3 className="text-sm font-black text-white">NESA compliance history</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-[11px] font-bold uppercase tracking-wider text-[#000435]/45 border-b border-[#000435]/8 bg-[#000435]/[0.03]">
+                    {["Year", "Term", "Class", "Your fee", "NESA limit", "Status", "Rate"].map((h) => (
+                      <th key={h} className="px-4 py-3 whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#000435]/6">
+                  {complianceHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-10 text-center text-[#000435]/40">No Babyeyi compliance records</td>
+                    </tr>
+                  ) : (
+                    complianceHistory.map((r, i) => (
+                      <tr key={`${r.year}-${r.term}-${r.class}-${i}`} className="hover:bg-amber-50/30">
+                        <td className="px-4 py-3 font-semibold text-[#000435]">{r.year}</td>
+                        <td className="px-4 py-3 text-[#000435]/70">{r.term}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex min-w-[2rem] px-2 py-1 rounded-lg bg-amber-400/15 text-[#000435] text-xs font-black">
+                            {r.class}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-bold text-[#000435]">RWF {Number(r.fee || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 font-bold text-[#000435]/70">
+                          {r.limit > 0 ? `RWF ${Number(r.limit).toLocaleString()}` : "—"}
+                        </td>
+                        <td className="px-4 py-3"><Badge status={r.status} /></td>
+                        <td className="px-4 py-3 min-w-[120px]">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-[#000435]/10 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-amber-400"
+                                style={{ width: `${Math.min(100, r.rate || 0)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-black text-[#000435] tabular-nums">{r.rate}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: font }}>
-            <THead cols={["Year", "Term", "Class", "Your Fee", "NESA Limit", "Status", "Rate"]}/>
-            <tbody>
-              {termData.map((r, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${C.goldBorder}`, background: i % 2 ? C.goldBg : "white" }}>
-                  <td style={{ padding: "12px 16px", fontSize: 12, color: C.goldDark, fontWeight: 600 }}>{r.y}</td>
-                  <td style={{ padding: "12px 16px", fontSize: 12, color: C.slate600 }}>{r.t}</td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <span style={{ width: 28, height: 28, borderRadius: 8, background: C.goldBgMid, color: C.goldDark, fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {r.c}
-                    </span>
-                  </td>
-                  <td style={{ padding: "12px 16px", fontWeight: 700, color: C.dark, fontSize: 13 }}>RWF {(r.f || 0).toLocaleString()}</td>
-                  <td style={{ padding: "12px 16px", fontWeight: 700, color: C.emeraldDark, fontSize: 13 }}>RWF {(r.l || 0).toLocaleString()}</td>
-                  <td style={{ padding: "12px 16px" }}><Badge status={r.s}/></td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.goldBgMid, overflow: "hidden" }}>
-                        <div style={{ height: "100%", borderRadius: 3, background: C.emerald, width: `${r.r || 0}%` }}/>
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 900, color: C.dark }}>{r.r || 0}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

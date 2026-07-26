@@ -24,9 +24,11 @@ function computeAssetRegisterMath({
   const rate = toMoney(depRatePercent);
   const decimalDep = rate > 0 ? rate / 100 : 0;
   const totalBalance = opening + purchase;
-  const annualDep = Math.round(totalBalance * decimalDep);
-  const totalDep = Math.max(0, totalBalance - annualDep);
-  return { opening, purchase, accumulated, totalBalance, annualDep, totalDep, decimalDep };
+  const depreciableBase = Math.max(0, totalBalance - accumulated);
+  const annualDep = Math.round(depreciableBase * decimalDep);
+  const totalDep = accumulated + annualDep;
+  const netBookValue = Math.max(0, totalBalance - totalDep);
+  return { opening, purchase, accumulated, totalBalance, annualDep, totalDep, netBookValue, decimalDep };
 }
 
 async function repairYearStart(schoolId, year, category) {
@@ -68,7 +70,7 @@ async function recalcChain(schoolId, year, category) {
     [schoolId, year - 1]
   );
   let rollingOpening = 0;
-  let rollingAccumulated = 0;
+  let categoryYearAccumulated = 0;
 
   if (priorYear) {
     const [[lastPrev]] = await promisePool.query(
@@ -81,11 +83,11 @@ async function recalcChain(schoolId, year, category) {
     );
     if (lastPrev) {
       rollingOpening = toMoney(lastPrev.total_balance) || toMoney(lastPrev.opening_amount) + toMoney(lastPrev.unit_price);
-      rollingAccumulated = toMoney(lastPrev.total_dep);
+      categoryYearAccumulated = toMoney(lastPrev.total_dep);
     }
   }
 
-  if (!rollingOpening && !rollingAccumulated) {
+  if (!rollingOpening && !categoryYearAccumulated) {
     const [[bal]] = await promisePool.query(
       `SELECT b.opening_balance, b.accumulated_depreciation_start, b.accumulated_depreciation
        FROM school_asset_year_category_balances b
@@ -95,7 +97,7 @@ async function recalcChain(schoolId, year, category) {
     );
     if (bal) {
       rollingOpening = toMoney(bal.opening_balance);
-      rollingAccumulated = toMoney(bal.accumulated_depreciation_start ?? bal.accumulated_depreciation);
+      categoryYearAccumulated = toMoney(bal.accumulated_depreciation_start ?? bal.accumulated_depreciation);
     }
   }
 
@@ -107,13 +109,13 @@ async function recalcChain(schoolId, year, category) {
     [schoolId, year, category]
   );
 
-  console.log(`Recalculating ${rows.length} asset(s) — start opening=${rollingOpening}, accumulated=${rollingAccumulated}`);
+  console.log(`Recalculating ${rows.length} asset(s) — start opening=${rollingOpening}, accumulated=${categoryYearAccumulated}`);
 
   for (const row of rows) {
     const math = computeAssetRegisterMath({
       openingAmount: rollingOpening,
       unitPrice: row.unit_price,
-      accumulatedDepreciation: rollingAccumulated,
+      accumulatedDepreciation: categoryYearAccumulated,
       depRatePercent: row.dep_rate ?? 25,
     });
     await promisePool.query(
@@ -123,7 +125,7 @@ async function recalcChain(schoolId, year, category) {
        WHERE id = ?`,
       [
         math.opening, math.totalBalance, math.accumulated,
-        math.annualDep, math.totalDep, math.totalDep, math.decimalDep,
+        math.annualDep, math.totalDep, math.netBookValue, math.decimalDep,
         row.id,
       ]
     );
@@ -131,7 +133,6 @@ async function recalcChain(schoolId, year, category) {
       `  ${row.asset_name}: balance=${math.totalBalance}, annual=${math.annualDep}, total_dep=${math.totalDep}`
     );
     rollingOpening = math.totalBalance;
-    rollingAccumulated = math.totalDep;
   }
 }
 

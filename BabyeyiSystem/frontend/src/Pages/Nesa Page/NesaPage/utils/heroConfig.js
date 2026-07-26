@@ -69,12 +69,11 @@ export function buildHeroConfig(tab, ctx = {}) {
           { icon: FileText, label: 'National fee regulations', variant: 'accent' },
         ],
         kpis: [
-          { key: 'public', icon: School, label: 'Public schools', value: fmt(feeStats?.public_count) },
-          { key: 'private', icon: School, label: 'Private schools', value: fmt(feeStats?.private_count) },
+          { key: 'public', icon: School, label: 'Public', value: fmt(feeStats?.public_count) },
           { key: 'boarding', icon: School, label: 'Boarding', value: fmt(feeStats?.boarding_count) },
           { key: 'tvet', icon: School, label: 'TVET', value: fmt(feeStats?.tvet_count) },
         ],
-        kpiCols: 4,
+        kpiCols: 3,
       };
 
     case 'monitoring': {

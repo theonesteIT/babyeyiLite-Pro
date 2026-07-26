@@ -1,6 +1,24 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import BabyeyiList from "./BabyeyiList";
+import ClassStreamPicker from "../../../Pages/School Manager/components/ClassStreamPicker";
+import EducationLevelPicker from "../../../Pages/School Manager/components/EducationLevelPicker";
+import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
+import {
+  NESA_FEE_LIMIT_LEVELS,
+  EDUCATION_LEVEL_OPTIONS,
+  inferEducationLevelFromClass,
+  inferNesaFeeLimitLevelFromClass,
+  mapToNesaLimitLevel,
+  buildClassRowMap,
+  filterClassGroupsByLevel,
+  filterLabelsByLevel,
+  pruneSelectedToLevel,
+  levelsPresentInCatalog,
+  normalizeEducationLevel,
+  mergeWithDefaultClassCatalog,
+} from "../../../utils/educationLevelClasses";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
+import { NESA_LIMITS } from "./utils/constants";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
 
@@ -113,7 +131,7 @@ const ic = {
 };
 const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
 
-// ── NESA fee_limits `level` must match national fee table labels ───────────
+// ── Babyeyi document education_level (display / PDF) ───────────────────────
 function inferEducationLevelFromClassLabel(label) {
   const raw = String(label || "").trim();
   if (!raw) return "Primary Education";
@@ -252,6 +270,7 @@ const buildBlankForm = (school = {}, categoryOverride) => ({
   category:             categoryOverride ?? "Public",
   /** Public = NESA smart fee checker applies (when school allows); Private = no national limit checker. */
   feeTargetStudents:    "public",
+  nesaFeeLimitLevel:    "Primary",
   language:             "en",
   payments:             [{ name:"Tuition Fee", amount:"", pay_channel: "babyeyi" },{ name:"Activity Fee", amount:"", pay_channel: "babyeyi" }],
   requestIncrease:      false,
@@ -539,7 +558,53 @@ export default function App({ session }) {
   const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
+  const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
+
+  const classRowMap = useMemo(() => {
+    const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
+    return buildClassRowMap(merged.rows, merged.options);
+  }, [registeredClassRows, registeredClassOptions]);
+
+  const classOptions = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).options,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classRows = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).rows,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classGroups = useMemo(
+    () => buildClassGroupsFromRows(classRows, classOptions),
+    [classRows, classOptions],
+  );
+
+  const levelOptions = useMemo(
+    () => levelsPresentInCatalog(registeredClassOptions, registeredClassRows),
+    [registeredClassOptions, registeredClassRows],
+  );
+
+  const filteredClassGroups = useMemo(
+    () => filterClassGroupsByLevel(classGroups, form?.nesaFeeLimitLevel, classRowMap),
+    [classGroups, form?.nesaFeeLimitLevel, classRowMap],
+  );
+
+  const handleEducationLevelChange = useCallback((levelId) => {
+    const level = normalizeEducationLevel(levelId);
+    setForm((prev) => {
+      if (!prev) return prev;
+      const pruned = pruneSelectedToLevel(prev.classes || [], level, classOptions, classRowMap);
+      const levelLabels = filterLabelsByLevel(classOptions, level, classRowMap);
+      const nextClasses = pruned.length ? pruned : (levelLabels[0] ? [levelLabels[0]] : []);
+      return {
+        ...prev,
+        nesaFeeLimitLevel: mapToNesaLimitLevel(level),
+        classes: nextClasses,
+      };
+    });
+  }, [classOptions, classRowMap]);
 
   useEffect(() => {
     setForm(buildBlankForm({
@@ -630,14 +695,18 @@ export default function App({ session }) {
       .then((json) => {
         if (cancelled) return;
         const opts = Array.isArray(json.class_name_options) ? json.class_name_options : [];
+        const rows = Array.isArray(json.data) ? json.data : [];
         setRegisteredClassOptions(opts);
+        setRegisteredClassRows(rows);
         if (!opts.length) return;
         setForm((prev) => {
           if (!prev) return prev;
           const prevArr = Array.isArray(prev.classes) ? prev.classes : [];
           const kept = sortSelectedClassesByCatalog(prevArr, opts);
-          if (kept.length) return { ...prev, classes: kept };
-          return { ...prev, classes: [opts[0]] };
+          if (kept.length) {
+            return { ...prev, classes: kept, nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(kept[0]) };
+          }
+          return { ...prev, classes: [opts[0]], nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(opts[0]) };
         });
       })
       .catch(() => {
@@ -713,7 +782,7 @@ export default function App({ session }) {
       return;
     }
     const { category, term, academicYear } = form;
-    const level = inferEducationLevelFromClassLabel(form.classes?.[0] || "");
+    const level = form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(form.classes?.[0] || "");
     if (!category || !term || !academicYear) return;
     setNesaLimit(null);
     setNesaLimitSource("loading");
@@ -722,24 +791,60 @@ export default function App({ session }) {
     const ac = new AbortController();
     const applyLimit    = (max, src) => { if (!ac.signal.aborted) { setNesaLimit(Number(max)); setNesaLimitSource(src); } };
     const applyNotFound = ()         => { if (!ac.signal.aborted) { setNesaLimit(null); setNesaLimitSource("none"); } };
+    const applyFallback = () => {
+      const key = `${category}-${level}`;
+      const fallback = NESA_LIMITS[key];
+      if (fallback != null) applyLimit(fallback, "default");
+      else applyNotFound();
+    };
     fetch(`${API_BASE}/babyeyi/nesa-limit?${qp}`, { credentials:"include", signal:ac.signal })
       .then(r => r.json())
       .then(json => {
         if (ac.signal.aborted) return;
         if (json.success && json.data?.max_amount != null) { applyLimit(json.data.max_amount, "backend"); return; }
-        return fetch(`${API_BASE}/fee-limits?${qp}&limit=1&active=1`, { credentials:"include", signal:ac.signal })
+        return fetch(
+          `${API_BASE}/fee-limits?category=${encodeURIComponent(category)}&level=${encodeURIComponent(level)}&academic_year=${encodeURIComponent(academicYear)}&active=1&limit=50`,
+          { credentials: "include", signal: ac.signal }
+        )
           .then(r2 => r2.json())
           .then(j2 => {
             if (ac.signal.aborted) return;
-            const m = j2?.data?.find(row => row.category===category && row.level===level && row.term===term && row.academic_year===academicYear);
+            const rows = Array.isArray(j2?.data) ? j2.data : [];
+            const normLevel = String(level).toLowerCase();
+            const normTerm = String(term).trim();
+            const normYear = String(academicYear).trim();
+            const termMatches = (row) =>
+              row.term === normTerm || (normTerm !== "Full Year" && row.term === "Full Year");
+            const levelMatches = (row) =>
+              String(row.level || "").toLowerCase() === normLevel;
+            const categoryMatches = (row) => row.category === category;
+
+            let matches = rows.filter(
+              (row) =>
+                categoryMatches(row) &&
+                levelMatches(row) &&
+                row.academic_year === normYear &&
+                termMatches(row)
+            );
+            if (!matches.length) {
+              matches = rows.filter(
+                (row) => categoryMatches(row) && levelMatches(row) && termMatches(row)
+              );
+              matches.sort((a, b) =>
+                String(b.academic_year || "").localeCompare(String(a.academic_year || ""))
+              );
+            }
+            const m =
+              matches.find((row) => row.term === normTerm) ||
+              matches.find((row) => row.term === "Full Year");
             if (m?.max_amount != null) applyLimit(m.max_amount, "backend");
-            else applyNotFound();
+            else applyFallback();
           });
       })
-      .catch(err => { if (err?.name !== "AbortError") applyNotFound(); })
+      .catch(err => { if (err?.name !== "AbortError") applyFallback(); })
       .finally(() => { if (!ac.signal.aborted) setNesaLimitLoading(false); });
     return () => ac.abort();
-  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, schoolFeeScope]);
+  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, form?.nesaFeeLimitLevel, schoolFeeScope]);
 
   if (!form) {
     return (
@@ -791,10 +896,6 @@ export default function App({ session }) {
     if (step === 1) {
       if (registeredClassesLoading) {
         showToast("Still loading your school classes…", "error");
-        return;
-      }
-      if (!registeredClassOptions.length) {
-        showToast("No registered classes found. Add classes in School Registry or enrol students first.", "error");
         return;
       }
       if (!form?.classes?.length) {
@@ -891,7 +992,9 @@ export default function App({ session }) {
 
       const res  = await fetch(`${API_BASE}/babyeyi`, { method: "POST", body: fd, credentials: "include" });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) throw new Error(json.message || "Failed to save Babyeyi");
+      if (!res.ok || json.success === false) {
+        throw new Error(json.detail || json.message || "Failed to save Babyeyi");
+      }
       if (json.data?.id) createdIds.push({ id: json.data.id, classes: classesToCreate });
 
       showToast("Babyeyi saved successfully!", "success");
@@ -1324,71 +1427,46 @@ export default function App({ session }) {
               ))}
             </div>
 
-            <div>
-              <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Language</label>
-              <select value={form.language} onChange={e => up("language", e.target.value)}
-                className={`${inp} w-48`} style={{ borderColor: C.goldBorder }}>
-                <option value="en">English</option>
-                <option value="rw">Kinyarwanda</option>
-                <option value="fr">Français</option>
-              </select>
-            </div>
+            <EducationLevelPicker
+              value={normalizeEducationLevel(form.nesaFeeLimitLevel)}
+              onChange={handleEducationLevelChange}
+              options={levelOptions.length ? levelOptions : EDUCATION_LEVEL_OPTIONS}
+              title="Education level"
+              hint="Select a level to filter classes. Use Public, Boarding, or TVET with this level — same labels as NESA Tuition Manager."
+            />
 
-            <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
-                Select classes
-                <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — tick all that apply (registered at your school)
-                </span>
-              </label>
+            <div>
               {registeredClassesLoading ? (
-                <p className="text-xs font-semibold flex items-center gap-2" style={{ color: C.darkMid }}>
+                <p className="text-xs font-semibold flex items-center gap-2 py-8 justify-center" style={{ color: C.darkMid }}>
                   <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
                   Loading classes…
                 </p>
-              ) : !registeredClassOptions.length ? (
-                <p className="text-xs font-semibold leading-relaxed rounded-xl px-3 py-2.5 border"
-                  style={{ background: C.amberBg, color: C.darkMid, borderColor: C.amberBord }}>
-                  No classes found. Add classes under <strong>School Registry</strong> or ensure students are enrolled so classes appear here.
-                </p>
               ) : (
                 <>
-                  {(() => {
-                    const selectedSet = new Set(form.classes || []);
-                    return (
-                  <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-0.5"
-                    style={{ borderColor: C.goldBorder, background: C.goldBg }}>
-                    {registeredClassOptions.map((c) => {
-                      const checked = selectedSet.has(c);
-                      return (
-                        <label
-                          key={c}
-                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer text-sm font-semibold transition-colors hover:bg-white/80"
-                          style={{ color: C.dark }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const cur = Array.isArray(form.classes) ? [...form.classes] : [];
-                              if (checked) {
-                                if (cur.length <= 1) return;
-                                up("classes", sortSelectedClassesByCatalog(cur.filter((x) => x !== c), registeredClassOptions));
-                              } else {
-                                up("classes", sortSelectedClassesByCatalog([...cur, c], registeredClassOptions));
-                              }
-                            }}
-                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                          />
-                          <span className="min-w-0 break-words">{c}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                    );
-                  })()}
+                  <ClassStreamPicker
+                    groups={filteredClassGroups}
+                    selected={form.classes || []}
+                    onChange={(next) => {
+                      up("classes", next);
+                      if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0], classRowMap.get(next[0])));
+                    }}
+                    sortSelected={sortSelectedClassesByCatalog}
+                    catalogOrder={classOptions}
+                    minSelected={1}
+                    colors={C}
+                    levelLabel={EDUCATION_LEVEL_OPTIONS.find((o) => o.id === normalizeEducationLevel(form.nesaFeeLimitLevel))?.label || form.nesaFeeLimitLevel}
+                    onSelectAllLevel={() => {
+                      const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
+                      up("classes", sortSelectedClassesByCatalog(labels, classOptions));
+                    }}
+                    onClearLevel={() => {
+                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
+                      up("classes", first ? [first] : []);
+                    }}
+                  />
                   {form.classes.length > 1 && (
                     <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
                       style={{ background: C.goldBg, color: C.goldDark }}>
@@ -1397,6 +1475,16 @@ export default function App({ session }) {
                   )}
                 </>
               )}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: C.darkMid }}>Language</label>
+              <select value={form.language} onChange={e => up("language", e.target.value)}
+                className={`${inp} w-48`} style={{ borderColor: C.goldBorder }}>
+                <option value="en">English</option>
+                <option value="rw">Kinyarwanda</option>
+                <option value="fr">Français</option>
+              </select>
             </div>
 
             <div>
@@ -1441,8 +1529,8 @@ export default function App({ session }) {
                   <p className="font-semibold text-white text-sm">Tuition Smart Checker</p>
                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     {nesaLimitLoading ? "Fetching limit…"
-                      : nesaLimitSource === "none" ? `No fee limit configured for ${inferEducationLevelFromClassLabel(form.classes?.[0])} ${form.term}`
-                      : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}` : "No limit set"}
+                      : nesaLimitSource === "none" ? `No fee limit configured for ${form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(form.classes?.[0] || "")} · ${form.term}`
+                      : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}${nesaLimitSource === "default" ? " (default)" : ""}` : "No limit set"}
                   </p>
                 </div>
               </div>
@@ -2345,7 +2433,7 @@ export default function App({ session }) {
 
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
+    <div className="flex flex-col flex-1 min-h-0 w-full min-h-[calc(100vh-5rem)]"
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
@@ -2365,8 +2453,7 @@ export default function App({ session }) {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"
-        style={{ boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
+      <div className="flex flex-col flex-1 min-h-0 w-full bg-white overflow-hidden">
 
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 shrink-0"

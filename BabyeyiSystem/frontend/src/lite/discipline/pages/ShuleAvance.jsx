@@ -41,7 +41,7 @@ import {
    User
 } from 'lucide-react';
 import ShuleAvanceRepaymentCalculator from '../components/ShuleAvanceRepaymentCalculator';
-import DisciplineOchreHero from '../components/DisciplineOchreHero';
+import LiteShuleAvancePhotoHero from '../../shared/components/LiteShuleAvancePhotoHero';
 
 const UPLOADS_BASE = (import.meta.env.VITE_UPLOADS_BASE || import.meta.env.VITE_API_URL || 'http://localhost:5100').replace(/\/$/, '');
 
@@ -494,15 +494,12 @@ export default function ShuleAvance() {
    };
    return (
       <div className="animate-in fade-in duration-700 bg-re-bg min-h-screen">
-         <DisciplineOchreHero
-            eyebrow="Staff services"
-            titleLine="Shule"
-            titleAccent="avance"
-            subtitle="Manage service requests, repayment flow, and request history in a cleaner manager-style shell."
-            icon={Wallet}
+         <LiteShuleAvancePhotoHero
+            onRefresh={() => load(true)}
+            refreshing={refreshing}
          />
          {/* ── Main Content Grid ── */}
-          <div className="max-w-[1600px] mx-auto px-4 md:px-12 -mt-4 sm:-mt-5 md:-mt-6 pt-2 pb-20 relative z-20">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 -mt-8 relative z-20 pt-2 pb-20">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                {/* ── Left Column (Financial Dashboard) ── */}

@@ -1,4 +1,32 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  School,
+  DollarSign,
+  ClipboardList,
+  Landmark,
+  PenLine,
+  Layers,
+  Users,
+  Eye,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  QrCode,
+  Copy,
+  Sparkles,
+  Shield,
+  AlertTriangle,
+  Plus,
+  X,
+  Send,
+  Info,
+  User,
+  Phone,
+  Mail,
+  Pencil,
+  ClipboardPen,
+} from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 
@@ -101,7 +129,40 @@ const ic = {
   mail:    "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
   user:    "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
 };
-const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
+const LUCIDE_ICONS = {
+  school: School,
+  dollar: DollarSign,
+  book: ClipboardList,
+  pen: PenLine,
+  eye: Eye,
+  chevR: ChevronRight,
+  chevL: ChevronLeft,
+  plus: Plus,
+  x: X,
+  upload: Upload,
+  alert: AlertTriangle,
+  shield: Shield,
+  bank: Landmark,
+  send: Send,
+  layers: Layers,
+  info: Info,
+  check: Check,
+  qr: QrCode,
+  copy: Copy,
+  sparkle: Sparkles,
+  users: Users,
+  phone: Phone,
+  mail: Mail,
+  user: User,
+  list: ClipboardList,
+};
+const I = ({ n, size = 16, color, sw }) => {
+  const LucideIcon = LUCIDE_ICONS[n];
+  if (LucideIcon) {
+    return <LucideIcon size={size} color={color} strokeWidth={sw || 2.25} aria-hidden className="shrink-0" />;
+  }
+  return <Svg d={ic[n] || ic.info} size={size} color={color} sw={sw || 2} />;
+};
 
 // ── Constants ─────────────────────────────────────────────────
 const LEVEL_CLASSES = {
@@ -249,14 +310,14 @@ const blankLeader = () => ({ name: "", role: "", phone: "", email: "" });
 
 // ── STEPS — now 8 steps ───────────────────────────────────────
 const STEPS = [
-  { id:1, label:"School & Classes", icon:"school"  },
-  { id:2, label:"Payments",         icon:"dollar"  },
-  { id:3, label:"Requirements",     icon:"book"    },
-  { id:4, label:"Bank Account",     icon:"bank"    },
-  { id:5, label:"Authorization",    icon:"pen"     },
-  { id:6, label:"Class Notes",      icon:"layers"  },
-  { id:7, label:"Leaders",          icon:"users"   },
-  { id:8, label:"Preview & Submit", icon:"eye"     },
+  { id: 1, label: "School & Classes", Icon: School },
+  { id: 2, label: "Payments", Icon: DollarSign },
+  { id: 3, label: "Requirements", Icon: ClipboardList },
+  { id: 4, label: "Bank Account", Icon: Landmark },
+  { id: 5, label: "Authorization", Icon: PenLine },
+  { id: 6, label: "Class Notes", Icon: Layers },
+  { id: 7, label: "Leaders", Icon: Users },
+  { id: 8, label: "Preview & Submit", Icon: Eye },
 ];
 
 const BANKS = [
@@ -563,6 +624,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
   const [toast,     setToast]     = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [errors,    setErrors]    = useState({});
+  const stepBtnRefs = useRef({});
 
   const [previews, setPreviews] = useState({
     schoolLogo:        null,
@@ -589,6 +651,10 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
   const [categoryLockedBySchool, setCategoryLockedBySchool] = useState(false);
 
   const [editId, setEditId] = useState(editRecord?.id ?? null);
+
+  useEffect(() => {
+    stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [step]);
 
   useEffect(() => {
     if (editRecord) {
@@ -2124,9 +2190,17 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
   };
 
   const isLast = step === STEPS.length;
+  const CurrentStepIcon = STEPS[step - 1].Icon;
+
+  const goToStep = (targetId) => {
+    if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
+    setErrors({});
+    setStep(targetId);
+  };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden w-full" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');`}</style>
       {/* Toast */}
       {toast && (
         <div className="fixed top-4 right-4 z-[9999] px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs"
@@ -2142,23 +2216,32 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
       {/* Step indicator */}
       <div className="border-b px-3 sm:px-5 py-3 shrink-0"
         style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-        <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
-          {STEPS.map((s,i) => (
-            <div key={s.id} className="flex items-center shrink-0">
-              <button onClick={() => step > s.id && setStep(s.id)}
-                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
-                style={step===s.id
+        <style>{`.babyeyi-step-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}.babyeyi-step-scroll::-webkit-scrollbar{display:none}`}</style>
+        <div className="babyeyi-step-scroll flex items-center gap-1.5 py-0.5">
+          {STEPS.map((s) => {
+            const StepIcon = s.Icon;
+            const done = step > s.id;
+            const jumpAny = !!editId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                ref={(el) => { stepBtnRefs.current[s.id] = el; }}
+                onClick={() => (jumpAny ? goToStep(s.id) : (step > s.id && setStep(s.id)))}
+                className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap shrink-0"
+                style={step === s.id
                   ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
-                  : step>s.id
+                  : done
                   ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
+                  : jumpAny
+                  ? { background: "#e2e8f0", color: "#64748b", cursor: "pointer" }
                   : { background: "#e2e8f0", color: "#94a3b8" }}>
-                {step > s.id ? <Svg d={ic.check} size={10} color="currentColor" sw={3} /> : <I n={s.icon} size={11} />}
+                {done ? <Check size={10} strokeWidth={3} aria-hidden /> : <StepIcon size={11} strokeWidth={2.25} aria-hidden />}
                 <span className="hidden sm:inline">{s.label}</span>
                 <span className="sm:hidden">{s.id}</span>
               </button>
-              {i < STEPS.length-1 && <span className="mx-0.5 text-xs shrink-0" style={{ color: C.goldBorder }}>›</span>}
-            </div>
-          ))}
+            );
+          })}
         </div>
         <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
           <div className="h-full rounded-full transition-all duration-500"
@@ -2169,14 +2252,14 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
       {/* Step title */}
       <div className="px-4 sm:px-6 pt-4 pb-2 shrink-0 flex items-center gap-2">
         <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
-          <I n={STEPS[step-1].icon} size={13} color={C.goldDark} />
+          <CurrentStepIcon size={13} color={C.goldDark} strokeWidth={2.25} aria-hidden />
         </span>
         <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
         <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
       </div>
 
       {/* Step content */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4" key={step}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-4" key={step}
         style={{ animation: "fadeUp 0.2s ease-out" }}>
         {renderStep()}
       </div>
@@ -2188,7 +2271,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
           <button onClick={() => { setErrors({}); setStep(s=>s-1); }}
             className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 border rounded-xl font-semibold text-xs sm:text-sm hover:bg-slate-50 transition-all"
             style={{ borderColor: C.goldBorder, color: C.darkMid }}>
-            <I n="chevL" size={14} /> Back
+            <ChevronLeft size={14} strokeWidth={2.25} aria-hidden /> Back
           </button>
         )}
         <div className="flex-1" />
@@ -2196,7 +2279,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null }
           <button onClick={handleNext}
             className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
-            Next <I n="chevR" size={14} color={C.dark} />
+            Next <ChevronRight size={14} color={C.dark} strokeWidth={2.25} aria-hidden />
           </button>
         ) : (
           <button onClick={handleSave} disabled={saving || qrGenerating}
@@ -2375,6 +2458,13 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
 
   if (!isOpen) return null;
 
+  const editClasses = editRecord
+    ? (Array.isArray(editRecord.classes) && editRecord.classes.length ? editRecord.classes : [editRecord.class]).filter(Boolean)
+    : [];
+  const editSubtitle = editRecord
+    ? [editClasses.join(", "), editRecord.term, editRecord.academicYear, editRecord.docId].filter(Boolean).join(" · ")
+    : null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
@@ -2382,9 +2472,10 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden"
+        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden min-h-0"
         style={{
           maxWidth: "680px",
+          height: "min(94vh, calc(100dvh - 1rem))",
           maxHeight: "94vh",
           boxShadow: "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
           animation: "modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -2396,12 +2487,15 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center"
               style={{ background: "rgba(254,191,16,0.2)" }}>
-              <span className="text-base">📋</span>
+              {editRecord
+                ? <Pencil size={16} color="#FED44A" strokeWidth={2.25} aria-hidden />
+                : <ClipboardPen size={16} color="#FED44A" strokeWidth={2.25} aria-hidden />}
             </div>
-            <div>
-              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">{editRecord ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
-              <p className="text-[10px]" style={{ color: "#FED44A" }}>
-                {session?.schoolName || "School"} — New Document
+            <div className="min-w-0">
+              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight truncate">{editRecord ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
+              <p className="text-[10px] truncate" style={{ color: "#FED44A" }}>
+                {session?.schoolName || "School"}
+                {editRecord ? (editSubtitle ? ` — ${editSubtitle}` : " — Update document") : " — New document"}
               </p>
             </div>
           </div>
@@ -2410,12 +2504,13 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
             className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Close">
-            <Svg d={ic.x} size={16} color="currentColor" />
+            <X size={16} strokeWidth={2.25} aria-hidden />
           </button>
         </div>
 
-        {/* Wizard content fills the rest */}
-        <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} />
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} />
+        </div>
       </div>
 
       <style>{`

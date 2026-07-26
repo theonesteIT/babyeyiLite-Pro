@@ -66,6 +66,12 @@ const ROLE_TO_PRO_PATH = {
 
   STORE_MANAGER: '/storekeeper',
 
+  UNIFORM_MANAGER: '/uniform-manager',
+
+  ASSETS_MANAGER: '/assets',
+
+  ASSET_MANAGER: '/assets',
+
   DISCIPLINE: '/discipline',
 
   DISCIPLINE_STAFF: '/discipline-staff',

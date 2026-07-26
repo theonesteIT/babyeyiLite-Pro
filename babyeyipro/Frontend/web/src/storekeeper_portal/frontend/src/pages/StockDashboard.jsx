@@ -61,11 +61,11 @@ function RechartsTrend({ series = [], height = 120, tone = 'navy' }) {
 }
 
 const quickActions = [
-  { label: 'Stock In', icon: Plus, color: 'bg-amber-400 text-[#000435]', desc: 'Receive new inventory' },
-  { label: 'Stock Out', icon: ArrowUpRight, color: 'bg-blue-500 text-white', desc: 'Issue stock items' },
-  { label: 'Produce Uniform', icon: Shirt, color: 'bg-emerald-500 text-white', desc: 'Manufacture uniforms' },
-  { label: 'Issue Uniform', icon: TrendingUp, color: 'bg-purple-500 text-white', desc: 'Distribute uniforms' },
-  { label: 'Purchase Order', icon: ShoppingCart, color: 'bg-[#000435] text-white', desc: 'Create PO' },
+  { label: 'Stock In', icon: Plus, desc: 'Receive new inventory' },
+  { label: 'Stock Out', icon: ArrowUpRight, desc: 'Issue stock items' },
+  { label: 'Produce Uniform', icon: Shirt, desc: 'Manufacture uniforms' },
+  { label: 'Issue Uniform', icon: TrendingUp, desc: 'Distribute uniforms' },
+  { label: 'Purchase Order', icon: ShoppingCart, desc: 'Create PO' },
 ]
 
 export default function StockDashboard() {
@@ -341,11 +341,11 @@ export default function StockDashboard() {
                 transition={{ delay: i * 0.05 }}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all ${action.color} shadow-sm hover:shadow-md`}
+                className="flex flex-col items-center gap-2 px-4 py-4 rounded-xl text-sm font-bold transition-all bg-[#000435] border-2 border-[#FEBF10] text-[#FEBF10] shadow-sm hover:shadow-md hover:bg-[#000435]/95"
               >
-                <action.icon size={20} />
-                <span className="text-[10px]">{action.label}</span>
-                <span className="text-[7px] opacity-70 uppercase tracking-wider">{action.desc}</span>
+                <action.icon size={20} className="text-[#FEBF10]" />
+                <span className="text-[10px] text-[#FEBF10]">{action.label}</span>
+                <span className="text-[7px] text-[#FEBF10]/75 uppercase tracking-wider">{action.desc}</span>
               </motion.button>
             ))}
           </div>

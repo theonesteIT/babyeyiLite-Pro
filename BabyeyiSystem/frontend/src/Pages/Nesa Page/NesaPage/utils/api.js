@@ -28,7 +28,9 @@ export const apiFetchForm = async (url, method, formData) => {
   const res = await fetch(url, { method, credentials: 'include', body: formData });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw Object.assign(new Error(json.message || 'Upload failed'), { status: res.status });
+    const detail = Array.isArray(json.errors) ? json.errors.join('; ') : null;
+    const msg = json.message || detail || 'Upload failed';
+    throw Object.assign(new Error(msg), { status: res.status, errors: json.errors });
   }
   return json;
 };

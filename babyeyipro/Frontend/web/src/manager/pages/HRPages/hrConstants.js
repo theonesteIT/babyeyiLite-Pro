@@ -40,6 +40,7 @@ export const STAFF_POSITIONS = [
   { code: 'HR', label: 'HR' },
   { code: 'DOS', label: 'DOS' },
   { code: 'STORE_MANAGER', label: 'Store Manager' },
+  { code: 'UNIFORM_MANAGER', label: 'Uniform Manager' },
   { code: 'ASSETS_MANAGER', label: 'Assets Manager' },
   { code: 'LIBRARIAN', label: 'Librarian' },
   { code: 'DISCIPLINE', label: 'Head of Discipline' },
@@ -73,6 +74,7 @@ export function getRoleAbbr(roleCode) {
   if (role.includes('DIRECTOR')) return 'SD';
   if (role.includes('ACCOUNTANT')) return 'AC';
   if (role.includes('ASSETS')) return 'AM';
+  if (role.includes('UNIFORM')) return 'UM';
   if (role.includes('TEACHER')) return 'TR';
   return 'SS';
 }

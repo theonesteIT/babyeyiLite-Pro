@@ -15,7 +15,10 @@ import {
   metaRows,
   pdfHeader,
   stamp,
+  savePdf,
+  pdfKpiStrip,
 } from './storeReportExportCommon'
+import { mergeSchoolPdfMeta } from './schoolPdfBranding'
 
 function buildReportContext({ stockRows = [], consumptions = [], levels = [], filters = {} }) {
   const items = buildFoodItemSummary(stockRows, consumptions)
@@ -152,7 +155,7 @@ export function exportFoodInventoryExcel({ stockRows = [], consumptions = [], le
   downloadWorkbook(wb, `food-inventory-report-${stamp()}.xlsx`)
 }
 
-export function exportFoodInventoryPdf({ stockRows = [], consumptions = [], levels = [], filters = {} }) {
+export async function exportFoodInventoryPdf({ stockRows = [], consumptions = [], levels = [], filters = {} }) {
   const { items, allocation, filterLines, kpi } = buildReportContext({
     stockRows,
     consumptions,
@@ -160,9 +163,17 @@ export function exportFoodInventoryPdf({ stockRows = [], consumptions = [], leve
     filters,
   })
 
+  const branding = await mergeSchoolPdfMeta()
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const subtitle = filterLines.join(' · ') || 'All periods'
-  let y = pdfHeader(doc, 'Food Inventory Report', subtitle)
+  let y = pdfHeader(doc, 'Food Inventory Report', subtitle, false, branding)
+
+  y = pdfKpiStrip(doc, [
+    { label: 'Purchase value', value: fmtRwf(kpi.purchased) },
+    { label: 'Consumed', value: String(kpi.consumedQty) },
+    { label: 'Batches', value: String(kpi.batches) },
+    { label: 'Low items', value: String(kpi.low) },
+  ], y)
 
   autoTable(doc, {
     startY: y,
@@ -255,5 +266,5 @@ export function exportFoodInventoryPdf({ stockRows = [], consumptions = [], leve
     doc.text(`Top allocations: ${allocText}`, 14, y)
   }
 
-  doc.save(`food-inventory-report-${stamp()}.pdf`)
+  savePdf(doc, `food-inventory-report-${stamp()}.pdf`)
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   Users, Loader2, CheckCircle2, AlertTriangle,
@@ -7,6 +7,15 @@ import {
 import schoolService from "../services/schoolService";
 import { useAuth } from "../context/AuthContext";
 import { processStudentPortraitFile, revokePortraitPreview } from "../utils/studentPhotoProcess";
+import { formatSchoolClassRowLabel } from "../../utils/classStreamGroups";
+import EducationLevelPicker from "../../Pages/School Manager/components/EducationLevelPicker";
+import {
+  EDUCATION_LEVEL_OPTIONS,
+  inferEducationLevelFromClass,
+  normalizeEducationLevel,
+  levelsPresentInCatalog,
+  mergeWithDefaultClassCatalog,
+} from "../../utils/educationLevelClasses";
 
 // API Resolution pointing strictly to the central backend
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
@@ -215,6 +224,7 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
   const { manager } = useAuth();
   const [classes, setClasses] = useState([]);
   const [fetchingClasses, setFetchingClasses] = useState(false);
+  const [educationLevel, setEducationLevel] = useState("Primary");
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(BLANK_FORM);
@@ -266,6 +276,44 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
     };
     loadClasses();
   }, [open, editStudent?.id, manager?.school_id, session?.school_id]);
+
+  const mergedCatalog = useMemo(() => {
+    const apiLabels = (classes || []).map((c) =>
+      formatSchoolClassRowLabel(c) ||
+      `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim(),
+    ).filter(Boolean);
+    return mergeWithDefaultClassCatalog(apiLabels, classes || []);
+  }, [classes]);
+
+  const classOptions = useMemo(() => (mergedCatalog.rows || []).map((c) => {
+    const label =
+      formatSchoolClassRowLabel(c) ||
+      `${c.group_name || ""} ${c.stream_name || ""} ${c.combination || ""}`.trim();
+    return { ...c, label, id: c.id ?? label };
+  }), [mergedCatalog]);
+
+  const levelOptions = useMemo(() => {
+    const labels = classOptions.map((c) => c.label).filter(Boolean);
+    const rows = classOptions.map((c) => ({
+      group_name: c.group_name,
+      stream_name: c.stream_name,
+      combination: c.combination,
+      category: c.category,
+      education_level: c.education_level,
+    }));
+    const present = levelsPresentInCatalog(labels, rows);
+    return present.length ? present : EDUCATION_LEVEL_OPTIONS;
+  }, [classOptions]);
+
+  const filteredClasses = useMemo(() => classOptions.filter((c) =>
+    inferEducationLevelFromClass(c.label, c) === normalizeEducationLevel(educationLevel)
+  ), [classOptions, educationLevel]);
+
+  useEffect(() => {
+    if (!open || isEdit) return;
+    if (levelOptions.some((o) => o.id === educationLevel)) return;
+    if (levelOptions[0]) setEducationLevel(levelOptions[0].id);
+  }, [open, isEdit, levelOptions, educationLevel]);
 
   const set = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -451,24 +499,38 @@ export default function StudentWizardModal({ open, onClose, session, toast, onSu
                             <FormField label="Gender" required><select className={selectCls} value={form.gender} onChange={e => set("gender", e.target.value)}><option value="">Select…</option><option value="Male">Male</option><option value="Female">Female</option></select></FormField>
                             <FormField label="Birth Year" required><select className={selectCls} value={form.birth_year} onChange={e => set("birth_year", e.target.value)}><option value="">Select…</option>{YEARS.map(y => <option key={y} value={y}>{y}</option>)}</select></FormField>
                             <FormField label="Nationality"><input type="text" className={inputCls} value={form.nationality} onChange={e => set("nationality", e.target.value)} /></FormField>
+                          </div>
+
+                          <EducationLevelPicker
+                            value={educationLevel}
+                            onChange={(level) => {
+                              setEducationLevel(level);
+                              setForm((prev) => ({ ...prev, class_id: "", class_name: "" }));
+                            }}
+                            options={levelOptions}
+                            title="Education level"
+                            hint="Choose the level first — pick any class on that level."
+                          />
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <FormField label="Homeroom / Class" required>
                               <select 
                                 className={selectCls} 
                                 value={form.class_id || ""} 
                                 onChange={e => {
                                   const cid = e.target.value;
-                                  const selected = classes.find(c => String(c.id) === String(cid));
+                                  const selected = filteredClasses.find(c => String(c.id) === String(cid));
                                   setForm(prev => ({ 
                                     ...prev, 
                                     class_id: cid, 
-                                    class_name: selected ? `${selected.group_name} ${selected.stream_name || ''} ${selected.combination || ''}`.trim() : "" 
+                                    class_name: selected ? selected.label : "" 
                                   }));
                                 }}
                               >
-                                <option value="">{fetchingClasses ? "Fetching registry..." : "Select Class..."}</option>
-                                {classes.map(c => (
+                                <option value="">{fetchingClasses ? "Loading classes…" : filteredClasses.length ? "Select class…" : "No classes on this level"}</option>
+                                {filteredClasses.map(c => (
                                   <option key={c.id} value={c.id}>
-                                    {c.group_name} {c.stream_name || ''} {c.combination ? `(${c.combination})` : ''}
+                                    {c.label}{c.combination ? ` (${c.combination})` : ""}
                                   </option>
                                 ))}
                               </select>

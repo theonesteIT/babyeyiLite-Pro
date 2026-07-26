@@ -7,4 +7,5 @@ export const { TichaDeals, TichaDealDetails, TichaDealPayments, TrackingTichaDea
   api,
   basePath: PORTAL.basePath,
   useStaffUser: () => useAuth().teacher,
-})
+  dealsHeroVariant: 'orange',
+});

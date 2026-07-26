@@ -68,8 +68,15 @@ export async function fetchFabricPlannerDashboard(academicYear) {
   return {
     kpis: d.kpis || {},
     consumptionTrend: d.consumptionTrend || [],
-    demandByClass: d.demandByClass || [],
-    mostProduced: d.mostProduced || [],
+    demandByClass: (d.demandByClass || []).map((row) => ({
+      name: row.name || row.class_name || '',
+      value: Number(row.value ?? row.count ?? 0),
+      percent: Number(row.percent ?? 0),
+    })),
+    mostProduced: (d.mostProduced || []).map((row) => ({
+      name: row.name || row.uniform_name || row.uniform || '',
+      qty: Number(row.qty ?? row.produced ?? row.quantity ?? 0),
+    })),
     alerts: d.alerts || [],
     recentPlans: (d.recentPlans || []).map((p) => ({
       id: p.id,

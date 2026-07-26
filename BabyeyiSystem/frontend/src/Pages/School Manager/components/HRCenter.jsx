@@ -4,44 +4,33 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Users, UserPlus, Search, Loader2, MoreVertical, ChevronLeft, ChevronRight,
-  UserCheck, CalendarClock, Palmtree, LayoutList,
+  UserCheck, CalendarClock, Palmtree, LayoutList, Wallet, X, Settings2,
 } from "lucide-react";
 import AddStaffWizard from "./hr/AddStaffWizard";
 import StaffViewModal from "./hr/StaffViewModal";
 import EditStaffModal from "./hr/EditStaffModal";
 import StaffActionsMenu from "./hr/StaffActionsMenu";
 import { BABYEYI_FONT_STACK } from "../../../theme/babyeyiDashboardTheme";
+import { SM_NAVY } from "../utils/schoolManagerTheme";
+import SmStatCard from "./SmStatCard";
 import { DEPARTMENTS } from "../utils/hrCenterConstants";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 const FONT = BABYEYI_FONT_STACK;
 const PAGE_SIZE = 5;
 
-function StatCard({ icon: Icon, label, value, sub }) {
-  return (
-    <div className="rounded-2xl bg-white border border-slate-100 shadow-[0_1px_3px_rgba(0,4,53,0.06)] p-5 hover:shadow-md transition-shadow">
-      <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center mb-4 ring-1 ring-amber-100">
-        <Icon size={22} strokeWidth={1.5} className="text-amber-500" />
-      </div>
-      <p className="text-[28px] sm:text-[32px] font-black text-[#000435] leading-none tabular-nums">{value}</p>
-      <p className="text-sm font-bold text-slate-800 mt-2">{label}</p>
-      {sub ? <p className="text-[11px] text-slate-500 mt-0.5">{sub}</p> : null}
-    </div>
-  );
-}
-
 function StatusBadge({ status }) {
   const s = String(status || "").toLowerCase();
   const active = (s.includes("active") || s === "") && !s.includes("leave") && !s.includes("inactive");
   const leave = s.includes("leave");
   const cls = leave
-    ? "bg-amber-100 text-amber-800"
+    ? "bg-amber-100 text-[#000435] border border-amber-200"
     : active
-      ? "bg-emerald-100 text-emerald-800"
-      : "bg-slate-100 text-slate-600";
+      ? "bg-[#000435] text-amber-400"
+      : "bg-[#000435]/10 text-[#000435]/70";
   const label = leave ? "On Leave" : active ? "Active" : status || "Inactive";
   return (
-    <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-semibold ${cls}`}>
+    <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold ${cls}`}>
       {label}
     </span>
   );
@@ -61,12 +50,105 @@ function AdvanceBadge({ allowed }) {
   const yes = Number(allowed) === 1 || allowed === true;
   return (
     <span
-      className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-        yes ? "bg-violet-100 text-violet-800" : "bg-slate-100 text-slate-500"
+      className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${
+        yes ? "bg-amber-400/20 text-[#000435] border border-amber-300" : "bg-[#000435]/8 text-[#000435]/50"
       }`}
     >
       {yes ? "Avance allowed" : "No avance"}
     </span>
+  );
+}
+
+function ShuleAvancePolicyModal({ open, onClose, maxPercent, onChange, onSave, saving }) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[5000] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: "rgba(0,4,53,0.82)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => e.target === e.currentTarget && !saving && onClose()}
+    >
+      <div
+        className="w-full max-w-md rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 sm:px-6 pt-6 pb-4" style={{ background: SM_NAVY }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-xl bg-amber-400 flex items-center justify-center shrink-0">
+                <Wallet size={22} className="text-[#000435]" strokeWidth={2.25} />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-white">Shule Avance policy</h2>
+                <p className="text-xs text-amber-300/80 mt-0.5">Salary advance limits for staff</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-6 space-y-5">
+          <p className="text-sm text-[#000435]/70 leading-relaxed">
+            Set the maximum advance each staff member can request per month as a percentage of their net salary.
+            Enable &quot;Shule Avance&quot; individually when adding or editing staff payroll.
+          </p>
+
+          <div className="rounded-2xl border border-[#000435]/10 bg-amber-50/50 p-4">
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[#000435]/50 mb-2">
+              Max % of net salary
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={100}
+                value={Math.min(100, Math.max(1, Number(maxPercent) || 25))}
+                onChange={(e) => onChange(e.target.value)}
+                className="flex-1 h-2 accent-amber-400"
+              />
+              <div className="w-16 h-12 rounded-xl border border-[#000435]/15 bg-white flex items-center justify-center">
+                <span className="text-lg font-black text-[#000435] tabular-nums">{maxPercent}%</span>
+              </div>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={maxPercent}
+              onChange={(e) => onChange(e.target.value)}
+              className="mt-3 w-full h-11 px-3 rounded-xl border border-[#000435]/15 text-sm font-bold text-[#000435] focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onClose}
+              className="flex-1 h-11 rounded-xl border border-[#000435]/15 text-sm font-bold text-[#000435]/70 hover:bg-[#000435]/5"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={onSave}
+              className="flex-1 h-11 rounded-xl bg-[#000435] text-amber-400 text-sm font-black hover:bg-[#000435]/90 disabled:opacity-60 inline-flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Settings2 size={16} />}
+              {saving ? "Saving…" : "Save policy"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -84,6 +166,7 @@ export default function HRCenter({ session, toast }) {
   const [page, setPage] = useState(1);
   const [advanceMaxPercent, setAdvanceMaxPercent] = useState(25);
   const [policySaving, setPolicySaving] = useState(false);
+  const [policyModalOpen, setPolicyModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +223,7 @@ export default function HRCenter({ session, toast }) {
         return;
       }
       toast?.("Shule Avance limit saved.", "success");
+      setPolicyModalOpen(false);
     } catch {
       toast?.("Network error", "error");
     } finally {
@@ -270,66 +354,64 @@ export default function HRCenter({ session, toast }) {
   };
 
   return (
-    <div className="space-y-5 sm:space-y-6 anim -mx-1 sm:mx-0" style={{ fontFamily: FONT }}>
-      {/* Page title row — matches reference */}
+    <div className="space-y-5 sm:space-y-6 anim -mx-1 sm:mx-0 min-h-0" style={{ fontFamily: FONT }}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-[26px] font-black text-[#000435] tracking-tight">HRCenter</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage your staff and HR operations.</p>
+          <h1 className="text-2xl sm:text-[26px] font-black text-[#000435] tracking-tight">HR Center</h1>
+          <p className="text-sm text-[#000435]/50 mt-1">Manage your staff and HR operations.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 text-[#000435] text-sm font-bold shadow-md shadow-amber-500/25 hover:bg-amber-300 active:scale-[0.98] transition-all w-full sm:w-auto shrink-0"
-        >
-          <UserPlus size={18} strokeWidth={2.25} />
-          Add Staff
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setPolicyModalOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-[#000435]/15 bg-white text-[#000435] text-sm font-bold hover:border-amber-300 hover:bg-amber-50/50 transition-all w-full sm:w-auto"
+          >
+            <Wallet size={18} strokeWidth={2} />
+            Shule Avance policy
+          </button>
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-amber-400 text-[#000435] text-sm font-bold shadow-md shadow-amber-500/25 hover:bg-amber-300 active:scale-[0.98] transition-all w-full sm:w-auto shrink-0"
+          >
+            <UserPlus size={18} strokeWidth={2.25} />
+            Add Staff
+          </button>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50/90 to-white p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:justify-between">
-          <div>
-            <h2 className="text-sm font-black text-[#000435]">Shule Avance policy</h2>
-            <p className="text-xs text-slate-600 mt-1 max-w-xl">
-              Maximum advance per staff per month as % of net salary. Enable &quot;Shule Avance&quot; per staff on payroll step.
-            </p>
-          </div>
-          <div className="flex items-end gap-2 shrink-0">
-            <div>
-              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Max % of salary</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={advanceMaxPercent}
-                onChange={(e) => setAdvanceMaxPercent(e.target.value)}
-                className="w-24 h-10 px-3 rounded-xl border border-slate-200 text-sm font-bold"
-              />
+      {/* Policy summary card */}
+      <button
+        type="button"
+        onClick={() => setPolicyModalOpen(true)}
+        className="w-full text-left rounded-2xl border border-[#000435]/10 bg-gradient-to-r from-[#000435] to-[#000435]/95 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all group"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-xl bg-amber-400 flex items-center justify-center shrink-0">
+              <Wallet size={22} className="text-[#000435]" />
             </div>
-            <button
-              type="button"
-              disabled={policySaving}
-              onClick={saveAdvancePolicy}
-              className="h-10 px-4 rounded-xl bg-[#000435] text-amber-400 text-xs font-bold disabled:opacity-60"
-            >
-              {policySaving ? "Saving…" : "Save"}
-            </button>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-amber-400/90">Shule Avance</p>
+              <p className="text-white font-black text-lg mt-0.5">Max {advanceMaxPercent}% of net salary</p>
+              <p className="text-white/50 text-xs mt-1 truncate">Tap to configure advance policy for all staff</p>
+            </div>
           </div>
+          <Settings2 size={20} className="text-amber-400/70 group-hover:text-amber-400 shrink-0 transition-colors" />
         </div>
-      </div>
+      </button>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard icon={Users} label="Total Staff" value={stats.total} sub="All active staff" />
-        <StatCard icon={UserCheck} label="Active Staff" value={stats.active} sub="Currently working" />
-        <StatCard icon={CalendarClock} label="New This Month" value={stats.newMonth} sub="Recently added" />
-        <StatCard icon={Palmtree} label="On Leave" value={stats.onLeave} sub="Currently on leave" />
+        <SmStatCard label="Total Staff" value={stats.total} sub="All active staff" />
+        <SmStatCard label="Active Staff" value={stats.active} sub="Currently working" />
+        <SmStatCard label="New This Month" value={stats.newMonth} sub="Recently added" />
+        <SmStatCard label="On Leave" value={stats.onLeave} sub="Currently on leave" />
       </div>
 
       {/* Staff list card */}
-      <div className="rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-[0_1px_4px_rgba(0,4,53,0.05)] overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-100">
+      <div className="rounded-2xl sm:rounded-3xl bg-white border border-[#000435]/10 shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#000435]/8 bg-[#000435]/[0.02]">
           <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
             <h2 className="text-base font-black text-[#000435] shrink-0">Staff List</h2>
             <div className="flex flex-col sm:flex-row gap-2 flex-1 lg:justify-end">
@@ -340,13 +422,13 @@ export default function HRCenter({ session, toast }) {
                   placeholder="Search staff..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:border-amber-400 focus:ring-2 focus:ring-amber-400/15"
+                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-[#000435]/15 bg-white text-sm text-[#000435] placeholder:text-[#000435]/35 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/15"
                 />
               </div>
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="h-10 px-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm font-medium text-slate-700 outline-none focus:border-amber-400 focus:bg-white sm:min-w-[160px]"
+                className="h-10 px-3 rounded-xl border border-[#000435]/15 bg-white text-sm font-medium text-[#000435] outline-none focus:border-amber-400 sm:min-w-[160px]"
               >
                 <option value="">All Departments</option>
                 {departmentOptions.map((d) => (
@@ -387,7 +469,7 @@ export default function HRCenter({ session, toast }) {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <tr className="border-b border-[#000435]/8 text-[11px] font-bold uppercase tracking-wider text-[#000435]/45 bg-[#000435]/[0.03]">
                     <th className="px-6 py-3.5 font-bold">Name</th>
                     <th className="px-4 py-3.5">Department</th>
                     <th className="px-4 py-3.5">Position</th>
@@ -401,10 +483,10 @@ export default function HRCenter({ session, toast }) {
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {pageRows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={row.id} className="hover:bg-amber-50/40 transition-colors cursor-pointer" onClick={() => setViewStaff(row)}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-[#000435] text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
                             {initials(row.first_name, row.last_name)}
                           </div>
                           <p className="font-semibold text-slate-900 text-sm">
@@ -425,7 +507,7 @@ export default function HRCenter({ session, toast }) {
                       <td className="px-4 py-4 text-sm text-slate-500 max-w-[180px] truncate">{row.email}</td>
                       <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap">{row.phone || "—"}</td>
                       <td className="px-4 py-4 text-xs font-mono text-slate-500 max-w-[100px] truncate">{row.rfid_uid || "—"}</td>
-                      <td className="px-4 py-4 text-right relative">
+                      <td className="px-4 py-4 text-right relative" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           className="w-8 h-8 rounded-lg hover:bg-slate-100 inline-flex items-center justify-center text-slate-400"
@@ -455,7 +537,7 @@ export default function HRCenter({ session, toast }) {
             <div className="md:hidden divide-y divide-slate-100">
               {pageRows.map((row) => (
                 <div key={row.id} className="p-4 flex gap-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-[#000435] text-amber-400 flex items-center justify-center text-xs font-bold shrink-0">
                     {initials(row.first_name, row.last_name)}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -537,6 +619,15 @@ export default function HRCenter({ session, toast }) {
           </>
         )}
       </div>
+
+      <ShuleAvancePolicyModal
+        open={policyModalOpen}
+        onClose={() => !policySaving && setPolicyModalOpen(false)}
+        maxPercent={advanceMaxPercent}
+        onChange={setAdvanceMaxPercent}
+        onSave={saveAdvancePolicy}
+        saving={policySaving}
+      />
 
       <AddStaffWizard
         open={wizardOpen}

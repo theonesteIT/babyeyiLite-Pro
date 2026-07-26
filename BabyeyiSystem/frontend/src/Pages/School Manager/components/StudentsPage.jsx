@@ -5,6 +5,9 @@ import {
   X, ChevronRight, Eye, MapPin, User, Phone, GraduationCap, ListFilter, Download,
 } from "lucide-react";
 import { downloadStudentImportTemplate } from "../../../manager/utils/studentImportTemplate";
+import { formatClassWithStream, parseClassNameToParts } from "../../../utils/classStreamGroups";
+import { SM_NAVY, SM_FONT } from "../utils/schoolManagerTheme";
+import SmStatCard from "./SmStatCard";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5100";
 
@@ -222,142 +225,188 @@ function useLocationCascade(province, district, sector, cell) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// StudentDetailModal
+// StudentDetailModal — branded profile view
 // ════════════════════════════════════════════════════════════════
 function StudentDetailModal({ student, onClose, onEdit }) {
   if (!student) return null;
   const missing = new Set(
     parseMissingFields(student.import_missing_fields).map(x => String(x || "").toLowerCase())
   );
+  const photoUrl = resolveMediaUrl(student.student_photo_url);
+  const { classBase, stream } = parseClassNameToParts(student.class_name);
+  const fullName = `${student.first_name || ""} ${student.last_name || ""}`.trim();
 
-  const Section = ({ title, icon: Icon, children }) => (
-    <div className="mb-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{title}</p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">{children}</div>
+  const InfoTile = ({ label, value, mono, warn }) => (
+    <div
+      className={`rounded-xl border px-3 py-2.5 ${
+        warn ? "border-amber-300 bg-amber-50" : "border-[#000435]/10 bg-[#000435]/[0.02]"
+      }`}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider text-[#000435]/45 mb-0.5">{label}</p>
+      <p
+        className={`text-sm font-semibold break-words ${mono ? "font-mono" : ""} ${
+          warn ? "text-amber-800" : "text-[#000435]"
+        }`}
+      >
+        {value || (warn ? "Missing" : "—")}
+      </p>
     </div>
   );
 
-  const Field = ({ label, value, warn, mono }) => (
-    <div className={`rounded-xl border px-3 py-2.5 sm:py-2 ${warn ? "border-red-200 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
-      <p className={`text-[9px] uppercase tracking-widest font-black mb-0.5 ${warn ? "text-red-500" : "text-slate-400"}`}>{label}</p>
-      <p className={`text-xs font-semibold break-words ${mono ? "font-mono" : ""} ${warn ? "text-red-700" : "text-slate-800"}`}>
-        {value || (warn ? "⚠ Missing" : "—")}
-      </p>
+  const SectionCard = ({ title, icon: Icon, children }) => (
+    <div className="rounded-2xl border border-[#000435]/10 bg-white overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#000435]/8 bg-[#000435]/[0.03]">
+        <div className="w-8 h-8 rounded-lg bg-[#000435] flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4 text-amber-400" strokeWidth={2} />
+        </div>
+        <p className="text-xs font-black uppercase tracking-wider text-[#000435]">{title}</p>
+      </div>
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">{children}</div>
     </div>
   );
 
   return (
     <div
       className="fixed inset-0 z-[70] flex items-stretch sm:items-center justify-center p-0 sm:p-5"
-      style={{ background: "rgba(2,6,23,0.72)", backdropFilter: "blur(6px)" }}
+      style={{ background: "rgba(0,4,53,0.82)", backdropFilter: "blur(8px)" }}
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-2xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col min-h-0 h-full sm:h-auto sm:max-h-[90vh] max-h-[100dvh]"
+        className="w-full max-w-3xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col min-h-0 h-full sm:h-auto sm:max-h-[92vh] max-h-[100dvh]"
+        style={{ fontFamily: SM_FONT }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-4 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-slate-900 to-slate-800 flex items-start sm:items-center justify-between gap-3 shrink-0 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-white font-black text-sm sm:text-base">Student Profile</p>
-            <p className="text-amber-300 text-[10px] sm:text-[11px] font-mono mt-0.5 break-words">
-              {student.student_code || student.student_uid} · {student.first_name} {student.last_name}
-            </p>
+        {/* Header */}
+        <div
+          className="relative shrink-0 px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] sm:pt-6 pb-5 overflow-hidden"
+          style={{ background: SM_NAVY }}
+        >
+          <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
+          <div className="flex items-start justify-between gap-3 relative">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/80">Student profile</p>
+              <h2 className="text-xl sm:text-2xl font-black text-white mt-1 leading-tight truncate">{fullName || "Student"}</h2>
+              <p className="text-amber-300 font-mono text-sm font-semibold mt-1">
+                {student.student_code || student.student_uid}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => { onClose(); onEdit(student); }}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 min-h-[44px] sm:min-h-0 rounded-xl bg-amber-400 text-[#000435] text-xs font-black hover:bg-amber-300 touch-manipulation"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-11 h-11 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 touch-manipulation"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => { onClose(); onEdit(student); }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] sm:min-h-0 rounded-xl bg-amber-400 text-[11px] font-black text-slate-900 hover:bg-amber-300 touch-manipulation"
-            >
-              <Pencil className="w-3 h-3" /> Edit
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-11 h-11 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 touch-manipulation"
-              aria-label="Close"
-            >
-              <X className="w-5 h-5 sm:w-4 sm:h-4" />
-            </button>
+
+          {/* Hero row */}
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-amber-400/40 bg-[#000435] shrink-0 flex items-center justify-center shadow-lg shadow-black/20">
+              {photoUrl ? (
+                <img src={photoUrl} alt={fullName} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-10 h-10 text-amber-400/50" />
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 min-w-0">
+              {student.class_name && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-amber-300 text-xs font-bold">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  {student.class_name}
+                </span>
+              )}
+              {student.academic_year && (
+                <span className="inline-flex px-3 py-1.5 rounded-xl bg-amber-400/15 border border-amber-400/25 text-amber-200 text-xs font-bold">
+                  {student.academic_year}
+                </span>
+              )}
+              {student.gender && (
+                <span className="inline-flex px-3 py-1.5 rounded-xl bg-white/10 text-white/90 text-xs font-semibold">
+                  {student.gender}
+                </span>
+              )}
+              {student.birth_year && (
+                <span className="inline-flex px-3 py-1.5 rounded-xl bg-white/10 text-white/80 text-xs font-semibold">
+                  Born {student.birth_year}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-2xl overflow-hidden border border-slate-200 bg-white shrink-0 flex items-center justify-center">
-                {resolveMediaUrl(student.student_photo_url) ? (
-                  <img src={resolveMediaUrl(student.student_photo_url)} alt="Student" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-7 h-7 text-slate-300" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black text-slate-700 uppercase tracking-wider">Identity Credentials</p>
-                <p className="text-[11px] text-slate-600 mt-1">
-                  RFID UID: <span className="font-mono font-semibold text-slate-800">{student.rfid_uid || "—"}</span>
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  Fingerprint ID: <span className="font-mono font-semibold text-slate-800">{student.fingerprint_id || "—"}</span>
-                </p>
-              </div>
-            </div>
-          </div>
-
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4 bg-gradient-to-b from-amber-50/40 to-white pb-[max(1rem,env(safe-area-inset-bottom))]">
           {missing.size > 0 && (
-            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 font-semibold flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              Missing location data: {Array.from(missing).join(", ")}
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-[#000435] font-semibold flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>Missing location data: {Array.from(missing).join(", ")}</span>
             </div>
           )}
 
-          <Section title="Identity" icon={User}>
-            <Field label="First Name"  value={student.first_name} />
-            <Field label="Last Name"   value={student.last_name} />
-            <Field label="Gender"      value={student.gender} />
-            <Field label="Birth Year"  value={student.birth_year} />
-            <Field label="Nationality" value={student.nationality} />
-          </Section>
-
-          <Section title="School enrolment" icon={GraduationCap}>
-            <Field label="Class" value={student.class_name} />
-            <Field label="Academic year" value={student.academic_year} />
-            <Field label="SDMS ID" value={student.sdm_code} />
-            <Field label="RFID UID" value={student.rfid_uid} />
-            <Field label="Fingerprint ID" value={student.fingerprint_id} />
-            <Field label="Identity Remarks" value={student.identity_remarks} />
-          </Section>
-
-          <Section title="Residence" icon={MapPin}>
-            <Field label="Province" value={student.province} warn={missing.has("province")} />
-            <Field label="District" value={student.district} warn={missing.has("district")} />
-            <Field label="Sector"   value={student.sector}   warn={missing.has("sector")} />
-            <Field label="Cell"     value={student.cell}     warn={missing.has("cell")} />
-            <Field label="Village"  value={student.village}  warn={missing.has("village")} />
-          </Section>
-
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Phone className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Parents</p>
+          {(classBase || stream) && (
+            <div className="grid grid-cols-2 gap-2">
+              <InfoTile label="Class" value={classBase} />
+              <InfoTile label="Stream" value={stream || "—"} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Father</p>
-                <Field label="Name" value={student.father_full_name} />
-                <Field label="Phone" value={student.father_phone} mono />
-                <Field label="Email" value={student.father_email} />
-                <Field label="National ID" value={student.father_national_id} mono />
+          )}
+
+          <SectionCard title="Identity" icon={User}>
+            <InfoTile label="First name" value={student.first_name} />
+            <InfoTile label="Last name" value={student.last_name} />
+            <InfoTile label="Gender" value={student.gender} />
+            <InfoTile label="Birth year" value={student.birth_year} />
+            <InfoTile label="Nationality" value={student.nationality} />
+            <InfoTile label="SDMS ID" value={student.sdm_code} mono />
+          </SectionCard>
+
+          <SectionCard title="School & access" icon={GraduationCap}>
+            <InfoTile label="Class / stream" value={student.class_name} />
+            <InfoTile label="Academic year" value={student.academic_year} />
+            <InfoTile label="RFID UID" value={student.rfid_uid} mono />
+            <InfoTile label="Fingerprint ID" value={student.fingerprint_id} mono />
+            <InfoTile label="Remarks" value={student.identity_remarks} />
+          </SectionCard>
+
+          <SectionCard title="Residence" icon={MapPin}>
+            <InfoTile label="Province" value={student.province} warn={missing.has("province")} />
+            <InfoTile label="District" value={student.district} warn={missing.has("district")} />
+            <InfoTile label="Sector" value={student.sector} warn={missing.has("sector")} />
+            <InfoTile label="Cell" value={student.cell} warn={missing.has("cell")} />
+            <InfoTile label="Village" value={student.village} warn={missing.has("village")} />
+          </SectionCard>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-[#000435]/10 overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#000435]/8 bg-[#000435] flex items-center gap-2">
+                <Phone className="w-4 h-4 text-amber-400" />
+                <p className="text-xs font-black uppercase tracking-wider text-amber-400">Father</p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
-                <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider">Mother</p>
-                <Field label="Name" value={student.mother_full_name} />
-                <Field label="Phone" value={student.mother_phone} mono />
-                <Field label="Email" value={student.mother_email} />
-                <Field label="National ID" value={student.mother_national_id} mono />
+              <div className="p-4 space-y-2">
+                <InfoTile label="Name" value={student.father_full_name} />
+                <InfoTile label="Phone" value={student.father_phone} mono />
+                <InfoTile label="Email" value={student.father_email} />
+                <InfoTile label="National ID" value={student.father_national_id} mono />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-[#000435]/10 overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#000435]/8 bg-[#000435] flex items-center gap-2">
+                <Phone className="w-4 h-4 text-amber-400" />
+                <p className="text-xs font-black uppercase tracking-wider text-amber-400">Mother</p>
+              </div>
+              <div className="p-4 space-y-2">
+                <InfoTile label="Name" value={student.mother_full_name} />
+                <InfoTile label="Phone" value={student.mother_phone} mono />
+                <InfoTile label="Email" value={student.mother_email} />
+                <InfoTile label="National ID" value={student.mother_national_id} mono />
               </div>
             </div>
           </div>
@@ -438,7 +487,8 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     gender:           "",
     birth_year:       "",
     nationality:      "Rwandan",
-    class_name:       "",
+    class_base:       "",
+    stream:           "",
     academic_year:    "",
     sdm_code:         "",
     province:         "",
@@ -473,6 +523,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
     setLoading(false);
 
     if (isEdit) {
+      const { classBase, stream } = parseClassNameToParts(editStudent.class_name);
       setForm({
         student_uid:      editStudent.student_uid      || "",
         autoId:           false,
@@ -495,7 +546,8 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
         mother_phone:     editStudent.mother_phone     || "",
         mother_email:     editStudent.mother_email     || "",
         mother_national_id: editStudent.mother_national_id || "",
-        class_name:       editStudent.class_name       || "",
+        class_base:       classBase,
+        stream:           stream,
         academic_year:    editStudent.academic_year    ? String(editStudent.academic_year) : "",
         sdm_code:         editStudent.sdm_code         || "",
       });
@@ -628,7 +680,7 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
       sector:           form.sector,
       cell:             form.cell,
       village:          form.village.trim(),
-      class_name:       form.class_name.trim()       || undefined,
+      class_name:       formatClassWithStream(form.class_base, form.stream) || undefined,
       academic_year:    form.academic_year.trim()    || undefined,
       sdm_code:         form.sdm_code.trim()         || undefined,
       father_full_name: form.father_full_name.trim() || undefined,
@@ -804,13 +856,22 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
                     onChange={e => set("nationality", e.target.value)}
                   />
                 </FormField>
-                <FormField label="Class / stream">
+                <FormField label="Class">
                   <input
                     type="text"
                     className={inputCls}
-                    placeholder="e.g. S3 Science A"
-                    value={form.class_name}
-                    onChange={e => set("class_name", e.target.value)}
+                    placeholder="e.g. P1"
+                    value={form.class_base}
+                    onChange={e => set("class_base", e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Stream (optional)">
+                  <input
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. A — leave empty for whole class"
+                    value={form.stream}
+                    onChange={e => set("stream", e.target.value)}
                   />
                 </FormField>
                 <FormField label="Academic year">
@@ -1053,10 +1114,11 @@ function StudentWizardModal({ open, onClose, session, toast, onSuccess, editStud
 }
 
 // ════════════════════════════════════════════════════════════════
-// ImportCard
+// Import form + modal
 // ════════════════════════════════════════════════════════════════
-function ImportCard({ toast, onImported }) {
+function ImportForm({ toast, onImported, embedded = false }) {
   const [importClass, setImportClass] = useState("");
+  const [importStream, setImportStream] = useState("");
   const [importYear, setImportYear] = useState("");
   const [file,       setFile]       = useState(null);
   const [busy,       setBusy]       = useState(false);
@@ -1065,7 +1127,7 @@ function ImportCard({ toast, onImported }) {
   const fileRef = useRef();
 
   const handleImport = async () => {
-    const cls = importClass.trim();
+    const cls = formatClassWithStream(importClass, importStream);
     const yr = importYear.trim();
     if (!cls || !yr) {
       toast?.("Enter class and academic year before importing.", "error");
@@ -1079,7 +1141,8 @@ function ImportCard({ toast, onImported }) {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("importMode", "insert_only");
-      fd.append("class_name", cls);
+      fd.append("class_name", importClass.trim());
+      if (importStream.trim()) fd.append("stream", importStream.trim());
       fd.append("academic_year", yr);
       const res  = await fetch(`${API}/api/students/import`, { method: "POST", credentials: "include", body: fd });
       const json = await res.json().catch(() => ({}));
@@ -1105,30 +1168,50 @@ function ImportCard({ toast, onImported }) {
 
   const canImport = importClass.trim() && importYear.trim() && file;
 
-  return (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-4 sm:p-5">
-      <div className="flex items-start gap-3 mb-4">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-          <Upload className="w-5 h-5 text-slate-900" />
+  const inner = (
+    <>
+      {!embedded && (
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+            <Upload className="w-5 h-5 text-slate-900" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-slate-800">Bulk import from Excel</p>
+            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+              <span className="font-semibold text-amber-700">1.</span> Class &amp; optional stream for this batch ·{" "}
+              <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
+              <span className="font-semibold text-amber-700">3.</span> Upload &amp; import. Urubuto exports also work.
+            </p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-black text-slate-800">Bulk import from Excel</p>
-          <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-            <span className="font-semibold text-amber-700">1.</span> Class &amp; academic year for this batch ·{" "}
-            <span className="font-semibold text-amber-700">2.</span> Download template &amp; fill rows ·{" "}
-            <span className="font-semibold text-amber-700">3.</span> Upload &amp; import. Urubuto exports also work.
-          </p>
-        </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+      {embedded && (
+        <p className="text-[12px] text-slate-500 mb-4 leading-relaxed">
+          <span className="font-semibold text-amber-700">1.</span> Class &amp; optional stream ·{" "}
+          <span className="font-semibold text-amber-700">2.</span> Download template ·{" "}
+          <span className="font-semibold text-amber-700">3.</span> Upload &amp; import
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
         <div>
-          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Class / stream <span className="text-red-500">*</span></label>
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Class <span className="text-red-500">*</span></label>
           <input
             type="text"
             value={importClass}
             onChange={e => { setImportClass(e.target.value); setResult(null); }}
-            placeholder="e.g. S3 Science A"
+            placeholder="e.g. P1"
+            className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Stream <span className="text-slate-400 font-semibold normal-case">(optional)</span></label>
+          <input
+            type="text"
+            value={importStream}
+            onChange={e => { setImportStream(e.target.value); setResult(null); }}
+            placeholder="e.g. A"
             className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 text-base sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
           />
         </div>
@@ -1207,9 +1290,63 @@ function ImportCard({ toast, onImported }) {
           ))}
         </ul>
       )}
+    </>
+  );
+
+  if (embedded) return inner;
+
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-4 sm:p-5">
+      {inner}
     </div>
   );
 }
+
+function ImportModal({ open, onClose, toast, onImported }) {
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ background: "rgba(2,6,23,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-2xl rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl overflow-hidden max-h-[92dvh] sm:max-h-[90vh] flex flex-col min-h-0"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-5 pt-[max(1.25rem,env(safe-area-inset-top))] sm:pt-5 pb-3 border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+              <Upload className="w-5 h-5 text-slate-900" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-black text-slate-900 truncate">Bulk import from Excel</h2>
+              <p className="text-[11px] text-slate-500 truncate">Register many students at once</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 w-9 h-9 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+            aria-label="Close import"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto overscroll-y-contain px-5 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <ImportForm
+            embedded
+            toast={toast}
+            onImported={onImported}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const filterSelectCls =
+  "w-full min-h-[44px] sm:min-h-[40px] appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2.5 text-sm sm:text-[13px] font-medium text-slate-800 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none cursor-pointer";
 
 // ════════════════════════════════════════════════════════════════
 // Delete confirmation modal
@@ -1360,7 +1497,13 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
   const residence = [s.district, s.sector, s.village].filter(Boolean).join(", ") || "—";
   const photoUrl = resolveMediaUrl(s.student_photo_url);
   return (
-    <article className="p-4 border-b border-slate-100 last:border-b-0 bg-white">
+    <article
+      className="p-4 border-b border-[#000435]/8 last:border-b-0 bg-white cursor-pointer active:bg-amber-50/40"
+      onClick={(e) => {
+        if (e.target.closest("button, input, a")) return;
+        onView(s);
+      }}
+    >
       <div className="flex justify-between gap-3 items-start">
         <input
           type="checkbox"
@@ -1478,6 +1621,7 @@ function StudentMobileCard({ student: s, hasMissing, selected, onToggleSelect, o
 // ════════════════════════════════════════════════════════════════
 export default function StudentsPage({ session, toast, rightHeaderAction = null }) {
   const [modalOpen,    setModalOpen]    = useState(false);
+  const [importOpen,   setImportOpen]   = useState(false);
   const [editStudent,  setEditStudent]  = useState(null);
   const [viewStudent,  setViewStudent]  = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -1503,7 +1647,63 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
   const skipLoadAfterPageReset = useRef(false);
   const prevFiltersRef = useRef({ d: "", fc: "", fy: "" });
 
-  // ── Load students ──────────────────────────────────────────────
+  const [registryStats, setRegistryStats] = useState({
+    total: 0,
+    rosterAllClasses: 0,
+    male: 0,
+    female: 0,
+    unspecified: 0,
+    classes: [],
+    academic_years: [],
+    current_academic_year: "",
+  });
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [filterOptions, setFilterOptions] = useState({ classes: [], academic_years: [] });
+
+  const loadFilterOptions = useCallback(async (fy = "") => {
+    try {
+      const params = new URLSearchParams();
+      if (fy.trim()) params.set("academic_year", fy.trim());
+      const res = await fetch(`${API}/api/students/registry-stats?${params}`, { credentials: "include" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        setFilterOptions({
+          classes: Array.isArray(json.classes) ? json.classes : [],
+          academic_years: Array.isArray(json.academic_years) ? json.academic_years : [],
+        });
+      }
+    } catch {
+      /* keep previous options */
+    }
+  }, []);
+
+  const loadRegistryStats = useCallback(async (fy = "", fc = "") => {
+    setStatsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (fy.trim()) params.set("academic_year", fy.trim());
+      if (fc.trim()) params.set("class_name", fc.trim());
+      const res = await fetch(`${API}/api/students/registry-stats?${params}`, { credentials: "include" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success) {
+        setRegistryStats({
+          total: Number(json.total || 0),
+          rosterAllClasses: Number(json.rosterAllClasses ?? json.total ?? 0),
+          male: Number(json.male || 0),
+          female: Number(json.female || 0),
+          unspecified: Number(json.unspecified || 0),
+          classes: Array.isArray(json.classes) ? json.classes : [],
+          academic_years: Array.isArray(json.academic_years) ? json.academic_years : [],
+          current_academic_year: json.current_academic_year || "",
+        });
+      }
+    } catch {
+      /* keep previous stats */
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   const loadStudents = useCallback(async (q = "", pg = page, ps = pageSize, fc = filterClass, fy = filterYear) => {
     setLoading(true);
     try {
@@ -1555,6 +1755,26 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
     }
     loadStudents(debouncedSearch, pg, pageSize);
   }, [debouncedSearch, page, pageSize, filterClass, filterYear, loadStudents]);
+
+  useEffect(() => {
+    loadFilterOptions(filterYear);
+  }, [filterYear, loadFilterOptions]);
+
+  useEffect(() => {
+    loadRegistryStats(filterYear, filterClass);
+  }, [filterYear, filterClass, loadRegistryStats]);
+
+  useEffect(() => {
+    if (!filterClass.trim() || !filterOptions.classes.length) return;
+    const names = filterOptions.classes.map((c) => c.class_name);
+    if (!names.includes(filterClass)) setFilterClass("");
+  }, [filterOptions.classes, filterClass]);
+
+  const reloadAll = useCallback((pg = page, ps = pageSize) => {
+    loadStudents(debouncedSearch, pg, ps);
+    loadRegistryStats(filterYear, filterClass);
+    loadFilterOptions(filterYear);
+  }, [debouncedSearch, page, pageSize, filterYear, filterClass, loadStudents, loadRegistryStats, loadFilterOptions]);
 
   const idsOnPage = rows.map(r => r.id);
   const allPageSelected = rows.length > 0 && idsOnPage.every(id => selectedIds.has(id));
@@ -1612,7 +1832,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
           next.delete(removedId);
           return next;
         });
-        loadStudents(debouncedSearch, page, pageSize);
+        reloadAll(page, pageSize);
       }
     } catch {
       toast?.("Delete failed.", "error");
@@ -1639,7 +1859,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
         toast?.(json.message || `Removed ${json.deleted ?? ids.length} student(s).`, "success");
         setSelectedIds(new Set());
         setBulkDeleteOpen(false);
-        loadStudents(debouncedSearch, page, pageSize);
+        reloadAll(page, pageSize);
       }
     } catch {
       toast?.("Bulk delete failed.", "error");
@@ -1666,7 +1886,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
         setDeleteAllOpen(false);
         setDeleteAllPhrase("");
         setPage(1);
-        loadStudents(debouncedSearch, 1, pageSize);
+        reloadAll(1, pageSize);
       }
     } catch {
       toast?.("Delete all failed.", "error");
@@ -1676,16 +1896,20 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
   };
 
   const selectedCount = selectedIds.size;
+  const hasActiveFilters = Boolean(debouncedSearch.trim() || filterClass.trim() || filterYear.trim());
+  const classOptions = filterOptions.classes.map((c) => c.class_name).filter(Boolean);
+  const yearOptions = filterOptions.academic_years.filter(Boolean);
+  const statTotal = hasActiveFilters ? total : (registryStats.rosterAllClasses ?? registryStats.total ?? total);
 
   return (
-    <div className="min-h-[100dvh] min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-br from-slate-50 via-amber-50/30 to-slate-100 pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="min-h-[100dvh] min-h-screen w-full min-w-0 overflow-x-hidden bg-gradient-to-br from-white via-amber-50/25 to-amber-50/10 pb-[env(safe-area-inset-bottom,0px)]" style={{ fontFamily: SM_FONT }}>
       <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-4 py-3 sm:py-5">
 
         {/* Page header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-base font-black text-slate-900 flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-9 h-9 sm:w-7 sm:h-7 rounded-xl bg-slate-900 text-amber-300 shrink-0">
+            <h1 className="text-lg sm:text-xl font-black text-[#000435] flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-9 h-9 sm:w-8 sm:h-8 rounded-xl bg-[#000435] text-amber-400 shrink-0">
                 <Users className="w-[18px] h-[18px] sm:w-4 sm:h-4" />
               </span>
               Students
@@ -1697,6 +1921,13 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               type="button"
+              onClick={() => setImportOpen(true)}
+              className="inline-flex items-center justify-center gap-2 min-h-[48px] sm:min-h-0 w-full sm:w-auto px-5 sm:px-4 py-3 sm:py-2 rounded-2xl border border-slate-200 bg-white text-sm sm:text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-amber-200 transition-all touch-manipulation active:scale-[0.99]"
+            >
+              <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> Import
+            </button>
+            <button
+              type="button"
               onClick={openAdd}
               className="inline-flex items-center justify-center gap-2 min-h-[48px] sm:min-h-0 w-full sm:w-auto px-5 sm:px-4 py-3 sm:py-2 rounded-2xl bg-amber-400 text-sm sm:text-xs font-black text-slate-900 shadow shadow-amber-300/50 hover:bg-amber-300 transition-all touch-manipulation active:scale-[0.99]"
             >
@@ -1706,63 +1937,114 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
           </div>
         </div>
 
-        {/* Import */}
-        <div className="mb-4">
-          <ImportCard toast={toast} onImported={() => loadStudents(debouncedSearch, 1, pageSize)} />
+        {/* Stats cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4 sm:mb-5">
+          <SmStatCard
+            label="Total students"
+            value={statsLoading && !hasActiveFilters ? "…" : statTotal.toLocaleString()}
+            sub={hasActiveFilters ? "Matching current filters" : session?.schoolName || "All registered"}
+          />
+          <SmStatCard
+            label="Male"
+            value={statsLoading ? "…" : registryStats.male.toLocaleString()}
+            sub={filterClass ? `In ${filterClass}` : filterYear || "All years"}
+          />
+          <SmStatCard
+            label="Female"
+            value={statsLoading ? "…" : registryStats.female.toLocaleString()}
+            sub={filterClass ? `In ${filterClass}` : filterYear || "All years"}
+          />
+          <SmStatCard
+            label="Classes"
+            value={statsLoading ? "…" : String(classOptions.length)}
+            sub={filterYear ? `Academic year ${filterYear}` : "Distinct class streams"}
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="rounded-2xl sm:rounded-3xl border border-slate-200/80 bg-white/90 backdrop-blur-sm shadow-sm p-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ListFilter className="w-4 h-4 text-amber-600" />
+            <p className="text-sm font-black text-slate-800">Find students</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="lg:col-span-2">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Search</label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="search"
+                  enterKeyHint="search"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Student ID or name…"
+                  className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-white pl-10 pr-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-amber-400 focus:ring-2 focus:ring-amber-100 outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Class</label>
+              <div className="relative">
+                <select
+                  value={filterClass}
+                  onChange={e => setFilterClass(e.target.value)}
+                  className={filterSelectCls}
+                >
+                  <option value="">All classes</option>
+                  {classOptions.map((cls) => (
+                    <option key={cls} value={cls}>{cls}</option>
+                  ))}
+                </select>
+                <ChevronRight className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Academic year</label>
+              <div className="relative">
+                <select
+                  value={filterYear}
+                  onChange={e => setFilterYear(e.target.value)}
+                  className={filterSelectCls}
+                >
+                  <option value="">All years</option>
+                  {yearOptions.map((yr) => (
+                    <option key={yr} value={yr}>{yr}</option>
+                  ))}
+                </select>
+                <ChevronRight className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+          {hasActiveFilters && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setSearch(""); setFilterClass(""); setFilterYear(""); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[12px] font-bold text-amber-800 hover:bg-amber-100 transition"
+              >
+                <X className="w-3.5 h-3.5" /> Clear all filters
+              </button>
+              {filterClass && (
+                <span className="text-[11px] font-semibold text-slate-500 px-2 py-1 rounded-lg bg-slate-100">{filterClass}</span>
+              )}
+              {filterYear && (
+                <span className="text-[11px] font-semibold text-slate-500 px-2 py-1 rounded-lg bg-slate-100">{filterYear}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Table card */}
         <div className="rounded-2xl sm:rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden max-w-full min-w-0">
           {/* Toolbar */}
-          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 flex flex-col gap-3">
-            {/* Search — full width; text-base on small screens reduces iOS zoom on focus */}
-            <div className="relative w-full">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="search"
-                enterKeyHint="search"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search ID or name…"
-                className="w-full min-h-[44px] rounded-xl border border-slate-200 pl-10 pr-3 py-2.5 text-base sm:text-xs text-slate-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end gap-2">
-              <div className="min-w-0 lg:flex-1 lg:max-w-[11rem]">
-                <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  <ListFilter className="w-3.5 h-3.5 shrink-0" /> Class
-                </label>
-                <input
-                  type="text"
-                  value={filterClass}
-                  onChange={e => setFilterClass(e.target.value)}
-                  placeholder="e.g. P1"
-                  className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 sm:py-2 text-base sm:text-xs text-slate-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 outline-none"
-                />
-              </div>
-              <div className="min-w-0 lg:flex-1 lg:max-w-[13rem]">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Academic year</label>
-                <input
-                  type="text"
-                  value={filterYear}
-                  onChange={e => setFilterYear(e.target.value)}
-                  placeholder="e.g. 2024–2025"
-                  className="w-full min-h-[44px] sm:min-h-0 rounded-xl border border-slate-200 px-3 py-2.5 sm:py-2 text-base sm:text-xs text-slate-700 focus:border-amber-400 focus:ring-2 focus:ring-amber-200 outline-none"
-                />
-              </div>
-              {(filterClass.trim() || filterYear.trim()) && (
-                <button
-                  type="button"
-                  onClick={() => { setFilterClass(""); setFilterYear(""); }}
-                  className="text-[12px] sm:text-[11px] font-bold text-amber-700 hover:text-amber-800 underline-offset-2 hover:underline py-2 sm:py-0 sm:self-end touch-manipulation min-h-[44px] sm:min-h-0 flex items-center sm:col-span-2 lg:col-span-1"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end sm:gap-2">
+          <div className="px-3 sm:px-4 py-3 border-b border-slate-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-bold text-slate-700">
+              Student roster
+              <span className="ml-2 text-[12px] font-semibold text-slate-400">
+                {loading ? "Loading…" : `${total.toLocaleString()} total`}
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <span className="text-[11px] font-semibold text-slate-500 mr-1">
               {selectedCount} selected
             </span>
@@ -1784,7 +2066,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
             </button>
             <button
               type="button"
-              onClick={() => loadStudents(debouncedSearch, page, pageSize)}
+              onClick={() => reloadAll(page, pageSize)}
               className="inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-0 px-4 sm:px-3 py-2.5 sm:py-2 rounded-xl border border-slate-200 text-sm sm:text-xs font-bold text-slate-600 hover:bg-slate-50 touch-manipulation flex-1 sm:flex-initial"
             >
               <RefreshCw className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> Refresh
@@ -1848,7 +2130,7 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
             <div className="hidden md:block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
               <table className="w-full min-w-[1120px] lg:min-w-[1220px] text-xs">
                 <thead>
-                  <tr className="text-[10px] text-slate-400 uppercase tracking-wider bg-slate-50 border-b border-slate-100">
+                  <tr className="text-[10px] text-[#000435]/50 uppercase tracking-wider bg-[#000435]/[0.03] border-b border-[#000435]/8">
                     <th className="w-11 pl-3 pr-1 sm:pl-4 py-3 text-left">
                       <input
                         ref={tableHeaderSelectRef}
@@ -1882,7 +2164,14 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
                   {rows.map(s => {
                     const hasMissing = parseMissingFields(s.import_missing_fields).length > 0;
                     return (
-                      <tr key={s.id} className="hover:bg-amber-50/40 transition-colors group">
+                      <tr
+                        key={s.id}
+                        className="hover:bg-amber-50/50 transition-colors group cursor-pointer"
+                        onClick={(e) => {
+                          if (e.target.closest("button, input, a, label")) return;
+                          setViewStudent(s);
+                        }}
+                      >
                         <td className="w-11 pl-3 pr-1 sm:pl-4 py-3 align-middle">
                           <input
                             type="checkbox"
@@ -2042,12 +2331,19 @@ export default function StudentsPage({ session, toast, rightHeaderAction = null 
       </div>
 
       {/* Modals */}
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        toast={toast}
+        onImported={() => reloadAll(1, pageSize)}
+      />
+
       <StudentWizardModal
         open={modalOpen}
         onClose={closeModal}
         session={session}
         toast={toast}
-        onSuccess={() => loadStudents(debouncedSearch, page, pageSize)}
+        onSuccess={() => reloadAll(page, pageSize)}
         editStudent={editStudent}
       />
 

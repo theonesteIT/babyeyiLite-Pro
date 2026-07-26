@@ -7,6 +7,11 @@ import {
 } from 'lucide-react';
 import studentService from '../services/studentService';
 import api from '../services/api';
+import {
+    conductCaseSmsMessage,
+    mergeParentNotifySummaries,
+    readParentNotificationsFromCaseResponse,
+} from '../../discipline/utils/parentNotifySummary';
 
 const CATALOGUE = [
     { id: 'c1', name: 'Late Arrival', category: 'Lateness', points: -2 },
@@ -32,6 +37,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
     const [showBrowser, setShowBrowser] = useState(false);
     const [showStudents, setShowStudents] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [smsNotice, setSmsNotice] = useState('');
     const searchRef = useRef(null);
     const searchInputRef = useRef(null);
 
@@ -46,6 +52,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
             setStudent(initialStudent || null);
             setNote('');
             setSuccess(false);
+            setSmsNotice('');
             setSearch('');
             setMobileStep('items');
         }
@@ -152,6 +159,17 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                             </div>
                         </div>
 
+                        {totalPoints < 0 && smsNotice ? (
+                            <div className={`rounded-2xl px-4 py-3 mb-6 border text-left ${
+                                smsNotice.startsWith('SMS sent')
+                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                    : 'bg-amber-50 border-amber-200 text-amber-900'
+                            }`}>
+                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Parent SMS</p>
+                                <p className="text-xs font-semibold mt-1">{smsNotice}</p>
+                            </div>
+                        ) : null}
+
                         <div className="space-y-3">
                             <button
                                 onClick={() => {
@@ -159,6 +177,7 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
                                     setStudent(initialStudent || null);
                                     setNote('');
                                     setSuccess(false);
+                                    setSmsNotice('');
                                 }}
                                 className="w-full py-4 bg-re-gold text-[#1E3A5F] rounded-2xl text-xs font-semibold shadow-md shadow-re-gold/20 active:scale-95 transition-all"
                             >
@@ -400,25 +419,31 @@ export default function ConductMarksModal({ isOpen, onClose, initialStudent = nu
 
                         setSubmitting(true);
                         try {
-                            // The backend handles one case at a time. 
-                            // We loop through the 'cart' (rows) and record each one.
+                            const notifySummaries = [];
+                            let recorded = 0;
                             for (const row of rows) {
-                                // Map UI 'Points' to backend 'marks_deducted':
-                                //   Modal says -10 points -> Backend marks_deducted = 10
-                                //   Modal says +2 points  -> Backend marks_deducted = -2
                                 const pts = row.points * row.qty;
-                                const marksDeducted = -pts; 
+                                const marksDeducted = -pts;
+                                if (marksDeducted <= 0) continue;
 
-                                await api.post('/discipline/cases', {
+                                const res = await api.post('/discipline/cases', {
                                     student_id: idToUse,
                                     academic_year: academicYear,
                                     term: term,
-                                    lesson_subject: row.name, // The criteria name serves as the lesson/subject context
-                                    description: note || null, // Keeping database records clean
+                                    lesson_subject: row.name,
+                                    description: note || null,
                                     marks_deducted: marksDeducted
                                 });
+                                notifySummaries.push(readParentNotificationsFromCaseResponse(res));
+                                recorded += 1;
                             }
-                            
+                            if (recorded === 0) {
+                                alert('Add at least one deduction criterion to record conduct marks.');
+                                return;
+                            }
+
+                            const merged = mergeParentNotifySummaries(notifySummaries);
+                            setSmsNotice(conductCaseSmsMessage(merged) || '');
                             setSuccess(true);
                             if (onSuccess) onSuccess();
                         } catch (err) {

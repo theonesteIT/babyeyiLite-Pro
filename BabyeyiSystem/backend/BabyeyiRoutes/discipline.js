@@ -20,6 +20,7 @@ const {
 const {
   notifyStudentParentsDiscipline,
   notifyStudentParentsChannels,
+  buildDisciplineSmsBody,
 } = require('./parentStudentNotifications');
 const { requireRole } = require('../middleware/deoAuth');
 const {
@@ -514,7 +515,7 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
     );
 
     const [[stName]] = await conn.query(
-      `SELECT s.first_name, s.last_name, sc.school_name
+      `SELECT s.first_name, s.last_name, s.student_code, s.student_uid, sc.school_name
        FROM students s
        LEFT JOIN schools sc ON sc.id = s.school_id
        WHERE s.id = ?
@@ -527,11 +528,14 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
     if (action === 'remove' && req.body?.notify_parent !== false) {
       const studentName =
         `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
+      const studentRef =
+        trimStr(stName?.student_code) || trimStr(stName?.student_uid) || String(studentId);
       try {
         parent_notifications = await notifyStudentParentsDiscipline(studentId, {
           studentName,
           schoolName: stName?.school_name,
           schoolId,
+          studentRef,
           marks,
           remaining: nextMarks,
           maximum: maxMarks,
@@ -555,6 +559,7 @@ router.post('/discipline/students/:studentId/marks', requireRole(DISCIPLINE_WRIT
         new_marks: nextMarks,
         minimum_marks: minMarks,
         maximum_marks: maxMarks,
+        parent_notifications,
       },
       parent_notifications,
     });
@@ -1027,11 +1032,22 @@ router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req
     const studentName =
       `${trimStr(stName?.first_name)} ${trimStr(stName?.last_name)}`.trim() || 'Your child';
     const schoolName = trimStr(stName?.school_name) || 'School';
-    setImmediate(() => {
-      notifyStudentParentsChannels(studentId, {
+
+    let parent_notifications = null;
+    try {
+      parent_notifications = await notifyStudentParentsChannels(studentId, {
         type: 'DISCIPLINE_CASE',
         title: `${schoolName}: Discipline case`,
-        body: `${studentName}: ${marksDeducted} mark(s) deducted — ${lessonSubject}. Remaining: ${remainAfter} of ${totalMarks}.`,
+        body: `${studentName}: ${marksDeducted} mark(s) deducted - ${lessonSubject}. Remaining: ${remainAfter} of ${totalMarks}.`,
+        smsBody: buildDisciplineSmsBody({
+          studentName,
+          schoolName,
+          marks: marksDeducted,
+          remaining: remainAfter,
+          maximum: totalMarks,
+          lessonSubject,
+          reason: description,
+        }),
         payload: {
           case_id: ins.insertId,
           student_id: studentId,
@@ -1041,17 +1057,22 @@ router.post('/discipline/cases', requireRole(DISCIPLINE_WRITE_ROLES), async (req
         },
         pushTag: `discipline-case-${ins.insertId}`,
         category: 'discipline',
-      }).catch((e) => console.warn('[discipline/case/notify]', e.message));
-    });
+        sms: true,
+      });
+    } catch (notifyErr) {
+      console.warn('[discipline/case/notify]', notifyErr.message);
+    }
 
     return res.status(201).json({
       success: true,
       message: 'Discipline case recorded.',
+      parent_notifications,
       data: {
         id: ins.insertId,
         marks_remaining_after: remainAfter,
         discipline_total: totalMarks,
         discipline_deducted: already + marksDeducted,
+        parent_notifications,
       },
     });
   } catch (err) {

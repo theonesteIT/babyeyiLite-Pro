@@ -29,7 +29,7 @@ function readCollapsed() {
 
 function NavButton({ item, active, onClick, badge = 0, collapsed = false, nested = false, title }) {
   const Icon = item.icon;
-  const iconSize = nested ? 16 : 18;
+  const iconSize = nested ? 17 : 19;
   return (
     <button
       type="button"
@@ -37,8 +37,8 @@ function NavButton({ item, active, onClick, badge = 0, collapsed = false, nested
       onClick={onClick}
       className={`relative flex w-full items-center border text-left font-medium tracking-tight transition-all duration-200 ${
         nested
-          ? `gap-2.5 rounded-lg py-1.5 text-[12px] ${collapsed ? 'justify-center px-2' : 'pl-8 pr-2.5'}`
-          : `gap-3 rounded-xl px-3 py-2.5 text-[13px] ${collapsed ? 'justify-center px-2' : ''}`
+          ? `gap-2.5 rounded-lg py-2 text-[13px] ${collapsed ? 'justify-center px-2' : 'pl-8 pr-2.5'}`
+          : `gap-3 rounded-xl px-3 py-3 text-[14px] ${collapsed ? 'justify-center px-2' : ''}`
       } ${
         active
           ? 'border-white/10 bg-white/[0.12] text-amber-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]'
@@ -56,7 +56,7 @@ function NavButton({ item, active, onClick, badge = 0, collapsed = false, nested
           <span className="flex-1 truncate">{item.label}</span>
           {badge > 0 && (
             <span
-              className={`min-w-[18px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${
+              className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[11px] font-black ${
                 active ? 'bg-amber-400/20 text-amber-300' : 'bg-amber-400 text-[#000435]'
               }`}
             >
@@ -82,15 +82,20 @@ export default function Sidebar({
   onCollapsedChange,
 }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [expanded, setExpanded] = useState(() => {
-    const activeGroup = findNavGroupForTab(navGroups, tab);
-    const init = {};
-    navGroups.forEach((g) => {
-      init[g.id] = true;
-    });
-    if (activeGroup) init[activeGroup] = true;
-    return init;
-  });
+  const buildExpandedState = useCallback(
+    (openGroupId) => {
+      const next = {};
+      navGroups.forEach((g) => {
+        next[g.id] = openGroupId != null && g.id === openGroupId;
+      });
+      return next;
+    },
+    [navGroups],
+  );
+
+  const [expanded, setExpanded] = useState(() =>
+    buildExpandedState(findNavGroupForTab(navGroups, tab)),
+  );
 
   const activeGroupId = useMemo(() => findNavGroupForTab(navGroups, tab), [navGroups, tab]);
   const dashboardItem = useMemo(
@@ -99,9 +104,8 @@ export default function Sidebar({
   );
 
   useEffect(() => {
-    if (!activeGroupId) return;
-    setExpanded((prev) => ({ ...prev, [activeGroupId]: true }));
-  }, [activeGroupId]);
+    setExpanded(buildExpandedState(activeGroupId));
+  }, [activeGroupId, buildExpandedState]);
 
   useEffect(() => {
     try {
@@ -109,7 +113,7 @@ export default function Sidebar({
     } catch {
       /* ignore */
     }
-    const w = collapsed ? '72px' : '260px';
+    const w = collapsed ? '72px' : '272px';
     document.documentElement.style.setProperty('--sm-sidebar-w', w);
     onCollapsedChange?.(collapsed);
   }, [collapsed, onCollapsedChange]);
@@ -118,19 +122,18 @@ export default function Sidebar({
     (groupId) => {
       if (collapsed) {
         setCollapsed(false);
-        setExpanded((prev) => ({ ...prev, [groupId]: true }));
+        setExpanded(buildExpandedState(groupId));
         return;
       }
-      setExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+      setExpanded((prev) => {
+        if (prev[groupId]) return buildExpandedState(null);
+        return buildExpandedState(groupId);
+      });
     },
-    [collapsed],
+    [collapsed, buildExpandedState],
   );
 
   const navigate = (itemId, onItemClick) => {
-    if (itemId === 'invoices') {
-      window.location.assign('/invoices');
-      return;
-    }
     switchTab(itemId);
     onItemClick?.();
   };
@@ -160,7 +163,7 @@ export default function Sidebar({
                 <span className="block text-base font-semibold leading-tight tracking-tight text-white">
                   Babyeyi
                 </span>
-                <p className="mt-0.5 text-[10px] font-medium tracking-wide text-amber-400">
+                <p className="mt-0.5 text-[11px] font-medium tracking-wide text-amber-400">
                   School Manager
                 </p>
               </div>
@@ -185,7 +188,7 @@ export default function Sidebar({
           aria-label="School Manager navigation"
         >
           {!isCollapsed && (
-            <p className="px-3 pb-2 pt-1 text-[10px] font-medium uppercase tracking-widest text-white/40">
+            <p className="px-3 pb-2 pt-1 text-[11px] font-medium uppercase tracking-widest text-white/40">
               Main
             </p>
           )}
@@ -197,8 +200,9 @@ export default function Sidebar({
           />
 
           {navGroups.map((group) => {
-            const isOpen = forceExpanded || expanded[group.id] !== false;
+            const isOpen = expanded[group.id] === true;
             const hasActiveChild = group.items.some((i) => i.id === tab);
+            const groupActive = isOpen || hasActiveChild;
 
             return (
               <div key={group.id} className="pt-1.5">
@@ -206,21 +210,26 @@ export default function Sidebar({
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.id)}
-                    className="mb-0.5 flex w-full min-h-[28px] cursor-pointer items-center justify-between gap-1.5 rounded-md px-3 py-1 text-left transition-colors hover:bg-white/[0.04]"
+                    aria-expanded={isOpen}
+                    className={`mb-0.5 flex w-full min-h-[32px] cursor-pointer items-center justify-between gap-1.5 rounded-lg border px-3 py-2 text-left transition-all duration-200 ${
+                      groupActive
+                        ? 'border-white/10 bg-white/[0.1] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                        : 'border-transparent hover:bg-white/[0.04]'
+                    }`}
                   >
                     <span
-                      className={`text-[9px] font-semibold uppercase tracking-[0.14em] ${
-                        hasActiveChild ? 'text-amber-400/75' : 'text-white/38'
+                      className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                        groupActive ? 'text-amber-400' : 'text-white/38'
                       }`}
                     >
                       {group.label}
                     </span>
                     <ChevronDown
-                      size={12}
+                      size={14}
                       strokeWidth={2}
-                      className={`shrink-0 text-white/30 transition-transform duration-200 ${
-                        isOpen ? 'rotate-0' : '-rotate-90'
-                      }`}
+                      className={`shrink-0 transition-transform duration-200 ${
+                        groupActive ? 'text-amber-400/70' : 'text-white/30'
+                      } ${isOpen ? 'rotate-0' : '-rotate-90'}`}
                     />
                   </button>
                 ) : (
@@ -251,7 +260,7 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={() => window.location.assign(`${proAppBase}/manager`)}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-violet-400/25 bg-violet-600/90 px-3 py-2.5 text-[12px] font-bold text-white transition hover:bg-violet-600"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-violet-400/25 bg-violet-600/90 px-3 py-2.5 text-[13px] font-bold text-white transition hover:bg-violet-600"
               >
                 <Sparkles size={16} strokeWidth={1.75} />
                 Open Pro Manager
@@ -282,16 +291,16 @@ export default function Sidebar({
             </div>
             {!isCollapsed && (
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] font-semibold text-white">{displayName}</p>
+                <p className="truncate text-[13px] font-semibold text-white">{displayName}</p>
                 {schoolName ? (
-                  <p className="mt-0.5 truncate text-[10px] text-white/50">{schoolName}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-white/50">{schoolName}</p>
                 ) : null}
-                <p className="mt-0.5 truncate text-[9px] text-amber-400/80">Babyeyi System · v2.0</p>
+                <p className="mt-0.5 truncate text-[10px] text-amber-400/80">Babyeyi System · v2.0</p>
               </div>
             )}
           </div>
           {!isCollapsed && (
-            <p className="px-3 pb-0 text-center text-[10px] font-medium text-white/35">
+            <p className="px-3 pb-0 text-center text-[11px] font-medium text-white/35">
               NESA Rwanda · v2.0
             </p>
           )}
@@ -305,7 +314,7 @@ export default function Sidebar({
     );
   };
 
-  const asideWidth = collapsed ? 'w-[72px]' : 'w-[260px]';
+  const asideWidth = collapsed ? 'w-[72px]' : 'w-[272px]';
 
   return (
     <>

@@ -13,6 +13,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useNavigate } from 'react-router-dom';
 
 import { getPostLogoutLoginPath, syncPostLogoutLoginPath } from '../utils/postLogoutLoginPath';
+import { schoolIdFromSessionUser } from '../utils/schoolId';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5100';
 
@@ -93,7 +94,7 @@ export function AuthProvider({ children }) {
     isLoggedIn:  !!user,
     role:        user?.role?.code || null,
     // School context (for SCHOOL_ADMIN / staff) — from session/me
-    schoolId:    user?.school?.id ?? user?.school_id ?? null,
+    schoolId:    schoolIdFromSessionUser(user),
     school:      user?.school ?? null,
     proAccessEffective,
     subscriptionPlan: schoolObj?.subscription_plan || null,

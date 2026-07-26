@@ -2,6 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, History, Loader2, RotateCcw, Search, ShieldAlert, UserCircle2 } from 'lucide-react';
 import disciplineService from '../services/disciplineService';
 import DisciplineOchreHero from '../components/DisciplineOchreHero';
+import {
+  marksSavedNotifyMessage,
+  readParentNotificationsFromMarksResponse,
+  conductCaseSmsMessage,
+} from '../utils/parentNotifySummary';
 
 const REASON_PRESETS = [
   'Late to class',
@@ -38,6 +43,7 @@ export default function SetDisciplineMarks() {
   const [limit, setLimit] = useState(15);
   const [meta, setMeta] = useState({ page: 1, limit: 15, total: 0, total_pages: 1 });
   const [toast, setToast] = useState({ type: '', message: '' });
+  const [smsNotice, setSmsNotice] = useState('');
 
   const [form, setForm] = useState({
     action: 'remove',
@@ -104,6 +110,7 @@ export default function SetDisciplineMarks() {
   const openStudentDrawer = (student) => {
     setSelectedStudent(student);
     setForm((prev) => ({ ...prev, date: new Date().toISOString().slice(0, 10) }));
+    setSmsNotice('');
     setDrawerOpen(true);
     fetchHistory(student.id);
   };
@@ -129,18 +136,23 @@ export default function SetDisciplineMarks() {
 
     setSaving(true);
     try {
-      await disciplineService.applyStudentMarks(selectedStudent.id, {
+      const res = await disciplineService.applyStudentMarks(selectedStudent.id, {
         action: form.action,
         marks: marksValue,
         reason: reasonValue,
         date: form.date,
         notes: form.notes?.trim() || null,
+        notify_parent: form.action === 'remove',
       });
 
       const updated = students.map((s) => (s.id === selectedStudent.id ? { ...s, discipline_marks: nextMarks } : s));
       setStudents(updated);
       setSelectedStudent((prev) => (prev ? { ...prev, discipline_marks: nextMarks } : prev));
-      notify('success', 'Marks updated successfully.');
+
+      const notifySummary = readParentNotificationsFromMarksResponse(res);
+      const smsLine = form.action === 'remove' ? conductCaseSmsMessage(notifySummary) : '';
+      setSmsNotice(smsLine || '');
+      notify('success', marksSavedNotifyMessage(form.action, notifySummary));
       fetchHistory(selectedStudent.id);
     } catch (e) {
       notify('error', e.response?.data?.message || 'Failed to update marks.');
@@ -235,6 +247,22 @@ export default function SetDisciplineMarks() {
                     <option value="remove">Remove Marks</option>
                   </select>
                 </label>
+
+                {form.action === 'remove' ? (
+                  <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2.5 text-[11px] font-medium text-amber-950 leading-relaxed">
+                    Parents receive an SMS (to registered parent numbers), in-app alert, and web push when marks are removed.
+                  </p>
+                ) : null}
+
+                {form.action === 'remove' && smsNotice ? (
+                  <div className={`rounded-xl px-3 py-2.5 border text-[11px] font-semibold leading-relaxed ${
+                    smsNotice.startsWith('SMS sent')
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-amber-50 border-amber-200 text-amber-900'
+                  }`}>
+                    {smsNotice}
+                  </div>
+                ) : null}
 
                 <label className="space-y-1.5 block">
                   <span className="text-[11px] font-black uppercase tracking-widest text-re-text-muted">Marks</span>

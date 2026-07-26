@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from "react";
 import { buildWordDocHTML, babyeyiDocHtml2CanvasOptions, ensureQRCode, applyQrToState } from "./BabyeyiList";
-import { renderBabyeyiPdfFromRoot } from "./babyeyiPdfExport";
+import { renderBabyeyiPdfFromRoot, BABYEYI_PDF_CAPTURE_HOST_STYLE } from "./babyeyiPdfExport";
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
 import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../../lib/schoolLiteApi';
 
@@ -263,7 +263,7 @@ export default function BabyeyiPdf() {
       const style = document.createElement("style");
       style.textContent = `#__bp__ * { box-sizing:border-box; color-scheme:light only; } #__bp__ { all:initial;display:block;background:#fff; }`;
       document.head.appendChild(style);
-      const host = document.createElement("div"); host.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-9999;";
+      const host = document.createElement("div"); host.style.cssText = BABYEYI_PDF_CAPTURE_HOST_STYLE;
       const root = document.createElement("div"); root.id = "__bp__"; root.innerHTML = html;
       host.appendChild(root); document.body.appendChild(host);
       try {

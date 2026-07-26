@@ -35,7 +35,10 @@ const {
   mergeRwPatchesIntoContentI18nBundle,
 } = require("../utils/babyeyiContentI18n");
 const { getDocStrings } = require("../utils/babyeyiDocI18n");
+const { buildBabyeyiPrintPageHtml } = require("../utils/babyeyiDocHtml");
+const { fileToDataUrl, renderHtmlToPdfFile, renderHtmlToPdfBuffer, puppeteerAvailable } = require("../utils/babyeyiPuppeteerPdf");
 const { fetchStudentRequirementsCatalog } = require("../utils/studentRequirementsSchema");
+const { normalizeSchoolId } = require("../utils/normalizeSchoolId");
 
 // ── Upload dirs ───────────────────────────────────────────────
 const UPLOAD_DIR = "uploads/babyeyi/";
@@ -557,26 +560,127 @@ const parseJSONField = (val) => {
   try { return JSON.parse(val); } catch { return []; }
 };
 
+const normalizeRequirementItem = (val) => {
+  if (val == null) return "";
+  if (typeof val === "object") {
+    if (typeof val.name === "string") return val.name.trim();
+    if (typeof val.item === "string") return val.item.trim();
+    return "";
+  }
+  return String(val).trim();
+};
+
 const classToLevel = (cls) => {
-  if (["N1","N2","N3"].includes(cls))                    return "Nursery";
-  if (["P1","P2","P3","P4","P5","P6"].includes(cls))    return "Primary";
-  if (["S1","S2","S3","S4","S5","S6"].includes(cls))    return "Secondary";
-  if (["L1","L2","L3"].includes(cls))                    return "University";
+  const raw = String(cls || "").trim();
+  if (!raw) return "Primary";
+  const compact = raw.toUpperCase().replace(/[\s-]+/g, "");
+  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-6])\b/i);
+  if (code) {
+    const c = code[1].toUpperCase();
+    if (/^N[123]$/.test(c)) return "Nursery";
+    if (/^P[1-6]$/.test(c)) return "Primary";
+    if (/^S[1-6]$/.test(c)) return "Secondary";
+    if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO|SOD|MECH|ELEC|ICT)\b/i.test(raw)) return "TSS";
+    if (/^L[1-6]/.test(compact)) return "TSS";
+  }
+  if (["N1", "N2", "N3"].includes(raw)) return "Nursery";
+  if (["P1", "P2", "P3", "P4", "P5", "P6"].includes(raw)) return "Primary";
+  if (["S1", "S2", "S3", "S4", "S5", "S6"].includes(raw)) return "Secondary";
+  if (/^L[1-6][A-Z]{2,}/.test(compact) || /\b(TSS|TVET|BDC|FBO|SOD|MECH|ELEC|ICT)\b/i.test(raw)) return "TSS";
+  if (["L1", "L2", "L3", "L4", "L5", "L6"].includes(raw)) return "TSS";
   return "Primary";
 };
 
+/** Normalize wizard/API level label → Nursery | Primary | Secondary | TSS */
+const normalizeNesaLevel = (level, classFallback = "") => {
+  const s = String(level || "").trim();
+  if (s) {
+    const lower = s.toLowerCase();
+    if (lower.includes("nursery") || /^n[123]$/i.test(s)) return "Nursery";
+    if (lower.includes("primary") || /^p[1-6]$/i.test(s)) return "Primary";
+    if (lower.includes("secondary") && !lower.includes("technical") && !lower.includes("tss") && !lower.includes("tvet")) {
+      return "Secondary";
+    }
+    if (lower.includes("tss") || lower.includes("tvet") || lower.includes("technical")) return "TSS";
+    if (["Nursery", "Primary", "Secondary", "TSS"].includes(s)) return s;
+  }
+  return classToLevel(classFallback);
+};
+
+const resolveBabyeyiCreateStatus = (exceeds, requestIncrease) => {
+  if (!exceeds) return "approved";
+  if (requestIncrease) return "pending";
+  return "draft";
+};
+
+const VALID_TERMS = new Set(["Term 1", "Term 2", "Term 3"]);
+
+const normalizeBabyeyiTerm = (term) => {
+  const s = String(term || "").trim();
+  if (VALID_TERMS.has(s)) return s;
+  const m = s.match(/^term\s*([123])$/i) || s.match(/^t\s*([123])$/i);
+  if (m) return `Term ${m[1]}`;
+  return s;
+};
+
+async function resolveSchoolIdentityForBabyeyi(body, schoolId, req) {
+  const fv = (v, fb = null) => Array.isArray(v) ? v[0] ?? fb : v ?? fb;
+  let schoolName = fv(body.school_name, null);
+  let schoolCode = fv(body.school_code, null);
+  if (schoolId && (!schoolName || !schoolCode)) {
+    try {
+      const [schRow] = await query(
+        "SELECT school_name, school_code FROM schools WHERE id=? LIMIT 1",
+        [schoolId]
+      );
+      if (schRow) {
+        if (!schoolName) schoolName = schRow.school_name;
+        if (!schoolCode) schoolCode = schRow.school_code;
+      }
+    } catch (_) {}
+  }
+  if (!schoolName) {
+    schoolName =
+      fv(req.user?.school_name) ||
+      fv(req.session?.user?.school_name) ||
+      fv(req.session?.schoolName) ||
+      "School";
+  }
+  return {
+    schoolName: String(schoolName || "School").trim() || "School",
+    schoolCode: String(schoolCode || "").trim(),
+  };
+}
+
 /** Match fee_limits row: exact term first; Term 1/2/3 also match a stored "Full Year" cap. */
 async function queryActiveNesaFeeLimit(category, level, term, academicYear) {
+  const cat = String(category || "").trim();
+  const lvl = String(level || "").trim();
   const t = String(term || "").trim();
   const year = String(academicYear || "").trim();
-  if (!category || !level || !t || !year) return null;
-  const rows = await query(
-    `SELECT id, max_amount, regulation_ref, notes, term FROM fee_limits
-     WHERE category=? AND level=? AND academic_year=? AND is_active=1
-       AND (term=? OR (? <> 'Full Year' AND term='Full Year'))
-     ORDER BY CASE WHEN term=? THEN 0 WHEN term='Full Year' THEN 1 ELSE 2 END
+  if (!cat || !lvl || !t || !year) return null;
+
+  const termSql = `(term=? OR (? <> 'Full Year' AND term='Full Year'))`;
+  const termOrder = `CASE WHEN term=? THEN 0 WHEN term='Full Year' THEN 1 ELSE 2 END`;
+
+  let rows = await query(
+    `SELECT id, max_amount, regulation_ref, notes, term, academic_year FROM fee_limits
+     WHERE category=? AND LOWER(TRIM(level))=LOWER(?) AND academic_year=? AND is_active=1
+       AND ${termSql}
+     ORDER BY ${termOrder}
      LIMIT 1`,
-    [category, level, year, t, t, t]
+    [cat, lvl, year, t, t, t]
+  );
+  if (rows[0]) return rows[0];
+
+  // School year row missing — use latest active national cap for same category/level/term
+  rows = await query(
+    `SELECT id, max_amount, regulation_ref, notes, term, academic_year FROM fee_limits
+     WHERE category=? AND LOWER(TRIM(level))=LOWER(?) AND is_active=1
+       AND ${termSql}
+     ORDER BY academic_year DESC, ${termOrder}
+     LIMIT 1`,
+    [cat, lvl, t, t, t]
   );
   return rows[0] || null;
 }
@@ -601,13 +705,13 @@ const normaliseClassReq = (r) => ({
 });
 
 const resolveSchoolId = (req) => {
-  const fromBody        = req.body?.school_id            ? Number(req.body.school_id)           : null;
-  const fromUser        = req.user?.school_id            ? Number(req.user.school_id)           : null;
-  const fromSchool      = req.user?.school?.id           ? Number(req.user.school.id)           : null;
-  const fromSessionUser = req.session?.user?.school?.id  ? Number(req.session.user.school.id)  : null;
-  const fromSessionFlat = req.session?.user?.school_id   ? Number(req.session.user.school_id)  : null;
-  const fromSessionTop  = req.session?.school_id         ? Number(req.session.school_id)        : null;
-  const resolved = fromBody || fromUser || fromSchool || fromSessionUser || fromSessionFlat || fromSessionTop || null;
+  const fromBody        = normalizeSchoolId(req.body?.school_id);
+  const fromUser        = normalizeSchoolId(req.user?.school_id);
+  const fromSchool      = normalizeSchoolId(req.user?.school?.id);
+  const fromSessionUser = normalizeSchoolId(req.session?.user?.school?.id);
+  const fromSessionFlat = normalizeSchoolId(req.session?.user?.school_id);
+  const fromSessionTop  = normalizeSchoolId(req.session?.school_id);
+  const resolved = fromBody ?? fromUser ?? fromSchool ?? fromSessionUser ?? fromSessionFlat ?? fromSessionTop ?? null;
   if (!resolved) {
     console.warn(`[babyeyi] ⚠️  school_id is NULL — user ${req.user?.id || "unknown"}`);
   }
@@ -791,6 +895,8 @@ async function persistSchoolDescriptionFields(babyeyiId, body, fv) {
 }
 
 async function insertBabyeyiStudentRequirementRow(babyeyiId, r, sortOrder) {
+  const itemText = normalizeRequirementItem(r.item);
+  if (!itemText) return;
   const payCh =
     String(r.pay_channel || r.payChannel || "").toLowerCase() === "school" ? "school" : "babyeyi";
   const lineCost =
@@ -806,20 +912,20 @@ async function insertBabyeyiStudentRequirementRow(babyeyiId, r, sortOrder) {
   try {
     await query(
       "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel, cost, unit_price) VALUES (?,?,?,?,?,?,?,?)",
-      [babyeyiId, r.item, r.description || null, r.quantity || null, sortOrder, payCh, costVal, unitVal]
+      [babyeyiId, itemText, r.description || null, r.quantity || null, sortOrder, payCh, costVal, unitVal]
     );
   } catch (e) {
     if (e.code === "ER_BAD_FIELD_ERROR") {
       try {
         await query(
           "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel, cost) VALUES (?,?,?,?,?,?,?)",
-          [babyeyiId, r.item, r.description || null, r.quantity || null, sortOrder, payCh, costVal]
+          [babyeyiId, itemText, r.description || null, r.quantity || null, sortOrder, payCh, costVal]
         );
       } catch (e2) {
         if (e2.code === "ER_BAD_FIELD_ERROR") {
           await query(
             "INSERT INTO babyeyi_student_requirements (babyeyi_id, item, description, quantity, sort_order, pay_channel) VALUES (?,?,?,?,?,?)",
-            [babyeyiId, r.item, r.description || null, r.quantity || null, sortOrder, payCh]
+            [babyeyiId, itemText, r.description || null, r.quantity || null, sortOrder, payCh]
           );
         } else throw e2;
       }
@@ -829,13 +935,29 @@ async function insertBabyeyiStudentRequirementRow(babyeyiId, r, sortOrder) {
   }
 }
 
+const parseShowParentMessageInput = (body, fallback = true) => {
+  if (body == null || (body.show_parent_message === undefined && body.showParentMessage === undefined)) {
+    return fallback;
+  }
+  const v = body.show_parent_message ?? body.showParentMessage;
+  return v === true || v === 1 || v === "1" || v === "true";
+};
+
+const resolveShowParentMessage = (row) => {
+  if (row?.show_parent_message != null) return !!Number(row.show_parent_message);
+  return !!(String(row?.parent_message || "").trim());
+};
+
 // ════════════════════════════════════════════════════════════
 // AUTO-RUN MIGRATIONS AT STARTUP
 // ════════════════════════════════════════════════════════════
 const runMigrations = async () => {
+  const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+  await ensureBabyeyiCoreSchema();
   const migrations = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS signature_url VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS parent_message TEXT NULL`,
+    `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS show_parent_message TINYINT(1) NOT NULL DEFAULT 1`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS qr_view_url VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS qr_code_path VARCHAR(500) NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS pdf_path VARCHAR(500) NULL`,
@@ -844,6 +966,7 @@ const runMigrations = async () => {
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS translations_json LONGTEXT NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS content_i18n LONGTEXT NULL`,
     `ALTER TABLE school_babyeyi ADD COLUMN IF NOT EXISTS translation_status VARCHAR(32) NULL`,
+    `ALTER TABLE school_babyeyi MODIFY COLUMN status ENUM('draft','submitted','approved','rejected','pending') NOT NULL DEFAULT 'draft'`,
     `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS item VARCHAR(300) NULL`,
     `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS details TEXT NULL`,
     `ALTER TABLE babyeyi_class_requirements ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0`,
@@ -919,13 +1042,10 @@ const runRehashMigration = async () => {
   }
 };
 
-// Run both at startup
-runMigrations().catch(e => console.error("[babyeyi] migration error:", e.message));
-
-// Rehash after 3s delay — ensures DB is ready and migrations ran first
-setTimeout(() => {
-  runRehashMigration().catch(e => console.error("[babyeyi] rehash error:", e.message));
-}, 3000);
+async function initBabyeyiMigrations() {
+  await runMigrations();
+  await runRehashMigration();
+}
 
 // ── Multer ────────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -1022,6 +1142,215 @@ const generateQRCodeFile = async (qrPayload, docId) => {
   return { filePath: `/${QR_DIR}${filename}`, fileName: filename, fullPath: filepath };
 };
 
+function babyeyiTodayFr() {
+  return new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+async function loadBabyeyiDocBundle(bid, documentLanguage = "en") {
+  const rows = await query("SELECT * FROM school_babyeyi WHERE id=? AND is_active=1", [bid]);
+  if (!rows.length) return null;
+  const babyeyi = normalise(rows[0]);
+
+  let payments = await query(
+    "SELECT name, amount FROM babyeyi_payments WHERE babyeyi_id=? ORDER BY sort_order", [bid]
+  );
+  if (!payments.length && rows[0].payments) {
+    try {
+      const raw = typeof rows[0].payments === "string" ? JSON.parse(rows[0].payments) : rows[0].payments;
+      if (Array.isArray(raw)) payments = raw;
+    } catch (_) {}
+  }
+
+  const [studentReqs, classReqsRaw, sigRows, leaderRows] = await Promise.all([
+    query("SELECT item, description, quantity FROM babyeyi_student_requirements WHERE babyeyi_id=? ORDER BY sort_order", [bid]).catch(() => []),
+    query(`SELECT COALESCE(item, information) AS item, details
+           FROM babyeyi_class_requirements WHERE babyeyi_id=? ORDER BY COALESCE(sort_order, 0)`, [bid]).catch(() => []),
+    query("SELECT * FROM babyeyi_signatures WHERE babyeyi_id=? LIMIT 1", [bid]).catch(() => []),
+    fetchLeaders(bid).catch(() => []),
+  ]);
+
+  const sigRow = sigRows[0] || {};
+  let contentI18nRaw = null;
+  try {
+    const [ciRow] = await query("SELECT content_i18n FROM school_babyeyi WHERE id=?", [bid]);
+    contentI18nRaw = ciRow?.content_i18n ?? null;
+  } catch (_) {}
+
+  const docLang = normalizeSourceLang(documentLanguage);
+  const merged = mergeLocalizedBabyeyiPayload({
+    lang: docLang,
+    parentMessage: babyeyi.parent_message || "",
+    payments: payments.map((p) => ({ name: p.name, amount: Number(p.amount) || 0 })),
+    requirements: studentReqs,
+    classNotes: classReqsRaw.map(normaliseClassReq),
+    leaders: leaderRows,
+    contentI18n: contentI18nRaw,
+  });
+
+  let classes = [];
+  try {
+    const cj = rows[0].classes_json;
+    if (cj) {
+      const raw = typeof cj === "string" ? JSON.parse(cj) : cj;
+      if (Array.isArray(raw)) classes = raw.filter(Boolean);
+    }
+  } catch (_) {}
+  const primaryClass = babyeyi.class || babyeyi.class_name || (classes[0] || "");
+  if (!classes.length && primaryClass) classes = [primaryClass];
+
+  let sigPaths = {
+    sigPath:        sigRow.director_sig_path  || null,
+    stampPath:      sigRow.stamp_path         || null,
+    schoolLogoPath: sigRow.school_logo_path   || null,
+    otherLogoPath:  sigRow.other_logo_path    || null,
+  };
+
+  if (babyeyi.school_id) {
+    try {
+      const schoolRows = await query(
+        "SELECT logo_url, school_stamp_url, head_signature_url FROM schools WHERE id=? LIMIT 1",
+        [babyeyi.school_id]
+      );
+      if (schoolRows.length) {
+        const sr = schoolRows[0];
+        if (!sigPaths.schoolLogoPath && sr.logo_url) sigPaths.schoolLogoPath = sr.logo_url;
+        if (!sigPaths.stampPath && sr.school_stamp_url) sigPaths.stampPath = sr.school_stamp_url;
+        if (!sigPaths.sigPath && sr.head_signature_url) sigPaths.sigPath = sr.head_signature_url;
+      }
+    } catch (_) {}
+  }
+
+  const rec = {
+    schoolName: babyeyi.school_name || "",
+    district: babyeyi.district || babyeyi.school_district || "",
+    sector: babyeyi.sector || babyeyi.school_sector || "",
+    academicYear: babyeyi.academic_year || "",
+    term: babyeyi.term || "",
+    level: babyeyi.level || babyeyi.education_level || "",
+    class: primaryClass,
+    classes,
+    docId: babyeyi.doc_id || null,
+    parentMessage: merged.parentMessage,
+    showParentMessage: resolveShowParentMessage(babyeyi),
+    payments: merged.payments,
+    requirements: merged.requirements,
+    classNotes: merged.classNotes,
+    leaders: merged.leaders,
+    banksJson: babyeyi.banks_json,
+    bankName: babyeyi.bank_name,
+    bankAccountNo: babyeyi.bank_account_no,
+    bankAccountName: babyeyi.bank_account_name,
+  };
+
+  const qrPath = sigRow.qr_code_path || babyeyi.qr_code_path || null;
+
+  return {
+    rec,
+    sigPaths,
+    qrPath,
+    docLang,
+    parentMessage: merged.parentMessage,
+    babyeyi,
+  };
+}
+
+async function buildBabyeyiPrintHtmlForBid(bid, documentLanguage = "en", { autoPrint = false } = {}) {
+  const bundle = await loadBabyeyiDocBundle(bid, documentLanguage);
+  if (!bundle) return null;
+
+  const { rec, sigPaths, qrPath, docLang, parentMessage } = bundle;
+  const totalFee = (rec.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  return buildBabyeyiPrintPageHtml({
+    rec,
+    totalFee,
+    today: babyeyiTodayFr(),
+    schoolLogoB64: fileToDataUrl(sigPaths.schoolLogoPath),
+    otherLogoB64: fileToDataUrl(sigPaths.otherLogoPath),
+    sigB64: fileToDataUrl(sigPaths.sigPath),
+    stampB64: fileToDataUrl(sigPaths.stampPath),
+    qrB64: fileToDataUrl(qrPath),
+    lang: docLang,
+    parentMsgOverride: parentMessage,
+  }, { autoPrint });
+}
+
+async function generateBabyeyiHtmlPDF({
+  babyeyi,
+  payments,
+  requirements,
+  classNotes,
+  sigPaths,
+  qrFilePath,
+  docId,
+  parentMessage,
+  leaders = [],
+  documentLang = "en",
+}) {
+  const nb = normalise(babyeyi);
+  const totalFee = (payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  let classes = [];
+  try {
+    const cj = nb.classes_json || babyeyi.classes_json;
+    if (cj) {
+      const raw = typeof cj === "string" ? JSON.parse(cj) : cj;
+      if (Array.isArray(raw)) classes = raw.filter(Boolean);
+    }
+  } catch (_) {}
+  const primaryClass = nb.class || nb.class_name || babyeyi.class_name || (classes[0] || "");
+  if (!classes.length && primaryClass) classes = [primaryClass];
+
+  const rec = {
+    schoolName: nb.school_name || babyeyi.school_name || "",
+    district: nb.district || nb.school_district || babyeyi.school_district || "",
+    sector: nb.sector || nb.school_sector || babyeyi.school_sector || "",
+    academicYear: nb.academic_year || babyeyi.academic_year || "",
+    term: nb.term || babyeyi.term || "",
+    level: nb.level || nb.education_level || "",
+    class: primaryClass,
+    classes,
+    docId,
+    parentMessage,
+    showParentMessage: resolveShowParentMessage(nb),
+    payments,
+    requirements,
+    classNotes,
+    leaders,
+    banksJson: nb.banks_json || babyeyi.banks_json,
+    bankName: nb.bank_name || babyeyi.bank_name,
+    bankAccountNo: nb.bank_account_no || babyeyi.bank_account_no,
+    bankAccountName: nb.bank_account_name || babyeyi.bank_account_name,
+  };
+
+  const html = buildBabyeyiPrintPageHtml({
+    rec,
+    totalFee,
+    today: babyeyiTodayFr(),
+    schoolLogoB64: fileToDataUrl(sigPaths?.schoolLogoPath),
+    otherLogoB64: fileToDataUrl(sigPaths?.otherLogoPath),
+    sigB64: fileToDataUrl(sigPaths?.sigPath),
+    stampB64: fileToDataUrl(sigPaths?.stampPath),
+    qrB64: fileToDataUrl(qrFilePath),
+    lang: documentLang,
+    parentMsgOverride: parentMessage,
+  });
+
+  return renderHtmlToPdfFile(html, PDF_DIR, docId);
+}
+
+/** PDFKit Helvetica only supports WinAnsi — strip BOM/CR and normalize punctuation. */
+function sanitizePdfKitText(text) {
+  return String(text ?? "")
+    .replace(/\uFEFF/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u2033]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+}
+
 // ── Generate PDF ──────────────────────────────────────────────
 const generateBabyeyiPDF = async ({
   babyeyi,
@@ -1032,6 +1361,7 @@ const generateBabyeyiPDF = async ({
   qrFilePath,
   docId,
   parentMessage,
+  showParentMessage = true,
   leaders = [],
   documentLang = "en",
 }) => {
@@ -1151,8 +1481,8 @@ const generateBabyeyiPDF = async ({
       y += 28;
 
       // Parent message
-      const msgText = parentMessage || b.parent_message || "";
-      if (msgText && msgText.trim()) {
+      const msgText = sanitizePdfKitText(parentMessage || b.parent_message || "");
+      if (showParentMessage && msgText && msgText.trim()) {
         doc.fontSize(7).font("Helvetica-Bold").fillColor(GRAY)
            .text(D.parentMessageHeading || "Message to Parents", L, y, { characterSpacing: 1.2 });
         doc.moveTo(L + 135, y + 5).lineTo(L + W, y + 5).lineWidth(0.3).stroke("#cbd5e1");
@@ -1190,7 +1520,7 @@ const generateBabyeyiPDF = async ({
         doc.fontSize(8).font("Helvetica").fillColor(BLACK)
            .text(String(idx + 1), colX[0] + 6, y + 5, { width: colW[0], align: "center" });
         doc.fontSize(8).font("Helvetica").fillColor(BLACK)
-           .text(p.name, colX[1] + 6, y + 5, { width: colW[1] - 10 });
+           .text(sanitizePdfKitText(p.name), colX[1] + 6, y + 5, { width: colW[1] - 10 });
         doc.fontSize(8).font("Helvetica-Bold").fillColor(NAVY)
            .text(amt.toLocaleString(), colX[2] + 6, y + 5, { width: colW[2] - 10, align: "right" });
         y += 18;
@@ -1514,18 +1844,38 @@ const generateDocuments = async ({
     contentI18n: contentI18nRaw,
   });
 
-  const pdf = await generateBabyeyiPDF({
-    babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
-    payments: merged.payments,
-    requirements: merged.requirements,
-    classNotes: merged.classNotes,
-    sigPaths: resolvedSigPaths,
-    qrFilePath: qr.fullPath,
-    docId,
-    parentMessage: merged.parentMessage,
-    leaders: merged.leaders,
-    documentLang: docLang,
-  });
+  const pdf = await (async () => {
+    if (puppeteerAvailable()) {
+      const htmlPdf = await generateBabyeyiHtmlPDF({
+        babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
+        payments: merged.payments,
+        requirements: merged.requirements,
+        classNotes: merged.classNotes,
+        sigPaths: resolvedSigPaths,
+        qrFilePath: qr.fullPath,
+        docId,
+        parentMessage: merged.parentMessage,
+        leaders: merged.leaders,
+        documentLang: docLang,
+      });
+      console.log(`[generateDocuments] Puppeteer HTML PDF file=${htmlPdf.filePath}`);
+      return htmlPdf;
+    }
+    console.warn("[generateDocuments] No Chrome/Edge — using legacy PDFKit layout");
+    return generateBabyeyiPDF({
+      babyeyi: { ...nb, id: bid, class_name: resolvedClass, class: resolvedClass },
+      payments: merged.payments,
+      requirements: merged.requirements,
+      classNotes: merged.classNotes,
+      sigPaths: resolvedSigPaths,
+      qrFilePath: qr.fullPath,
+      docId,
+      parentMessage: merged.parentMessage,
+      showParentMessage: resolveShowParentMessage(nb),
+      leaders: merged.leaders,
+      documentLang: docLang,
+    });
+  })();
   console.log(`[generateDocuments] PDF file=${pdf.filePath}`);
 
   const viewUrl = `${getBabyeyiPublicVerifyOrigin()}/babyeyi/verify/${docId}?h=${integrityHash}`;
@@ -1684,12 +2034,12 @@ router.use((req, res, next) => {
     return res.status(401).json({ success: false, message: "Not authenticated" });
   }
   if (!req.user && req.session?.user) req.user = req.session.user;
-  if (req.user && !req.user.school_id) {
+  if (req.user && normalizeSchoolId(req.user.school_id) == null) {
     req.user.school_id =
-      req.user?.school?.id          ||
-      req.session?.user?.school?.id ||
-      req.session?.user?.school_id  ||
-      req.session?.school_id        ||
+      normalizeSchoolId(req.user?.school?.id) ??
+      normalizeSchoolId(req.session?.user?.school?.id) ??
+      normalizeSchoolId(req.session?.user?.school_id) ??
+      normalizeSchoolId(req.session?.school_id) ??
       null;
   }
   next();
@@ -2119,6 +2469,185 @@ router.get("/stats", async (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// GET /api/babyeyi/analytics — school financial analytics (live)
+// ════════════════════════════════════════════════════════════
+router.get("/analytics", async (req, res) => {
+  try {
+    const schoolId = req.query.school_id || resolveSchoolId(req);
+    if (!schoolId) {
+      return res.status(400).json({ success: false, message: "School not found in session." });
+    }
+
+    const babyeyiRows = await query(
+      `SELECT b.id, b.class_name, b.term, b.academic_year, b.status,
+              COALESCE(b.total_fee, b.total_amount, 0) AS total_fee,
+              COALESCE(b.nesa_limit, 0) AS nesa_limit,
+              COALESCE(b.exceeds_limit, 0) AS exceeds_limit,
+              b.created_at, b.education_level, b.school_category, b.doc_id
+       FROM school_babyeyi b
+       WHERE b.school_id=? AND b.is_active=1
+       ORDER BY b.academic_year DESC, b.term ASC, b.class_name ASC`,
+      [schoolId]
+    );
+
+    const ids = (babyeyiRows || []).map((r) => r.id).filter(Boolean);
+    let paymentRows = [];
+    if (ids.length) {
+      paymentRows = await query(
+        `SELECT name, SUM(amount) AS amount
+         FROM babyeyi_payments
+         WHERE babyeyi_id IN (${ids.map(() => "?").join(",")})
+         GROUP BY name`,
+        ids
+      );
+    }
+
+    const catMap = new Map();
+    for (const p of paymentRows || []) {
+      const name = String(p.name || "Other").trim() || "Other";
+      catMap.set(name, (catMap.get(name) || 0) + Number(p.amount || 0));
+    }
+    const totalPaymentCat = [...catMap.values()].reduce((s, v) => s + v, 0);
+    const paymentBreakdown = [...catMap.entries()]
+      .map(([label, amount]) => ({
+        label,
+        amount: Math.round(amount),
+        value: totalPaymentCat > 0 ? Math.round((amount / totalPaymentCat) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 8);
+
+    const totalIncome = (babyeyiRows || []).reduce((s, b) => s + Number(b.total_fee || 0), 0);
+    const exceedsCount = (babyeyiRows || []).filter((b) => Number(b.exceeds_limit) === 1).length;
+    const withLimit = (babyeyiRows || []).filter((b) => Number(b.nesa_limit) > 0);
+    const compliant = withLimit.filter((b) => Number(b.exceeds_limit) !== 1).length;
+    const complianceRate = withLimit.length > 0 ? Math.round((compliant / withLimit.length) * 100) : 100;
+
+    const exceedRows = withLimit.filter(
+      (b) => Number(b.exceeds_limit) === 1 && Number(b.nesa_limit) > 0
+    );
+    const avgFeeIncrease = exceedRows.length
+      ? exceedRows.reduce(
+          (s, b) =>
+            s + ((Number(b.total_fee) - Number(b.nesa_limit)) / Number(b.nesa_limit)) * 100,
+          0
+        ) / exceedRows.length
+      : 0;
+
+    const termMap = new Map();
+    for (const b of babyeyiRows || []) {
+      const yr = String(b.academic_year || "").trim();
+      const label = `${b.term || "?"}${yr ? ` · ${yr.slice(-7)}` : ""}`.trim();
+      const prev = termMap.get(label) || { feeSum: 0, limitSum: 0, count: 0 };
+      prev.feeSum += Number(b.total_fee || 0);
+      prev.limitSum += Number(b.nesa_limit || 0);
+      prev.count += 1;
+      termMap.set(label, prev);
+    }
+    const termTrend = [...termMap.entries()].map(([label, v]) => ({
+      label,
+      value: Math.round(v.feeSum / Math.max(1, v.count) / 1000),
+      limit: Math.round(v.limitSum / Math.max(1, v.count) / 1000),
+    }));
+
+    const classMap = new Map();
+    for (const b of babyeyiRows || []) {
+      const cls = String(b.class_name || "").trim();
+      if (!cls) continue;
+      classMap.set(cls, (classMap.get(cls) || 0) + Number(b.total_fee || 0));
+    }
+    const classBreakdown = [...classMap.entries()]
+      .map(([label, totalFee]) => ({ label, value: Math.round(totalFee / 1000) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+
+    const statusCounts = { approved: 0, pending: 0, rejected: 0, draft: 0 };
+    for (const b of babyeyiRows || []) {
+      const st = String(b.status || "draft").toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(statusCounts, st)) statusCounts[st]++;
+      else statusCounts.draft++;
+    }
+
+    const complianceHistory = (babyeyiRows || []).map((b) => {
+      const fee = Number(b.total_fee || 0);
+      const limit = Number(b.nesa_limit || 0);
+      const exceedsLimit = Number(b.exceeds_limit) === 1;
+      const rate = limit > 0 ? Math.min(150, Math.round((fee / limit) * 100)) : 100;
+      let status = String(b.status || "draft").toLowerCase();
+      if (exceedsLimit) status = "exceeded";
+      else if (limit > 0 && fee <= limit) status = "compliant";
+      return {
+        year: b.academic_year || "—",
+        term: b.term || "—",
+        class: b.class_name || "—",
+        fee,
+        limit,
+        status,
+        rate,
+        docId: b.doc_id || null,
+      };
+    });
+
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const monthRows = await query(
+      `SELECT MONTH(created_at) AS month_num, COUNT(*) AS count
+       FROM school_babyeyi
+       WHERE school_id=? AND is_active=1 AND YEAR(created_at)=?
+       GROUP BY MONTH(created_at)`,
+      [schoolId, year]
+    );
+    const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const byMonth = Object.fromEntries(
+      (monthRows || []).map((r) => [Number(r.month_num), Number(r.count || 0)])
+    );
+    const monthlyActivity = MONTH_LABELS.map((label, i) => ({
+      label,
+      value: byMonth[i + 1] || 0,
+    }));
+
+    let studentCount = 0;
+    try {
+      const [sr] = await query(`SELECT COUNT(*) AS c FROM students WHERE school_id=?`, [schoolId]);
+      studentCount = Number(sr?.c || 0);
+    } catch (_) {
+      /* optional */
+    }
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalIncome,
+          complianceRate,
+          avgFeeIncrease: Math.round(avgFeeIncrease * 10) / 10,
+          exceedsCount,
+          babyeyiCount: babyeyiRows.length,
+          studentCount,
+          approved: statusCounts.approved,
+          pending: statusCounts.pending,
+          rejected: statusCounts.rejected,
+          draft: statusCounts.draft,
+        },
+        termTrend,
+        classBreakdown,
+        paymentBreakdown,
+        statusOverview: [
+          { label: "Approved", value: statusCounts.approved, color: "#000435" },
+          { label: "Pending", value: statusCounts.pending, color: "#fbbf24" },
+          { label: "Rejected", value: statusCounts.rejected, color: "#64748b" },
+          { label: "Draft", value: statusCounts.draft, color: "#cbd5e1" },
+        ],
+        complianceHistory,
+        monthlyActivity,
+      },
+    });
+  } catch (err) {
+    console.error("❌ /analytics:", err.message);
+    res.status(500).json({ success: false, message: "Failed to fetch analytics" });
+  }
+});
+
+// ════════════════════════════════════════════════════════════
 // In-app notifications (school Babyeyi portal)
 // ════════════════════════════════════════════════════════════
 const {
@@ -2420,6 +2949,9 @@ router.post("/", (req, res) => {
   upload(req, res, async (uploadErr) => {
     if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
     try {
+      const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+      await ensureBabyeyiCoreSchema();
+
       const body  = req.body;
       const files = req.files || {};
 
@@ -2427,7 +2959,21 @@ router.post("/", (req, res) => {
         return res.status(422).json({ success: false, message: "academic_year, term, class/classes, category are required" });
       }
 
+      const term = normalizeBabyeyiTerm(body.term);
+      if (!VALID_TERMS.has(term)) {
+        return res.status(422).json({
+          success: false,
+          message: `Invalid term "${body.term}". Use Term 1, Term 2, or Term 3.`,
+        });
+      }
+
       const schoolId = resolveSchoolId(req);
+      if (!schoolId) {
+        return res.status(422).json({
+          success: false,
+          message: "School ID is required. Please log out and sign in again with your school manager account.",
+        });
+      }
       const fv = (v, fb = null) => Array.isArray(v) ? v[0] ?? fb : v ?? fb;
 
       const schoolProvince = fv(body.province, req.user?.province || null);
@@ -2442,10 +2988,14 @@ router.post("/", (req, res) => {
         return res.status(422).json({ success: false, message: "At least one class is required" });
       }
 
-      const level         = body.level || classToLevel(primaryClass);
+      const level = normalizeNesaLevel(body.level || body.education_level, primaryClass);
       const payments      = parseJSONField(body.payments);
       const totalFee      = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
       const parentMessage = body.parent_message || "";
+      const showParentMessage = parseShowParentMessageInput(
+        body,
+        !!(parentMessage && String(parentMessage).trim()),
+      );
 
       const banksJsonRaw  = body.banks_json || body.banks || null;
       const banks         = parseJSONField(banksJsonRaw);
@@ -2462,21 +3012,14 @@ router.post("/", (req, res) => {
 
       const nesaRow = skipNesa
         ? null
-        : await queryActiveNesaFeeLimit(categoryForRow, level, body.term, body.academic_year).catch(() => null);
+        : await queryActiveNesaFeeLimit(categoryForRow, level, term, body.academic_year).catch(() => null);
       const nesaLimit       = skipNesa ? null : (nesaRow?.max_amount ?? null);
       const exceeds         = !skipNesa && nesaLimit !== null && totalFee > Number(nesaLimit);
       const requestIncrease = body.request_increase === "true" || body.request_increase === true;
 
-      let schoolName = body.school_name || null;
-      let schoolCode = body.school_code || null;
-      if (schoolId && !schoolName) {
-        try {
-          const [schRow] = await query("SELECT school_name, school_code FROM schools WHERE id=? LIMIT 1", [schoolId]);
-          if (schRow) { schoolName = schRow.school_name; schoolCode = schRow.school_code; }
-        } catch (_) {}
-      }
+      const { schoolName, schoolCode } = await resolveSchoolIdentityForBabyeyi(body, schoolId, req);
 
-      const status = !exceeds ? "approved" : requestIncrease ? "pending" : "draft";
+      const status = resolveBabyeyiCreateStatus(exceeds, requestIncrease);
       const preDocId = await generateDocId(body.academic_year);
 
       const result = await query(
@@ -2487,16 +3030,16 @@ router.post("/", (req, res) => {
             school_category, education_level,
             payments, total_amount,
             bank_name, bank_account_no, bank_branch, banks_json,
-            parent_message, total_fee, nesa_limit, exceeds_limit, status, doc_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            parent_message, show_parent_message, total_fee, nesa_limit, exceeds_limit, status, doc_id)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           schoolId, schoolName, schoolCode,
           schoolProvince, schoolDistrict, schoolSector,
-          body.academic_year, body.term, primaryClass, classesArr.length ? JSON.stringify(classesArr) : null,
+          body.academic_year, term, primaryClass, classesArr.length ? JSON.stringify(classesArr) : null,
           categoryForRow, level,
           JSON.stringify(payments), totalFee,
           bankName, bankAccountNo, bankBranch, banksJson,
-          parentMessage, totalFee, nesaLimit, exceeds ? 1 : 0, status, preDocId,
+          parentMessage, showParentMessage ? 1 : 0, totalFee, nesaLimit, exceeds ? 1 : 0, status, preDocId,
         ]
       );
       const bid = result.insertId;
@@ -2577,16 +3120,14 @@ router.post("/", (req, res) => {
       const studentReqs = parseJSONField(body.requirements);
       for (let i = 0; i < studentReqs.length; i++) {
         const r = studentReqs[i] || {};
-        if (r.item) {
-          await insertBabyeyiStudentRequirementRow(bid, r, i);
-        }
+        await insertBabyeyiStudentRequirementRow(bid, r, i);
       }
 
-      await seedRequirementPricesFromDefaults(bid, schoolId, body.academic_year, body.term, primaryClass);
+      await seedRequirementPricesFromDefaults(bid, schoolId, body.academic_year, term, primaryClass);
 
       const classReqs = parseJSONField(body.classReqs);
       for (let i = 0; i < classReqs.length; i++) {
-        const itemText   = classReqs[i].item    || classReqs[i].information || "";
+        const itemText   = normalizeRequirementItem(classReqs[i].item || classReqs[i].information);
         const detailText = classReqs[i].details || "";
         if (itemText) {
           await query(
@@ -2599,8 +3140,8 @@ router.post("/", (req, res) => {
       const otherInfos      = parseJSONField(body.other_infos);
       const otherInfoOffset = classReqs.length;
       for (let i = 0; i < otherInfos.length; i++) {
-        const itemText = otherInfos[i].item || otherInfos[i].information || "";
-        if (itemText && itemText.trim()) {
+        const itemText = normalizeRequirementItem(otherInfos[i].item || otherInfos[i].information);
+        if (itemText) {
           await query(
             `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
             [bid, itemText, itemText, null, otherInfoOffset + i]
@@ -2707,7 +3248,7 @@ router.post("/", (req, res) => {
             status,
             exceeds: !!exceeds,
             className: primaryClass,
-            term: body.term,
+            term,
             academicYear: body.academic_year,
           }).catch((e) => console.warn("[babyeyi] district DEO notify:", e.message));
         } catch (notifyErr) {
@@ -2740,7 +3281,15 @@ router.post("/", (req, res) => {
 
     } catch (err) {
       console.error("[babyeyi/POST]", err);
-      res.status(500).json({ success: false, message: "Failed to create babyeyi", detail: err.message });
+      const detail = err?.message || String(err);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create babyeyi",
+        detail,
+        hint: detail.includes("status") || detail.includes("Data truncated")
+          ? "Server database may need a Babyeyi status migration — restart the API after deploy."
+          : undefined,
+      });
     }
   });
 });
@@ -2770,6 +3319,24 @@ router.post("/:id/regenerate-docs", async (req, res) => {
   } catch (err) {
     console.error(`[regenerate-docs] ❌ ERROR id=${id}:`, err.message);
     res.status(500).json({ success: false, message: `Regeneration failed: ${err.message}`, detail: err.stack });
+  }
+});
+
+// PATCH /api/babyeyi/:id/show-parent-message — toggle parent message on document
+router.patch("/:id/show-parent-message", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const rows = await query("SELECT id FROM school_babyeyi WHERE id=? AND is_active=1", [id]);
+    if (!rows.length) return res.status(404).json({ success: false, message: "Not found" });
+    const show = parseShowParentMessageInput(req.body, true);
+    await query("UPDATE school_babyeyi SET show_parent_message=? WHERE id=?", [show ? 1 : 0, id]);
+    res.json({
+      success: true,
+      data: { show_parent_message: show ? 1 : 0, showParentMessage: show },
+    });
+  } catch (err) {
+    console.error(`[PATCH show-parent-message] id=${id}:`, err.message);
+    res.status(500).json({ success: false, message: err.message || "Update failed" });
   }
 });
 
@@ -3008,6 +3575,9 @@ router.put("/:id", (req, res) => {
   upload(req, res, async (uploadErr) => {
     if (uploadErr) return res.status(400).json({ success: false, message: uploadErr.message });
     try {
+      const { ensureBabyeyiCoreSchema } = require('../utils/babyeyiSchema');
+      await ensureBabyeyiCoreSchema();
+
       const { id } = req.params;
       const body   = req.body;
       const files  = req.files || {};
@@ -3022,15 +3592,21 @@ router.put("/:id", (req, res) => {
       const schoolDistrict = fv(body.district, old.district || null);
       const schoolSector   = fv(body.sector,   old.sector   || null);
 
-      const newClass =
-        String(body.class || body.class_name || old.class || old.class_name || "").trim() || old.class_name;
+      const classesArrRaw = body.classes || body.classes_json || null;
+      const classesArr    = parseJSONField(classesArrRaw);
+      const fallbackClass = String(body.class || body.class_name || old.class || old.class_name || "").trim();
+      const resolvedClass = (classesArr[0] || fallbackClass || old.class_name || "").toString().trim() || old.class_name;
+      const classesJson   = classesArr.length ? JSON.stringify(classesArr) : (old.classes_json || null);
       const newTerm  = body.term          || old.term;
       const newYear  = body.academic_year || old.academic_year;
-      const level    = body.level || classToLevel(newClass);
+      const level    = normalizeNesaLevel(body.level || body.education_level, resolvedClass);
 
       const payments      = parseJSONField(body.payments);
       const totalFee      = payments.length ? payments.reduce((s, p) => s + (Number(p.amount) || 0), 0) : old.total_fee || 0;
       const parentMessage = body.parent_message !== undefined ? body.parent_message : (old.parent_message || "");
+      const showParentMessage = (body.show_parent_message !== undefined || body.showParentMessage !== undefined)
+        ? parseShowParentMessageInput(body, false)
+        : resolveShowParentMessage(old);
 
       const banksJsonRaw  = body.banks_json || body.banks || null;
       const banks         = parseJSONField(banksJsonRaw);
@@ -3057,19 +3633,19 @@ router.put("/:id", (req, res) => {
       await query(
         `UPDATE school_babyeyi SET
            school_id=?, school_province=?, school_district=?, school_sector=?,
-           academic_year=?, term=?, class_name=?,
+           academic_year=?, term=?, class_name=?, classes_json=?,
            school_category=?, education_level=?,
            payments=?, total_amount=?,
            bank_name=?, bank_account_no=?, bank_branch=?, banks_json=?,
-           parent_message=?, total_fee=?, nesa_limit=?, exceeds_limit=?, status=?
+           parent_message=?, show_parent_message=?, total_fee=?, nesa_limit=?, exceeds_limit=?, status=?
          WHERE id=?`,
         [
           schoolId, schoolProvince, schoolDistrict, schoolSector,
-          newYear, newTerm, newClass,
+          newYear, newTerm, resolvedClass, classesJson,
           categoryForRow, level,
           JSON.stringify(payments.length ? payments : parseJSONField(old.payments)), totalFee,
           bankName, bankAccountNo, bankBranch, banksJson,
-          parentMessage, totalFee, nesaLimit, exceeds ? 1 : 0, status, id,
+          parentMessage, showParentMessage ? 1 : 0, totalFee, nesaLimit, exceeds ? 1 : 0, status, id,
         ]
       );
 
@@ -3104,11 +3680,9 @@ router.put("/:id", (req, res) => {
         await query("DELETE FROM babyeyi_student_requirements WHERE babyeyi_id=?", [id]);
         for (let i = 0; i < studentReqs.length; i++) {
           const r = studentReqs[i] || {};
-          if (r.item) {
-            await insertBabyeyiStudentRequirementRow(id, r, i);
-          }
+          await insertBabyeyiStudentRequirementRow(id, r, i);
         }
-        await seedRequirementPricesFromDefaults(id, schoolId, newYear, newTerm, newClass);
+        await seedRequirementPricesFromDefaults(id, schoolId, newYear, newTerm, resolvedClass);
       }
 
       const classReqs  = parseJSONField(body.classReqs);
@@ -3116,7 +3690,7 @@ router.put("/:id", (req, res) => {
       if (classReqs.length > 0 || otherInfos.length > 0) {
         await query("DELETE FROM babyeyi_class_requirements WHERE babyeyi_id=?", [id]);
         for (let i = 0; i < classReqs.length; i++) {
-          const itemText = classReqs[i].item || classReqs[i].information || "";
+          const itemText = normalizeRequirementItem(classReqs[i].item || classReqs[i].information);
           if (itemText) {
             await query(
               `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
@@ -3126,8 +3700,8 @@ router.put("/:id", (req, res) => {
         }
         const otherInfoOffset = classReqs.length;
         for (let i = 0; i < otherInfos.length; i++) {
-          const itemText = otherInfos[i].item || otherInfos[i].information || "";
-          if (itemText && itemText.trim()) {
+          const itemText = normalizeRequirementItem(otherInfos[i].item || otherInfos[i].information);
+          if (itemText) {
             await query(
               `INSERT INTO babyeyi_class_requirements (babyeyi_id, information, item, details, sort_order) VALUES (?,?,?,?,?)`,
               [id, itemText, itemText, null, otherInfoOffset + i]
@@ -3503,8 +4077,9 @@ router.get("/pdf/:docId", async (req, res) => {
     }
 
     const fileName = rows[0].pdf_name || ("Babyeyi-" + docId + ".pdf");
+    const download = req.query.download === "1" || req.query.download === "true";
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
     res.setHeader("Cache-Control", "public, max-age=3600");
     fs.createReadStream(absPath).pipe(res);
   } catch (err) {
@@ -3515,12 +4090,43 @@ router.get("/pdf/:docId", async (req, res) => {
 
 router.get("/:id/pdf", async (req, res) => {
   try {
+    const id = req.params.id;
+    const lang = req.query.lang || "en";
+    const download = req.query.download === "1" || req.query.download === "true";
+
     const rows = await query(
       "SELECT pdf_path, pdf_name, class_name, doc_id FROM school_babyeyi WHERE id=? AND is_active=1 LIMIT 1",
-      [req.params.id]
+      [id]
     );
-    if (!rows.length || !rows[0].pdf_path) {
-      return res.status(404).json({ success: false, message: "PDF not ready yet." });
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "Document not found." });
+    }
+
+    const fileName = rows[0].pdf_name || ("Babyeyi-" + (rows[0].doc_id || id) + ".pdf");
+
+    // Always render fresh PDF from shared HTML template (matches on-screen View / Print)
+    if (puppeteerAvailable()) {
+      try {
+        const html = await buildBabyeyiPrintHtmlForBid(id, lang, { autoPrint: false });
+        if (html) {
+          const buffer = await renderHtmlToPdfBuffer(html);
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
+          res.setHeader("Cache-Control", "no-store");
+          return res.send(buffer);
+        }
+      } catch (e) {
+        console.error("[babyeyi/:id/pdf] HTML PDF render failed:", e.message);
+      }
+    }
+
+    if (!rows[0].pdf_path) {
+      return res.status(404).json({
+        success: false,
+        message: puppeteerAvailable()
+          ? "PDF render failed."
+          : "PDF not ready — install Chrome/Edge or set PUPPETEER_EXECUTABLE_PATH, then Regenerate.",
+      });
     }
 
     const absPath = path.resolve(resolveFilePath(rows[0].pdf_path));
@@ -3528,14 +4134,32 @@ router.get("/:id/pdf", async (req, res) => {
       return res.status(404).json({ success: false, message: "PDF file missing on server." });
     }
 
-    const fileName = rows[0].pdf_name || ("Babyeyi-" + (rows[0].doc_id || req.params.id) + ".pdf");
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("Content-Disposition", `${download ? "attachment" : "inline"}; filename="${fileName}"`);
     res.setHeader("Cache-Control", "public, max-age=3600");
     fs.createReadStream(absPath).pipe(res);
   } catch (err) {
     console.error("[babyeyi/:id/pdf]", err.message);
     res.status(500).json({ success: false, message: "Failed to serve PDF" });
+  }
+});
+
+// Printable HTML (same layout as server PDF — opens browser print dialog)
+router.get("/:id/print", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const lang = req.query.lang || "en";
+    const autoPrint = req.query.autoprint !== "0";
+    const html = await buildBabyeyiPrintHtmlForBid(id, lang, { autoPrint });
+    if (!html) {
+      return res.status(404).json({ success: false, message: "Document not found" });
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(html);
+  } catch (err) {
+    console.error("[babyeyi/:id/print]", err.message);
+    res.status(500).json({ success: false, message: "Failed to render print page" });
   }
 });
 
@@ -3643,3 +4267,4 @@ router.delete("/:id/leaders/:leaderId", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.initBabyeyiMigrations = initBabyeyiMigrations;

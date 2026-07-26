@@ -6,6 +6,7 @@ import { buildAssetQrValue } from './assetsQr';
 export const ASSET_EXCEL_HEADERS = [
   'asset_code',
   'location',
+  'year',
   'name',
   'label',
   'type',
@@ -43,6 +44,7 @@ export const ASSET_EXCEL_HEADERS = [
 const HEADER_ALIASES = {
   asset_code: ['asset_code', 'code', 'asset code'],
   location: ['location'],
+  year: ['year', 'register_year', 'register year'],
   name: ['name', 'asset_name', 'asset name'],
   label: ['label', 'label_tag', 'label tag'],
   type: ['type', 'asset_type', 'asset type'],
@@ -198,6 +200,7 @@ export function assetToExcelRow(asset) {
   return {
     asset_code: asset.asset_code || asset.code || '',
     location: asset.location || '',
+    year: asset.register_year != null ? asset.register_year : '',
     name: asset.asset_name || asset.name || '',
     label: asset.label_tag || '',
     type: asset.asset_type || asset.type || '',
@@ -258,6 +261,10 @@ export function excelRowToImportPayload(row) {
     category: String(r.category || '').trim() || null,
     description: String(r.description || '').trim() || null,
     location: String(r.location || '').trim(),
+    register_year: (() => {
+      const y = parseNum(r.year);
+      return Number.isFinite(y) && y >= 1900 && y <= 2100 ? Math.floor(y) : undefined;
+    })(),
     supplier_name: String(r.supplier || '').trim() || null,
     upi: String(r.upi || '').trim() || null,
     sku: String(r.sku || '').trim() || null,
@@ -323,6 +330,7 @@ export function downloadAssetImportTemplate(filename = 'asset-import-template') 
   const sample = {
     asset_code: '',
     location: 'Kimironko Main Office',
+    year: 2018,
     name: 'Sample Classroom Block',
     label: 'BLD-01',
     type: 'BUILDING',

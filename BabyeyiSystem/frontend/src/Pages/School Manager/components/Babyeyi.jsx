@@ -1,5 +1,50 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import {
+  School,
+  DollarSign,
+  ClipboardList,
+  Landmark,
+  PenLine,
+  Layers,
+  Users,
+  Eye,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Upload,
+  QrCode,
+  Copy,
+  Sparkles,
+  Shield,
+  AlertTriangle,
+  Plus,
+  X,
+  Send,
+  Info,
+  User,
+  Phone,
+  Mail,
+  Pencil,
+  ClipboardPen,
+} from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
+import ClassStreamPicker from "./ClassStreamPicker";
+import EducationLevelPicker from "./EducationLevelPicker";
+import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
+import {
+  NESA_FEE_LIMIT_LEVELS,
+  EDUCATION_LEVEL_OPTIONS,
+  inferEducationLevelFromClass,
+  inferNesaFeeLimitLevelFromClass,
+  mapToNesaLimitLevel,
+  buildClassRowMap,
+  filterClassGroupsByLevel,
+  filterLabelsByLevel,
+  pruneSelectedToLevel,
+  levelsPresentInCatalog,
+  normalizeEducationLevel,
+  mergeWithDefaultClassCatalog,
+} from "../../../utils/educationLevelClasses";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 import { useAcademic } from "../../../manager/context/AcademicContext";
 
@@ -112,30 +157,40 @@ const ic = {
   mail:    "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
   user:    "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
 };
-const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
-
-// ── NESA fee_limits `level` must match national fee table labels (same as NESA Fee Limits UI + backend classToLevel) ─
-const NESA_FEE_LIMIT_LEVELS = ["Nursery", "Primary", "Secondary", "University"];
-
-/** Map selected class label → fee_limits.level (Nursery | Primary | Secondary | University). */
-function inferNesaFeeLimitLevelFromClass(label) {
-  const raw = String(label || "").trim();
-  if (!raw) return "Primary";
-  const code = raw.match(/\b(N[123]|P[1-6]|S[1-6]|L[1-3])\b/i);
-  if (code) {
-    const c = code[1].toUpperCase();
-    if (/^N[123]$/.test(c)) return "Nursery";
-    if (/^P[1-6]$/.test(c)) return "Primary";
-    if (/^S[1-6]$/.test(c)) return "Secondary";
-    if (/^L[1-3]$/.test(c)) return "University";
+const LUCIDE_ICONS = {
+  school: School,
+  dollar: DollarSign,
+  book: ClipboardList,
+  pen: PenLine,
+  eye: Eye,
+  chevR: ChevronRight,
+  chevL: ChevronLeft,
+  plus: Plus,
+  x: X,
+  upload: Upload,
+  alert: AlertTriangle,
+  shield: Shield,
+  bank: Landmark,
+  send: Send,
+  layers: Layers,
+  info: Info,
+  check: Check,
+  qr: QrCode,
+  copy: Copy,
+  sparkle: Sparkles,
+  users: Users,
+  phone: Phone,
+  mail: Mail,
+  user: User,
+  list: ClipboardList,
+};
+const I = ({ n, size = 16, color, sw }) => {
+  const LucideIcon = LUCIDE_ICONS[n];
+  if (LucideIcon) {
+    return <LucideIcon size={size} color={color} strokeWidth={sw || 2.25} aria-hidden className="shrink-0" />;
   }
-  const u = raw.toUpperCase();
-  if (/^(N[123]|NURSERY|PRE[- ]?PRIMARY)/.test(u) || /\bN[123]\b/.test(u)) return "Nursery";
-  if (/\bP[1-6]\b/.test(u) || /^P[1-6]$/i.test(raw)) return "Primary";
-  if (/\bS[1-6]\b/.test(u)) return "Secondary";
-  if (/\b(L[1-3]|YEAR\s*1|Y1)\b/i.test(raw)) return "University";
-  return "Primary";
-}
+  return <Svg d={ic[n] || ic.info} size={size} color={color} sw={sw || 2} />;
+};
 
 /** Keep multi-select order aligned with the school catalog list. */
 function sortSelectedClassesByCatalog(selected, catalogOrder) {
@@ -227,14 +282,14 @@ const blankLeader = () => ({ name: "", role: "", phone: "", email: "" });
 
 // ── STEPS — now 8 steps ───────────────────────────────────────
 const STEPS = [
-  { id:1, label:"School & Classes", icon:"school"  },
-  { id:2, label:"Payments",         icon:"dollar"  },
-  { id:3, label:"Requirements",     icon:"book"    },
-  { id:4, label:"Bank Account",     icon:"bank"    },
-  { id:5, label:"Authorization",    icon:"pen"     },
-  { id:6, label:"Class Notes",      icon:"layers"  },
-  { id:7, label:"Leaders",          icon:"users"   },  // ← NEW
-  { id:8, label:"Preview & Submit", icon:"eye"     },  // ← was 7
+  { id: 1, label: "School & Classes", Icon: School },
+  { id: 2, label: "Payments", Icon: DollarSign },
+  { id: 3, label: "Requirements", Icon: ClipboardList },
+  { id: 4, label: "Bank Account", Icon: Landmark },
+  { id: 5, label: "Authorization", Icon: PenLine },
+  { id: 6, label: "Class Notes", Icon: Layers },
+  { id: 7, label: "Leaders", Icon: Users },
+  { id: 8, label: "Preview & Submit", Icon: Eye },
 ];
 
 const BANKS = [
@@ -244,6 +299,21 @@ const BANKS = [
 ];
 
 const blankBank = () => ({ bankName: "", accountNumber: "", accountName: "" });
+
+function resolveUseParentMessage(rec) {
+  if (rec?.showParentMessage != null) return !!rec.showParentMessage;
+  if (rec?.show_parent_message != null) return !!Number(rec.show_parent_message);
+  return !!(String(rec?.parentMessage || rec?.parent_message || "").trim());
+}
+
+function normalizeLeaderRow(l) {
+  return {
+    name:  String(l?.name || l?.leader_name || "").trim(),
+    role:  String(l?.role || l?.leader_role || "").trim(),
+    phone: String(l?.phone || "").trim(),
+    email: String(l?.email || "").trim(),
+  };
+}
 
 const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) => ({
   schoolName:           school.name      || "",
@@ -257,11 +327,12 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   otherLogo:            null,
   includeSchoolDetails: true,
   classes:              [],
+  useParentMessage:     true,
   parentMessage:        "Dear Parents and Guardians,\n\nWe are pleased to inform you of the school fees for the upcoming term. Please find the detailed breakdown below.\n\nThank you for your continued support.",
   academicYear:         academicDefaults.academicYear || "2025-2026",
   term:                 academicDefaults.term || "Term 1",
   category:             categoryOverride ?? "Public",
-  /** NESA / fee_limits row key — Nursery | Primary | Secondary | University (same as NESA Fee Limits page). */
+  /** NESA / fee_limits row key — Nursery | Primary | Secondary | TSS (Tuition Manager). */
   nesaFeeLimitLevel:    "Primary",
   /** Public = NESA smart fee checker applies (when school allows); Private = no national limit checker. */
   feeTargetStudents:    "public",
@@ -512,13 +583,14 @@ function DocPreview({ form, previews }) {
 // ════════════════════════════════════════════════════════════
 // WIZARD (create + edit — shared by full page and modals)
 // ════════════════════════════════════════════════════════════
-export function WizardContent({ session, onClose, onSuccess, editRecord = null, embedded = false }) {
+export function WizardContent({ session, onClose, onSuccess, editRecord = null, embedded = false, listTheme = false }) {
   const schoolId = session?.schoolId ?? null;
   const academic = useAcademic();
 
-  const academicYearOptions = academic.academicYears?.length
-    ? academic.academicYears
-    : (academic.academicYear ? [academic.academicYear] : ["2025-2026", "2024-2025", "2026-2027"]);
+  const academicYearOptions = useMemo(
+    () => (academic.academicYears?.length ? academic.academicYears : (academic.academicYear ? [academic.academicYear] : [])),
+    [academic.academicYears, academic.academicYear],
+  );
   const termOptions = academic.activeTerms?.length
     ? academic.activeTerms
     : ["Term 1", "Term 2", "Term 3"];
@@ -529,6 +601,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   const [toast,     setToast]     = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [errors,    setErrors]    = useState({});
+  const stepBtnRefs = useRef({});
 
   const [previews, setPreviews] = useState({
     schoolLogo:        null,
@@ -559,8 +632,58 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
+  const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
   const [editId, setEditId] = useState(editRecord?.id ?? null);
+
+  useEffect(() => {
+    stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [step]);
+
+  const classRowMap = useMemo(() => {
+    const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
+    return buildClassRowMap(merged.rows, merged.options);
+  }, [registeredClassRows, registeredClassOptions]);
+
+  const classOptions = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).options,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classRows = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).rows,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classGroups = useMemo(
+    () => buildClassGroupsFromRows(classRows, classOptions),
+    [classRows, classOptions],
+  );
+
+  const levelOptions = useMemo(
+    () => levelsPresentInCatalog(registeredClassOptions, registeredClassRows),
+    [registeredClassOptions, registeredClassRows],
+  );
+
+  const filteredClassGroups = useMemo(
+    () => filterClassGroupsByLevel(classGroups, form?.nesaFeeLimitLevel, classRowMap),
+    [classGroups, form?.nesaFeeLimitLevel, classRowMap],
+  );
+
+  const handleEducationLevelChange = useCallback((levelId) => {
+    const level = normalizeEducationLevel(levelId);
+    setForm((prev) => {
+      if (!prev) return prev;
+      const pruned = pruneSelectedToLevel(prev.classes || [], level, classOptions, classRowMap);
+      const levelLabels = filterLabelsByLevel(classOptions, level, classRowMap);
+      const nextClasses = pruned.length ? pruned : (levelLabels[0] ? [levelLabels[0]] : []);
+      return {
+        ...prev,
+        nesaFeeLimitLevel: mapToNesaLimitLevel(level),
+        classes: nextClasses,
+      };
+    });
+  }, [classOptions, classRowMap]);
 
   useEffect(() => {
     if (editRecord) return;
@@ -576,12 +699,17 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
     };
     setForm((prev) => {
       if (!prev) return buildBlankForm(schoolPayload, undefined, academicDefaults);
-      if (prev._academicFromSettings) return prev;
-      if (!academicDefaults.academicYear) return prev;
+      const validYears = academicYearOptions.length ? academicYearOptions : [academicDefaults.academicYear].filter(Boolean);
+      const nextYear = validYears.includes(prev.academicYear)
+        ? prev.academicYear
+        : (academicDefaults.academicYear || validYears[0] || prev.academicYear);
+      const nextTerm = academicDefaults.term || prev.term;
+      if (prev._academicFromSettings && prev.academicYear === nextYear && prev.term === nextTerm) return prev;
+      if (!academicDefaults.academicYear && !validYears.length) return prev;
       return {
         ...prev,
-        academicYear: academicDefaults.academicYear,
-        term: academicDefaults.term || prev.term,
+        academicYear: nextYear,
+        term: nextTerm,
         _academicFromSettings: true,
       };
     });
@@ -590,10 +718,17 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
     academic.loading,
     academic.academicYear,
     academic.currentTerm,
+    academicYearOptions,
     session?.schoolName,
     session?.schoolProvince,
     session?.schoolDistrict,
   ]);
+
+  useEffect(() => {
+    if (editRecord) return;
+    academic.refresh?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId, editRecord]);
 
   useEffect(() => {
     if (editRecord) {
@@ -641,7 +776,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
           const raw = rec.leaders;
           if (!raw) return [blankLeader()];
           const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-          return Array.isArray(arr) && arr.length ? arr : [blankLeader()];
+          if (!Array.isArray(arr) || !arr.length) return [blankLeader()];
+          return arr.map(normalizeLeaderRow);
         } catch { return [blankLeader()]; }
       })();
       const primaryBank = parsedBanks[0] || {};
@@ -664,6 +800,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         category:      rec.category      || "Public",
         language:      rec.language      || "en",
         classes:       clsList,
+        useParentMessage: resolveUseParentMessage(rec),
         parentMessage: rec.parentMessage || "",
         payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
         requirements:  parsedReqs,
@@ -798,7 +935,9 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       .then((json) => {
         if (cancelled) return;
         const opts = Array.isArray(json.class_name_options) ? json.class_name_options : [];
+        const rows = Array.isArray(json.data) ? json.data : [];
         setRegisteredClassOptions(opts);
+        setRegisteredClassRows(rows);
         if (!opts.length) return;
         setForm((prev) => {
           if (!prev) return prev;
@@ -809,14 +948,14 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             return {
               ...prev,
               classes: kept,
-              nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first),
+              nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first, classRowMap.get(first)),
             };
           }
           const first = opts[0];
           return {
             ...prev,
             classes: [first],
-            nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first),
+            nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first, classRowMap.get(first)),
           };
         });
       })
@@ -915,14 +1054,33 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
           .then(j2 => {
             if (ac.signal.aborted) return;
             const rows = Array.isArray(j2?.data) ? j2.data : [];
-            const matches = rows.filter(
+            const normLevel = String(level).toLowerCase();
+            const normTerm = String(term).trim();
+            const normYear = String(academicYear).trim();
+            const termMatches = (row) =>
+              row.term === normTerm || (normTerm !== "Full Year" && row.term === "Full Year");
+            const levelMatches = (row) =>
+              String(row.level || "").toLowerCase() === normLevel;
+            const categoryMatches = (row) => row.category === category;
+
+            let matches = rows.filter(
               (row) =>
-                row.category === category &&
-                row.level === level &&
-                row.academic_year === academicYear &&
-                (row.term === term || (term !== "Full Year" && row.term === "Full Year"))
+                categoryMatches(row) &&
+                levelMatches(row) &&
+                row.academic_year === normYear &&
+                termMatches(row)
             );
-            const m = matches.find((row) => row.term === term) || matches.find((row) => row.term === "Full Year");
+            if (!matches.length) {
+              matches = rows.filter(
+                (row) => categoryMatches(row) && levelMatches(row) && termMatches(row)
+              );
+              matches.sort((a, b) =>
+                String(b.academic_year || "").localeCompare(String(a.academic_year || ""))
+              );
+            }
+            const m =
+              matches.find((row) => row.term === normTerm) ||
+              matches.find((row) => row.term === "Full Year");
             if (m?.max_amount != null) applyLimit(m.max_amount, "backend");
             else applyNotFound();
           });
@@ -934,11 +1092,13 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 
   if (!form) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{fontFamily: "'Montserrat', sans-serif" }}>
+      <div className={embedded ? "flex flex-1 items-center justify-center min-h-[240px]" : "min-h-screen flex items-center justify-center"} style={{ fontFamily: "'Montserrat', sans-serif" }}>
         <div className="text-center">
           <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-3"
             style={{ borderColor: C.goldBgMid, borderTopColor: C.gold }}/>
-          <p className="text-sm font-semibold" style={{ color: C.goldDark }}>Loading school data…</p>
+          <p className="text-sm font-semibold" style={{ color: C.goldDark }}>
+            {editRecord ? "Loading Babyeyi…" : "Loading school data…"}
+          </p>
         </div>
       </div>
     );
@@ -984,10 +1144,6 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         showToast("Still loading your school classes…", "error");
         return;
       }
-      if (!registeredClassOptions.length) {
-        showToast("No registered classes found. Add classes in School Registry or enrol students first.", "error");
-        return;
-      }
       if (!form?.classes?.length) {
         showToast("Please select at least one class.", "error");
         return;
@@ -1007,7 +1163,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       showToast("Select at least one class before submitting.", "error");
       return;
     }
-    const classesToCreate = editId ? [allClasses[0]] : allClasses;
+    const classesToCreate = allClasses;
     const feeLimitLevel =
       form.nesaFeeLimitLevel ||
       inferNesaFeeLimitLevelFromClass(classesToCreate[0] || "");
@@ -1058,7 +1214,8 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       fd.append("cell",              form.cell      || "");
       fd.append("village",          form.village   || "");
       fd.append("language",          form.language  || "en");
-      fd.append("parent_message",    form.parentMessage || "");
+      fd.append("parent_message",    form.useParentMessage ? (form.parentMessage || "") : "");
+      fd.append("show_parent_message", form.useParentMessage ? "1" : "0");
       fd.append("bank_name",         form.bankName      || "");
       fd.append("bank_account_no",   form.accountNumber || "");
       fd.append("bank_account_name", form.accountName   || "");
@@ -1087,7 +1244,9 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       const method = editId ? "PUT" : "POST";
       const res  = await fetch(url, { method, body: fd, credentials: "include" });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) throw new Error(json.message || "Failed to save Babyeyi");
+      if (!res.ok || json.success === false) {
+        throw new Error(json.detail || json.message || "Failed to save Babyeyi");
+      }
       const savedId = json.data?.id ?? json.data?.ID ?? editId;
       if (savedId) {
         createdIds.push({
@@ -1297,6 +1456,24 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 
         return (
           <div className="space-y-4">
+            {editId && (
+              <div
+                className="rounded-2xl border px-4 py-3"
+                style={{
+                  background: listTheme ? "linear-gradient(135deg, #000435, #0a1142)" : C.goldBg,
+                  borderColor: listTheme ? "rgba(251,191,36,0.35)" : C.goldBorder,
+                }}
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: listTheme ? "#FBBF24" : C.goldDark }}>
+                  Editing existing Babyeyi
+                </p>
+                <p className="text-xs mt-1" style={{ color: listTheme ? "rgba(255,255,255,0.85)" : C.darkMid }}>
+                  All {STEPS.length} steps are open — your saved data is loaded below, including{" "}
+                  <strong>{form.classes?.length ? form.classes.join(", ") : "selected classes"}</strong>.
+                  {editRecord?.docId ? ` Document ${editRecord.docId}.` : ""}
+                </p>
+              </div>
+            )}
             <Toggle value={form.includeSchoolDetails} onChange={v => up("includeSchoolDetails", v)}
               label="Include School Details"
               sublabel="Display school name, location and logo on the printed document" />
@@ -1493,7 +1670,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                       Tuition smart checker (NESA)
                     </p>
                     <p className="text-[10px] mt-1 font-semibold leading-relaxed" style={{ color: C.darkMid }}>
-                      Use the same <strong>School category</strong> and <strong>Education level</strong> labels as on the NESA Fee Limits page so your fee cap matches the national table.
+                      Match <strong>Public</strong>, <strong>Boarding</strong>, or <strong>TVET</strong> plus education level (Nursery · Primary · Secondary · TSS) with the NESA Tuition Manager so the smart checker finds your cap.
                     </p>
                   </div>
                   <div className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #fbbf24, #d97706)" }}>
@@ -1517,21 +1694,10 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                       </select>
                     </div>
                   )}
-                  <div className={schoolKind === "government" ? "" : "sm:col-span-2"}>
-                    <label className="block text-[10px] font-black uppercase tracking-wider mb-1.5" style={{ color: "#b45309", letterSpacing: "0.08em" }}>
-                      Education level <span style={{ color: C.red }}>*</span>
-                    </label>
-                    <select
-                      value={NESA_FEE_LIMIT_LEVELS.includes(form.nesaFeeLimitLevel) ? form.nesaFeeLimitLevel : "Primary"}
-                      onChange={(e) => up("nesaFeeLimitLevel", e.target.value)}
-                      className={inp}
-                      style={{ borderColor: C.goldBorder, background: "#fffef8" }}>
-                      {NESA_FEE_LIMIT_LEVELS.map((lvl) => (
-                        <option key={lvl} value={lvl}>
-                          {lvl}
-                        </option>
-                      ))}
-                    </select>
+                  <div className={schoolKind === "government" ? "sm:col-span-2" : "sm:col-span-2"}>
+                    <p className="text-[10px] font-semibold leading-relaxed rounded-xl px-3 py-2 border" style={{ borderColor: C.goldBorder, background: "#fffef8", color: C.darkMid }}>
+                      NESA fee cap uses <strong>{form.category || "Public"}</strong> + <strong>{form.nesaFeeLimitLevel || "Primary"}</strong> + term + year (set below).
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1587,11 +1753,67 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
                       }}
                       className={inp}
                       style={{ borderColor: C.goldBorder }}>
-                      {f.opts.map(o => <option key={o}>{o}</option>)}
+                      {f.opts.map(o => (
+                        <option key={o} value={o}>
+                          {f.key === "academicYear" && o === academic.academicYear ? `${o} (Current)` : o}
+                        </option>
+                      ))}
                     </select>
                   )}
                 </div>
               ))}
+            </div>
+
+            <EducationLevelPicker
+              value={normalizeEducationLevel(form.nesaFeeLimitLevel)}
+              onChange={handleEducationLevelChange}
+              options={levelOptions.length ? levelOptions : EDUCATION_LEVEL_OPTIONS}
+              title="Education level"
+              hint="Select a level to filter classes. Use Public, Boarding, or TVET with this level — same labels as NESA Tuition Manager."
+            />
+
+            <div>
+              {registeredClassesLoading ? (
+                <p className="text-xs font-semibold flex items-center gap-2 py-8 justify-center" style={{ color: C.darkMid }}>
+                  <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Loading classes…
+                </p>
+              ) : (
+                <>
+                  <ClassStreamPicker
+                    groups={filteredClassGroups}
+                    selected={form.classes || []}
+                    onChange={(next) => {
+                      up("classes", next);
+                      if (next[0]) {
+                        up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0], classRowMap.get(next[0])));
+                      }
+                    }}
+                    sortSelected={sortSelectedClassesByCatalog}
+                    catalogOrder={classOptions}
+                    minSelected={1}
+                    colors={C}
+                    levelLabel={EDUCATION_LEVEL_OPTIONS.find((o) => o.id === normalizeEducationLevel(form.nesaFeeLimitLevel))?.label || form.nesaFeeLimitLevel}
+                    onSelectAllLevel={() => {
+                      const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
+                      up("classes", sortSelectedClassesByCatalog(labels, classOptions));
+                    }}
+                    onClearLevel={() => {
+                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
+                      up("classes", first ? [first] : []);
+                    }}
+                  />
+                  {form.classes.length > 1 && (
+                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
+                      style={{ background: C.goldBg, color: C.goldDark }}>
+                      <I n="layers" size={13} /> {form.classes.length} classes selected — one Babyeyi shared across these classes
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <div>
@@ -1604,81 +1826,26 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
               </select>
             </div>
 
-            <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
-                Select classes
-                <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — tick all that apply (registered at your school)
-                </span>
-              </label>
-              {registeredClassesLoading ? (
-                <p className="text-xs font-semibold flex items-center gap-2" style={{ color: C.darkMid }}>
-                  <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                  Loading classes…
-                </p>
-              ) : !registeredClassOptions.length ? (
-                <p className="text-xs font-semibold leading-relaxed rounded-xl px-3 py-2.5 border"
-                  style={{ background: C.amberBg, color: C.darkMid, borderColor: C.amberBord }}>
-                  No classes found. Add classes under <strong>School Registry</strong> or ensure students are enrolled so classes appear here.
-                </p>
-              ) : (
+            <div>
+              <Toggle
+                value={!!form.useParentMessage}
+                onChange={(v) => up("useParentMessage", v)}
+                label="Include Message to Parents / Guardians"
+                sublabel="Turn off to skip this section on the printed Babyeyi document"
+              />
+              {form.useParentMessage && (
                 <>
-                  {(() => {
-                    const selectedSet = new Set(form.classes || []);
-                    return (
-                  <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-0.5"
-                    style={{ borderColor: C.goldBorder, background: C.goldBg }}>
-                    {registeredClassOptions.map((c) => {
-                      const checked = selectedSet.has(c);
-                      return (
-                        <label
-                          key={c}
-                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer text-sm font-semibold transition-colors hover:bg-white/80"
-                          style={{ color: C.dark }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const cur = Array.isArray(form.classes) ? [...form.classes] : [];
-                              if (checked) {
-                                if (cur.length <= 1) return;
-                                up("classes", sortSelectedClassesByCatalog(cur.filter((x) => x !== c), registeredClassOptions));
-                              } else {
-                                up("classes", sortSelectedClassesByCatalog([...cur, c], registeredClassOptions));
-                              }
-                            }}
-                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                          />
-                          <span className="min-w-0 break-words">{c}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                    );
-                  })()}
-                  {form.classes.length > 1 && (
-                    <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
-                      style={{ background: C.goldBg, color: C.goldDark }}>
-                      <I n="layers" size={13} /> {form.classes.length} classes selected — one Babyeyi shared across these classes
-                    </div>
-                  )}
+                  <label className="block text-[10px] font-bold uppercase mb-1 mt-3 flex items-center gap-1.5" style={{ color: C.darkMid }}>
+                    Parent Message
+                    <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
+                      style={{ background: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
+                      Saved to DB ✓
+                    </span>
+                  </label>
+                  <textarea value={form.parentMessage} onChange={e => up("parentMessage", e.target.value)}
+                    rows={5} className={`${inp} resize-none`} style={{ borderColor: C.goldBorder }} />
                 </>
               )}
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold uppercase mb-1 flex items-center gap-1.5" style={{ color: C.darkMid }}>
-                Parent Message
-                <span className="px-1.5 py-0.5 rounded text-[8px] font-semibold border"
-                  style={{ background: C.goldBg, color: C.goldDark, borderColor: C.goldBorder }}>
-                  Saved to DB ✓
-                </span>
-              </label>
-              <textarea value={form.parentMessage} onChange={e => up("parentMessage", e.target.value)}
-                rows={5} className={`${inp} resize-none`} style={{ borderColor: C.goldBorder }} />
             </div>
           </div>
         );
@@ -2583,7 +2750,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
               <p className="text-[9px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.goldDark }}>Validation Checklist</p>
               {[
                 { ok:form.payments.some(p=>p.name&&p.amount),                              label:"At least one payment item",         req:true },
-                { ok:!!form.parentMessage?.trim(),                                          label:"Parent message",                    req:false },
+                { ok:form.useParentMessage ? !!form.parentMessage?.trim() : true,                  label:"Parent message",                    req:false },
                 { ok:!exceeds||!form.requestIncrease||form.requestTitle.trim().length>0,   label:"Request title (if increase)",       req:exceeds&&form.requestIncrease },
                 { ok:!exceeds||!form.requestIncrease||!!form.parentApprovalDoc,            label:"Parent approval document",          req:exceeds&&form.requestIncrease },
                 { ok:!!previews.directorSignature,                                          label:"Head Teacher signature",            req:false },
@@ -2613,6 +2780,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   };
 
   const isLast = step === STEPS.length;
+  const CurrentStepIcon = STEPS[step - 1].Icon;
 
   const goToStep = (targetId) => {
     if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
@@ -2623,16 +2791,18 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   return (
     <>
     <div
-      className={embedded ? "flex flex-col h-full min-h-0" : "min-h-screen flex items-center justify-center p-2 sm:p-4"}
+      className={
+        embedded
+          ? "flex flex-col flex-1 min-h-0 overflow-hidden w-full bg-slate-50/60"
+          : "min-h-[calc(100vh-4rem)] flex flex-col w-full"
+      }
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
-      {!embedded && (
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }
       `}</style>
-      )}
 
       {toast && (
         <div className={`fixed top-4 right-4 ${embedded ? "z-[9999]" : "z-50"} px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs`}
@@ -2646,28 +2816,31 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       )}
 
       <div
-        className={embedded ? "flex flex-col flex-1 min-h-0 bg-white overflow-hidden" : "bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"}
-        style={embedded ? undefined : { boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
+        className={
+          embedded
+            ? "flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full"
+            : "flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full max-w-6xl mx-auto shadow-sm border border-slate-200/80 rounded-2xl"
+        }>
 
         {!embedded && (
-        <div className="px-4 sm:px-6 py-4 shrink-0"
-          style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(254,191,16,0.2)" }}>
-                <span className="text-base"></span>
+        <div className="px-4 sm:px-8 py-5 shrink-0 border-b border-slate-100 bg-gradient-to-r from-[#000435] to-[#0a1142]">
+          <div className="flex items-center justify-between max-w-5xl mx-auto w-full">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#FEBF10]/15 border border-[#FEBF10]/25">
+                <ClipboardPen size={18} color="#FEBF10" strokeWidth={2.25} aria-hidden />
               </div>
-              <div>
-                <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">{editId ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
-                <p className="text-[10px]" style={{ color: C.goldLight }}>
-                  {form.schoolName || session?.schoolName || "School"} · {(form.classes && form.classes.length) ? form.classes.join(", ") : "—"} · {form.term}
+              <div className="min-w-0">
+                <h1 className="font-semibold text-white text-base sm:text-lg leading-tight truncate">
+                  {editId ? "Edit Babyeyi" : "Create Babyeyi"}
+                </h1>
+                <p className="text-[11px] text-[#FEBF10]/90 truncate mt-0.5">
+                  {form.schoolName || session?.schoolName || "School"} · {form.term} · {form.academicYear}
                 </p>
               </div>
             </div>
-            {onClose && !embedded && (
+            {onClose && (
             <button onClick={onClose}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-white rounded-xl text-[10px] font-bold"
-              style={{ background: "rgba(254,191,16,0.15)", border: "1px solid rgba(254,191,16,0.25)" }}>
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-bold border border-white/15 hover:bg-white/10">
               <I n="eye" size={11} color="white" /> View Records
             </button>
             )}
@@ -2675,55 +2848,75 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         </div>
         )}
 
-        {/* Step indicator */}
-        <div className="border-b px-3 sm:px-5 py-3 shrink-0"
-          style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
-            {STEPS.map((s,i) => (
-              <div key={s.id} className="flex items-center shrink-0">
-                <button type="button" onClick={() => (embedded ? goToStep(s.id) : (step > s.id && setStep(s.id)))}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
-                  style={step===s.id
-                    ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
-                    : step>s.id
-                    ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
-                    : { background: "#e2e8f0", color: "#94a3b8" }}>
-                  {step > s.id ? <Svg d={ic.check} size={10} color="currentColor" sw={3} /> : <I n={s.icon} size={11} />}
-                  <span className="hidden sm:inline">{s.label}</span>
-                  <span className="sm:hidden">{s.id}</span>
-                </button>
-                {i < STEPS.length-1 && <span className="mx-0.5 text-xs shrink-0" style={{ color: C.goldBorder }}>›</span>}
+        {/* Step indicator — HR-style */}
+        <div className="border-b px-4 sm:px-8 py-4 shrink-0 bg-white">
+          <div className="max-w-5xl mx-auto w-full">
+            <div className="overflow-x-auto pb-2 -mx-1 px-1 babyeyi-step-scroll">
+              <div className="flex min-w-[42rem] md:min-w-0 gap-1 md:gap-0">
+                {STEPS.map((s) => {
+                  const StepIcon = s.Icon;
+                  const done = step > s.id;
+                  const active = step === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      ref={(el) => { stepBtnRefs.current[s.id] = el; }}
+                      onClick={() => goToStep(s.id)}
+                      className={`flex-1 min-w-[4.5rem] md:min-w-0 flex flex-col items-center px-1 py-2 rounded-xl transition-colors cursor-pointer ${
+                        active ? "bg-amber-50" : "hover:bg-slate-50"
+                      }`}
+                      title={s.label}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border-2 transition-all ${
+                        active ? "bg-[#c87800] border-[#c87800] text-white" : done ? "bg-amber-50 border-[#c87800] text-[#c87800]" : "bg-white border-slate-200 text-slate-400"
+                      }`}>
+                        {done ? <Check size={14} strokeWidth={2} aria-hidden /> : <StepIcon size={14} strokeWidth={2} aria-hidden />}
+                      </div>
+                      <span className={`mt-2 text-[9px] md:text-[10px] text-center leading-tight line-clamp-2 ${active ? "text-[#c87800] font-semibold" : "text-slate-500"}`}>
+                        <span className="md:hidden">{s.id}</span>
+                        <span className="hidden md:inline">{s.label}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width:`${(step/STEPS.length)*100}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.goldDark})` }} />
+            </div>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
+              <div className="h-full bg-gradient-to-r from-[#c87800] to-[#FEBF10] transition-all duration-500" style={{ width: `${(step / STEPS.length) * 100}%` }} />
+            </div>
           </div>
         </div>
 
         {/* Step title */}
-        <div className="px-4 sm:px-6 pt-4 pb-2 shrink-0 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
-            <I n={STEPS[step-1].icon} size={13} color={C.goldDark} />
-          </span>
-          <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
-          <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
+        <div className="px-4 sm:px-8 pt-5 pb-2 shrink-0 border-b border-slate-50 bg-white">
+          <div className="max-w-5xl mx-auto w-full flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-400 uppercase tracking-[0.14em]">Step {step} of {STEPS.length}</p>
+              <h3 className="text-lg sm:text-xl text-[#000435] mt-1 font-semibold tracking-tight">{STEPS[step - 1].label}</h3>
+              <p className="text-sm text-slate-500 mt-1 hidden sm:block">
+                {step === 1 ? "Set academic context, education level, and classes for this Babyeyi." : "Complete this section to continue."}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold shrink-0 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">{step}/{STEPS.length}</span>
+          </div>
         </div>
 
         {/* Step content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 step-anim" key={step}>
-          {renderStep()}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 step-anim bg-slate-50/40" key={step}>
+          <div className="max-w-5xl mx-auto w-full">
+            {renderStep()}
+          </div>
         </div>
 
         {/* Navigation */}
-        <div className="border-t px-4 sm:px-6 py-3 flex items-center gap-2 shrink-0 bg-white"
-          style={{ borderColor: C.goldBorder }}>
+        <div className="border-t px-4 sm:px-8 py-4 flex items-center gap-3 shrink-0 bg-white">
+          <div className="max-w-5xl mx-auto w-full flex items-center gap-3">
           {step > 1 && (
             <button onClick={() => { setErrors({}); setStep(s=>s-1); }}
               className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 border rounded-xl font-semibold text-xs sm:text-sm hover:bg-slate-50"
               style={{ borderColor: C.goldBorder, color: C.darkMid }}>
-              <I n="chevL" size={14} /> <span className="hidden sm:inline">Back</span>
+              <ChevronLeft size={14} strokeWidth={2.25} aria-hidden /> <span className="hidden sm:inline">Back</span>
             </button>
           )}
           <div className="flex-1" />
@@ -2731,7 +2924,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             <button onClick={handleNext}
               className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95"
               style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
-              Next <I n="chevR" size={14} color={C.dark} />
+              Next <ChevronRight size={14} color={C.dark} strokeWidth={2.25} aria-hidden />
             </button>
           ) : (
             <button onClick={handleSave} disabled={saving || qrGenerating}
@@ -2750,6 +2943,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
               )}
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -2904,7 +3098,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
 // ════════════════════════════════════════════════════════════
 // MODAL WRAPPER
 // ════════════════════════════════════════════════════════════
-export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null }) {
+export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null, listTheme = false }) {
   useEffect(() => {
     if (isOpen) { document.body.style.overflow = "hidden"; }
     else { document.body.style.overflow = ""; }
@@ -2913,45 +3107,62 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
 
   if (!isOpen) return null;
 
+  const editClasses = editRecord
+    ? (Array.isArray(editRecord.classes) && editRecord.classes.length ? editRecord.classes : [editRecord.class]).filter(Boolean)
+    : [];
+  const editSubtitle = editRecord
+    ? [editClasses.join(", "), editRecord.term, editRecord.academicYear, editRecord.docId].filter(Boolean).join(" · ")
+    : null;
+  const headerStyle = listTheme
+    ? { background: "linear-gradient(135deg, #000435, #0a1142)" }
+    : { background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` };
+  const subtitleColor = listTheme ? "#FBBF24" : "#FED44A";
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
-      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
+      className="fixed inset-0 z-[60] flex flex-col"
+      style={{ background: listTheme ? "rgba(0,4,53,0.82)" : "rgba(10,8,0,0.75)", backdropFilter: "blur(8px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
-        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden"
+        className="flex flex-col flex-1 min-h-0 w-full bg-white overflow-hidden m-0 sm:m-3 sm:rounded-2xl sm:border sm:max-h-[calc(100dvh-1.5rem)]"
         style={{
-          maxWidth: "680px",
-          maxHeight: "94vh",
-          boxShadow: "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
+          boxShadow: listTheme
+            ? "0 30px 80px rgba(0,4,53,0.45), 0 0 0 1px rgba(251,191,36,0.2)"
+            : "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
           animation: "modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          borderColor: listTheme ? "rgba(251,191,36,0.2)" : "rgba(254,191,16,0.15)",
         }}
       >
-        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
-          style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: "rgba(254,191,16,0.2)" }}>
-              <span className="text-base">📋</span>
+        <div className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between" style={headerStyle}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: listTheme ? "rgba(251,191,36,0.18)" : "rgba(254,191,16,0.2)" }}>
+              {editRecord
+                ? <Pencil size={16} color="#FED44A" strokeWidth={2.25} aria-hidden />
+                : <ClipboardPen size={16} color="#FED44A" strokeWidth={2.25} aria-hidden />}
             </div>
-            <div>
-              <h1 className="font-black text-white text-sm sm:text-base leading-tight">{editRecord ? "Edit Babyeyi" : "Create Babyeyi"}</h1>
-              <p className="text-[10px]" style={{ color: "#FED44A" }}>
-                {session?.schoolName || "School"} — {editRecord ? "Update document" : "New document"}
+            <div className="min-w-0">
+              <h1 className="font-black text-white text-sm sm:text-base leading-tight truncate">
+                {editRecord ? "Edit Babyeyi" : "Create Babyeyi"}
+              </h1>
+              <p className="text-[10px] truncate" style={{ color: subtitleColor }}>
+                {session?.schoolName || "School"}
+                {editRecord ? (editSubtitle ? ` — ${editSubtitle}` : " — Update document") : " — New document"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20"
+            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20 shrink-0"
             style={{ color: "rgba(255,255,255,0.7)" }}
             title="Close">
-            <Svg d={ic.x} size={16} color="currentColor" />
+            <X size={16} strokeWidth={2.25} aria-hidden />
           </button>
         </div>
 
-        <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} embedded />
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <WizardContent session={session} onClose={onClose} onSuccess={onSuccess} editRecord={editRecord} embedded listTheme={listTheme} />
+        </div>
       </div>
 
       <style>{`

@@ -29,7 +29,8 @@ export function computeDepreciation({
   const accumulated = parseNum(accumulatedDepreciation)
   const ratePct = parseNum(depRatePercent)
   const decimalDep = ratePct > 0 ? ratePct / 100 : 0
-  const annualDep = balance * decimalDep
+  const depreciableBase = Math.max(0, balance - accumulated)
+  const annualDep = Math.round(depreciableBase * decimalDep)
   const totalDep = accumulated + annualDep
   const netBookValue = Math.max(0, balance - totalDep)
 

@@ -133,6 +133,7 @@ export function mapFinishedFromApi(row) {
     academic_year: row.academic_year || '',
     term: row.term || '',
     note: row.note || '',
+    created_at: row.created_at || '',
   }
 }
 

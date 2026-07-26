@@ -102,6 +102,18 @@ export async function fetchUniformIssueAnalytics(filters = {}) {
   return res.data.data
 }
 
+export async function fetchUniformIssueReportLines(filters = {}) {
+  const params = {}
+  if (filters.academic_year) params.academic_year = filters.academic_year
+  if (filters.term) params.term = filters.term
+  if (filters.class_name) params.class_name = filters.class_name
+  if (filters.from_date) params.from_date = filters.from_date
+  if (filters.to_date) params.to_date = filters.to_date
+  const res = await api.get('/store/uniform-issues/report-lines', { params })
+  if (!res.data?.success) throw new Error(res.data?.message || 'Failed to load issue lines')
+  return res.data.data || []
+}
+
 export async function fetchUniformProfitCalculation(filters = {}) {
   const res = await api.get('/store/uniform-issues/profit-calculation', { params: filters })
   if (!res.data?.success) throw new Error(res.data?.message || 'Failed to load profit calculation')

@@ -15,7 +15,9 @@ import DisciplinePortalRoutes from './discipline/PortalRoutes'
 import GateKeeperPortalRoutes from './GateKeeper/PortalRoutes'
 import RepresentativePortalRoutes from './Representative/PortalRoutes'
 import AssetsPortalRoutes from './assets_portal/PortalRoutes'
+import UniformManagerPortalRoutes from './uniform_manager_portal/PortalRoutes'
 import StudentMarkReportQR from './pages/StudentMarkReportQR'
+import ModernUiDemo from './shared/components/modern-ui/ModernUiDemo'
 
 const PRO_BASENAME = (() => {
   const raw = String(import.meta.env.VITE_APP_BASENAME || '').trim()
@@ -39,6 +41,7 @@ const ROLE_HOME_PORTAL = {
   ACCOUNTANT: 'accountant',
   STOREKEEPER: 'storekeeper',
   STORE_MANAGER: 'storekeeper',
+  UNIFORM_MANAGER: 'uniform-manager',
   ASSETS_MANAGER: 'assets',
   ASSET_MANAGER: 'assets',
   LIBRARIAN: 'librarian',
@@ -56,6 +59,7 @@ const KNOWN_ROOTS = [
   '/manager',
   '/accountant',
   '/storekeeper',
+  '/uniform-manager',
   '/assets',
   '/librarian',
   '/gatekeeper',
@@ -63,6 +67,7 @@ const KNOWN_ROOTS = [
   '/teacher',
   '/discipline',
   '/student-mark-report',
+  '/dev/modern-ui',
 ]
 
 function RoleAwareFallback() {
@@ -135,6 +140,14 @@ export default function App() {
             }
           />
           <Route
+            path="/uniform-manager/*"
+            element={
+              <ProGate portal="uniform-manager">
+                <UniformManagerPortalRoutes />
+              </ProGate>
+            }
+          />
+          <Route
             path="/librarian/*"
             element={
               <ProGate portal="librarian">
@@ -175,6 +188,7 @@ export default function App() {
             }
           />
           <Route path="/student-mark-report/:snapshotId" element={<StudentMarkReportQR />} />
+          <Route path="/dev/modern-ui" element={<ModernUiDemo />} />
           <Route path="*" element={<RoleAwareFallback />} />
         </Routes>
       </MasterAuthProvider>

@@ -1,5 +1,36 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import {
+  School,
+  DollarSign,
+  ClipboardList,
+  Landmark,
+  PenLine,
+  Layers,
+  Users,
+  Eye,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardPen,
+  Pencil,
+  X,
+} from "lucide-react";
 import BabyeyiList from "./BabyeyiList";
+import ClassStreamPicker from "../../components/ClassStreamPicker";
+import EducationLevelPicker from "../../components/EducationLevelPicker";
+import { buildClassGroupsFromRows } from "../../../utils/classStreamGroups";
+import {
+  EDUCATION_LEVEL_OPTIONS,
+  inferNesaFeeLimitLevelFromClass,
+  mapToNesaLimitLevel,
+  buildClassRowMap,
+  filterClassGroupsByLevel,
+  filterLabelsByLevel,
+  pruneSelectedToLevel,
+  levelsPresentInCatalog,
+  normalizeEducationLevel,
+  mergeWithDefaultClassCatalog,
+} from "../../../utils/educationLevelClasses";
 import { mapSchoolOwnershipToFeeScope, categoryOptionsForWizard } from "./babyeyiWizardSchoolScope";
 import {
   BANK_OTHERS_VALUE,
@@ -15,9 +46,12 @@ import {
   resolveBankNameForSave,
   serializeSchoolDescriptionLines,
 } from "./babyeyiWizardHelpers";
+import { NESA_LIMITS } from "./utils/constants";
 import { useAcademic } from "../../context/AcademicContext";
 
 import { API_BASE, SERVER_BASE as ASSET_BASE } from '../../lib/schoolLiteApi';
+
+const FONT = `"Montserrat", sans-serif`;
 
 const toAssetUrl = (path) => {
   if (!path) return null;
@@ -61,7 +95,7 @@ const C = {
   goldBg:      "#FFFDF3",
   goldBgMid:   "#FFF6CC",
   goldBorder:  "#FFE58A",
-  dark:        "#1F2937",
+  dark:        "#000435",
   darkMid:     "#4B5563",
   emerald:     "#10B981",
   emeraldDark: "#047857",
@@ -128,7 +162,7 @@ const ic = {
 };
 const I = ({ n, size = 16, color }) => <Svg d={ic[n] || ic.info} size={size} color={color} />;
 
-// ── NESA fee_limits `level` must match national fee table labels ───────────
+// ── Babyeyi document education_level (display / PDF) ───────────────────────
 function inferEducationLevelFromClassLabel(label) {
   const raw = String(label || "").trim();
   if (!raw) return "Primary Education";
@@ -231,14 +265,14 @@ const blankLeader = () => ({ name: "", role: "", phone: "", email: "" });
 
 // ── STEPS — now 8 steps ───────────────────────────────────────
 const STEPS = [
-  { id:1, label:"School & Classes", icon:"school"  },
-  { id:2, label:"Payments",         icon:"dollar"  },
-  { id:3, label:"Requirements",     icon:"book"    },
-  { id:4, label:"Bank Account",     icon:"bank"    },
-  { id:5, label:"Authorization",    icon:"pen"     },
-  { id:6, label:"Class Notes",      icon:"layers"  },
-  { id:7, label:"Leaders",          icon:"users"   },  // ← NEW
-  { id:8, label:"Preview & Submit", icon:"eye"     },  // ← was 7
+  { id: 1, label: "School & Classes", Icon: School },
+  { id: 2, label: "Payments", Icon: DollarSign },
+  { id: 3, label: "Requirements", Icon: ClipboardList },
+  { id: 4, label: "Bank Account", Icon: Landmark },
+  { id: 5, label: "Authorization", Icon: PenLine },
+  { id: 6, label: "Class Notes", Icon: Layers },
+  { id: 7, label: "Leaders", Icon: Users },
+  { id: 8, label: "Preview & Submit", Icon: Eye },
 ];
 
 const BANKS = [
@@ -269,6 +303,7 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   category:             categoryOverride ?? "Public",
   /** Public = NESA smart fee checker applies (when school allows); Private = no national limit checker. */
   feeTargetStudents:    "public",
+  nesaFeeLimitLevel:    "Primary",
   language:             "en",
   payments:             [{ name:"Tuition Fee", amount:"", pay_channel: "babyeyi" },{ name:"Activity Fee", amount:"", pay_channel: "babyeyi" }],
   requestIncrease:      false,
@@ -292,6 +327,112 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   // ── NEW: school leaders ────────────────────────────────────
   leaders:              [blankLeader()],
 });
+
+function hydrateFormFromEditRecord(rec, session = {}) {
+  const parsedPayments = (() => {
+    try {
+      const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
+      if (!Array.isArray(raw)) return [];
+      return raw.map((p) => ({
+        name: p?.name ?? "",
+        amount: p?.amount != null && p?.amount !== "" ? String(p.amount) : "",
+        pay_channel:
+          String(p?.pay_channel || p?.payChannel || "babyeyi").toLowerCase() === "school" ? "school" : "babyeyi",
+      }));
+    } catch {
+      return [];
+    }
+  })();
+
+  const parsedReqs = (Array.isArray(rec.requirements) ? rec.requirements : []).map((r) => ({
+    item: r?.item ?? "",
+    description: r?.description ?? "",
+    quantity: r?.quantity ?? "",
+    pay_channel: String(r?.pay_channel ?? r?.payChannel ?? "").toLowerCase() === "school" ? "school" : "babyeyi",
+    cost: r?.cost != null && r.cost !== "" ? String(r.cost) : "",
+  }));
+
+  const parsedOtherInfos = Array.isArray(rec.otherInfos) ? rec.otherInfos : [];
+  const parsedClassNotes = Array.isArray(rec.classNotes) ? rec.classNotes : [];
+
+  const parsedBanks = (() => {
+    try {
+      const b = typeof rec.banksJson === "string" ? JSON.parse(rec.banksJson) : (rec.banksJson || []);
+      return Array.isArray(b) ? b : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const parsedLeaders = (() => {
+    try {
+      const raw = rec.leaders;
+      if (!raw) return [blankLeader()];
+      const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (!Array.isArray(arr) || !arr.length) return [blankLeader()];
+      return arr.map((l) => ({
+        name: l?.name ?? l?.leader_name ?? "",
+        role: l?.role ?? l?.leader_role ?? "",
+        phone: l?.phone ?? "",
+        email: l?.email ?? "",
+      }));
+    } catch {
+      return [blankLeader()];
+    }
+  })();
+
+  const classes =
+    Array.isArray(rec.classes) && rec.classes.length ? rec.classes : rec.class ? [rec.class] : [];
+
+  const primaryBank = parsedBanks[0] || {};
+  const extraBanks = parsedBanks.slice(1);
+  const firstClass = classes[0] || "";
+
+  return {
+    ...buildBlankForm({ name: rec.schoolName || session?.schoolName || "" }),
+    schoolName: rec.schoolName || session?.schoolName || "",
+    province: rec.province || session?.schoolProvince || "",
+    district: rec.district || session?.schoolDistrict || "",
+    sector: rec.sector || "",
+    academicYear: rec.academicYear || "2025-2026",
+    term: rec.term || "Term 1",
+    category: rec.category || "Public",
+    language: rec.language || "en",
+    classes,
+    nesaFeeLimitLevel: mapToNesaLimitLevel(
+      normalizeEducationLevel(rec.level || inferEducationLevelFromClassLabel(firstClass)),
+    ),
+    parentMessage: rec.parentMessage || "",
+    payments: parsedPayments.length
+      ? parsedPayments
+      : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
+    requirements: parsedReqs.length
+      ? parsedReqs
+      : [{ item: "", description: "", quantity: "", pay_channel: "babyeyi", cost: "" }],
+    classReqs: parsedClassNotes.length
+      ? parsedClassNotes.map((n) => ({ item: n.item || "", details: n.details || "" }))
+      : [{ item: "", details: "" }],
+    otherInfos: parsedOtherInfos.length
+      ? parsedOtherInfos.map((o) => ({ item: o.item || o.information || "" }))
+      : [{ item: "" }],
+    bankName: primaryBank.bankName || rec.bankName || "",
+    accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
+    accountName: primaryBank.accountName || rec.bankAccountName || "",
+    extraBankAccounts: extraBanks,
+    leaders: parsedLeaders,
+    feeTargetStudents: rec.feeTargetStudents || "public",
+    schoolLogo: null,
+    otherLogo: null,
+    directorSignature: null,
+    stamp: null,
+    requestIncrease: false,
+    requestTitle: "",
+    requestReasons: [],
+    requestDescription: "",
+    dateSigned: "",
+    _isEditHydrated: true,
+  };
+}
 
 // ── Shared Input Styles ───────────────────────────────────────
 const inp    = `w-full px-3 py-2.5 bg-white border border-amber-200 rounded-xl text-sm text-slate-800 outline-none transition-all placeholder:text-slate-300`;
@@ -519,21 +660,25 @@ function DocPreview({ form, previews }) {
 }
 
 // ════════════════════════════════════════════════════════════
-// MAIN APP
+// MAIN WIZARD — create (page) or edit (modal)
 // ════════════════════════════════════════════════════════════
-export default function App({ session }) {
+export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, layout = "page" }) {
   const schoolId = session?.schoolId ?? null;
   const academic = useAcademic();
+  const isModal = layout === "modal";
+  const [editId, setEditId] = useState(editRecord?.id ?? null);
 
-  const academicYearOptions = academic.academicYears?.length
-    ? academic.academicYears
-    : (academic.academicYear ? [academic.academicYear] : ["2025-2026", "2024-2025", "2026-2027"]);
+  const academicYearOptions = useMemo(
+    () => (academic.academicYears?.length ? academic.academicYears : (academic.academicYear ? [academic.academicYear] : [])),
+    [academic.academicYears, academic.academicYear],
+  );
   const termOptions = academic.activeTerms?.length
     ? academic.activeTerms
     : ["Term 1", "Term 2", "Term 3"];
 
   const [view,      setView]      = useState("wizard");
   const [step,      setStep]      = useState(1);
+  const stepBtnRefs = useRef({});
   const [form,      setForm]      = useState(null);
   const [saving,    setSaving]    = useState(false);
   const [toast,     setToast]     = useState(null);
@@ -569,9 +714,81 @@ export default function App({ session }) {
   const [studentReqCatalogError, setStudentReqCatalogError] = useState(null);
   /** Distinct class labels from school_classes + students (GET /api/schools/:id/classes). */
   const [registeredClassOptions, setRegisteredClassOptions] = useState([]);
+  const [registeredClassRows, setRegisteredClassRows] = useState([]);
   const [registeredClassesLoading, setRegisteredClassesLoading] = useState(false);
 
   useEffect(() => {
+    stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [step]);
+
+  useEffect(() => {
+    if (!editRecord?.id) return;
+    setForm(hydrateFormFromEditRecord(editRecord, session));
+    setEditId(editRecord.id);
+    const logo = toAssetUrl(editRecord.schoolLogoPath);
+    const sig = toAssetUrl(editRecord.signaturePath);
+    const stamp = toAssetUrl(editRecord.stampPath);
+    const other = toAssetUrl(editRecord.otherLogoPath);
+    setPreviews({
+      schoolLogo: logo,
+      otherLogo: other,
+      directorSignature: sig,
+      stamp,
+    });
+    setDbAssets({
+      schoolLogo: !!logo,
+      directorSignature: !!sig,
+      stamp: !!stamp,
+    });
+  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+
+  const classRowMap = useMemo(() => {
+    const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
+    return buildClassRowMap(merged.rows, merged.options);
+  }, [registeredClassRows, registeredClassOptions]);
+
+  const classOptions = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).options,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classRows = useMemo(
+    () => mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows).rows,
+    [registeredClassRows, registeredClassOptions],
+  );
+
+  const classGroups = useMemo(
+    () => buildClassGroupsFromRows(classRows, classOptions),
+    [classRows, classOptions],
+  );
+
+  const levelOptions = useMemo(
+    () => levelsPresentInCatalog(registeredClassOptions, registeredClassRows),
+    [registeredClassOptions, registeredClassRows],
+  );
+
+  const filteredClassGroups = useMemo(
+    () => filterClassGroupsByLevel(classGroups, form?.nesaFeeLimitLevel, classRowMap),
+    [classGroups, form?.nesaFeeLimitLevel, classRowMap],
+  );
+
+  const handleEducationLevelChange = useCallback((levelId) => {
+    const level = normalizeEducationLevel(levelId);
+    setForm((prev) => {
+      if (!prev) return prev;
+      const pruned = pruneSelectedToLevel(prev.classes || [], level, classOptions, classRowMap);
+      const levelLabels = filterLabelsByLevel(classOptions, level, classRowMap);
+      const nextClasses = pruned.length ? pruned : (levelLabels[0] ? [levelLabels[0]] : []);
+      return {
+        ...prev,
+        nesaFeeLimitLevel: mapToNesaLimitLevel(level),
+        classes: nextClasses,
+      };
+    });
+  }, [classOptions, classRowMap]);
+
+  useEffect(() => {
+    if (editId || editRecord?.id) return;
     if (academic.loading) return;
     const schoolPayload = {
       name:     session?.schoolName     ?? "",
@@ -584,12 +801,17 @@ export default function App({ session }) {
     };
     setForm((prev) => {
       if (!prev) return buildBlankForm(schoolPayload, undefined, academicDefaults);
-      if (prev._academicFromSettings) return prev;
-      if (!academicDefaults.academicYear) return prev;
+      const validYears = academicYearOptions.length ? academicYearOptions : [academicDefaults.academicYear].filter(Boolean);
+      const nextYear = validYears.includes(prev.academicYear)
+        ? prev.academicYear
+        : (academicDefaults.academicYear || validYears[0] || prev.academicYear);
+      const nextTerm = academicDefaults.term || prev.term;
+      if (prev._academicFromSettings && prev.academicYear === nextYear && prev.term === nextTerm) return prev;
+      if (!academicDefaults.academicYear && !validYears.length) return prev;
       return {
         ...prev,
-        academicYear: academicDefaults.academicYear,
-        term: academicDefaults.term || prev.term,
+        academicYear: nextYear,
+        term: nextTerm,
         _academicFromSettings: true,
       };
     });
@@ -597,10 +819,18 @@ export default function App({ session }) {
     academic.loading,
     academic.academicYear,
     academic.currentTerm,
+    academicYearOptions,
     session?.schoolName,
     session?.schoolProvince,
     session?.schoolDistrict,
+    editId,
+    editRecord?.id,
   ]);
+
+  useEffect(() => {
+    academic.refresh?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolId]);
 
   useEffect(() => {
     if (!schoolId) return;
@@ -650,8 +880,8 @@ export default function App({ session }) {
             cell:        info.cell          || base.cell        || "",
             village:     info.village       || base.village     || "",
             accountName: base.accountName   || info.school_name || "",
-            feeTargetStudents,
-            category:    nextCategory,
+            feeTargetStudents: base._isEditHydrated ? base.feeTargetStudents : feeTargetStudents,
+            category:    base._isEditHydrated ? base.category : nextCategory,
           };
         });
         const logoUrl = toAssetUrl(info.logo_url);
@@ -686,18 +916,29 @@ export default function App({ session }) {
       .then((json) => {
         if (cancelled) return;
         const opts = Array.isArray(json.class_name_options) ? json.class_name_options : [];
+        const rows = Array.isArray(json.data) ? json.data : [];
         setRegisteredClassOptions(opts);
-        if (!opts.length) return;
+        setRegisteredClassRows(rows);
+        const merged = mergeWithDefaultClassCatalog(opts, rows);
+        const catalog = merged.options;
+        if (!catalog.length) return;
         setForm((prev) => {
           if (!prev) return prev;
           const prevArr = Array.isArray(prev.classes) ? prev.classes : [];
-          const kept = sortSelectedClassesByCatalog(prevArr, opts);
-          if (kept.length) return { ...prev, classes: kept };
-          return { ...prev, classes: [opts[0]] };
+          const kept = sortSelectedClassesByCatalog(prevArr, catalog);
+          if (kept.length) {
+            return { ...prev, classes: kept, nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(kept[0]) };
+          }
+          if ((editId || prev._isEditHydrated) && prevArr.length) return prev;
+          const first = catalog[0];
+          return { ...prev, classes: [first], nesaFeeLimitLevel: inferNesaFeeLimitLevelFromClass(first) };
         });
       })
       .catch(() => {
-        if (!cancelled) setRegisteredClassOptions([]);
+        if (!cancelled) {
+          setRegisteredClassOptions([]);
+          setRegisteredClassRows([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setRegisteredClassesLoading(false);
@@ -774,7 +1015,7 @@ export default function App({ session }) {
       return;
     }
     const { category, term, academicYear } = form;
-    const level = inferEducationLevelFromClassLabel(form.classes?.[0] || "");
+    const level = form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(form.classes?.[0] || "");
     if (!category || !term || !academicYear) return;
     setNesaLimit(null);
     setNesaLimitSource("loading");
@@ -783,28 +1024,64 @@ export default function App({ session }) {
     const ac = new AbortController();
     const applyLimit    = (max, src) => { if (!ac.signal.aborted) { setNesaLimit(Number(max)); setNesaLimitSource(src); } };
     const applyNotFound = ()         => { if (!ac.signal.aborted) { setNesaLimit(null); setNesaLimitSource("none"); } };
+    const applyFallback = () => {
+      const key = `${category}-${level}`;
+      const fallback = NESA_LIMITS[key];
+      if (fallback != null) applyLimit(fallback, "default");
+      else applyNotFound();
+    };
     fetch(`${API_BASE}/babyeyi/nesa-limit?${qp}`, { credentials:"include", signal:ac.signal })
       .then(r => r.json())
       .then(json => {
         if (ac.signal.aborted) return;
         if (json.success && json.data?.max_amount != null) { applyLimit(json.data.max_amount, "backend"); return; }
-        return fetch(`${API_BASE}/fee-limits?${qp}&limit=1&active=1`, { credentials:"include", signal:ac.signal })
+        return fetch(
+          `${API_BASE}/fee-limits?category=${encodeURIComponent(category)}&level=${encodeURIComponent(level)}&academic_year=${encodeURIComponent(academicYear)}&active=1&limit=50`,
+          { credentials: "include", signal: ac.signal }
+        )
           .then(r2 => r2.json())
           .then(j2 => {
             if (ac.signal.aborted) return;
-            const m = j2?.data?.find(row => row.category===category && row.level===level && row.term===term && row.academic_year===academicYear);
+            const rows = Array.isArray(j2?.data) ? j2.data : [];
+            const normLevel = String(level).toLowerCase();
+            const normTerm = String(term).trim();
+            const normYear = String(academicYear).trim();
+            const termMatches = (row) =>
+              row.term === normTerm || (normTerm !== "Full Year" && row.term === "Full Year");
+            const levelMatches = (row) =>
+              String(row.level || "").toLowerCase() === normLevel;
+            const categoryMatches = (row) => row.category === category;
+
+            let matches = rows.filter(
+              (row) =>
+                categoryMatches(row) &&
+                levelMatches(row) &&
+                row.academic_year === normYear &&
+                termMatches(row)
+            );
+            if (!matches.length) {
+              matches = rows.filter(
+                (row) => categoryMatches(row) && levelMatches(row) && termMatches(row)
+              );
+              matches.sort((a, b) =>
+                String(b.academic_year || "").localeCompare(String(a.academic_year || ""))
+              );
+            }
+            const m =
+              matches.find((row) => row.term === normTerm) ||
+              matches.find((row) => row.term === "Full Year");
             if (m?.max_amount != null) applyLimit(m.max_amount, "backend");
-            else applyNotFound();
+            else applyFallback();
           });
       })
-      .catch(err => { if (err?.name !== "AbortError") applyNotFound(); })
+      .catch(err => { if (err?.name !== "AbortError") applyFallback(); })
       .finally(() => { if (!ac.signal.aborted) setNesaLimitLoading(false); });
     return () => ac.abort();
-  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, schoolFeeScope]);
+  }, [form?.category, form?.classes, form?.term, form?.academicYear, form?.feeTargetStudents, form?.nesaFeeLimitLevel, schoolFeeScope]);
 
   if (!form) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: FONT }}>
         <div className="text-center">
           <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-3"
             style={{ borderColor: C.goldBgMid, borderTopColor: C.gold }}/>
@@ -816,7 +1093,7 @@ export default function App({ session }) {
 
   if (!schoolId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ fontFamily: FONT }}>
         <div className="bg-white rounded-2xl border-2 border-red-200 p-8 max-w-md text-center shadow-lg">
           <div className="text-4xl mb-4">⚠️</div>
           <h2 className="font-semibold text-lg mb-2" style={{ color: C.red }}>Session Error</h2>
@@ -838,6 +1115,9 @@ export default function App({ session }) {
   const validateStep2 = () => {
     const errs = {};
     if (!form.payments.some(p => p.name && p.amount)) errs.payments = "At least one payment item required";
+    if (nesaApplies && exceeds && !form.requestIncrease) {
+      errs.nesaApproval = "Request increase approval is required when fee exceeds the NESA limit";
+    }
     if (exceeds && form.requestIncrease) {
       if (!form.requestTitle.trim())       errs.requestTitle       = "Request title is required";
       if (!form.requestDescription.trim()) errs.requestDescription = "Description is required";
@@ -852,10 +1132,6 @@ export default function App({ session }) {
     if (step === 1) {
       if (registeredClassesLoading) {
         showToast("Still loading your school classes…", "error");
-        return;
-      }
-      if (!registeredClassOptions.length) {
-        showToast("No registered classes found. Add classes in School Registry or enrol students first.", "error");
         return;
       }
       if (!form?.classes?.length) {
@@ -878,6 +1154,16 @@ export default function App({ session }) {
       return;
     }
     const derivedEducationLevel = inferEducationLevelFromClassLabel(classesToCreate[0]);
+    const nesaLimitLevel = form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(classesToCreate[0]);
+    if (nesaApplies && exceeds && !form.requestIncrease) {
+      showToast(
+        "Fee exceeds the NESA limit. Turn on Request Increase Approval and submit documents for DEO and NESA review before PDF or WhatsApp sharing.",
+        "error"
+      );
+      setShowIncreaseModal(true);
+      return;
+    }
+
     setSaving(true);
     const createdIds = [];
 
@@ -916,7 +1202,7 @@ export default function App({ session }) {
       fd.append("class",             primaryClass);
       fd.append("classes",           JSON.stringify(classesToCreate));
       fd.append("education_level",   derivedEducationLevel);
-      fd.append("level",             derivedEducationLevel);
+      fd.append("level",             nesaLimitLevel);
       fd.append("school_category",   form.category);
       fd.append("category",          form.category);
       fd.append(
@@ -970,12 +1256,17 @@ export default function App({ session }) {
       if (form.parentApprovalDoc instanceof File) fd.append("parent_rep_doc",     form.parentApprovalDoc);
       if (form.schoolBudgetDoc   instanceof File) fd.append("budget_doc",         form.schoolBudgetDoc);
 
-      const res  = await fetch(`${API_BASE}/babyeyi`, { method: "POST", body: fd, credentials: "include" });
+      const url = editId ? `${API_BASE}/babyeyi/${editId}` : `${API_BASE}/babyeyi`;
+      const method = editId ? "PUT" : "POST";
+      const res  = await fetch(url, { method, body: fd, credentials: "include" });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || json.success === false) throw new Error(json.message || "Failed to save Babyeyi");
-      if (json.data?.id) createdIds.push({ id: json.data.id, classes: classesToCreate });
+      if (!res.ok || json.success === false) {
+        throw new Error(json.detail || json.message || "Failed to save Babyeyi");
+      }
+      const savedId = json.data?.id || editId;
+      if (savedId) createdIds.push({ id: savedId, classes: classesToCreate });
 
-      showToast("Babyeyi saved successfully!", "success");
+      showToast(editId ? "Babyeyi updated successfully!" : "Babyeyi saved successfully!", "success");
       setQrGenerating(true);
 
       const qrResults = [];
@@ -995,6 +1286,11 @@ export default function App({ session }) {
       }
       setGeneratedQRCodes(qrResults);
       setQrGenerating(false);
+      if (isModal) {
+        if (onSuccess) onSuccess(json.data || { id: savedId });
+        if (onClose) onClose();
+        return;
+      }
       setSubmitted(true);
     } catch (e) {
       console.error(e);
@@ -1009,16 +1305,20 @@ export default function App({ session }) {
   if (submitted) {
     return (
       <div className="min-h-screen flex items-start justify-center p-6 overflow-y-auto"
-        style={{ background: `linear-gradient(135deg, ${C.goldBg}, #fff, ${C.goldBgMid})`, fontFamily: "'Montserrat', sans-serif" }}>
+        style={{ background: `linear-gradient(135deg, ${C.goldBg}, #fff, ${C.goldBgMid})`, fontFamily: FONT }}>
         <div className="text-center max-w-lg w-full py-6">
           <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-sm"
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, boxShadow: "0 8px 30px rgba(254,191,16,0.45)" }}>
             <Svg d={ic.check} size={36} color={C.dark} sw={3} />
           </div>
-          <h2 className="text-2xl font-semibold mb-2" style={{ color: C.dark }}>Babyeyi Generated!</h2>
+          <h2 className="text-2xl font-semibold mb-2" style={{ color: C.dark }}>
+            {editId ? "Babyeyi Updated!" : "Babyeyi Generated!"}
+          </h2>
           <p className="text-slate-500 text-sm mb-4">
-            {form.classes.length} record{form.classes.length > 1 ? "s" : ""} created for:{" "}
-            <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong>
+            {editId
+              ? <>Changes saved for <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong></>
+              : <>{form.classes.length} record{form.classes.length > 1 ? "s" : ""} created for:{" "}
+                  <strong style={{ color: C.goldDark }}>{form.classes.join(", ")}</strong></>}
           </p>
 
           {qrGenerating ? (
@@ -1092,6 +1392,14 @@ export default function App({ session }) {
               </div>
             ))}
           </div>
+          {(isModal || editId) ? (
+            <button
+              onClick={() => { if (onClose) onClose(); }}
+              className="px-5 py-2.5 rounded-2xl font-bold shadow-lg text-sm transition-all hover:opacity-90"
+              style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
+              Close
+            </button>
+          ) : (
           <button onClick={() => {
             const nextCat =
               schoolKind === "private" ? "Private"
@@ -1106,7 +1414,7 @@ export default function App({ session }) {
               feeTargetStudents: schoolKind === "private" ? "private" : "public",
               category: schoolKind === "government_aided" ? "Public" : nextCat,
             });
-            setSubmitted(false); setStep(1); setErrors({}); setGeneratedQRCodes([]);
+            setSubmitted(false); setStep(1); setErrors({}); setGeneratedQRCodes([]); setEditId(null);
             setDbAssets({ schoolLogo:false, directorSignature:false, stamp:false });
             setPreviews({ schoolLogo:null, otherLogo:null, directorSignature:null, stamp:null });
           }}
@@ -1114,14 +1422,15 @@ export default function App({ session }) {
             style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
             Create Another
           </button>
+          )}
         </div>
       </div>
     );
   }
 
-  if (view === "list") {
+  if (!isModal && view === "list") {
     return (
-      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: "'Montserrat', sans-serif" }}>
+      <div className="min-h-screen" style={{ background: C.goldBg, fontFamily: FONT }}>
         <div className="fixed top-3 left-3 z-50">
           <button onClick={() => setView("wizard")}
             className="flex items-center gap-2 px-3 py-2 bg-white border text-slate-700 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-100"
@@ -1418,7 +1727,9 @@ export default function App({ session }) {
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-slate-700">
                   <I n="school" size={16} color="#fff" />
                 </div>
-                
+                <p className="text-[11px] font-semibold leading-snug" style={{ color: C.darkMid }}>
+                  Private school — national NESA fee limit checker is not used for this Babyeyi.
+                </p>
               </div>
             )}
 
@@ -1470,69 +1781,57 @@ export default function App({ session }) {
                       }}
                       className={inp}
                       style={{ borderColor: C.goldBorder }}>
-                      {f.opts.map(o => <option key={o}>{o}</option>)}
+                      {f.opts.map(o => (
+                        <option key={o} value={o}>
+                          {f.key === "academicYear" && o === academic.academicYear ? `${o} (Current)` : o}
+                        </option>
+                      ))}
                     </select>
                   )}
                 </div>
               ))}
             </div>
 
+            <EducationLevelPicker
+              value={normalizeEducationLevel(form.nesaFeeLimitLevel)}
+              onChange={handleEducationLevelChange}
+              options={levelOptions.length ? levelOptions : EDUCATION_LEVEL_OPTIONS}
+              title="Education level"
+              hint="Select a level to filter classes. Use Public, Boarding, or TVET with this level — same labels as NESA Tuition Manager."
+            />
 
-            <div className="bg-white border rounded-2xl p-4" style={{ borderColor: C.goldBorder }}>
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.darkMid }}>
-                Select classes
-                <span className="ml-2 font-normal normal-case text-[10px]" style={{ color: C.goldDark }}>
-                  — tick all that apply (registered at your school)
-                </span>
-              </label>
+            <div>
               {registeredClassesLoading ? (
-                <p className="text-xs font-semibold flex items-center gap-2" style={{ color: C.darkMid }}>
+                <p className="text-xs font-semibold flex items-center gap-2 py-8 justify-center" style={{ color: C.darkMid }}>
                   <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" style={{ color: C.goldDark }}>
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                   </svg>
                   Loading classes…
                 </p>
-              ) : !registeredClassOptions.length ? (
-                <p className="text-xs font-semibold leading-relaxed rounded-xl px-3 py-2.5 border"
-                  style={{ background: C.amberBg, color: C.darkMid, borderColor: C.amberBord }}>
-                  No classes found. Add classes under <strong>School Registry</strong> or ensure students are enrolled so classes appear here.
-                </p>
               ) : (
                 <>
-                  {(() => {
-                    const selectedSet = new Set(form.classes || []);
-                    return (
-                  <div className="max-h-52 overflow-y-auto rounded-xl border p-2 space-y-0.5"
-                    style={{ borderColor: C.goldBorder, background: C.goldBg }}>
-                    {registeredClassOptions.map((c) => {
-                      const checked = selectedSet.has(c);
-                      return (
-                        <label
-                          key={c}
-                          className="flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-pointer text-sm font-semibold transition-colors hover:bg-white/80"
-                          style={{ color: C.dark }}>
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => {
-                              const cur = Array.isArray(form.classes) ? [...form.classes] : [];
-                              if (checked) {
-                                if (cur.length <= 1) return;
-                                up("classes", sortSelectedClassesByCatalog(cur.filter((x) => x !== c), registeredClassOptions));
-                              } else {
-                                up("classes", sortSelectedClassesByCatalog([...cur, c], registeredClassOptions));
-                              }
-                            }}
-                            className="size-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500 shrink-0"
-                          />
-                          <span className="min-w-0 break-words">{c}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                    );
-                  })()}
+                  <ClassStreamPicker
+                    groups={filteredClassGroups}
+                    selected={form.classes || []}
+                    onChange={(next) => {
+                      up("classes", next);
+                      if (next[0]) up("nesaFeeLimitLevel", inferNesaFeeLimitLevelFromClass(next[0], classRowMap.get(next[0])));
+                    }}
+                    sortSelected={sortSelectedClassesByCatalog}
+                    catalogOrder={classOptions}
+                    minSelected={1}
+                    colors={C}
+                    levelLabel={EDUCATION_LEVEL_OPTIONS.find((o) => o.id === normalizeEducationLevel(form.nesaFeeLimitLevel))?.label || form.nesaFeeLimitLevel}
+                    onSelectAllLevel={() => {
+                      const labels = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap);
+                      up("classes", sortSelectedClassesByCatalog(labels, classOptions));
+                    }}
+                    onClearLevel={() => {
+                      const first = filterLabelsByLevel(classOptions, form.nesaFeeLimitLevel, classRowMap)[0];
+                      up("classes", first ? [first] : []);
+                    }}
+                  />
                   {form.classes.length > 1 && (
                     <div className="mt-3 flex items-center gap-2 text-xs font-semibold rounded-xl px-3 py-2"
                       style={{ background: C.goldBg, color: C.goldDark }}>
@@ -1585,8 +1884,8 @@ export default function App({ session }) {
                   <p className="font-semibold text-white text-sm">Tuition Smart Checker</p>
                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.75)" }}>
                     {nesaLimitLoading ? "Fetching limit…"
-                      : nesaLimitSource === "none" ? `No fee limit configured for ${inferEducationLevelFromClassLabel(form.classes?.[0])} ${form.term}`
-                      : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}` : "No limit set"}
+                      : nesaLimitSource === "none" ? `No fee limit configured for ${form.nesaFeeLimitLevel || inferNesaFeeLimitLevelFromClass(form.classes?.[0] || "")} · ${form.term}`
+                      : nesaLimit !== null ? `Limit: RWF ${nesaLimit.toLocaleString()}${nesaLimitSource === "default" ? " (default)" : ""}` : "No limit set"}
                   </p>
                 </div>
               </div>
@@ -2565,129 +2864,159 @@ export default function App({ session }) {
 
   const isLast = step === STEPS.length;
 
+  const goToStep = (targetId) => {
+    if (targetId < 1 || targetId > STEPS.length || targetId === step) return;
+    setErrors({});
+    setStep(targetId);
+  };
+
   return (
     <>
-    <div className="min-h-screen flex items-center justify-center p-2 sm:p-4"
+    <div
+      className={`flex flex-col flex-1 min-h-0 overflow-hidden w-full bg-slate-50/60 ${isModal ? "" : "-mx-4 md:-mx-6"}`}
       style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
         @keyframes slideIn { from { transform: translateX(100px); opacity:0; } to { transform: translateX(0); opacity:1; } }
         @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
         .step-anim { animation: fadeUp 0.2s ease-out; }
+        .babyeyi-step-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+        .babyeyi-step-scroll::-webkit-scrollbar{display:none}
       `}</style>
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-sm text-sm font-bold flex items-center gap-2 max-w-xs"
+        <div className="fixed top-4 right-4 z-[9999] px-4 py-3 rounded-xl shadow-lg text-sm font-semibold flex items-center gap-2 max-w-xs border"
           style={{
-            background: toast.type==="success" ? C.emerald : toast.type==="error" ? C.red : C.gold,
-            color: toast.type==="info" ? C.dark : "#fff",
+            background: toast.type==="success" ? C.emeraldBg : toast.type==="error" ? C.red50 : C.goldBg,
+            color: toast.type==="success" ? C.emeraldDark : toast.type==="error" ? C.red700 : C.dark,
+            borderColor: toast.type==="success" ? C.emeraldBord : toast.type==="error" ? C.redBorder : C.goldBorder,
             animation: "slideIn 0.3s ease-out",
           }}>
-          {toast.type==="success"?"✅":toast.type==="error"?"❌":"ℹ️"} {toast.msg}
+          {toast.type==="success"?"✓":toast.type==="error"?"✕":"ℹ"} {toast.msg}
         </div>
       )}
 
-      <div className="bg-white rounded-3xl w-full max-w-2xl max-h-[96vh] flex flex-col shadow-sm overflow-hidden"
-        style={{ boxShadow: "0 25px 60px rgba(254,191,16,0.2), 0 0 0 1px rgba(254,191,16,0.1)" }}>
+      <div className={`flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full ${isModal ? "" : "border border-slate-200/80 rounded-2xl shadow-sm"}`}>
 
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-4 shrink-0"
-          style={{ background: `linear-gradient(135deg, ${C.dark}, ${C.darkMid})` }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(254,191,16,0.2)" }}>
-                <span className="text-base"></span>
+        {!isModal && (
+        <div className="px-4 sm:px-8 py-5 shrink-0 border-b border-slate-100 bg-gradient-to-r from-[#000435] to-[#0a1142]">
+          <div className="flex items-center justify-between max-w-5xl mx-auto w-full">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#FEBF10]/15 border border-[#FEBF10]/25">
+                <ClipboardPen size={18} color="#FEBF10" strokeWidth={2.25} aria-hidden />
               </div>
-              <div>
-                <h1 className="font-semibold text-white text-sm sm:text-base leading-tight">Create Babyeyi</h1>
-                <p className="text-[10px]" style={{ color: C.goldLight }}>
-                  {form.schoolName || session?.schoolName || "School"} · {(form.classes && form.classes.length) ? form.classes.join(", ") : "—"} · {form.term}
+              <div className="min-w-0">
+                <h1 className="font-semibold text-white text-base sm:text-lg leading-tight truncate">Create Babyeyi</h1>
+                <p className="text-[11px] text-[#FEBF10]/90 truncate mt-0.5">
+                  {form.schoolName || session?.schoolName || "School"} · {form.term} · {form.academicYear}
                 </p>
               </div>
             </div>
             <button onClick={() => setView("list")}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-white rounded-xl text-[10px] font-bold"
-              style={{ background: "rgba(254,191,16,0.15)", border: "1px solid rgba(254,191,16,0.25)" }}>
-              <I n="eye" size={11} color="white" /> View Records
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider border border-white/15 hover:bg-white/10">
+              <Eye size={13} strokeWidth={2} aria-hidden /> View Records
             </button>
           </div>
         </div>
+        )}
 
-        {/* Step indicator */}
-        <div className="border-b px-3 sm:px-5 py-3 shrink-0"
-          style={{ background: C.goldBg, borderColor: C.goldBorder }}>
-          <div className="flex items-center gap-0.5 sm:gap-1 overflow-x-auto">
-            {STEPS.map((s,i) => (
-              <div key={s.id} className="flex items-center shrink-0">
-                <button onClick={() => step > s.id && setStep(s.id)}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all whitespace-nowrap"
-                  style={step===s.id
-                    ? { background: C.gold, color: C.dark, boxShadow: "0 2px 8px rgba(254,191,16,0.4)" }
-                    : step>s.id
-                    ? { background: "#d1fae5", color: "#065f46", cursor: "pointer" }
-                    : { background: "#e2e8f0", color: "#94a3b8" }}>
-                  {step > s.id ? <Svg d={ic.check} size={10} color="currentColor" sw={3} /> : <I n={s.icon} size={11} />}
-                  <span className="hidden sm:inline">{s.label}</span>
-                  <span className="sm:hidden">{s.id}</span>
-                </button>
-                {i < STEPS.length-1 && <span className="mx-0.5 text-xs shrink-0" style={{ color: C.goldBorder }}>›</span>}
+        <div className="border-b px-4 sm:px-8 py-4 shrink-0 bg-white">
+          <div className="max-w-5xl mx-auto w-full">
+            <div className="overflow-x-auto pb-2 -mx-1 px-1 babyeyi-step-scroll">
+              <div className="flex min-w-[42rem] md:min-w-0 gap-1 md:gap-0">
+                {STEPS.map((s) => {
+                  const StepIcon = s.Icon;
+                  const done = step > s.id;
+                  const active = step === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      ref={(el) => { stepBtnRefs.current[s.id] = el; }}
+                      onClick={() => goToStep(s.id)}
+                      className={`flex-1 min-w-[4.5rem] md:min-w-0 flex flex-col items-center px-1 py-2 rounded-xl transition-colors cursor-pointer ${
+                        active ? "bg-amber-50" : "hover:bg-slate-50"
+                      }`}
+                      title={s.label}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs border-2 transition-all ${
+                        active ? "bg-[#c87800] border-[#c87800] text-white" : done ? "bg-amber-50 border-[#c87800] text-[#c87800]" : "bg-white border-slate-200 text-slate-400"
+                      }`}>
+                        {done ? <Check size={14} strokeWidth={2} aria-hidden /> : <StepIcon size={14} strokeWidth={2} aria-hidden />}
+                      </div>
+                      <span className={`mt-2 text-[9px] md:text-[10px] text-center leading-tight line-clamp-2 ${active ? "text-[#c87800] font-semibold" : "text-slate-500"}`}>
+                        <span className="md:hidden">{s.id}</span>
+                        <span className="hidden md:inline">{s.label}</span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
+            </div>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
+              <div className="h-full bg-gradient-to-r from-[#c87800] to-[#FEBF10] transition-all duration-500" style={{ width: `${(step / STEPS.length) * 100}%` }} />
+            </div>
           </div>
-          <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: "#e2e8f0" }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width:`${(step/STEPS.length)*100}%`, background: `linear-gradient(90deg, ${C.gold}, ${C.goldDark})` }} />
+        </div>
+
+        <div className="px-4 sm:px-8 pt-5 pb-2 shrink-0 border-b border-slate-50 bg-white">
+          <div className="max-w-5xl mx-auto w-full flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-400 uppercase tracking-[0.14em]">Step {step} of {STEPS.length}</p>
+              <h3 className="text-lg sm:text-xl text-[#000435] mt-1 font-semibold tracking-tight">{STEPS[step - 1].label}</h3>
+              <p className="text-sm text-slate-500 mt-1 hidden sm:block">
+                {step === 1 ? "Set academic context, education level, and classes for this Babyeyi." : "Complete this section to continue."}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold shrink-0 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">{step}/{STEPS.length}</span>
           </div>
         </div>
 
-        {/* Step title */}
-        <div className="px-4 sm:px-6 pt-4 pb-2 shrink-0 flex items-center gap-2">
-          <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: C.goldBgMid }}>
-            <I n={STEPS[step-1].icon} size={13} color={C.goldDark} />
-          </span>
-          <h3 className="font-semibold text-slate-800 text-sm">Step {step}: {STEPS[step-1].label}</h3>
-          <span className="ml-auto text-[10px] font-bold shrink-0" style={{ color: C.goldDark }}>{step}/{STEPS.length}</span>
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 step-anim bg-slate-50/40" key={step}>
+          <div className="max-w-5xl mx-auto w-full">
+            {renderStep()}
+          </div>
         </div>
 
-        {/* Step content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 step-anim" key={step}>
-          {renderStep()}
-        </div>
-
-        {/* Navigation */}
-        <div className="border-t px-4 sm:px-6 py-3 flex items-center gap-2 shrink-0 bg-white"
-          style={{ borderColor: C.goldBorder }}>
+        <div className="border-t px-4 sm:px-8 py-4 flex items-center gap-3 shrink-0 bg-white">
+          <div className="max-w-5xl mx-auto w-full flex items-center gap-3">
           {step > 1 && (
             <button onClick={() => { setErrors({}); setStep(s=>s-1); }}
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-2.5 border rounded-xl font-semibold text-xs sm:text-sm hover:bg-slate-50"
-              style={{ borderColor: C.goldBorder, color: C.darkMid }}>
-              <I n="chevL" size={14} /> <span className="hidden sm:inline">Back</span>
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs uppercase tracking-wider hover:bg-slate-50 font-semibold">
+              <ChevronLeft size={14} strokeWidth={2.25} aria-hidden /> <span className="hidden sm:inline">Back</span>
             </button>
           )}
           <div className="flex-1" />
           {!isLast ? (
             <button onClick={handleNext}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95"
-              style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDark})`, color: C.dark, boxShadow: "0 4px 15px rgba(254,191,16,0.4)" }}>
-              Next <I n="chevR" size={14} color={C.dark} />
+              className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider active:scale-95 text-[#000435]"
+              style={{ background: `linear-gradient(135deg, #FEBF10, #c87800)`, boxShadow: "0 4px 15px rgba(200,120,0,0.25)" }}>
+              Next <ChevronRight size={14} strokeWidth={2.25} aria-hidden />
             </button>
           ) : (
             <button onClick={handleSave} disabled={saving || qrGenerating}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95 disabled:opacity-60"
-              style={{ background: `linear-gradient(135deg, #059669, #047857)`, color: "#fff", boxShadow: "0 4px 15px rgba(5,150,105,0.4)" }}>
+              className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider active:scale-95 disabled:opacity-60 text-white"
+              style={{ background: `linear-gradient(135deg, #059669, #047857)`, boxShadow: "0 4px 15px rgba(5,150,105,0.35)" }}>
               {saving ? (
                 <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> Generating…</>
               ) : (
                 <>
                   <I n={exceeds&&form.requestIncrease?"send":"save"} size={14} color="#fff" />
                   <span className="hidden sm:inline">
-                    {form.classes.length>1 ? `Generate ${form.classes.length} Babyeyi` : exceeds&&form.requestIncrease ? "Submit + Request Approval" : "Generate Babyeyi"}
+                    {editId
+                      ? "Save changes"
+                      : form.classes.length > 1
+                        ? `Generate ${form.classes.length} Babyeyi`
+                        : exceeds && form.requestIncrease
+                          ? "Submit + Request Approval"
+                          : "Generate Babyeyi"}
                   </span>
                   <span className="sm:hidden">Generate</span>
                 </>
               )}
             </button>
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -2837,4 +3166,84 @@ export default function App({ session }) {
     )}
     </>
   );
+}
+
+export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null }) {
+  useEffect(() => {
+    if (isOpen) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const editClasses = editRecord
+    ? (Array.isArray(editRecord.classes) && editRecord.classes.length ? editRecord.classes : [editRecord.class]).filter(Boolean)
+    : [];
+  const editSubtitle = editRecord
+    ? [editClasses.join(", "), editRecord.term, editRecord.academicYear, editRecord.docId].filter(Boolean).join(" · ")
+    : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
+      style={{ background: "rgba(10,8,0,0.75)", backdropFilter: "blur(6px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="bg-white rounded-3xl w-full flex flex-col overflow-hidden min-h-0"
+        style={{
+          maxWidth: "920px",
+          height: "min(94vh, calc(100dvh - 1rem))",
+          maxHeight: "94vh",
+          boxShadow: "0 30px 80px rgba(254,191,16,0.25), 0 0 0 1px rgba(254,191,16,0.15)",
+        }}
+      >
+        <div
+          className="px-4 sm:px-6 py-4 shrink-0 flex items-center justify-between"
+          style={{ background: "linear-gradient(135deg, #000435, #0a1142)" }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#FEBF10]/15 border border-[#FEBF10]/25 shrink-0">
+              {editRecord
+                ? <Pencil size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />
+                : <ClipboardPen size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />}
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-semibold text-white text-sm sm:text-base leading-tight truncate">
+                {editRecord ? "Edit Babyeyi" : "Create Babyeyi"}
+              </h1>
+              <p className="text-[10px] truncate text-[#FEBF10]/90">
+                {session?.schoolName || "School"}
+                {editRecord ? (editSubtitle ? ` — ${editSubtitle}` : " — Update document") : " — New document"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-xl transition-all hover:bg-white/20 text-white/70 shrink-0"
+            title="Close"
+          >
+            <X size={16} strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
+
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <BabyeyiWizard
+            key={editRecord?.id || "create"}
+            session={session}
+            editRecord={editRecord}
+            layout="modal"
+            onClose={onClose}
+            onSuccess={onSuccess}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Babyeyi(props) {
+  return <BabyeyiWizard {...props} layout="page" />;
 }

@@ -9,7 +9,9 @@ import {
   Apple, Package, AlertTriangle, Shirt,
 } from 'lucide-react'
 import StorekeeperPageShell from '../components/StorekeeperPageShell'
+import StoreExportBar from '../components/StoreExportBar'
 import { loadStorekeeperAnalytics } from '../services/storekeeperAnalyticsService'
+import { exportStoreReportsPdf } from '../utils/storeReportsPdfExport'
 import { formatRwf } from '../services/uniformIssueService'
 
 const TABS = [
@@ -315,18 +317,26 @@ export default function Analytics() {
   useEffect(() => { loadData() }, [loadData])
 
   return (
-    <StorekeeperPageShell titleLine="Analytics" subtitle="Live insights from food, other, uniform, and inventory data" icon={BarChart3}>
-      <div className="space-y-4">
+    <StorekeeperPageShell
+      titleLine="Analytics"
+      titleAccent="& Insights"
+      subtitle="Live insights from food, other, uniform, and inventory data"
+      icon={BarChart3}
+      rightSlot={
+        <StoreExportBar
+          variant="hero"
+          loading={loading}
+          disabled={!data}
+          onRefresh={loadData}
+          onExportPdf={() => exportStoreReportsPdf(data, activeTab === 'purchase-orders' ? 'overview' : activeTab)}
+        />
+      }
+    >
+      <div className="store-panel-sheet p-4 sm:p-6 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={loading}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-[10px] font-bold uppercase tracking-wider text-gray-600 hover:bg-gray-50 transition-all"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
+          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
+            {TABS.find((t) => t.id === activeTab)?.label || 'Overview'} · live data
+          </p>
         </div>
 
         {error && <div className="px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">{error}</div>}

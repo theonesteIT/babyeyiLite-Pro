@@ -18,13 +18,21 @@ import {
   createFabricStockout,
   deleteFabricStockout,
 } from '../../services/fabricStockoutsService'
+import {
+  applyFabricStockoutFilters,
+  buildInventoryFilterOptions,
+} from '../../../../../uniform_manager_portal/utils/inventoryFilterUtils'
+import { useReportFilters } from '../../../../../uniform_manager_portal/hooks/useUniformReportBundle'
+import InventoryFilterShell from '../../../../../uniform_manager_portal/components/InventoryFilterShell'
+import { fetchStoreAcademicSettings } from '../../services/academicSettingsService'
 
 function formatDate(d) {
   if (!d) return '—'
   return String(d).slice(0, 10)
 }
 
-export default function FabricStockOutPanel({ onFabricsChange }) {
+export default function FabricStockOutPanel({ onFabricsChange, modernLayout = false }) {
+  const { filters, setFilter, resetFilters } = useReportFilters()
   const [stockouts, setStockouts] = useState([])
   const [receipts, setReceipts] = useState([])
   const [allReceipts, setAllReceipts] = useState([])
@@ -32,6 +40,7 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [academic, setAcademic] = useState({ academicYears: [], activeTerms: [] })
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -41,15 +50,17 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
     setLoading(true)
     setError('')
     try {
-      const [outRows, rcptRows, goods] = await Promise.all([
+      const [outRows, rcptRows, goods, settings] = await Promise.all([
         fetchFabricStockouts(),
         fetchFabricReceipts(),
         fetchFinishedGoods(),
+        fetchStoreAcademicSettings().catch(() => null),
       ])
       setStockouts(outRows)
       setAllReceipts(rcptRows)
       setFinishedGoods(goods)
       setReceipts(rcptRows.filter((r) => Number(r.remaining_meters) > 0))
+      if (settings) setAcademic(settings)
       onFabricsChange?.(rcptRows)
     } catch (e) {
       setError(e.message || 'Failed to load')
@@ -73,6 +84,9 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
   )
 
   const filtered = useMemo(() => {
+    if (modernLayout) {
+      return applyFabricStockoutFilters(stockouts, filters)
+    }
     const q = search.trim().toLowerCase()
     if (!q) return stockouts
     return stockouts.filter(
@@ -82,7 +96,12 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
         s.purpose?.toLowerCase().includes(q) ||
         s.supplier_name?.toLowerCase().includes(q)
     )
-  }, [stockouts, search])
+  }, [stockouts, search, modernLayout, filters])
+
+  const filterOptions = useMemo(
+    () => buildInventoryFilterOptions({ fabrics: allReceipts, academicSettings: academic }),
+    [allReceipts, academic]
+  )
 
   const totalOut = useMemo(() => stockouts.reduce((sum, s) => sum + s.meters_out, 0), [stockouts])
 
@@ -178,7 +197,22 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
         </div>
       </div>
 
+      {modernLayout ? (
+        <div className="mb-4">
+          <InventoryFilterShell
+            filters={filters}
+            setFilter={setFilter}
+            resetFilters={resetFilters}
+            extraOptions={filterOptions}
+            searchPlaceholder="Search fabric, purpose, color…"
+            showSizeToggle={false}
+            flat
+          />
+        </div>
+      ) : null}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        {!modernLayout ? (
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20 transition-all">
             <Search size={14} className="text-gray-300" />
@@ -200,6 +234,17 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
             <RefreshCw size={16} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
           </button>
         </div>
+        ) : (
+          <button
+            type="button"
+            onClick={loadAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition text-xs font-semibold text-slate-600"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
+            Refresh
+          </button>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -255,14 +300,14 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <table className="w-full text-sm min-w-[880px]">
             <thead>
-              <tr className="bg-gray-50/90 border-b border-gray-100">
+              <tr className="bg-[#000435] text-white">
                 {['Date', 'Fabric', 'Color', 'Meters out', 'Remaining', 'Purpose', 'Note', ''].map((h) => (
                   <th
                     key={h || 'actions'}
-                    className="text-left py-3.5 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap"
+                    className="text-left py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
                   >
                     {h}
                   </th>
@@ -276,7 +321,7 @@ export default function FabricStockOutPanel({ onFabricsChange }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.02 }}
-                  className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors"
+                  className="border-b border-gray-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors"
                 >
                   <td className="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">{formatDate(row.out_date)}</td>
                   <td className="py-3.5 px-4 text-xs font-bold text-[#000435]">{row.fabric_type}</td>

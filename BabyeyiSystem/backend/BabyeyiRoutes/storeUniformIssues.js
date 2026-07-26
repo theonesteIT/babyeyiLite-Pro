@@ -240,7 +240,8 @@ module.exports = function registerStoreUniformRoutes(router, deps) {
         lineParams.push(finishedGoodId);
       }
       const [topItems] = await promisePool.query(
-        `SELECT sl.item_name, SUM(sl.quantity) AS pieces, SUM(sl.amount) AS revenue
+        `SELECT sl.item_name, SUM(sl.quantity) AS pieces, SUM(sl.amount) AS revenue,
+                MAX(sl.issue_date) AS last_issue_date
          FROM store_uniform_issue_student_lines sl
          INNER JOIN store_uniform_issues i ON i.id = sl.issue_id AND i.deleted_at IS NULL
          WHERE ${lineWhere}
@@ -267,6 +268,7 @@ module.exports = function registerStoreUniformRoutes(router, deps) {
             item_name: r.item_name,
             pieces: Number(r.pieces || 0),
             revenue: Number(r.revenue || 0),
+            last_issue_date: r.last_issue_date || null,
           })),
           revenue_by_class: byClass.map((r) => ({
             class_name: r.class_name || '—',
@@ -424,6 +426,78 @@ module.exports = function registerStoreUniformRoutes(router, deps) {
     } catch (e) {
       console.error('[store/uniform-issues/profit-calculation]:', e.message);
       res.status(500).json({ success: false, message: 'Failed to load profit calculation' });
+    }
+  });
+
+  // GET /store/uniform-issues/report-lines — flat issue lines for stock-out / sales reports
+  router.get('/store/uniform-issues/report-lines', requireRole(STORE_READ_ROLES), async (req, res) => {
+    try {
+      const { schoolId } = req.ctx;
+      const academicYear = trimStr(req.query.academic_year || '');
+      const term = trimStr(req.query.term || '');
+      const className = trimStr(req.query.class_name || '');
+      const fromDate = trimStr(req.query.from_date || '');
+      const toDate = trimStr(req.query.to_date || '');
+
+      let where = 'sl.school_id = ? AND i.deleted_at IS NULL';
+      const params = [schoolId];
+      if (academicYear) {
+        where += ' AND sl.academic_year = ?';
+        params.push(academicYear);
+      }
+      if (term) {
+        where += ' AND sl.term = ?';
+        params.push(term);
+      }
+      if (className) {
+        where += ' AND sl.class_name = ?';
+        params.push(className);
+      }
+      if (fromDate) {
+        where += ' AND sl.issue_date >= ?';
+        params.push(fromDate);
+      }
+      if (toDate) {
+        where += ' AND sl.issue_date <= ?';
+        params.push(toDate);
+      }
+
+      const [rows] = await promisePool.query(
+        `SELECT sl.id, sl.issue_id, sl.student_id, sl.student_uid, sl.student_name,
+                sl.finished_good_id, sl.item_name, sl.quantity, sl.unit_price, sl.amount,
+                sl.academic_year, sl.term, sl.class_name, sl.issue_date,
+                i.issue_no, i.issued_by_name, i.created_at AS issue_created_at
+         FROM store_uniform_issue_student_lines sl
+         INNER JOIN store_uniform_issues i ON i.id = sl.issue_id AND i.school_id = sl.school_id
+         WHERE ${where}
+         ORDER BY sl.issue_date DESC, sl.id DESC
+         LIMIT 1000`,
+        params
+      );
+
+      res.json({
+        success: true,
+        data: rows.map((r) => ({
+          id: r.id,
+          issue_id: r.issue_id,
+          issue_no: r.issue_no,
+          issue_date: r.issue_date,
+          issue_created_at: r.issue_created_at,
+          student_id: r.student_id,
+          student_uid: r.student_uid,
+          student_name: r.student_name,
+          class_name: r.class_name,
+          finished_good_id: r.finished_good_id,
+          item_name: r.item_name,
+          quantity: Number(r.quantity || 0),
+          unit_price: Number(r.unit_price || 0),
+          amount: Number(r.amount || 0),
+          issued_by_name: r.issued_by_name,
+        })),
+      });
+    } catch (e) {
+      console.error('[store/uniform-issues/report-lines]:', e.message);
+      res.status(500).json({ success: false, message: 'Failed to load issue report lines' });
     }
   });
 

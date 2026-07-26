@@ -92,9 +92,10 @@ export function ParentShellProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+
+    const pullInbox = async ({ force = false } = {}) => {
       try {
-        const inbox = await syncParentInboxFromServer();
+        const inbox = await syncParentInboxFromServer({ force });
         if (cancelled || inbox.skipped || inbox.rateLimited) return;
 
         const incoming = [...(inbox.notifications || [])];
@@ -114,9 +115,14 @@ export function ParentShellProvider({ children }) {
       } catch {
         // silent: local notifications still work
       }
-    })();
+    };
+
+    pullInbox();
+    const intervalId = window.setInterval(() => pullInbox({ force: true }), 60_000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
   }, []);
 

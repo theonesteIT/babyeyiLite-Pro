@@ -35,6 +35,7 @@ const {
   upsertUserSession,
   recordLoginAttempt,
 } = require('../utils/schoolMonitoringHelpers');
+const { normalizeSchoolId, hasSchoolId } = require('../utils/normalizeSchoolId');
 
 // ── Profile photo upload (must be under backend/uploads so express.static serves it) ──
 const PROFILE_PHOTO_DIR = nodePath.join(__dirname, '..', 'uploads', 'profile-photos');
@@ -183,12 +184,13 @@ async function getNextDistrictSchoolCode(conn, districtCode) {
 
 // Guard: session must exist and role must match (case-insensitive)
 function requireRole(req, res, ...roles) {
-  if (!req.session?.userId) {
+  const userId = req.session?.userId ?? req.user?.id;
+  if (!userId) {
     res.status(401).json({ success: false, message: 'Not authenticated — please log in' });
     return false;
   }
   const allowed = roles.flat().map(r => String(r).toUpperCase());
-  const code = (req.session.roleCode || '').toUpperCase();
+  const code = String(req.session?.roleCode || req.user?.role_code || '').toUpperCase();
   if (allowed.length && !allowed.includes(code)) {
     res.status(403).json({ success: false, message: `Access denied — requires: ${allowed.join(' or ')}` });
     return false;
@@ -317,6 +319,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       LEFT JOIN pro_shule_avance_organizations sao ON sao.user_id = u.id
       LEFT JOIN schools sc ON (
         sc.manager_user_id = u.id
+        OR sc.admin_id     = u.id
         OR st.school_id    = sc.id
         OR sc.id           = u.school_id
       )
@@ -402,13 +405,14 @@ router.post('/login', loginLimiter, async (req, res) => {
              AND (
                id = ?
                OR manager_user_id = ?
+               OR admin_id = ?
              )
            ${scNorm ? 'AND school_code = ?' : ''}
            ORDER BY (id = ?) DESC
            LIMIT 1`,
           scNorm
-            ? [user.school_id || null, user.id, scNorm, user.school_id || null]
-            : [user.school_id || null, user.id, user.school_id || null]
+            ? [user.school_id ?? null, user.id, user.id, scNorm, user.school_id ?? null]
+            : [user.school_id ?? null, user.id, user.id, user.school_id ?? null]
         );
 
         const school = schoolRows?.[0] || null;
@@ -549,7 +553,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     );
 
     // For SCHOOL_ADMIN / SCHOOL_MANAGER: if JOIN didn't return a school, resolve from schools table
-    if (isSchoolManager && !user.school_id) {
+    if (isSchoolManager && !hasSchoolId(user.school_id)) {
       let fallbackSchool = null;
       try {
         const [schoolRows] = await promisePool.query(
@@ -558,9 +562,10 @@ router.post('/login', loginLimiter, async (req, res) => {
                   school_status AS school_access_status,
                   subscription_plan, pro_enabled, pro_start_date, pro_end_date
            FROM schools
-           WHERE manager_user_id = ? AND (status = 'active' OR status IS NULL)
+           WHERE (manager_user_id = ? OR admin_id = ?)
+             AND (status = 'active' OR status IS NULL)
            LIMIT 1`,
-          [user.id]
+          [user.id, user.id]
         );
         if (schoolRows && schoolRows.length > 0) {
           fallbackSchool = schoolRows[0];
@@ -637,7 +642,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     let modules = {};
     let permissionKeys = [];
     try {
-      if (user.school_id) {
+      if (hasSchoolId(user.school_id)) {
         modules = await loadSchoolModules(promisePool, user.school_id);
       }
       if (user.role_id) {
@@ -664,14 +669,15 @@ router.post('/login', loginLimiter, async (req, res) => {
       req.session.roleCode  = user.role_code;
       req.session.shuleAvanceOrgId = shuleAvanceOrg ? Number(shuleAvanceOrg.id) : null;
       console.log(`🔐  User authenticated: ${user.email} | Role: ${user.role_code} | Session: ${req.session.id} `);
-      console.log(`School context: ${user.school_name || 'N/A'} (${user.school_code || 'N/A'}) | Staff ID: ${user.staff_id || 'N/A'} school id: ${user.school_id ? '| School ID: ' + user.school_id : ''}`);
+      const sessionSchoolId = normalizeSchoolId(user.school_id);
+      console.log(`School context: ${user.school_name || 'N/A'} (${user.school_code || 'N/A'}) | Staff ID: ${user.staff_id || 'N/A'} school id: ${hasSchoolId(sessionSchoolId) ? '| School ID: ' + sessionSchoolId : ''}`);
 
       req.session.loginTime = Date.now();
       // Store school_id at top level so babyeyi/school-info and resolveSchoolId always find it
-      req.session.school_id  = user.school_id ? Number(user.school_id) : null;
+      req.session.school_id  = sessionSchoolId;
       // Store enough in session so /api/session/me never needs a DB hit
-      const schoolObj = user.school_id ? {
-        id:       user.school_id,
+      const schoolObj = hasSchoolId(sessionSchoolId) ? {
+        id:       sessionSchoolId,
         name:     user.school_name,
         code:     user.school_code,
         email:    user.school_email   || null,
@@ -837,16 +843,16 @@ router.post('/signup-super-admin', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
     }
 
-    // Block if any Super Admin already exists
+    // Allow up to 3 Super Admins via public signup (first-time bootstrap).
     const [[{ count }]] = await promisePool.query(
       `SELECT COUNT(*) AS count FROM users u
        JOIN roles r ON u.role_id = r.id
        WHERE r.role_code = 'SUPER_ADMIN' AND u.deleted_at IS NULL`
     );
-    if (Number(count) >= 1) {
+    if (Number(count) >= 3) {
       return res.status(403).json({
         success: false,
-        message: 'Super Admin already exists — sign in, or ask a Full System Controller to create another account.',
+        message: 'Maximum Super Admin accounts (3) reached — sign in, or ask an existing admin to create another account.',
       });
     }
 
@@ -1069,7 +1075,11 @@ router.post('/create-school', async (req, res) => {
     );
     const schoolId = schoolResult.insertId;
 
-    // 3. Update admin user's school_id (if column exists)
+    // 3. Link manager on school + user (same as public registration / school-add)
+    await conn.query(
+      'UPDATE schools SET manager_user_id = COALESCE(manager_user_id, ?), admin_id = COALESCE(admin_id, ?) WHERE id = ?',
+      [adminUserId, adminUserId, schoolId]
+    ).catch(() => {});
     await conn.query(
       'UPDATE users SET school_id = ? WHERE id = ?', [schoolId, adminUserId]
     ).catch(() => {}); // ignore if school_id column doesn't exist on users
@@ -2082,7 +2092,7 @@ router.patch('/super-admins/:id/active', async (req, res) => {
 // Creates an additional Super Administrator (same role as you).
 // ============================================================
 router.post('/create-super-admin', async (req, res) => {
-  if (!requireFullSystemController(req, res)) return;
+  if (!requireElevatedPlatform(req, res)) return;
   try {
     const { email, password, first_name, last_name, phone } = req.body || {};
     if (!email || !password || !first_name || !last_name) {

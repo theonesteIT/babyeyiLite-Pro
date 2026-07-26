@@ -9,6 +9,7 @@ import api from '../services/api';
 import ManagerOchreHeroShell from '../components/ManagerOchreHeroShell';
 import PayrollExportBar from '../../shared/payroll/PayrollExportBar';
 import PayrollPaymentTrackerPanel from '../../shared/payroll/PayrollPaymentTrackerPanel';
+import PayrollBankRegisterPanel from '../../shared/payroll/PayrollBankRegisterPanel';
 import PayrollWorkspaceTabs from '../../shared/payroll/PayrollWorkspaceTabs';
 import { collectAcademicYears } from '../../shared/payroll/payrollHelpers';
 import { exportPayrollRequestsExcel, exportPayrollRequestsPdf } from '../../shared/payroll/payrollExport';
@@ -769,6 +770,14 @@ export default function Payroll() {
               showFinishAction
               finishActionLabel="Mark paid"
               finishActionHint="Approve pending requests first"
+            />
+          )}
+
+          {workspaceTab === 'bankRegister' && (
+            <PayrollBankRegisterPanel
+              month={filters.month}
+              term={filters.term}
+              year={filters.year}
             />
           )}
 

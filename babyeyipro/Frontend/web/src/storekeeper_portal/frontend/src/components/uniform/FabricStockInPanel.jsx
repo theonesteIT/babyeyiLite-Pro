@@ -28,6 +28,13 @@ import {
   mapFabricFromApi,
 } from '../../services/fabricReceiptsService'
 
+import {
+  applyFabricReceiptFilters,
+  buildInventoryFilterOptions,
+} from '../../../../../uniform_manager_portal/utils/inventoryFilterUtils'
+import { useReportFilters } from '../../../../../uniform_manager_portal/hooks/useUniformReportBundle'
+import InventoryFilterShell from '../../../../../uniform_manager_portal/components/InventoryFilterShell'
+
 function FormField({ icon: Icon, label, name, type = 'text', value, onChange, placeholder, disabled }) {
   return (
     <div className="group">
@@ -81,7 +88,8 @@ function formatDate(d) {
   return String(d).slice(0, 10)
 }
 
-export default function FabricStockInPanel({ onFabricsChange }) {
+export default function FabricStockInPanel({ onFabricsChange, modernLayout = false }) {
+  const { filters, setFilter, resetFilters } = useReportFilters()
   const [fabrics, setFabrics] = useState([])
   const [stockouts, setStockouts] = useState([])
   const [finishedGoods, setFinishedGoods] = useState([])
@@ -137,6 +145,9 @@ export default function FabricStockInPanel({ onFabricsChange }) {
   )
 
   const filtered = useMemo(() => {
+    if (modernLayout) {
+      return applyFabricReceiptFilters(fabrics, filters)
+    }
     const q = search.trim().toLowerCase()
     return fabrics.filter((f) => {
       if (filterType && f.fabric_type !== filterType) return false
@@ -148,7 +159,12 @@ export default function FabricStockInPanel({ onFabricsChange }) {
         f.invoice_number.toLowerCase().includes(q)
       )
     })
-  }, [fabrics, search, filterType])
+  }, [fabrics, search, filterType, modernLayout, filters])
+
+  const filterOptions = useMemo(
+    () => buildInventoryFilterOptions({ fabrics, suppliers, academicSettings: academic }),
+    [fabrics, suppliers, academic]
+  )
 
   const openDetail = (row) => {
     setDetailReceipt(row)
@@ -250,7 +266,22 @@ export default function FabricStockInPanel({ onFabricsChange }) {
         </div>
       )}
 
+      {modernLayout ? (
+        <div className="mb-4">
+          <InventoryFilterShell
+            filters={filters}
+            setFilter={setFilter}
+            resetFilters={resetFilters}
+            extraOptions={filterOptions}
+            searchPlaceholder="Search fabric, supplier, invoice…"
+            showSizeToggle={false}
+            flat
+          />
+        </div>
+      ) : null}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        {!modernLayout ? (
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/20 transition-all">
             <Search size={14} className="text-gray-300" />
@@ -282,6 +313,17 @@ export default function FabricStockInPanel({ onFabricsChange }) {
             <RefreshCw size={16} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
           </button>
         </div>
+        ) : (
+          <button
+            type="button"
+            onClick={loadAll}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition text-xs font-semibold text-slate-600"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin text-amber-500' : 'text-gray-400'} />
+            Refresh
+          </button>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -331,12 +373,12 @@ export default function FabricStockInPanel({ onFabricsChange }) {
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
-              <tr className="bg-gray-50/90 border-b border-gray-100">
+              <tr className="bg-[#000435] text-white">
                 {['Date', 'Year / Term', 'Supplier', 'Fabric', 'Color', 'Meters', 'Unit cost', 'Total', 'Remaining', 'Actions'].map((h) => (
-                  <th key={h} className="text-left py-3.5 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                  <th key={h} className="text-left py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -349,7 +391,7 @@ export default function FabricStockInPanel({ onFabricsChange }) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.02 }}
-                  className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors cursor-pointer"
+                  className="border-b border-gray-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors cursor-pointer"
                   onClick={() => openDetail(f)}
                 >
                   <td className="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">{formatDate(f.purchase_date)}</td>

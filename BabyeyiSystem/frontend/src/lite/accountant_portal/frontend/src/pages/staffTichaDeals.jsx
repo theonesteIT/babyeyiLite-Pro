@@ -8,4 +8,5 @@ export const { TichaDeals, TichaDealDetails, TichaDealPayments, TrackingTichaDea
   basePath: PORTAL.basePath,
   useStaffUser: () => useAuth().staff,
   shuleAvanceListPath: '/my-shule-avance',
+  dealsHeroVariant: 'accountant',
 })

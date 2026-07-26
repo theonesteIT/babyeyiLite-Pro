@@ -25,6 +25,7 @@ import SchoolWorkersPage from "./SchoolWorkersPage";
 import HRCenter from "./HRCenter";
 import GateAttendancePage from "./GateAttendancePage";
 import LogoutButton  from "../../Auth/LogoutButton";
+import { hasSchoolId, schoolIdFromSessionUser, schoolNameFromSessionUser } from "../../../utils/schoolId";
 import { BABYEYI_FONT_STACK, BABYEYI_PAGE_BG } from "../../../theme/babyeyiDashboardTheme";
 import BabyeyiPortalLoader from "../../../components/BabyeyiPortalLoader";
 
@@ -258,9 +259,9 @@ export default function SchoolBabyeyiDashboard() {
     userEmail:  u?.email                                 ?? null,
     userPhoto:  u?.photo                                 ?? null,
     userRole:   u?.role?.code   ?? u?.role_code          ?? null,
-    schoolId:   u?.school?.id   ?? u?.school_id          ?? null,
-    schoolName: u?.school?.name ?? u?.school_name        ?? null,
-    schoolCode: u?.school?.code ?? u?.school_code        ?? null,
+    schoolId:   schoolIdFromSessionUser(u),
+    schoolName: schoolNameFromSessionUser(u),
+    schoolCode: u?.school?.code ?? u?.school?.school_code ?? u?.school_code        ?? null,
     schoolDistrict:  u?.school?.district ?? u?.district  ?? null,
     schoolProvince:  u?.school?.province ?? u?.province  ?? null,
   };
@@ -354,7 +355,7 @@ export default function SchoolBabyeyiDashboard() {
       `}</style>
 
       {/* Warning: school_id missing */}
-      {!auth.loading && !session.schoolId && (
+      {!auth.loading && !hasSchoolId(session.schoolId) && (
         <div className="fixed top-0 left-0 right-0 z-50 text-white text-xs font-semibold px-4 py-2 flex items-center gap-2 justify-center"
           style={{ background: "#B88A00" }}>
           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -387,7 +388,7 @@ export default function SchoolBabyeyiDashboard() {
 
       {/* Main content */}
       <div
-        className={`flex-1 min-w-0 flex flex-col min-h-screen transition-[margin] duration-200 lg:ml-[var(--sm-sidebar-w,260px)] ${!session.schoolId && !auth.loading ? "pt-8" : ""}`}
+        className={`flex-1 min-w-0 flex flex-col min-h-screen transition-[margin] duration-200 lg:ml-[var(--sm-sidebar-w,260px)] ${!hasSchoolId(session.schoolId) && !auth.loading ? "pt-8" : ""}`}
       >
 
         {!isMiniWebsite && (
@@ -404,7 +405,7 @@ export default function SchoolBabyeyiDashboard() {
           />
         )}
 
-        {!isMiniWebsite && session.schoolId && showProEnvMissing && (
+        {!isMiniWebsite && hasSchoolId(session.schoolId) && showProEnvMissing && (
           <div className="px-4 lg:px-6 max-w-7xl w-full mx-auto pb-3">
             <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-md flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />

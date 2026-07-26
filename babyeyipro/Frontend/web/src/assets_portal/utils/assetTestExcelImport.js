@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { computeAssetRegisterMath, parseRegisterNum, rollCategoryStateAfterAsset } from './assetRegisterMath';
+import { computeAssetRegisterMath, parseRegisterNum, rollCategoryStateAfterAsset, resolveCategoryYearStartState, categoryYearPriorKey, categoryYearRollKey } from './assetRegisterMath';
 
 /** Minimal import columns (matches user spreadsheet layout) */
 export const ASSET_TEST_IMPORT_HEADERS = [
@@ -21,7 +21,8 @@ export const ASSET_TEST_IMPORT_HEADERS = [
 const HEADER_ALIASES = {
   location: ['location'],
   label: ['label', 'label_tag', 'label tag'],
-  type: ['type', 'category', 'asset_type', 'asset type', 'type or category'],
+  type: ['type', 'asset_type', 'asset type'],
+  category: ['category', 'type or category'],
   supplier: ['supplier', 'supplier_name'],
   upi: ['upi'],
   sku: ['sku'],
@@ -41,6 +42,49 @@ const HEADER_ALIASES = {
   name: ['name', 'asset_name', 'asset name'],
 };
 
+/** Map asset-type codes (Excel) → Year Setup category names */
+const IMPORT_TYPE_TO_CATEGORY = {
+  BUILDING: 'Buildings',
+  BUILDINGS: 'Buildings',
+  FURNITURE: 'Furniture',
+  VEHICLE: 'Vehicles',
+  VEHICLES: 'Vehicles',
+  'ICT & ELECTRONICS': 'IT Equipment',
+  'ICT AND ELECTRONICS': 'IT Equipment',
+  'LAB EQUIPMENT': 'Laboratory Equipment',
+  MACHINERY: 'Machinery',
+  'OFFICE EQUIPMENT': 'Office Equipment',
+  ELECTRONICS: 'Electronics',
+  LAND: 'Land',
+};
+
+function normalizeCategoryToken(s) {
+  return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** Resolve register category — prefers explicit category column, then type → Year Setup name */
+export function resolveImportCategoryName({ type, category, knownCategories = [] } = {}) {
+  const explicit = cellStr(category);
+  if (explicit) return explicit;
+
+  const typeRaw = cellStr(type);
+  if (!typeRaw) return '';
+
+  const typeUpper = typeRaw.toUpperCase();
+  if (IMPORT_TYPE_TO_CATEGORY[typeUpper]) return IMPORT_TYPE_TO_CATEGORY[typeUpper];
+
+  const typeNorm = normalizeCategoryToken(typeRaw);
+  for (const name of knownCategories) {
+    const nameNorm = normalizeCategoryToken(name);
+    if (!nameNorm) continue;
+    if (nameNorm === typeNorm) return name;
+    if (nameNorm === `${typeNorm}s` || `${nameNorm}s` === typeNorm) return name;
+    if (nameNorm.replace(/s$/, '') === typeNorm.replace(/s$/, '')) return name;
+  }
+
+  return typeRaw;
+}
+
 function normKey(k) {
   return String(k ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -59,7 +103,10 @@ function mapRowKeys(raw) {
   });
   Object.entries(raw).forEach(([k, v]) => {
     const canon = aliasToCanonical[normKey(k)];
-    if (canon) out[canon] = v;
+    if (!canon) return;
+    const existing = out[canon];
+    if (cellStr(existing) && !cellStr(v)) return;
+    out[canon] = v;
   });
   ASSET_TEST_IMPORT_HEADERS.forEach((h) => {
     if (raw[h] !== undefined && out[h] === undefined) out[h] = raw[h];
@@ -78,14 +125,37 @@ function buildPurchaseDate(y, m, d) {
   return `${yr}-${mm}-${dd}`;
 }
 
-export function excelRowToTestImportRow(row) {
+/** Per row: purchase_year → register_year → purchase_date year → batch fallback */
+export function resolveRowRegisterYear(row, fallbackYear) {
+  const purchaseYear = parseRegisterNum(row?.purchase_year ?? row?.purchaseYear);
+  if (purchaseYear >= 1900 && purchaseYear <= 2100) return Math.floor(purchaseYear);
+  const fromRegister = parseRegisterNum(row?.register_year ?? row?.registerYear);
+  if (fromRegister >= 1900 && fromRegister <= 2100) return Math.floor(fromRegister);
+  const dateStr = cellStr(row?.purchase_date);
+  if (dateStr) {
+    const y = Number(dateStr.slice(0, 4));
+    if (Number.isFinite(y) && y >= 1900 && y <= 2100) return y;
+  }
+  const fb = Number(fallbackYear);
+  return Number.isFinite(fb) && fb >= 1900 && fb <= 2100 ? Math.floor(fb) : new Date().getFullYear();
+}
+
+export function categoryYearRollKeyFromRow(row, fallbackYear) {
+  return categoryYearRollKey(resolveRowRegisterYear(row, fallbackYear), row.category);
+}
+
+export function excelRowToTestImportRow(row, knownCategories = []) {
   const r = mapRowKeys(row);
-  const category = cellStr(r.type);
+  const category = resolveImportCategoryName({
+    type: r.type,
+    category: r.category,
+    knownCategories,
+  });
   const price = parseRegisterNum(r.purchase_unit_price);
   return {
     asset_name: cellStr(r.name),
     category,
-    asset_type: category.toUpperCase() || null,
+    asset_type: cellStr(r.type).toUpperCase() || category || null,
     location: cellStr(r.location) || null,
     label_tag: cellStr(r.label) || null,
     supplier_name: cellStr(r.supplier) || null,
@@ -101,74 +171,183 @@ export function excelRowToTestImportRow(row) {
   };
 }
 
-function validateRow(row) {
+function sanitizeSkuSegment(value, fallback = 'X') {
+  const cleaned = String(value || '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^A-Za-z0-9-]/g, '')
+    .toUpperCase();
+  return cleaned || fallback;
+}
+
+/** Mirrors backend buildAutoSkuPrefix — used for import preview when SKU is missing */
+export function buildAutoSkuPrefix(schoolAbbr, locationLabel, assetLabel) {
+  return [
+    sanitizeSkuSegment(schoolAbbr, 'SCH'),
+    sanitizeSkuSegment(locationLabel, 'LOC'),
+    sanitizeSkuSegment(assetLabel, 'AST'),
+  ].join('/');
+}
+
+export function formatSkuWithSequence(prefix, sequence) {
+  return `${prefix}/${String(sequence).padStart(5, '0')}`;
+}
+
+/**
+ * Allocate preview SKUs for rows missing SKU (same prefix/sequence rules as backend import).
+ * @param {Map<string, number>} prefixCounters — rolling seq per prefix within the file batch
+ */
+export function allocateImportPreviewSku(row, {
+  schoolAbbr = 'SCH',
+  prefixCounters,
+  existingSkus,
+  fileSeenSkus,
+}) {
+  const prefix = buildAutoSkuPrefix(
+    schoolAbbr,
+    row.location || 'Unspecified',
+    row.label_tag || row.asset_name,
+  );
+  let seq = (prefixCounters.get(prefix) ?? 0) + 1;
+  let sku = formatSkuWithSequence(prefix, seq);
+  let attempts = 0;
+  while (attempts < 10000) {
+    const key = sku.toUpperCase();
+    if (!existingSkus.has(key) && !fileSeenSkus.has(key)) break;
+    seq += 1;
+    sku = formatSkuWithSequence(prefix, seq);
+    attempts += 1;
+  }
+  prefixCounters.set(prefix, seq);
+  fileSeenSkus.set(sku.toUpperCase(), row.rowIndex ?? seq);
+  return sku;
+}
+
+function validateRow(row, { autoGenerateSku = false } = {}) {
   const issues = [];
   if (!cellStr(row.asset_name)) issues.push('Name is required');
   if (!cellStr(row.category)) issues.push('Type / Category is required');
-  if (!cellStr(row.sku)) issues.push('SKU is required');
+  if (!autoGenerateSku && !cellStr(row.sku)) issues.push('SKU is required');
   if (!row.unit_price || row.unit_price <= 0) issues.push('Purchase unit price is required');
   return issues;
 }
 
-function analyzeSku(row, existingSkus, fileSeenSkus, rowIndex) {
+function analyzeSku(row, existingSkusByYear, fileSeenSkusByYear, rowIndex, fallbackYear, { autoGenerateSku = false } = {}) {
   const issues = [];
   const sku = cellStr(row.sku).toUpperCase();
-  if (!sku) return issues;
+  const year = resolveRowRegisterYear(row, fallbackYear);
+  const existingSkus = existingSkusByYear.get(year) || new Set();
+  const fileSeenSkus = fileSeenSkusByYear.get(year) || new Map();
+  if (!sku) {
+    if (!autoGenerateSku) issues.push('SKU is required');
+    return issues;
+  }
   if (existingSkus.has(sku)) {
-    issues.push(`SKU "${row.sku}" already exists in this register year`);
+    issues.push(`SKU "${row.sku}" already exists in FY ${year}`);
   }
   if (fileSeenSkus.has(sku)) {
-    issues.push(`Duplicate SKU in file (row ${fileSeenSkus.get(sku)})`);
+    if (fileSeenSkus.get(sku) !== rowIndex) {
+      issues.push(`Duplicate SKU in file (row ${fileSeenSkus.get(sku)})`);
+    }
   } else {
     fileSeenSkus.set(sku, rowIndex);
+    fileSeenSkusByYear.set(year, fileSeenSkus);
   }
   return issues;
 }
 
 /**
- * Build preview with rolling opening / depreciation per category (file row order).
+ * Build preview with rolling opening / depreciation per category+year (file row order).
  * @param {object[]} parsedRows
- * @param {Record<string, { effective_opening, effective_accumulated_depreciation, depreciation_rate? }>} openingByCategory
+ * @param {Record<string, { effective_opening, effective_accumulated_depreciation, depreciation_rate? }>} openingByCategoryYear — key `${year}:${category}`
  * @param {Record<string, number>} depRateByCategory
- * @param {Set<string>} existingSkus — uppercase SKUs already in DB for selected year
+ * @param {Map<number, Set<string>>} existingSkusByYear — uppercase SKUs per register year
  */
-export function buildAssetTestImportPreview(parsedRows, openingByCategory = {}, depRateByCategory = {}, existingSkus = new Set()) {
+export function buildAssetTestImportPreview(
+  parsedRows,
+  openingByCategoryYear = {},
+  depRateByCategory = {},
+  existingSkusByYear = new Map(),
+  options = {},
+) {
+  const {
+    autoGenerateSku = true,
+    schoolAbbr = 'SCH',
+    fallbackYear = new Date().getFullYear(),
+  } = options;
   const categoryState = {};
-  const fileSeenSkus = new Map();
+  const yearEndByCategory = {};
+  const fileSeenSkusByYear = new Map();
+  const prefixCounters = new Map();
+  const allExistingSkus = new Set();
+  existingSkusByYear.forEach((set) => set.forEach((s) => allExistingSkus.add(s)));
 
   return parsedRows.map((row, idx) => {
     const rowIndex = idx + 1;
-    const validationIssues = validateRow(row);
-    const skuIssues = analyzeSku(row, existingSkus, fileSeenSkus, rowIndex);
+    const registerYear = resolveRowRegisterYear(row, fallbackYear);
+    let effectiveRow = row;
+    let autoSku = false;
+    if (autoGenerateSku && !cellStr(row.sku)) {
+      const generated = allocateImportPreviewSku(
+        { ...row, rowIndex },
+        { schoolAbbr, prefixCounters, existingSkus: allExistingSkus, fileSeenSkus: new Map() },
+      );
+      effectiveRow = { ...row, sku: generated };
+      autoSku = true;
+    }
+    const validationIssues = validateRow(effectiveRow, { autoGenerateSku });
+    const skuIssues = analyzeSku(
+      effectiveRow,
+      existingSkusByYear,
+      fileSeenSkusByYear,
+      rowIndex,
+      fallbackYear,
+      { autoGenerateSku },
+    );
     const issues = [...validationIssues, ...skuIssues];
 
     const cat = cellStr(row.category);
-    const rate = depRateByCategory[cat] ?? openingByCategory[cat]?.depreciation_rate ?? 5;
+    const rollKey = categoryYearRollKey(registerYear, cat);
+    const isLand = String(cat).trim().toLowerCase() === 'land';
+    const rate = isLand
+      ? 0
+      : (depRateByCategory[cat] ?? openingByCategoryYear[rollKey]?.depreciation_rate ?? 5);
 
-    if (!categoryState[cat]) {
-      const ctx = openingByCategory[cat] || {};
-      categoryState[cat] = {
-        opening: parseRegisterNum(
-          ctx.effective_opening ?? ctx.year_setup_opening ?? ctx.year_opening_balance
-        ),
-        accumulated: parseRegisterNum(
-          ctx.effective_accumulated_depreciation
-          ?? ctx.year_setup_accumulated_depreciation
-          ?? ctx.accumulated_depreciation
-        ),
-      };
+    if (!categoryState[rollKey]) {
+      const priorKey = categoryYearPriorKey(registerYear, cat);
+      const priorYearEnd = priorKey ? yearEndByCategory[priorKey] : null;
+      const ctx = openingByCategoryYear[rollKey] || {};
+      categoryState[rollKey] = resolveCategoryYearStartState({
+        priorYearEnd,
+        openingContext: ctx,
+        category: cat,
+      });
     }
 
-    const state = categoryState[cat];
+    const state = categoryState[rollKey];
     let math = null;
     if (!validationIssues.length) {
       math = computeAssetRegisterMath({
         openingAmount: state.opening,
-        unitPrice: row.unit_price,
-        accumulatedDepreciation: state.accumulated,
+        unitPrice: effectiveRow.unit_price,
+        accumulatedDepreciation: state.fixedAccumulated,
         depRatePercent: rate,
+        category: cat,
+        buildingStatus: effectiveRow.building_status,
+        previousProgressPurchase: state.lastProgressPurchase,
+        priorYearNetBookValue: state.priorYearNetBook ?? null,
       });
-      categoryState[cat] = rollCategoryStateAfterAsset(math);
+      categoryState[rollKey] = rollCategoryStateAfterAsset(math, state, {
+        category: cat,
+        buildingStatus: effectiveRow.building_status,
+        unitPrice: effectiveRow.unit_price,
+      });
+      yearEndByCategory[rollKey] = {
+        totalBalance: math.totalBalance,
+        totalDep: math.totalDep,
+        netBook: math.netBookValue,
+        lastProgressPurchase: categoryState[rollKey]?.lastProgressPurchase ?? null,
+      };
     }
 
     let status = 'ready';
@@ -179,24 +358,31 @@ export function buildAssetTestImportPreview(parsedRows, openingByCategory = {}, 
     return {
       rowIndex,
       row,
+      register_year: registerYear,
       payload: {
-        asset_name: row.asset_name,
-        category: row.category,
-        asset_type: row.asset_type,
-        location: row.location || 'Unspecified',
-        label_tag: row.label_tag,
-        supplier_name: row.supplier_name,
-        upi: row.upi,
-        sku: row.sku,
-        material: row.material,
-        purchase_date: row.purchase_date,
-        purchase_price: row.unit_price,
-        unit_price: row.unit_price,
-        reference_no: row.cba || null,
+        asset_name: effectiveRow.asset_name,
+        category: effectiveRow.category,
+        asset_type: effectiveRow.asset_type,
+        location: effectiveRow.location || 'Unspecified',
+        label_tag: effectiveRow.label_tag,
+        supplier_name: effectiveRow.supplier_name,
+        upi: effectiveRow.upi,
+        sku: effectiveRow.sku || null,
+        sku_mode: autoSku ? 'auto' : 'manual',
+        material: effectiveRow.material,
+        purchase_date: effectiveRow.purchase_date,
+        purchase_year: effectiveRow.purchase_year,
+        purchase_month: effectiveRow.purchase_month,
+        purchase_day: effectiveRow.purchase_day,
+        register_year: registerYear,
+        purchase_price: effectiveRow.unit_price,
+        unit_price: effectiveRow.unit_price,
+        reference_no: effectiveRow.cba || null,
       },
-      name: row.asset_name,
-      category: row.category,
-      sku: row.sku,
+      name: effectiveRow.asset_name,
+      category: effectiveRow.category,
+      sku: effectiveRow.sku,
+      autoSku,
       location: row.location || '—',
       unit_price: row.unit_price,
       opening_amount: math?.openingAmount ?? null,
@@ -212,7 +398,7 @@ export function buildAssetTestImportPreview(parsedRows, openingByCategory = {}, 
   });
 }
 
-export function parseAssetTestExcelFile(file) {
+export function parseAssetTestExcelFile(file, { knownCategories = [] } = {}) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -223,7 +409,7 @@ export function parseAssetTestExcelFile(file) {
         const ws = wb.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
         const rows = json
-          .map((r) => excelRowToTestImportRow(r))
+          .map((r) => excelRowToTestImportRow(r, knownCategories))
           .filter((r) => cellStr(r.asset_name) || cellStr(r.sku) || cellStr(r.category));
         resolve({ rows, fileName: file.name, sheetName, rowCount: rows.length });
       } catch (err) {

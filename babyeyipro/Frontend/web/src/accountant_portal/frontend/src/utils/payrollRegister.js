@@ -32,6 +32,34 @@ export const PAYROLL_REGISTER_HEADERS = [
   'NET PAY',
 ];
 
+/** RSSB, national ID, names, sex — display as plain text (no thousand separators). */
+export const PAYROLL_REGISTER_TEXT_COL_COUNT = 5;
+
+/** Trailing report columns that must never be locale-formatted as numbers. */
+export const PAYROLL_PLAIN_TEXT_HEADERS = new Set([
+  'BANK',
+  'ACCOUNT',
+  'OTHER DED. DETAIL',
+  'STATUS',
+]);
+
+export function isPayrollPlainTextColumn(columnIndex, columnHeader = '') {
+  if (columnIndex != null && columnIndex < PAYROLL_REGISTER_TEXT_COL_COUNT) return true;
+  const header = String(columnHeader || '').trim().toUpperCase();
+  return PAYROLL_PLAIN_TEXT_HEADERS.has(header);
+}
+
+export function formatPayrollRegisterCell(value, columnIndex, columnHeader = '') {
+  if (isPayrollPlainTextColumn(columnIndex, columnHeader)) {
+    if (value === '-' || value === '' || value == null) return value === '-' ? '-' : '';
+    return String(value);
+  }
+  if (value === '-' || value === '') return value === '-' ? '-' : '';
+  const n = Number(value);
+  if (Number.isFinite(n) && String(value).trim() !== '') return n.toLocaleString();
+  return value;
+}
+
 function toNum(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { notifyAcademicSettingsUpdated } from '../context/AcademicContext';
 import { toDateInputValue } from '../../shared/dateInput';
 import {
     Settings, Calendar, Globe, Bell, Smartphone, Moon,
@@ -525,6 +526,7 @@ const Preferences = () => {
             });
             if (res.data?.success) {
                 setRegistry(res.data.data?.academic_years_registry || []);
+                notifyAcademicSettingsUpdated();
                 alert('Current academic year saved.');
             }
         } catch (err) {
@@ -551,6 +553,7 @@ const Preferences = () => {
             if (res.data?.success) {
                 setRegistry(res.data.data?.academic_years_registry || []);
                 setNewYear('');
+                notifyAcademicSettingsUpdated();
                 alert(`Academic year ${y} registered.`);
             }
         } catch (err) {
@@ -567,6 +570,7 @@ const Preferences = () => {
                 const d = res.data.data || {};
                 setRegistry(d.academic_years_registry || []);
                 setAcademicYear(d.current_academic_year || year);
+                notifyAcademicSettingsUpdated();
                 alert(`${year} is now the current academic year.`);
                 load();
             }

@@ -27,11 +27,16 @@ const logger = require('./utils/logger');
 const requestContext = require('./middleware/requestContext');
 const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
 const { computeProAccessEffective, loadSchoolModules } = require('./utils/schoolSubscription');
+const { normalizeSchoolId, hasSchoolId } = require('./utils/normalizeSchoolId');
 const systemSettings = require('./utils/systemSettings');
 const { ensureFullSystemControllerRole } = require('./utils/ensureRoles');
 const { ensureCoreAuthSchema } = require('./utils/coreAuthSchema');
+const { ensureCoreRoles } = require('./utils/coreRolesSchema');
+const { ensureSchoolsTable } = require('./utils/schoolsSchema');
+const { ensureNesaBabyeyiSchema } = require('./utils/nesaBabyeyiSchema');
 const { ensureSchoolMiniWebsitesSchema } = require('./utils/schoolMiniWebsitesSchema');
 const { ensurePublicPaymentCommitmentsSchema } = require('./utils/publicPaymentCommitmentsSchema');
+const { ensureShuleAvanceOrgTables } = require('./BabyeyiRoutes/shuleAvanceOrgSchema');
 const shuleAvanceOrgPortalRoutes = require('./BabyeyiRoutes/shuleAvanceOrgPortal');
 const { getAgentSessionPayload } = require('./BabyeyiRoutes/fieldAgentsRoutes');
 const chatModule = require('./BabyeyiRoutes/chatRoutes');
@@ -334,7 +339,7 @@ app.use(async (req, _res, next) => {
       req.user = rows[0];
       const roleCode = (req.user.role_code || '').toUpperCase();
       const isSchoolManager = roleCode === 'SCHOOL_ADMIN' || roleCode === 'SCHOOL_MANAGER';
-      if (isSchoolManager && !req.user.school_id) {
+      if (isSchoolManager && !hasSchoolId(req.user.school_id)) {
         let schoolRows = [];
         try {
           [schoolRows] = await promisePool.query(
@@ -342,11 +347,14 @@ app.use(async (req, _res, next) => {
                     status AS school_record_status,
                     school_status AS school_access_status,
                     subscription_plan, pro_enabled, pro_start_date, pro_end_date
-             FROM schools WHERE manager_user_id = ? AND (deleted_at IS NULL AND (status IS NULL OR status = 'active')) LIMIT 1`,
-            [req.session.userId]
+             FROM schools
+             WHERE (manager_user_id = ? OR admin_id = ?)
+               AND (deleted_at IS NULL AND (status IS NULL OR status = 'active'))
+             LIMIT 1`,
+            [req.session.userId, req.session.userId]
           );
         } catch (_) { schoolRows = []; }
-        if (schoolRows && schoolRows.length > 0 && schoolRows[0].id) {
+        if (schoolRows && schoolRows.length > 0 && hasSchoolId(schoolRows[0].id)) {
           const s = schoolRows[0];
           let modules = {};
           try {
@@ -376,7 +384,7 @@ app.use(async (req, _res, next) => {
           };
           req.user.school_id = s.id;
           req.user.school = schoolPayload;
-          if (!req.session.school_id) req.session.school_id = s.id;
+          if (!hasSchoolId(req.session.school_id)) req.session.school_id = s.id;
           if (!req.session.user) req.session.user = {};
           req.session.user.school_id = s.id;
           req.session.user.school = schoolPayload;
@@ -696,11 +704,20 @@ async function resolveSchoolForSession(userId) {
       [userId]
     );
     if (!rows?.length) {
+      [rows] = await promisePool.query(
+        `${SCHOOL_ROW_SELECT}
+         WHERE admin_id = ?
+           AND (deleted_at IS NULL AND (status IS NULL OR status = 'active'))
+         LIMIT 1`,
+        [userId]
+      );
+    }
+    if (!rows?.length) {
       const [[u]] = await promisePool.query(
         `SELECT school_id FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
         [userId]
       );
-      if (u?.school_id) {
+      if (hasSchoolId(u?.school_id)) {
         [rows] = await promisePool.query(
           `${SCHOOL_ROW_SELECT}
            WHERE id = ?
@@ -742,7 +759,11 @@ app.get('/api/session/me', async (req, res) => {
         data.school_id = sid;
         data.school    = { id: sid, name: null, code: null };
       }
-      if (data.school && !data.school_id) data.school_id = data.school.id;
+      if (data.school && !hasSchoolId(data.school_id)) data.school_id = data.school.id;
+      if (hasSchoolId(data.school_id) && (!data.school || !hasSchoolId(data.school.id))) {
+        const sid = normalizeSchoolId(data.school_id);
+        data.school = { ...(data.school || {}), id: sid };
+      }
       if (roleCode === 'AGENT' && req.session.userId) {
         try {
           const agent = await getAgentSessionPayload(req.session.userId);
@@ -756,8 +777,8 @@ app.get('/api/session/me', async (req, res) => {
     }
 
     if (req.user) {
-      const schoolId = req.user.school_id || req.session?.school_id;
-      let school = req.user.school || (schoolId ? { id: schoolId, name: null, code: null } : null);
+      const schoolId = normalizeSchoolId(req.user.school_id ?? req.session?.school_id);
+      let school = req.user.school || (hasSchoolId(schoolId) ? { id: schoolId, name: null, code: null } : null);
       const roleCode = (req.user.role_code || '').toUpperCase();
       if (req.session?.userId) {
         const resolved = await resolveSchoolForSession(req.session.userId);
@@ -1005,7 +1026,6 @@ const representativesModule = require('./BabyeyiRoutes/representativesRoutes');
 app.use('/api/representatives', representativesModule.adminRouter);
 app.use('/api/representative', representativesModule.repRouter);
 console.log('  ✅  /api/representatives/*  |  /api/representative/*');
-representativesModule.ensureSchema().catch((e) => console.warn('[representatives] ensureSchema:', e.message));
 
 // IMPORTANT: momoRoutes must be mounted BEFORE publicBabyeyiPay calls it internally
 app.use('/api/momo', momoRoutes);
@@ -1109,9 +1129,41 @@ const startServer = async () => {
     await ensureFullSystemControllerRole();
     try {
       await ensureCoreAuthSchema();
-      console.log('  ✅  Core auth schema ready (users, staff)');
+      await ensureCoreRoles();
+      console.log('  ✅  Core auth schema ready (users, staff, roles)');
     } catch (schemaErr) {
       console.error('❌  Core auth schema init failed:', schemaErr.message);
+    }
+    try {
+      await representativesModule.ensureSchema();
+      console.log('  ✅  Representatives schema ready');
+    } catch (schemaErr) {
+      console.warn('⚠️  Representatives schema init:', schemaErr.message);
+    }
+    try {
+      await ensureSchoolsTable();
+      console.log('  ✅  Schools schema ready');
+    } catch (schemaErr) {
+      console.error('❌  Schools schema init failed:', schemaErr.message);
+    }
+    try {
+      await ensureShuleAvanceOrgTables();
+    } catch (schemaErr) {
+      console.warn('⚠️  Shule Avance org schema:', schemaErr.message);
+    }
+    try {
+      if (typeof babyeyiRoute.initBabyeyiMigrations === 'function') {
+        await babyeyiRoute.initBabyeyiMigrations();
+        console.log('  ✅  Babyeyi schema ready');
+      }
+    } catch (schemaErr) {
+      console.error('❌  Babyeyi schema init failed:', schemaErr.message);
+    }
+    try {
+      await ensureNesaBabyeyiSchema();
+      console.log('  ✅  NESA Babyeyi schema ready');
+    } catch (schemaErr) {
+      console.error('❌  NESA Babyeyi schema init failed:', schemaErr.message);
     }
     try {
       await ensureSchoolMiniWebsitesSchema();

@@ -1,9 +1,10 @@
 import React from 'react';
-import { ClipboardList, Wallet } from 'lucide-react';
+import { Building2, ClipboardList, Wallet } from 'lucide-react';
 
 const TABS = [
   { id: 'requests', label: 'Payroll requests', short: 'Requests', Icon: ClipboardList },
   { id: 'tracker', label: 'Payment tracker', short: 'Tracker', Icon: Wallet },
+  { id: 'bankRegister', label: 'Bank register', short: 'Bank', Icon: Building2 },
 ];
 
 export default function PayrollWorkspaceTabs({ active, onChange, className = '' }) {

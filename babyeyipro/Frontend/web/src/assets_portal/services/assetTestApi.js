@@ -31,7 +31,10 @@ const assetTestApi = {
 
   getOpening: async (year, category, options = {}) => {
     const params = { year, category };
-    if (options.entryMode === 'legacy' || options.firstTime === false) {
+    if (options.editAssetId != null) {
+      params.edit_asset_id = options.editAssetId;
+    }
+    if (options.entryMode === 'legacy' || options.firstTime === false || options.editAssetId != null) {
       params.entry_mode = 'legacy';
     } else {
       params.entry_mode = 'year_setup';
@@ -73,6 +76,7 @@ const assetTestApi = {
       entry_mode: options.entryMode,
       first_time: options.firstTime,
       skip_duplicates: options.skipDuplicates !== false,
+      auto_generate_sku: options.autoGenerateSku !== false,
     }, { timeout: 300000 })
   ),
 
@@ -81,6 +85,10 @@ const assetTestApi = {
       register_year: registerYear,
       ...(category ? { category } : {}),
     })
+  ),
+
+  recalcAllRegisterChains: async () => unwrap(
+    await api.post('/school/assets/test/recalc-chain', { all_years: true }, { timeout: 300000 })
   ),
 
   getAsset: async (id) => unwrap(await api.get(`/school/assets/${id}`)),

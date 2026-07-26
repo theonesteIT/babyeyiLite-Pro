@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { WizardContent } from "./UpdateBabyeyi";
+import { CreateBabyeyiModal } from "./Babyeyi";
 import { parseTranslationsJson } from '../../schoolLiteSupport/utils/applyBabyeyiTranslations';
 import { getLegacyBabyeyiUI, getParentMessageForDisplay, getParentMessageForMachineTranslation, getStatusLabelSafe } from '../../schoolLiteSupport/i18n/index.js';
 import { BABYEYI_AUTO_LANG_OPTIONS, isCoreBabyeyiLang, normalizeBabyeyiLang } from '../../schoolLiteSupport/babyeyiTranslateLangs.js';
@@ -16,6 +16,7 @@ import {
   addCanvasToPdfAndSave,
   renderBabyeyiPdfFromRoot,
   buildBabyeyiAuthBlockHtml,
+  BABYEYI_PDF_CAPTURE_HOST_STYLE,
 } from './babyeyiPdfExport';
 import {
   computeRequirementLineTotal,
@@ -23,6 +24,14 @@ import {
   formatSchoolDescriptionHtml,
   parseSchoolDescriptionLines,
 } from './babyeyiWizardHelpers';
+import {
+  uniqueClassGradesFromLabels,
+  formatBabyeyiDocumentClassLabel,
+  buildBabyeyiDocumentClassHeaderHtml,
+} from '../../../utils/classStreamGroups';
+import { wrapBabyeyiDocHtml } from './babyeyiDocFrame';
+import BabyeyiDocFrame from './babyeyiDocFrameView.jsx';
+import { WizardContent } from './UpdateBabyeyi';
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
 import {
@@ -43,6 +52,7 @@ import {
   RefreshCw,
   Check,
   Copy,
+  Printer,
   Stamp as StampLucide,
 } from 'lucide-react';
 
@@ -165,6 +175,42 @@ async function toBase64(url) {
   } catch { return null; }
 }
 
+export async function downloadBabyeyiServerPdf({ babyeyiId, apiLang = "en", fileName, onRegenerate }) {
+  const pdfUrl = `${API_BASE}/babyeyi/${babyeyiId}/pdf?download=1&lang=${encodeURIComponent(apiLang)}`;
+  let res = await fetch(pdfUrl, { credentials: "include" });
+  if (!res.ok) {
+    if (onRegenerate) await onRegenerate();
+    else {
+      await fetch(`${API_BASE}/babyeyi/${babyeyiId}/regenerate-docs?lang=${encodeURIComponent(apiLang)}`, {
+        method: "POST",
+        credentials: "include",
+      });
+    }
+    res = await fetch(pdfUrl, { credentials: "include" });
+  }
+  if (!res.ok) throw new Error("PDF not ready — try Regenerate, then download again.");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName || "Babyeyi.pdf";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** WYSIWYG PDF — captures the same HTML shown in the View modal (not legacy PDFKit). */
+export async function downloadBabyeyiClientPdf({ rootEl, fileName }) {
+  if (!rootEl) throw new Error("Document not ready — open View first.");
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+  await renderBabyeyiPdfFromRoot(rootEl, null, fileName, babyeyiDocHtml2CanvasOptions());
+}
+
+export function openBabyeyiPrintPage({ babyeyiId, apiLang = "en" }) {
+  const printUrl = `${API_BASE}/babyeyi/${babyeyiId}/print?lang=${encodeURIComponent(apiLang)}&autoprint=1`;
+  window.open(printUrl, "_blank", "noopener,noreferrer");
+}
+
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -176,7 +222,7 @@ function loadScript(src) {
 /** html2canvas: force light white document (no UI chrome / dark-mode tint); matches on-screen View. */
 export function babyeyiDocHtml2CanvasOptions(rootId) {
   return {
-    scale: 2,
+    scale: 3,
     useCORS: true,
     allowTaint: false,
     backgroundColor: "#ffffff",
@@ -185,10 +231,15 @@ export function babyeyiDocHtml2CanvasOptions(rootId) {
     onclone: (doc) => {
       doc.documentElement.style.backgroundColor = "#ffffff";
       doc.body.style.backgroundColor = "#ffffff";
-      const el = doc.getElementById(rootId);
-      if (el) {
-        el.style.backgroundColor = "#ffffff";
-        el.style.color = "#1e293b";
+      doc.querySelectorAll("button").forEach((btn) => {
+        btn.style.display = "none";
+      });
+      if (rootId) {
+        const el = doc.getElementById(rootId);
+        if (el) {
+          el.style.backgroundColor = "#ffffff";
+          el.style.color = "#1e293b";
+        }
       }
     },
   };
@@ -220,7 +271,52 @@ const STATUS_CFG = {
 };
 
 const BLOCKED_STATUSES = new Set(["pending","draft","submitted"]);
-const isBlocked = (s) => BLOCKED_STATUSES.has(s);
+const isBlocked = (s) => BLOCKED_STATUSES.has(String(s || "").toLowerCase());
+
+function nesaRequestStatus(rec) {
+  return String(
+    rec?.increaseRequest?.nesaStatus ||
+    rec?.requestStatus ||
+    rec?.increase_request?.nesa_status ||
+    ""
+  ).toLowerCase();
+}
+
+/** True when total fee is above the stored NESA cap (API flag or live check). */
+function feeExceedsNesa(rec) {
+  if (rec?.exceedsLimit) return true;
+  const limit = Number(rec?.nesaLimit);
+  const fee = Number(rec?.totalFee);
+  return limit > 0 && fee > limit;
+}
+
+/** Lock PDF / WhatsApp until DEO + NESA approve when fee exceeds the national limit. */
+function isSharingLocked(rec) {
+  const status = String(rec?.status || "draft").toLowerCase();
+  if (feeExceedsNesa(rec)) {
+    return !(status === "approved" && nesaRequestStatus(rec) === "approved");
+  }
+  return isBlocked(status);
+}
+
+function BabyeyiClassChips({ labels, max = 6, size = "sm" }) {
+  const grades = uniqueClassGradesFromLabels(labels);
+  const shown = grades.slice(0, max);
+  const extra = grades.length - shown.length;
+  const chipCls =
+    size === "md"
+      ? "inline-flex px-2.5 py-1 rounded-full bg-[#eff6ff] border border-[#bfdbfe] text-[11px] font-bold text-[#1e3a5f]"
+      : "inline-flex px-2 py-0.5 rounded-full bg-[#eff6ff] border border-[#bfdbfe] text-[10px] font-bold text-[#1e3a5f]";
+  if (!grades.length) return <span className="text-slate-400 text-[10px]">—</span>;
+  return (
+    <div className="flex flex-wrap gap-1 justify-center">
+      {shown.map((g) => (
+        <span key={g} className={chipCls}>{g}</span>
+      ))}
+      {extra > 0 && <span className="text-[10px] font-semibold text-slate-500 self-center">+{extra}</span>}
+    </div>
+  );
+}
 
 export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T: TOverride, parentMsgOverride }) {
   const T = TOverride || getLegacyBabyeyiUI(lang);
@@ -232,18 +328,21 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const leaders = Array.isArray(rec.leaders) ? rec.leaders : [];
   const banks = parseBanks(rec);
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classHeaderHtml = buildBabyeyiDocumentClassHeaderHtml(classesArr, T.classLabel || "Class");
   const levelLabel = rec.level || rec.education_level || "";
+  const metaHtml = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]]
+    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
+    .join("");
   const tblStyle = `width:100%;border-collapse:collapse;margin-top:8px`;
   const thS = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent`;
   const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent`;
   const hdg = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${title}</span></div>`;
 
-  const parentSection = parentMsg ? `<div style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
+  const parentSection = parentMsg ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
   const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
-  const paySection = payments.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
+  const paySection = payments.length > 0 ? `<div data-babyeyi-pdf-section="fees" style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
   const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:40px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"—"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"—"}</td><td style="${tdS}">${bk.accountName||"—"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"✓":""}</td></tr>`).join("");
-  const banksSection = banks.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:40px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:70px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
+  const banksSection = banks.length > 0 ? `<div data-babyeyi-pdf-section="banking" style="margin-bottom:22px">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:40px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:70px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
   const reqHasSchoolPricing = reqs.some(
     (r) => String(r?.pay_channel || "").toLowerCase() === "school" && (Number(r?.cost) > 0 || Number(r?.unit_price) > 0)
   );
@@ -263,25 +362,21 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const reqHeadExtra = reqHasSchoolPricing
     ? `<th style="${thS};text-align:right">Unit (RWF)</th><th style="${thS};text-align:right">Total (RWF)</th>`
     : "";
-  const reqSection = reqs.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th>${reqHeadExtra}</tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
+  const reqSection = reqs.length > 0 ? `<div data-babyeyi-pdf-section="requirements" style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th>${reqHeadExtra}</tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
   const otherRows = otherInfos.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||""}</td></tr>`).join("");
-  const otherSection = otherInfos.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
+  const otherSection = otherInfos.length > 0 ? `<div data-babyeyi-pdf-section="other" style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
   const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px;font-size:11px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"—"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"—"}</td><td style="${tdS};font-family:monospace;font-size:11px">${l.phone?`+250 ${l.phone}`:"—"}</td><td style="${tdS};font-size:11px;color:#2563eb">${l.email||"—"}</td></tr>`).join("");
-  const leadersSection = leaders.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
+  const leadersSection = leaders.length > 0 ? `<div data-babyeyi-pdf-section="leadership" style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
   const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
-  const notesSection = classNotes.length > 0 ? `<div style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
-  const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:92px;height:92px;object-fit:contain;display:block"/>` : `<div style="width:92px;height:92px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
-  const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:70px;height:70px;object-fit:contain;display:block"/>` : "";
+  const notesSection = classNotes.length > 0 ? `<div data-babyeyi-pdf-section="notes" style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
+  const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>` : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
+  const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:80px;height:80px;object-fit:contain;display:block"/>` : "";
   const schoolDescBlock =
     rec.includeSchoolDescription !== false
       ? formatSchoolDescriptionHtml(rec.schoolDescription)
       : "";
-  const metaSpans = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]]
-    .map(([l, v]) => `<span style="font-size:12px;color:#1e293b"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
-    .join("");
-  const headerCenter = `${schoolDescBlock}<h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 6px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName || ""}</h1><div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center">${metaSpans}</div>`;
   const authBlock = buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 });
-  return `<div style="width:794px;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#1e293b"><div style="height:3px;background:#1e3a5f"></div><div style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;display:flex;align-items:center;justify-content:center">${schoolLogoHtml}</div><div style="flex:1;text-align:center">${headerCenter}</div><div style="flex-shrink:0;width:80px;height:80px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div></div>`;
+  return wrapBabyeyiDocHtml(`<div id="babyeyi-pdf-header" style="padding:20px 40px 16px;border-bottom:2px solid #1e3a5f"><div style="display:flex;align-items:center;gap:20px"><div style="flex-shrink:0;width:110px;height:110px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex-1;text-align:center">${schoolDescBlock}<p style="font-size:10px;color:#64748b;margin:0 0 2px;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">${T.republic}</p><p style="font-size:9px;color:#64748b;margin:0 0 2px">${T.district}: ${rec.district||"—"}</p><p style="font-size:9px;color:#64748b;margin:0 0 6px">${T.sector}: ${rec.sector||"—"}</p><h1 style="font-size:17px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em">${rec.schoolName||""}</h1>${classHeaderHtml}<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-top:6px">${metaHtml}${rec.docId?`<span style="font-size:11px;font-family:monospace;font-weight:700;color:#3730a3;padding:1px 8px">${rec.docId}</span>`:""}</div></div><div style="flex-shrink:0;width:84px;height:84px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml}</div></div></div><div id="babyeyi-pdf-body" style="padding:20px 40px 28px">${parentSection}${paySection}${banksSection}${reqSection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -295,7 +390,7 @@ async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, sta
   style.textContent = `#__by_c__ * { box-sizing:border-box; color-scheme:light only; } #__by_c__ { all:initial;display:block;background:#fff; }`;
   document.head.appendChild(style);
   const host = document.createElement("div");
-  host.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-9999;";
+  host.style.cssText = BABYEYI_PDF_CAPTURE_HOST_STYLE;
   const root = document.createElement("div"); root.id = "__by_c__"; root.innerHTML = html;
   host.appendChild(root); document.body.appendChild(host);
   try {
@@ -315,27 +410,6 @@ async function patchRwContentI18n(babyeyiId, body) {
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) throw new Error(json.message || "Save failed");
   return json;
-}
-
-/** Fetch server-generated PDF (cookie auth) and trigger browser download. */
-async function downloadBabyeyiPdfFromServerPath(pdfPath, filename = "Babyeyi.pdf") {
-  if (!pdfPath || typeof pdfPath !== "string") return;
-  const url = toAssetUrl(pdfPath.replace(/\\/g, "/"));
-  const res = await fetch(url, { credentials: "include" });
-  if (!res.ok) throw new Error(`PDF HTTP ${res.status}`);
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const safeName = String(filename || "Babyeyi.pdf").replace(/[/\\?%*:|"<>]/g, "-");
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = safeName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
 }
 
 // ── Language switcher ─────────────────────────────────────────
@@ -677,18 +751,7 @@ function KinyarwandaSectionEditModal({ target, recId, docId, onClose, onSaved, T
       else if (target.type === "classNote") {
         body = { classNotes: [{ index: target.index, item: v.item ?? "", details: v.details ?? "" }] };
       }       else if (target.type === "leader") body = { leaders: [{ index: target.index, role: v.role ?? "" }] };
-      const json = await patchRwContentI18n(recId, body);
-      const pdfPath = json?.data?.pdfPath;
-      // Do not auto-download server PDF after saving Requirements (user uses PDF button when needed).
-      if (pdfPath && target.type !== "requirement") {
-        try {
-          const fname = `Babyeyi-${docId || recId}-RW.pdf`;
-          await downloadBabyeyiPdfFromServerPath(pdfPath, fname);
-        } catch (dlErr) {
-          console.warn("[KinyarwandaSectionEditModal] PDF download:", dlErr);
-          alert(T.pdfSaveDownloadFailed || "Saved. The server PDF could not be downloaded — use the PDF button.");
-        }
-      }
+      await patchRwContentI18n(recId, body);
       await onSaved?.();
       onClose();
     } catch (e) {
@@ -883,10 +946,10 @@ function OfficialDoc({
   const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
   const stKeyDoc = String(rec.status || "draft").toLowerCase();
   const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: T[`status_${stKeyDoc}`] || getStatusLabelSafe(lang, rec.status) };
-  const blocked = isBlocked(rec.status);
+  const blocked = isSharingLocked(rec);
   const banks = docBody.banks;
   const classesArr = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
-  const classLabel = classesArr.filter(Boolean).join(", ");
+  const classLabel = formatBabyeyiDocumentClassLabel(classesArr);
   const levelLabel = rec.level || rec.education_level || "";
   const reqs = Array.isArray(docBody.merged.requirements) ? docBody.merged.requirements : [];
   const reqHasSchoolPricing = reqs.some(
@@ -935,39 +998,39 @@ function OfficialDoc({
     if (blocked) return;
     setDownloading(true);
     try {
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
-      await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-      const html = buildWordDocHTML({
-        rec: docBody.merged,
-        totalFee,
-        today,
-        schoolLogoB64,
-        otherLogoB64,
-        sigB64,
-        stampB64,
-        qrB64,
-        vUrl,
-        lang,
-        T,
-        parentMsgOverride: docBody.parentMsg,
+      const fileName = `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`;
+      const docEl = document.getElementById("babyeyi-pdf-doc");
+      if (docEl) {
+        try {
+          await downloadBabyeyiClientPdf({ rootEl: docEl, fileName });
+          return;
+        } catch (clientErr) {
+          console.warn("[babyeyi] client PDF capture failed, trying server:", clientErr);
+        }
+      }
+      await downloadBabyeyiServerPdf({
+        babyeyiId: rec.id,
+        apiLang,
+        fileName,
+        onRegenerate: async () => {
+          const res = await fetch(`${API_BASE}/babyeyi/${rec.id}/regenerate-docs?lang=${encodeURIComponent(apiLang)}`, {
+            method: "POST",
+            credentials: "include",
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || json.success === false) throw new Error(json.message || "Regenerate failed");
+        },
       });
-      const style = document.createElement("style");
-      style.textContent = `#__by_p__ * { box-sizing:border-box; color-scheme:light only; } #__by_p__ { all:initial;display:block;background:#fff; }`;
-      document.head.appendChild(style);
-      const host = document.createElement("div");
-      host.style.cssText = "position:fixed;left:-9999px;top:0;width:794px;background:#fff;z-index:-9999;";
-      const root = document.createElement("div"); root.id = "__by_p__"; root.innerHTML = html;
-      host.appendChild(root); document.body.appendChild(host);
-      try {
-        await renderBabyeyiPdfFromRoot(
-          root,
-          "__by_p__",
-          `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.pdf`,
-          babyeyiDocHtml2CanvasOptions("__by_p__"),
-        );
-      } finally { document.body.removeChild(host); document.head.removeChild(style); }
-    } catch (e) { alert("PDF error: " + e.message); }
-    finally { setDownloading(false); }
+    } catch (e) {
+      alert("PDF error: " + (e.message || e));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (blocked) return;
+    openBabyeyiPrintPage({ babyeyiId: rec.id, apiLang });
   };
 
   const handleRegen = async () => {
@@ -1037,10 +1100,16 @@ function OfficialDoc({
             <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> {T.locked || "Locked"}</span>
           )}
           {!blocked ? (
-            <button onClick={handlePDF} disabled={downloading}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-bold shrink-0">
-              {downloading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.pdfBtn || "PDF"} {lang !== "en" ? langMeta(lang).flag : ""}
-            </button>
+            <>
+              <button onClick={handlePrint}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-white/8 border border-white/15 hover:bg-white/14 text-white rounded-xl text-[10px] font-bold shrink-0">
+                <Printer className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden /> {T.printBtn || "Print"}
+              </button>
+              <button onClick={handlePDF} disabled={downloading}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white rounded-xl text-[10px] font-bold shrink-0">
+                {downloading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <FileText className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.pdfBtn || "PDF"} {lang !== "en" ? langMeta(lang).flag : ""}
+              </button>
+            </>
           ) : (
             <span className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 text-white/30 rounded-xl text-[10px] font-bold shrink-0"><Lock className="w-3 h-3 shrink-0 opacity-70" aria-hidden /> PDF</span>
           )}
@@ -1049,7 +1118,11 @@ function OfficialDoc({
         {blocked && (
           <div className="bg-amber-400/10 border-x border-amber-400/20 px-4 py-2 flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 shrink-0 text-amber-400" aria-hidden strokeWidth={2.5} />
-            <p className="text-amber-400 text-[10px] font-bold">{T.lockedPdfWhatsapp || "PDF and sharing locked until approved."}</p>
+            <p className="text-amber-400 text-[10px] font-bold">
+              {feeExceedsNesa(rec)
+                ? (T.lockedNesaApproval || "PDF and WhatsApp are locked until DEO and NESA approve the fee increase request.")
+                : (T.lockedPdfWhatsapp || "PDF and sharing locked until approved.")}
+            </p>
           </div>
         )}
         <div className="sm:hidden bg-[#000435] border-x border-white/10 px-4 py-2">
@@ -1070,9 +1143,9 @@ function OfficialDoc({
           )}
           <div className="overflow-x-auto overscroll-x-contain">
             <div style={{ minWidth: "760px" }}>
-              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            <BabyeyiDocFrame>
           {/* Header */}
-          <div style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
+          <div id="babyeyi-pdf-header" style={{ padding: "20px 40px 16px", borderBottom: "2px solid #1e3a5f" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
               <div style={{ flexShrink: 0, width: "110px", height: "110px", border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
                 {schoolLogoB64 ? <img src={schoolLogoB64} style={{ width: "110px", height: "110px", objectFit: "contain" }} alt="Logo" /> : <span style={{ fontSize: "8px", color: "#64748b", textAlign: "center", fontWeight: 700, padding: "4px" }}>{T.schoolLogoPlaceholder || "SCHOOL LOGO"}</span>}
@@ -1084,9 +1157,16 @@ function OfficialDoc({
                     dangerouslySetInnerHTML={{ __html: formatSchoolDescriptionHtml(rec.schoolDescription) }}
                   />
                 )}
-                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 600, lineHeight: "1.8" }}>{T.republic}</p>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0", lineHeight: "1.8" }}>{T.district}: <strong style={{ color: "#1e3a5f" }}>{rec.district || "—"}</strong></p>
+                <p style={{ fontSize: "10px", color: "#64748b", margin: "0 0 6px", lineHeight: "1.8" }}>{T.sector}: <strong style={{ color: "#1e3a5f" }}>{rec.sector || "—"}</strong></p>
+                <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#1e3a5f", margin: "0 0 8px", textTransform: "uppercase", letterSpacing: ".03em" }}>{rec.schoolName}</h1>
+                <div style={{ marginBottom: "10px" }}>
+                  <p style={{ fontSize: "10px", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", margin: "0 0 6px" }}>{T.classLabel}</p>
+                  <BabyeyiClassChips labels={classesArr} max={12} size="md" />
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
-                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel], [T.classLabel, classLabel]].map(([l, v], i) => (
+                  {[[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]].map(([l, v], i) => (
                     <span key={i} style={DOC.body}><strong style={{ color: "#1e3a5f" }}>{l}:</strong> {v || "—"}</span>
                   ))}
                 </div>
@@ -1098,9 +1178,9 @@ function OfficialDoc({
           </div>
 
           {/* Body */}
-          <div style={{ padding: "20px 40px 28px" }}>
+          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px" }}>
             {(parentMsg || isRwLocale) && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="parent" style={DOC.section}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
                   <span style={DOC.heading}>{T.parentMessageHeading}</span>
                   {isRwLocale && (
@@ -1121,7 +1201,7 @@ function OfficialDoc({
               </div>
             )}
             {payments.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="fees" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secFee}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thPaymentItem}</Th><Th>{T.thAmount || "Amount"}</Th></tr></thead>
@@ -1145,7 +1225,7 @@ function OfficialDoc({
               </div>
             )}
             {banks.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="banking" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secBanking}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="40px" center>#</Th><Th>{T.thBank || "Bank"}</Th><Th>{T.thAccount || "Account"}</Th><Th>{T.thAccountName || "Name"}</Th><Th w="70px" center>{T.thPrimary || "Primary"}</Th></tr></thead>
@@ -1154,7 +1234,7 @@ function OfficialDoc({
               </div>
             )}
             {reqs.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="requirements" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secRequirements}</span></div>
                 <table style={tblStyle}>
                   <thead>
@@ -1208,7 +1288,7 @@ function OfficialDoc({
               </div>
             )}
             {otherInfos.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="other" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secOtherInfo}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDetails || "Details"}</Th></tr></thead>
@@ -1231,7 +1311,7 @@ function OfficialDoc({
               </div>
             )}
             {leaders.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="leadership" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secLeadership}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="36px" center>#</Th><Th>{T.thFullName || "Full Name"}</Th><Th>{T.thRole || "Role"}</Th><Th>{T.thPhone || "Phone"}</Th><Th>{T.thEmail || "Email"}</Th></tr></thead>
@@ -1256,7 +1336,7 @@ function OfficialDoc({
               </div>
             )}
             {classNotes.length > 0 && (
-              <div style={DOC.section}>
+              <div data-babyeyi-pdf-section="notes" style={DOC.section}>
                 <div style={{ paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secClassNotes}</span></div>
                 <table style={tblStyle}>
                   <thead><tr><Th w="42px" center>#</Th><Th>{T.thItem || "Item"}</Th><Th>{T.thDetails || "Details"}</Th></tr></thead>
@@ -1278,25 +1358,26 @@ function OfficialDoc({
                 </table>
               </div>
             )}
-            {/* Auth */}
-            <div id="babyeyi-pdf-auth-block" style={{ ...DOC.section, marginTop: "20px", pageBreakInside: "avoid", breakInside: "avoid" }}>
-              <div style={{ borderBottom: "1.5px solid #1e3a5f", paddingBottom: "5px", marginBottom: "12px" }}><span style={DOC.heading}>{T.secAuth}</span></div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px", marginTop: "12px" }}>
-                <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>
-                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "11px", margin: "0 0 8px" }}>{T.sigHeadTeacher}</p>
-                  <div style={{ height: "52px", borderBottom: "1px solid #cbd5e1", display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "4px", marginBottom: "6px" }}>
-                    {sigB64 && <img src={sigB64} style={{ maxHeight: "48px", maxWidth: "140px", objectFit: "contain" }} alt="Sig" />}
+            {/* Auth — compact; stays on same page when content is short */}
+            <div id="babyeyi-pdf-auth-block" style={{ marginTop: "14px", pageBreakInside: "avoid", breakInside: "avoid", pageBreakBefore: "avoid", breakBefore: "avoid" }}>
+              <div style={{ borderBottom: "1.5px solid #1e3a5f", paddingBottom: "4px", marginBottom: "8px" }}><span style={{ ...DOC.heading, fontSize: "13px" }}>{T.secAuth}</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", marginTop: "8px" }}>
+                <div style={{ border: "1px solid #e2e8f0", padding: "10px 8px", textAlign: "center", minHeight: "96px", boxSizing: "border-box" }}>
+                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "10px", margin: "0 0 6px" }}>{T.sigHeadTeacher}</p>
+                  <div style={{ height: "44px", display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "2px", marginBottom: "2px" }}>
+                    {sigB64 && <img src={sigB64} style={{ maxHeight: "40px", maxWidth: "120px", objectFit: "contain" }} alt="Sig" />}
+                    {!sigB64 && <div style={{ width: "100%", height: "1px", borderBottom: "1px solid #cbd5e1" }} />}
                   </div>
-                  <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{sigB64 ? T.sigSigned : T.sigRequired}</p>
+                  <p style={{ fontSize: "10px", color: "#94a3b8", margin: 0 }}>{sigB64 ? T.sigSigned : T.sigRequired}</p>
                 </div>
-                <div style={{ border: "1px solid #e2e8f0", padding: "14px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ border: "1px solid #e2e8f0", padding: "10px 8px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "96px", boxSizing: "border-box" }}>
                   {qrB64 ? (
                     <>
                       <div style={{ background: "white", border: "1px solid #e2e8f0", padding: "4px", borderRadius: "4px" }}>
-                        <img src={qrB64} style={{ width: "80px", height: "80px", objectFit: "contain", display: "block" }} alt="QR" />
+                        <img src={qrB64} style={{ width: "64px", height: "64px", objectFit: "contain", display: "block" }} alt="QR" />
                       </div>
-                      <p style={{ fontSize: "10px", color: "#1e3a5f", fontWeight: 700, margin: "6px 0 0", textTransform: "uppercase", letterSpacing: ".05em" }}>{T.sigScanVerify}</p>
-                      {rec.docId && <p style={{ fontSize: "10px", color: "#64748b", margin: "2px 0 0", fontFamily: "monospace" }}>ID: {rec.docId}</p>}
+                      <p style={{ fontSize: "9px", color: "#1e3a5f", fontWeight: 700, margin: "4px 0 0", textTransform: "uppercase", letterSpacing: ".05em" }}>{T.sigScanVerify}</p>
+                      {rec.docId && <p style={{ fontSize: "9px", color: "#64748b", margin: "2px 0 0", fontFamily: "monospace" }}>ID: {rec.docId}</p>}
                     </>
                   ) : qrLoading ? (
                     <div className="flex flex-col items-center gap-2">
@@ -1304,22 +1385,27 @@ function OfficialDoc({
                       <span style={{ fontSize: "10px", color: "#4f46e5", fontWeight: 700 }}>{T.generatingQr || "Generating…"}</span>
                     </div>
                   ) : (
-                    <div style={{ width: 80, height: 80, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <QrCode className="w-8 h-8 text-slate-300 opacity-35" aria-hidden strokeWidth={1.75} />
+                    <div style={{ width: 64, height: 64, border: "1px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <QrCode className="w-7 h-7 text-slate-300 opacity-35" aria-hidden strokeWidth={1.75} />
                     </div>
                   )}
                 </div>
-                <div style={{ border: "1px solid #e2e8f0", padding: "14px", textAlign: "center" }}>
-                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "11px", margin: "0 0 8px" }}>{T.sigStamp}</p>
-                  <div style={{ width: "80px", height: "80px", border: "1px dashed #e2e8f0", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: "0 auto 6px" }}>
-                    {stampB64 ? <img src={stampB64} style={{ width: "76px", height: "76px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <StampLucide className="w-8 h-8 text-slate-300 opacity-[0.14]" aria-hidden strokeWidth={1.5} />}
+                <div style={{ border: "1px solid #e2e8f0", padding: "10px 8px", textAlign: "center", minHeight: "96px", boxSizing: "border-box" }}>
+                  <p style={{ ...DOC.label, textTransform: "uppercase", fontSize: "10px", margin: "0 0 6px" }}>{T.sigStamp}</p>
+                  <div style={{ width: "64px", height: "64px", border: "1px dashed #e2e8f0", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", margin: "0 auto 4px" }}>
+                    {stampB64 ? <img src={stampB64} style={{ width: "60px", height: "60px", objectFit: "contain", borderRadius: "50%" }} alt="Stamp" /> : <StampLucide className="w-7 h-7 text-slate-300 opacity-[0.14]" aria-hidden strokeWidth={1.5} />}
                   </div>
-                  <p style={{ fontSize: "11px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
+                  <p style={{ fontSize: "10px", color: "#94a3b8", margin: 0 }}>{T.sigCachet}</p>
                 </div>
+              </div>
+              <div style={{ borderTop: "1px solid #1e3a5f", padding: "6px 0", marginTop: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>{rec.schoolName || ""} · {rec.district || ""}</span>
+                <span style={{ fontSize: "10px", color: "#1e3a5f", fontWeight: 700, textTransform: "uppercase" }}>{T.docOfficial}</span>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>{T.docFooterLeft != null ? T.docFooterLeft : "Doc"} {rec.docId || ""} · {today}</span>
               </div>
             </div>
           </div>
-              <div style={{ height: "3px", background: "#1e3a5f" }} />
+            </BabyeyiDocFrame>
             </div>
           </div>
         </div>
@@ -1358,6 +1444,22 @@ function OfficialDoc({
 // ── Edit wizard modal ─────────────────────────────────────────
 function EditWizardModal({ rec, session, onClose, onSaved, duplicateMode = false }) {
   useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
+
+  if (!duplicateMode) {
+    return (
+      <CreateBabyeyiModal
+        key={rec.id}
+        session={session}
+        isOpen
+        editRecord={rec}
+        onClose={onClose}
+        onSuccess={(updated) => {
+          onSaved?.(updated || rec);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#000435]/85 backdrop-blur-md"
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -1366,10 +1468,10 @@ function EditWizardModal({ rec, session, onClose, onSaved, duplicateMode = false
         <div className="px-5 py-4 shrink-0 flex items-center justify-between sticky top-0 z-10 bg-[#000435] border-b border-amber-400/20">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-amber-400">
-              {duplicateMode ? <Copy className="w-4 h-4" strokeWidth={2.25} aria-hidden /> : <Pencil className="w-4 h-4" strokeWidth={2.25} aria-hidden />}
+              <Copy className="w-4 h-4" strokeWidth={2.25} aria-hidden />
             </div>
             <div>
-              <h1 className="font-semibold text-white text-[14px]">{duplicateMode ? "Duplicate Babyeyi" : "Edit Babyeyi"}</h1>
+              <h1 className="font-semibold text-white text-[14px]">Duplicate Babyeyi</h1>
               <p className="text-[10px] text-amber-400/60">{rec.class} · {rec.term} · {rec.academicYear}</p>
             </div>
           </div>
@@ -1380,8 +1482,7 @@ function EditWizardModal({ rec, session, onClose, onSaved, duplicateMode = false
         <div style={{ flex: 1, minHeight: 0 }}>
           <WizardContent
             session={session}
-            editRecord={duplicateMode ? null : rec}
-            duplicateFrom={duplicateMode ? rec : null}
+            duplicateFrom={rec}
             onClose={onClose}
             onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }}
           />
@@ -1427,8 +1528,8 @@ function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, T, l
   const classes = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
   const fee = rec.totalFee ?? payments.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const over = rec.exceedsLimit ? fee - (rec.nesaLimit || 0) : 0;
-  const blocked = isBlocked(rec.status);
+  const over = feeExceedsNesa(rec) ? fee - (rec.nesaLimit || 0) : 0;
+  const blocked = isSharingLocked(rec);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:border-amber-300 transition-all hover:shadow-md" style={{ fontFamily: FONT }}>
@@ -1437,12 +1538,10 @@ function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, T, l
       <div className="p-4">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-              <span className="text-amber-800 font-medium text-[10px] text-center leading-tight">{classes.join(", ")}</span>
-            </div>
-            <div className="min-w-0">
-              <p className="font-semibold text-slate-900 text-[13px] truncate">{rec.term} · {rec.academicYear}</p>
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="min-w-0 flex-1">
+              <BabyeyiClassChips labels={classes} max={4} />
+              <p className="font-semibold text-slate-900 text-[13px] truncate mt-2">{rec.term} · {rec.academicYear}</p>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
                 {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}
@@ -1462,7 +1561,7 @@ function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, T, l
             <p className="text-[14px] font-semibold font-mono text-[#000435]">
               {fee.toLocaleString()} <span className="text-[10px]">RWF</span>
             </p>
-            {rec.exceedsLimit && <p className="text-[9px] text-amber-700 font-medium">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
+            {feeExceedsNesa(rec) && <p className="text-[9px] text-amber-700 font-medium">+{over.toLocaleString()} {T.overNesaHint || "over NESA"}</p>}
           </div>
           <div className="rounded-xl px-3 py-2.5 border bg-slate-50 border-slate-200">
             <p className="text-[9px] font-medium uppercase tracking-wider text-slate-500 mb-0.5">{T.bankShort || "Bank"}</p>
@@ -1517,6 +1616,7 @@ const mapRow = (row) => {
   return {
     id: row.id, class: row.class_name || row.class || (classes[0] || ""), classes,
     level: row.education_level || row.level || "Primary", term: row.term || "", academicYear: row.academic_year || "",
+    category: row.school_category || row.category || "Public",
     status: row.status || "draft", totalFee: Number(totalFee || 0), nesaLimit: row.nesa_limit != null ? Number(row.nesa_limit) : null,
     exceedsLimit: !!row.exceeds_limit, schoolName: row.school_name || "", district: row.school_district || row.district || "",
     sector: row.school_sector || row.sector || "", createdAt: row.created_at || "",
@@ -1530,7 +1630,11 @@ const mapRow = (row) => {
     pdfPath: row.pdf_url || row.pdf_path || null, signaturePath: null, stampPath: null,
     payments: paymentsArr, requirements: [], classNotes: [], otherInfos: [],
     leaders: Array.isArray(row.leaders) ? row.leaders : [], leadersCount: Array.isArray(row.leaders) ? row.leaders.length : 0,
-    increaseRequest: null, translationsJson: parseTranslationsJson(row.translations_json),
+    increaseRequest: row.request_status || row.request_id
+      ? { nesaStatus: row.request_status || null, requestId: row.request_id || null }
+      : null,
+    requestStatus: row.request_status || null,
+    translationsJson: parseTranslationsJson(row.translations_json),
   };
 };
 
@@ -1575,7 +1679,7 @@ async function loadFullRecord(sumRec, docLang = "en") {
       cost: r.cost != null && r.cost !== "" ? String(r.cost) : "",
     })),
     classNotes, otherInfos, leaders, leadersCount: leaders.length,
-    increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : null,
+    increaseRequest: d.increase_request ? { requestTitle: d.increase_request.request_title || d.increase_request.reason, nesaStatus: d.increase_request.nesa_status } : sumRec.increaseRequest || null,
     signaturePath: norm(sig.director_sig_path) || null, stampPath: norm(sig.stamp_path) || null,
     schoolLogoPath: norm(sig.school_logo_path) || norm(sumRec.schoolLogoPath) || null,
     otherLogoPath: norm(sig.other_logo_path) || norm(sumRec.otherLogoPath) || null,
@@ -1585,12 +1689,17 @@ async function loadFullRecord(sumRec, docLang = "en") {
     docId: d.doc_id || sumRec.docId || null,
     integrityHash: d.integrity_hash != null ? String(d.integrity_hash) : sumRec.integrityHash || null,
     totalFee: Number(d.total_fee || d.total_amount || payments.reduce((s, p) => s + Number(p.amount || 0), 0) || 0),
+    status: d.status || sumRec.status || "draft",
+    nesaLimit: d.nesa_limit != null ? Number(d.nesa_limit) : sumRec.nesaLimit,
+    exceedsLimit: d.exceeds_limit != null ? !!d.exceeds_limit : sumRec.exceedsLimit,
+    requestStatus: d.increase_request?.nesa_status || sumRec.requestStatus || null,
     parentMessage: d.parent_message || sumRec.parentMessage || "",
     schoolDescription: d.school_description || sumRec.schoolDescription || "",
     includeSchoolDescription:
       d.include_school_description != null
         ? !!d.include_school_description
         : sumRec.includeSchoolDescription !== false,
+    category: d.school_category || d.category || sumRec.category || "Public",
     banksJson: d.banks_json || sumRec.banksJson || null,
     translationsJson: parseTranslationsJson(d.translations_json) ?? sumRec.translationsJson ?? null,
   };
@@ -1697,7 +1806,15 @@ export default function BabyeyiList({ session }) {
   const handleSaved = (updatedRec) => { setRecords(r => r.map(x => x.id === updatedRec.id ? { ...x, ...updatedRec } : x)); showToast("Babyeyi updated!"); };
 
   const handleShare = async (sumRec) => {
-    if (isBlocked(sumRec.status)) { showToast("Sharing locked until approved.", "error"); return; }
+    if (isSharingLocked(sumRec)) {
+      showToast(
+        feeExceedsNesa(sumRec)
+          ? (T.lockedNesaApproval || "Sharing locked until DEO and NESA approve the fee increase request.")
+          : "Sharing locked until approved.",
+        "error"
+      );
+      return;
+    }
     showToast("Loading document…", "info");
     try { const full = await loadFullRecord(sumRec, lang); setToast(null); setSharing(full); }
     catch (e) { showToast(e.message || "Failed", "error"); }
@@ -1730,7 +1847,7 @@ export default function BabyeyiList({ session }) {
   const stats = {
     total: records.length,
     approved: records.filter(r => r.status === "approved").length,
-    pending: records.filter(r => ["pending","draft","submitted"].includes(r.status)).length,
+    pending: records.filter(r => isSharingLocked(r)).length,
     rejected: records.filter(r => r.status === "rejected").length,
   };
   const activeFilters = Object.values(filters).filter(Boolean).length;
@@ -1768,7 +1885,7 @@ export default function BabyeyiList({ session }) {
         />
       )}
       {deleting && <DeleteModal rec={deleting} onConfirm={handleDelete} onCancel={() => setDeleting(null)} T={T} />}
-      {sharing && !isBlocked(sharing.status) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
+      {sharing && !isSharingLocked(sharing) && <ShareModal rec={sharing} onClose={() => setSharing(null)} schoolLogoB64={null} otherLogoB64={null} sigB64={null} stampB64={null} qrB64={null} vUrl={babyeyiVerifyScanUrl(sharing.docId, sharing.integrityHash) || sharing.qrViewUrl} lang={lang} T={T} />}
 
       {!schoolId && (
         <div className="bg-red-600 text-white text-center text-[12px] font-bold py-2 px-4 rounded-xl mb-4">School session not found. Please log out and log back in.</div>

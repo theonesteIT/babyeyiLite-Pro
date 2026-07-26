@@ -27,6 +27,7 @@ const {
   getNesaPrefs,
   saveNesaPrefs,
 } = require('./nesaNotifications');
+const { ensureNesaBabyeyiSchema } = require('../utils/nesaBabyeyiSchema');
 const {
   upsertSubscription,
   removeSubscription,
@@ -54,6 +55,18 @@ const nesaAuth = (req, res, next) => {
   req.nesaUser = req.user;
   next();
 };
+
+let nesaSchemaReady = false;
+router.use(async (req, res, next) => {
+  if (nesaSchemaReady) return next();
+  try {
+    await ensureNesaBabyeyiSchema();
+    nesaSchemaReady = true;
+  } catch (e) {
+    console.error('[nesaBabyeyi] schema ensure:', e.message);
+  }
+  next();
+});
 
 router.use(nesaAuth);
 
@@ -610,28 +623,43 @@ async function ensureNesaAcademicYearsTable() {
 
 async function loadNesaAcademicPeriodMeta() {
   await ensureNesaAcademicYearsTable();
-  const [feeYears] = await query(
-    `SELECT DISTINCT TRIM(academic_year) AS v
-     FROM fee_limits
-     WHERE academic_year IS NOT NULL AND TRIM(academic_year) <> ''
-     ORDER BY v DESC`
-  );
-  const [reqYears] = await query(
-    `SELECT DISTINCT TRIM(b.academic_year) AS v
-     FROM babyeyi_increase_requests ir
-     INNER JOIN school_babyeyi b ON b.id = ir.babyeyi_id
-     WHERE b.academic_year IS NOT NULL AND TRIM(b.academic_year) <> ''
-     ORDER BY v DESC`
-  );
+  let feeYears = [];
+  let feeTerms = [];
+  try {
+    [feeYears] = await query(
+      `SELECT DISTINCT TRIM(academic_year) AS v
+       FROM fee_limits
+       WHERE academic_year IS NOT NULL AND TRIM(academic_year) <> ''
+       ORDER BY v DESC`
+    );
+  } catch (e) {
+    console.warn('[nesaBabyeyi] fee_limits years:', e.message);
+  }
+  let reqYears = [];
+  try {
+    [reqYears] = await query(
+      `SELECT DISTINCT TRIM(b.academic_year) AS v
+       FROM babyeyi_increase_requests ir
+       INNER JOIN school_babyeyi b ON b.id = ir.babyeyi_id
+       WHERE b.academic_year IS NOT NULL AND TRIM(b.academic_year) <> ''
+       ORDER BY v DESC`
+    );
+  } catch (e) {
+    console.warn('[nesaBabyeyi] request years:', e.message);
+  }
   const [regYears] = await query(
     `SELECT academic_year AS v FROM nesa_academic_years ORDER BY academic_year DESC`
   );
-  const [feeTerms] = await query(
-    `SELECT DISTINCT TRIM(term) AS v
-     FROM fee_limits
-     WHERE term IS NOT NULL AND TRIM(term) <> ''
-     ORDER BY v ASC`
-  );
+  try {
+    [feeTerms] = await query(
+      `SELECT DISTINCT TRIM(term) AS v
+       FROM fee_limits
+       WHERE term IS NOT NULL AND TRIM(term) <> ''
+       ORDER BY v ASC`
+    );
+  } catch (e) {
+    console.warn('[nesaBabyeyi] fee_limits terms:', e.message);
+  }
   const years = [...new Set([
     ...feeYears.map((r) => r.v),
     ...reqYears.map((r) => r.v),

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { notifyAcademicSettingsUpdated } from '../context/AcademicContext';
 import {
     Settings, Calendar, Globe, Bell, Smartphone, Moon,
     Save, HardDrive, Plus, ShieldCheck, RefreshCw, X, Watch, Loader2,
@@ -481,6 +482,7 @@ const Preferences = () => {
                 active_terms: terms,
                 term_dates: termDates.filter(d => d.name && d.start && d.end),
             });
+            notifyAcademicSettingsUpdated();
             alert('Academic settings saved.');
         } catch (err) { alert(err.response?.data?.message || 'Failed to save'); }
         finally { setIsSaving(false); }

@@ -37,6 +37,7 @@ const tdStyle = {
 
 const HEADERS = [
   { key: 'location', label: 'location', w: 'min-w-[100px]' },
+  { key: 'register_year', label: 'year', w: 'min-w-[60px]' },
   { key: 'name', label: 'name', w: 'min-w-[140px]' },
   { key: 'label', label: 'label', w: 'min-w-[70px]' },
   { key: 'type', label: 'type', w: 'min-w-[120px]' },
@@ -76,6 +77,7 @@ function cell(row, key) {
   const parts = parsePurchaseParts(row.purchase_date)
   switch (key) {
     case 'location': return formatLocationValue(row.location) || '—'
+    case 'register_year': return row.register_year != null ? String(row.register_year) : '—'
     case 'name': return row.asset_name || row.name || '—'
     case 'label': return row.label_tag || '—'
     case 'type': {

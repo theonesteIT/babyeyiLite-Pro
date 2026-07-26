@@ -46,6 +46,7 @@
     "save": "Save",
     "schoolLogoPlaceholder": "SCHOOL LOGO",
     "lockedPdfWhatsapp": "PDF and WhatsApp are locked until status is Approved.",
+    "lockedNesaApproval": "PDF and WhatsApp are locked until DEO and NESA approve the fee increase request.",
     "otherLogoGov": "RW GOVT",
     "qrPending": "QR Pending",
     "totalFeeLabel": "Total Fee:",

@@ -46,6 +46,7 @@
     "save": "Enregistrer",
     "schoolLogoPlaceholder": "LOGO DE L'ÉCOLE",
     "lockedPdfWhatsapp": "Le PDF et WhatsApp sont verrouillés tant que le statut n'est pas « Approuvé ».",
+    "lockedNesaApproval": "Le PDF et WhatsApp restent verrouillés jusqu'à l'approbation DEO et NESA de la demande d'augmentation.",
     "otherLogoGov": "GOUV RW",
     "qrPending": "QR en attente",
     "totalFeeLabel": "Frais totaux :",

@@ -11,6 +11,14 @@
  */
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import api from '../services/api';
+import {
+    ACADEMIC_SETTINGS_UPDATED_EVENT,
+    buildAcademicYearOptions,
+    inferAcademicYearFromDate,
+    notifyAcademicSettingsUpdated,
+} from '../utils/academicYearList';
+
+export { notifyAcademicSettingsUpdated };
 
 const STORAGE_KEY = 'babyeyi_academic_settings';
 
@@ -33,13 +41,7 @@ function inferTerm(activeTerms) {
 
 // ── Generate a descending list of academic years ──────────────────────────────
 function buildYearList(currentYear, count = 4) {
-    const [aStr] = String(currentYear || '').split('-');
-    const a = Number(aStr);
-    if (!a) return [currentYear];
-    return Array.from({ length: count }, (_, i) => {
-        const y = a - i;
-        return `${y}-${y + 1}`;
-    });
+    return buildAcademicYearOptions([], currentYear).slice(0, count);
 }
 
 // ── Context & hook ────────────────────────────────────────────────────────────
@@ -61,7 +63,7 @@ export function AcademicProvider({ children }) {
     const [academicYearsRegistry, setAcademicYearsRegistry] = useState(cached.academicYearsRegistry || []);
 
     const apply = useCallback((data) => {
-        const year  = data.current_academic_year || '2025-2026';
+        const year  = data.current_academic_year || inferAcademicYearFromDate();
         const terms = Array.isArray(data.active_terms) && data.active_terms.length
             ? data.active_terms
             : ['Term 1', 'Term 2', 'Term 3'];
@@ -106,13 +108,17 @@ export function AcademicProvider({ children }) {
 
     useEffect(() => { refresh(); }, [refresh]);
 
-    /** Registered years from settings, else generated list from current year. */
-    const academicYears = useMemo(() => {
-        if (academicYearsRegistry.length) {
-            return academicYearsRegistry.map((r) => r.academic_year);
-        }
-        return buildYearList(academicYear, 5);
-    }, [academicYearsRegistry, academicYear]);
+    useEffect(() => {
+        const onUpdated = () => { refresh(); };
+        window.addEventListener(ACADEMIC_SETTINGS_UPDATED_EVENT, onUpdated);
+        return () => window.removeEventListener(ACADEMIC_SETTINGS_UPDATED_EVENT, onUpdated);
+    }, [refresh]);
+
+    /** Registered years from settings (current first), else generated list. */
+    const academicYears = useMemo(
+        () => buildAcademicYearOptions(academicYearsRegistry, academicYear),
+        [academicYearsRegistry, academicYear],
+    );
 
     /** Return the date config for a given term name, or null if not configured. */
     const getTermDates = useCallback((termName) => {

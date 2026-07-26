@@ -12,13 +12,18 @@ import { filterPayrollEmployeeDeductions } from "../../utils/payrollEmployeeDedu
 import { getEmployeePayrollDeductions } from "../../services/payrollTemplateService";
 import { getPayrollRuns, isPayrollRunPaid, triggerPayrollRun } from "../../services/payrollRunService";
 import { listTerminationsForPayrollMonth } from "../../services/terminationBenefitsService";
-import PayrollRegisterTable from "../../components/PayrollRegisterTable";
 import {
   mapApiLineToRegisterRow,
   sumPayrollRegisterRows,
-  downloadPayrollRegisterCsv,
-  downloadPayrollRegisterExcel,
 } from "../../utils/payrollRegister";
+import PayrollReportRegisterTable from "../../components/PayrollReportRegisterTable";
+import {
+  buildPreviewReportRows,
+  enrichRegisterRowForReports,
+  resolveRunReportColumns,
+  sumRunReportRows,
+} from "../../utils/payrollReportTables";
+import { downloadRunPayrollRegisterExcel } from "../../utils/payrollReportExport";
 import api from "../../services/api";
 import AccountantOchreHero from "../../components/AccountantOchreHero";
 import StaffToProcessModal from "../../components/payroll/StaffToProcessModal";
@@ -70,6 +75,7 @@ function cloneAllowancesFromTemplate(tpl) {
       name: a.name || a.category || "Allowance",
       amountType: a.amountType || "Fixed Amount",
       value: Number(a.value || 0),
+      payrollChannel: a.payrollChannel || a.payroll_channel || "tax",
       status: "Active",
     }));
 }
@@ -83,6 +89,7 @@ function cloneDeductionsFromTemplate(tpl) {
       name: d.name || d.category || "Deduction",
       amountType: d.amountType || "Fixed Amount",
       value: Number(d.value || 0),
+      payrollChannel: d.payrollChannel || d.payroll_channel || "tax",
       status: "Active",
     }));
 }
@@ -93,6 +100,7 @@ function allowancesForRunApi(list) {
     name: a.name || a.category,
     amountType: a.amountType || "Fixed Amount",
     value: Number(a.value || 0),
+    payrollChannel: a.payrollChannel || "tax",
     status: "Active",
   }));
 }
@@ -103,6 +111,7 @@ function deductionsForRunApi(list) {
     name: d.name || d.category,
     amountType: d.amountType || "Fixed Amount",
     value: Number(d.value || 0),
+    payrollChannel: d.payrollChannel || "tax",
     status: "Active",
   }));
 }
@@ -804,6 +813,18 @@ export default function PayrollRun() {
   const hasTemplate = !!templateConfig;
   const templateInactive = hasTemplate && !templateActive;
   const canRunPayroll = !loadingStaff && employees.length > 0;
+  const previewReportRows = useMemo(
+    () => buildPreviewReportRows(previewRegisterRows, templateConfig),
+    [previewRegisterRows, templateConfig],
+  );
+  const runTemplateColumns = useMemo(
+    () => resolveRunReportColumns(templateConfig),
+    [templateConfig],
+  );
+  const previewReportTotals = useMemo(
+    () => (previewReportRows.length ? sumRunReportRows(previewReportRows) : null),
+    [previewReportRows],
+  );
   const previewTotals = useMemo(
     () => (previewRegisterRows.length ? sumPayrollRegisterRows(previewRegisterRows) : null),
     [previewRegisterRows]
@@ -924,6 +945,22 @@ export default function PayrollRun() {
       return "School";
     }
   }, []);
+
+  const savedReportRows = useMemo(() => {
+    const enriched = payrollData.map((line) => enrichRegisterRowForReports(
+      mapApiLineToRegisterRow(line),
+      line,
+      'Processing',
+      templateConfig,
+    ));
+    const runColumns = resolveRunReportColumns(templateConfig);
+    return enriched.map((row) => ({ ...row, runColumns }));
+  }, [payrollData, templateConfig]);
+
+  const savedReportTotals = useMemo(
+    () => (savedReportRows.length ? sumRunReportRows(savedReportRows) : null),
+    [savedReportRows],
+  );
 
   const registerRows = useMemo(
     () => payrollData.map((l) => mapApiLineToRegisterRow(l)),
@@ -1217,24 +1254,13 @@ export default function PayrollRun() {
               <div className="flex gap-2 flex-wrap">
                 <button
                   type="button"
-                  disabled={!previewRegisterRows.length}
-                  onClick={() => downloadPayrollRegisterCsv({
+                  disabled={!previewReportRows.length}
+                  onClick={() => downloadRunPayrollRegisterExcel({
                     schoolName,
                     periodLabel,
-                    rows: previewRegisterRows,
-                    filename: `payroll-preview-${month}-${payrollYear}.csv`,
-                  })}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-                >
-                  <Download size={14} /> Export CSV
-                </button>
-                <button
-                  type="button"
-                  disabled={!previewRegisterRows.length}
-                  onClick={() => downloadPayrollRegisterExcel({
-                    schoolName,
-                    periodLabel,
-                    rows: previewRegisterRows,
+                    rows: previewReportRows,
+                    totalRow: previewReportTotals,
+                    runStatus: 'Preview',
                     filename: `payroll-preview-${month}-${payrollYear}.xlsx`,
                   })}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F59E0B] text-[#000435] text-xs font-bold hover:bg-[#F59E0B]/90 disabled:opacity-50"
@@ -1258,7 +1284,7 @@ export default function PayrollRun() {
                   <Loader2 size={22} className="animate-spin mx-auto mb-2 text-[#F59E0B]" />
                   Loading staff for register…
                 </div>
-              ) : previewRegisterRows.length === 0 ? (
+              ) : previewReportRows.length === 0 ? (
                 <div className="py-12 text-center space-y-2">
                   <p className="text-sm text-amber-800 font-semibold">
                     No staff with basic salary in preview
@@ -1270,11 +1296,12 @@ export default function PayrollRun() {
                   </p>
                 </div>
               ) : (
-                <PayrollRegisterTable
-                  rows={previewRegisterRows}
-                  totalRow={previewTotals}
+                <PayrollReportRegisterTable
+                  variant="run"
+                  rows={previewReportRows}
+                  totalRow={previewReportTotals}
+                  runColumns={runTemplateColumns}
                   maxHeight={480}
-                  onEditRow={(row) => openEmployeeEdit(row.staffUserId)}
                 />
               )}
             </div>
@@ -1372,16 +1399,22 @@ export default function PayrollRun() {
                   <p className="text-[11px] text-slate-500 mt-0.5">Income Salary = Gross − PAYE − CSR 6% − M.LEAVE 0.3% − RAMA 7.5% · Net = Income − Mutuelle 0.5%</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" disabled={!registerRows.length} onClick={() => downloadPayrollRegisterCsv({ schoolName, periodLabel, rows: registerRows, filename: `payroll-${month}-${payrollYear}.csv` })} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                  <button type="button" disabled={!savedReportRows.length} onClick={() => downloadRunPayrollRegisterExcel({ schoolName, periodLabel, rows: savedReportRows, totalRow: savedReportTotals, runStatus: 'Processing', filename: `payroll-${month}-${payrollYear}.xlsx` })} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
                     <Download size={14} /> CSV
                   </button>
-                  <button type="button" disabled={!registerRows.length} onClick={() => downloadPayrollRegisterExcel({ schoolName, periodLabel, rows: registerRows, filename: `payroll-${month}-${payrollYear}.xlsx` })} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F59E0B] text-[#000435] text-xs font-bold hover:bg-[#F59E0B]/90 disabled:opacity-50">
+                  <button type="button" disabled={!savedReportRows.length} onClick={() => downloadRunPayrollRegisterExcel({ schoolName, periodLabel, rows: savedReportRows, totalRow: savedReportTotals, runStatus: 'Processing', filename: `payroll-${month}-${payrollYear}.xlsx` })} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F59E0B] text-[#000435] text-xs font-bold hover:bg-[#F59E0B]/90 disabled:opacity-50">
                     <FileSpreadsheet size={14} /> Excel
                   </button>
                 </div>
               </div>
               <div className="p-4">
-                <PayrollRegisterTable rows={registerRows} totalRow={registerTotals} maxHeight={520} />
+                <PayrollReportRegisterTable
+                  variant="run"
+                  rows={savedReportRows}
+                  totalRow={savedReportTotals}
+                  runColumns={runTemplateColumns}
+                  maxHeight={520}
+                />
               </div>
             </div>
           </div>

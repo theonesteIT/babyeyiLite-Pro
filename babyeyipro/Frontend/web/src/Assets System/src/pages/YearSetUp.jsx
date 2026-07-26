@@ -7,6 +7,7 @@ import assetsApi from '../../../assets_portal/services/assetsApi'
 import CategoryFormModal from '../components/CategoryFormModal'
 import { yearOptionsFrom1900, defaultYearDates, formatRwfPlain } from '../../../assets_portal/utils/financialYearUtils'
 import { computeYearStartAnnualDep } from '../../../assets_portal/utils/assetRegisterMath'
+import { isLandCategory } from '../../../assets_portal/utils/assetsConstants'
 
 const NAVY = '#000435'
 const AMBER = '#FEBF10'
@@ -71,6 +72,16 @@ export default function YearSetUp() {
   }, [])
 
   useEffect(() => { loadCategories() }, [loadCategories])
+
+  useEffect(() => {
+    if (!modalOpen || !categories.length || !categoryBalances.length) return
+    setCategoryBalances((rows) => rows.map((b) => {
+      const name = b.category_name || b.category
+      const cat = categories.find((c) => c.name === name)
+      if (!cat || cat.depreciation_rate == null) return b
+      return { ...b, depreciation_rate: Number(cat.depreciation_rate) }
+    }))
+  }, [categories, modalOpen])
 
   const mergeOpeningPreview = useCallback((previewCats, prevRows = []) => {
     const prevMap = new Map(prevRows.map((b) => [b.category_name || b.category, b]))
@@ -154,20 +165,38 @@ export default function YearSetUp() {
       if (r.category_name !== categoryName && r.category !== categoryName) return r
       const next = { ...r, [field]: num }
       if (field === 'opening_balance') next.opening = num
-      if (field === 'accumulated_depreciation') next.total_depreciation_start = num
+      if (field === 'accumulated_depreciation') {
+        next.total_depreciation_start = isLandCategory(categoryName) ? 0 : num
+        if (isLandCategory(categoryName)) next.accumulated_depreciation = 0
+      }
+      if (isLandCategory(categoryName)) {
+        next.depreciation_rate = 0
+        next.accumulated_depreciation = 0
+        next.total_depreciation_start = 0
+        next.previous_accumulated_depreciation = 0
+        next.annual_depreciation = 0
+      }
       return next
     }))
   }
 
-  const balancePayload = () => categoryBalances.map((b) => ({
-    category_id: b.category_id,
-    category: b.category_name || b.category,
-    opening_balance: b.opening_balance ?? b.opening,
-    last_year_closing: b.last_year_closing ?? b.lastYearClosing,
-    depreciation_rate: b.depreciation_rate,
-    accumulated_depreciation: b.accumulated_depreciation ?? b.previous_accumulated_depreciation ?? b.total_depreciation_start,
-    total_depreciation_start: b.total_depreciation_start ?? b.accumulated_depreciation ?? b.previous_accumulated_depreciation,
-  }))
+  const balancePayload = () => categoryBalances.map((b) => {
+    const name = b.category_name || b.category
+    const land = isLandCategory(name)
+    return {
+      category_id: b.category_id,
+      category: name,
+      opening_balance: b.opening_balance ?? b.opening,
+      last_year_closing: b.last_year_closing ?? b.lastYearClosing,
+      depreciation_rate: land ? 0 : b.depreciation_rate,
+      accumulated_depreciation: land
+        ? 0
+        : (b.accumulated_depreciation ?? b.previous_accumulated_depreciation ?? b.total_depreciation_start),
+      total_depreciation_start: land
+        ? 0
+        : (b.total_depreciation_start ?? b.accumulated_depreciation ?? b.previous_accumulated_depreciation),
+    }
+  })
 
   const handleSave = async () => {
     setSaving(true)
@@ -380,6 +409,10 @@ export default function YearSetUp() {
                     <p><strong>TOTAL DEPRECIATION</strong> = Total balance − Annual depreciation (closing balance)</p>
                     <p><strong>Next asset</strong> opening = prior total balance; accumulated start = prior total depreciation</p>
                     <p className="text-blue-700">First asset in year uses Opening stock &amp; Accumulated dep. start from Year Setup (Step 2).</p>
+                    <p className="text-emerald-800 border-t border-blue-200/80 pt-1 mt-1">
+                      <strong>Land:</strong> enter <strong>Opening amount only</strong> (Acc. dep. not used).
+                      Register: Opening + Purchase = TOTAL BALANCE. Next year Opening = last TOTAL BALANCE. No depreciation.
+                    </p>
                   </div>
                   <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
@@ -419,21 +452,33 @@ export default function YearSetUp() {
                         </div>
                         {categoryBalances.map((b) => {
                           const name = b.category_name || b.category
+                          const land = isLandCategory(name)
                           const opening = b.opening_balance ?? b.opening ?? 0
                           const lastClose = b.last_year_closing ?? b.lastYearClosing ?? 0
-                          const accDep = b.accumulated_depreciation ?? b.total_depreciation_start ?? b.previous_accumulated_depreciation ?? 0
-                          const rate = b.depreciation_rate ?? 5
-                          const yearStartAnnual = computeYearStartAnnualDep(accDep, rate)
+                          const accDep = land
+                            ? 0
+                            : (b.accumulated_depreciation ?? b.total_depreciation_start ?? b.previous_accumulated_depreciation ?? 0)
+                          const rate = land ? 0 : (b.depreciation_rate ?? 5)
+                          const yearStartAnnual = land ? 0 : computeYearStartAnnualDep(opening, accDep, rate)
                           return (
                             <div key={name} className="grid grid-cols-6 gap-2 min-w-[720px] items-center px-3 py-2.5 hover:bg-gray-50 rounded-lg">
-                              <span className="text-sm font-medium" style={{ color: NAVY }}>{name}</span>
+                              <span className="text-sm font-medium" style={{ color: NAVY }}>
+                                {name}
+                                {land && <span className="ml-1 text-[10px] font-normal text-emerald-700">(no dep.)</span>}
+                              </span>
                               <input type="number" className="assets-wizard-input text-sm" value={opening}
                                 onChange={(e) => updateBalanceField(name, 'opening_balance', e.target.value)} />
                               <span className="text-xs text-gray-500 font-mono tabular-nums">RWF {formatRwfPlain(lastClose)}</span>
-                              <input type="number" className="assets-wizard-input text-sm" value={accDep}
-                                onChange={(e) => updateBalanceField(name, 'accumulated_depreciation', e.target.value)} />
-                              <span className="text-sm font-mono text-amber-600">{rate}%</span>
-                              <span className="text-xs font-mono text-red-600 tabular-nums">RWF {formatRwfPlain(yearStartAnnual)}</span>
+                              {land ? (
+                                <span className="text-xs text-emerald-700 font-medium">— not used</span>
+                              ) : (
+                                <input type="number" className="assets-wizard-input text-sm" value={accDep}
+                                  onChange={(e) => updateBalanceField(name, 'accumulated_depreciation', e.target.value)} />
+                              )}
+                              <span className="text-sm font-mono text-amber-600">{land ? '0% (none)' : `${rate}%`}</span>
+                              <span className="text-xs font-mono text-red-600 tabular-nums">
+                                {land ? '—' : `RWF ${formatRwfPlain(yearStartAnnual)}`}
+                              </span>
                             </div>
                           )
                         })}
@@ -461,12 +506,18 @@ export default function YearSetUp() {
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-3">Rates by category (from database)</label>
                       <div className="space-y-2">
-                        {categoryBalances.map((b) => (
-                          <div key={b.category_name || b.category} className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
-                            <span className="font-medium" style={{ color: NAVY }}>{b.category_name || b.category}</span>
-                            <span className="font-mono text-amber-600 font-bold">{b.depreciation_rate ?? 5}%</span>
+                        {categoryBalances.map((b) => {
+                          const name = b.category_name || b.category
+                          const land = isLandCategory(name)
+                          return (
+                          <div key={name} className="flex justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                            <span className="font-medium" style={{ color: NAVY }}>{name}</span>
+                            <span className="font-mono text-amber-600 font-bold">
+                              {land ? '0% — no depreciation' : `${b.depreciation_rate ?? 5}%`}
+                            </span>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
@@ -504,17 +555,25 @@ export default function YearSetUp() {
                   <div className="bg-white rounded-xl p-5 border border-gray-100">
                     <p className="text-xs text-gray-500 uppercase font-semibold mb-3">Opening balances by category</p>
                     {categoryBalances.map((b) => {
-                      const acc = b.accumulated_depreciation ?? b.total_depreciation_start ?? 0
+                      const name = b.category_name || b.category
+                      const land = isLandCategory(name)
+                      const acc = land ? 0 : (b.accumulated_depreciation ?? b.total_depreciation_start ?? 0)
                       return (
-                        <div key={b.category_name || b.category} className="px-3 py-2 bg-gray-50 rounded-lg text-sm mb-2">
+                        <div key={name} className="px-3 py-2 bg-gray-50 rounded-lg text-sm mb-2">
                           <div className="flex justify-between font-medium">
-                            <span>{b.category_name || b.category}</span>
+                            <span>{name}{land ? ' (Land — opening only)' : ''}</span>
                             <span className="font-mono text-amber-600">Opening RWF {formatRwfPlain(b.opening_balance ?? b.opening)}</span>
                           </div>
-                          <div className="flex justify-between text-[11px] text-gray-500 mt-1">
-                            <span>Accumulated dep. start</span>
-                            <span className="font-mono text-red-600">RWF {formatRwfPlain(acc)}</span>
-                          </div>
+                          {land ? (
+                            <div className="text-[11px] text-emerald-700 mt-1">
+                              No depreciation · next year opening = last TOTAL BALANCE (Opening + Purchase)
+                            </div>
+                          ) : (
+                            <div className="flex justify-between text-[11px] text-gray-500 mt-1">
+                              <span>Accumulated dep. start</span>
+                              <span className="font-mono text-red-600">RWF {formatRwfPlain(acc)}</span>
+                            </div>
+                          )}
                         </div>
                       )
                     })}

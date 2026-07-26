@@ -503,15 +503,15 @@ export default function UniformSalesAnalytics() {
                   <p className="text-sm font-medium text-gray-500">No fabric stock-out or issue data for these filters.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-sm">
                   <table className="w-full text-sm min-w-[960px]">
                     <thead>
-                      <tr className="bg-gray-50/80 border-b border-gray-100">
+                      <tr className="bg-[#000435] text-white">
                         {[
                           'Fabric', 'Color', 'Meters out', 'Fabric unit cost', 'Fabric cost out',
                           'Issue qty', 'Issue unit price', 'Issue revenue', 'Profit / loss', 'Status',
                         ].map((h) => (
-                          <th key={h} className="text-left py-3.5 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                          <th key={h} className="text-left py-3 px-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                             {h}
                           </th>
                         ))}
@@ -519,7 +519,7 @@ export default function UniformSalesAnalytics() {
                     </thead>
                     <tbody>
                       {profitData.rows.map((row, i) => (
-                        <tr key={`${row.fabric_type}-${row.fabric_color}-${i}`} className="border-b border-gray-50 hover:bg-amber-50/30 transition-colors">
+                        <tr key={`${row.fabric_type}-${row.fabric_color}-${i}`} className="border-b border-gray-100 hover:bg-amber-50/30 even:bg-slate-50/40 transition-colors">
                           <td className="py-3.5 px-4 text-xs font-bold text-[#000435]">{row.fabric_type}</td>
                           <td className="py-3.5 px-4 text-xs text-gray-500">{row.fabric_color || '—'}</td>
                           <td className="py-3.5 px-4 text-xs text-gray-600">{Number(row.meters_out || 0).toLocaleString()} m</td>
