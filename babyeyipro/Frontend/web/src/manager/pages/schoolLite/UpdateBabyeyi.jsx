@@ -667,6 +667,21 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   const [categoryLockedBySchool, setCategoryLockedBySchool] = useState(false);
 
   const [editId, setEditId] = useState(editRecord?.id ?? null);
+  const saveInFlightRef = useRef(false);
+
+  /** Duplicate/edit one card → one Babyeyi row; multi-class bulk create stays on new wizard only. */
+  const resolveClassesToCreate = useCallback(() => {
+    const fallback = form?.classes?.[0] || duplicateFrom?.class || editRecord?.class || "P1";
+    if (editId || duplicateFrom) {
+      const primary =
+        duplicateFrom?.class ||
+        editRecord?.class ||
+        (Array.isArray(form?.classes) && form.classes[0]) ||
+        fallback;
+      return [primary];
+    }
+    return form?.classes?.length ? form.classes : ["P1"];
+  }, [editId, duplicateFrom, editRecord?.class, form?.classes]);
 
   useEffect(() => {
     stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
@@ -708,6 +723,10 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         try { return typeof rec.otherInfos === "string" ? JSON.parse(rec.otherInfos) : (rec.otherInfos || []); }
         catch { return []; }
       })();
+      const parsedClassNotes = (() => {
+        try { return typeof rec.classNotes === "string" ? JSON.parse(rec.classNotes) : (rec.classNotes || []); }
+        catch { return []; }
+      })();
       const parsedBanks = (() => {
         try {
           const b = typeof rec.banksJson === "string" ? JSON.parse(rec.banksJson) : (rec.banksJson || []);
@@ -744,13 +763,20 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         level:         rec.level         || "Primary",
         category:      rec.category      || "Public",
         language:      rec.language      || "en",
-        classes:       Array.isArray(rec.classes) && rec.classes.length
-          ? rec.classes
-          : (rec.class ? [rec.class] : (rec.className ? [rec.className] : ["P1"])),
+        classes: duplicateFrom
+          ? [duplicateFrom.class || (Array.isArray(rec.classes) && rec.classes[0]) || rec.class || rec.className || "P1"]
+          : (Array.isArray(rec.classes) && rec.classes.length
+            ? rec.classes
+            : (rec.class ? [rec.class] : (rec.className ? [rec.className] : ["P1"]))),
         parentMessage: rec.parentMessage || "",
         payments:      parsedPayments.length ? parsedPayments : [{ name: "Tuition Fee", amount: "", pay_channel: "babyeyi" }],
         requirements:  parsedReqs.length ? parsedReqs : [blankRequirement()],
-        otherInfos:    parsedOtherInfos,
+        otherInfos: (Array.isArray(parsedOtherInfos) && parsedOtherInfos.length)
+          ? parsedOtherInfos.map((o) => ({ item: o.item || o.information || "" }))
+          : [{ item: "" }],
+        classReqs: parsedClassNotes.length
+          ? parsedClassNotes.map((n) => ({ item: n.item || "", details: n.details || "" }))
+          : [{ item: "", details: "" }],
         bankName:      bankSelectValue(primaryName, BANKS),
         bankNameOther: bankCustomName(primaryName, BANKS),
         accountNumber: primaryBank.accountNumber || rec.bankAccountNo || "",
@@ -762,14 +788,25 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
         })),
         schoolLogo: null, otherLogo: null, directorSignature: null, stamp: null,
         requestIncrease: false, requestTitle: "", requestReasons: [], requestDescription: "",
-        classReqs: [], dateSigned: "",
+        dateSigned: "",
         leaders: parsedLeaders,
         feeTargetStudents: "public",
       });
-      if (rec.logoUrl)      setPreviews(p => ({ ...p, schoolLogo: rec.logoUrl }));
-      if (rec.signatureUrl) setPreviews(p => ({ ...p, directorSignature: rec.signatureUrl }));
-      if (rec.stampUrl)     setPreviews(p => ({ ...p, stamp: rec.stampUrl }));
-      setDbAssets({ schoolLogo: !!rec.logoUrl, directorSignature: !!rec.signatureUrl, stamp: !!rec.stampUrl });
+      const logoPreview = toAssetUrl(rec.schoolLogoPath || rec.logoUrl);
+      const otherPreview = toAssetUrl(rec.otherLogoPath);
+      const sigPreview = toAssetUrl(rec.signaturePath || rec.signatureUrl);
+      const stampPreview = toAssetUrl(rec.stampPath || rec.stampUrl);
+      setPreviews({
+        schoolLogo: logoPreview,
+        otherLogo: otherPreview,
+        directorSignature: sigPreview,
+        stamp: stampPreview,
+      });
+      setDbAssets({
+        schoolLogo: !!logoPreview,
+        directorSignature: !!sigPreview,
+        stamp: !!stampPreview,
+      });
       setEditId(duplicateFrom ? null : (editRecord?.id ?? null));
     } else {
       setForm(buildBlankForm({
@@ -959,10 +996,12 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
   };
 
   const handleSave = async () => {
+    if (saveInFlightRef.current || saving) return;
     if (step === 8 && !validateStep2()) { showToast("Validation errors in Step 2.", "error"); return; }
     if (!schoolId) { showToast("School ID missing from session.", "error"); return; }
 
-    const classesToCreate = form.classes?.length ? form.classes : ["P1"];
+    const classesToCreate = resolveClassesToCreate();
+    saveInFlightRef.current = true;
     setSaving(true);
     const createdIds = [];
 
@@ -1081,6 +1120,7 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
       console.error(e);
       showToast(e.message || "Failed to save Babyeyi", "error");
     } finally {
+      saveInFlightRef.current = false;
       setSaving(false);
       setQrGenerating(false);
     }
@@ -2442,7 +2482,11 @@ export function WizardContent({ session, onClose, onSuccess, editRecord = null, 
             ) : (
               <>
                 <I n={exceeds&&form.requestIncrease?"send":"save"} size={14} color="#fff" />
-                {form.classes.length>1 ? `Generate ${form.classes.length} Babyeyi` : exceeds&&form.requestIncrease ? "Submit + Request" : "Generate Babyeyi"}
+                {duplicateFrom && !editId
+                  ? "Save duplicate"
+                  : form.classes.length>1 && !editId
+                    ? `Generate ${form.classes.length} Babyeyi`
+                    : exceeds&&form.requestIncrease ? "Submit + Request" : editId ? "Save changes" : "Generate Babyeyi"}
               </>
             )}
           </button>

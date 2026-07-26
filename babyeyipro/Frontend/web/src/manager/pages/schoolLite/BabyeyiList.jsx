@@ -3,7 +3,7 @@
 // #000435 navy + amber-400 · MTN font · Tailwind only · Mobile-first
 // ================================================================
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { CreateBabyeyiModal } from "./Babyeyi";
 import { parseTranslationsJson } from '../../schoolLiteSupport/utils/applyBabyeyiTranslations';
@@ -53,8 +53,11 @@ import {
   Check,
   Copy,
   Printer,
+  MoreVertical,
   Stamp as StampLucide,
 } from 'lucide-react';
+
+const BABYEYI_MENU_W = 220;
 
 const FONT = `"MTN Brighter Sans","Nunito","Varela Round",sans-serif`;
 /** Apply ensureQRCode result to state (client data URL or server PNG). */
@@ -1629,8 +1632,161 @@ function DeleteModal({ rec, onConfirm, onCancel, T }) {
   );
 }
 
+// ── Card actions menu (⋮) ───────────────────────────────────
+function BabyeyiCardMenuItem({ icon: Icon, label, onClick, tone = "default", disabled, description }) {
+  const tones = {
+    default: "text-slate-700 hover:bg-slate-50",
+    danger: "text-red-700 hover:bg-red-50",
+    muted: "text-slate-600 hover:bg-slate-50",
+  };
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-[12px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${tones[tone] || tones.default}`}
+    >
+      <Icon className="w-4 h-4 shrink-0 opacity-70" strokeWidth={2} aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block leading-tight">{label}</span>
+        {description && <span className="block text-[10px] font-normal text-slate-400 mt-0.5">{description}</span>}
+      </span>
+    </button>
+  );
+}
+
+function useBabyeyiMenuPosition(open, triggerRef, menuRef) {
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  const update = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+    const menuH = menu?.offsetHeight || 280;
+    const gap = 6;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = rect.right - BABYEYI_MENU_W;
+    left = Math.max(8, Math.min(left, vw - BABYEYI_MENU_W - 8));
+
+    const spaceBelow = vh - rect.bottom - gap;
+    let top = spaceBelow >= menuH || spaceBelow >= rect.top
+      ? rect.bottom + gap
+      : rect.top - menuH - gap;
+    top = Math.max(8, Math.min(top, vh - menuH - 8));
+
+    setPos({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, update]);
+
+  return pos;
+}
+
+function BabyeyiActionsMenu({ rec, T, blocked, onEdit, onDuplicate, onShare, onPrint, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+  const { top, left } = useBabyeyiMenuPosition(open, triggerRef, menuRef);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onPointer = (e) => {
+      const t = triggerRef.current;
+      const m = menuRef.current;
+      if (t?.contains(e.target) || m?.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [open]);
+
+  const run = (fn) => {
+    setOpen(false);
+    fn?.(rec);
+  };
+
+  const menu = open ? createPortal(
+    <div
+      ref={menuRef}
+      role="menu"
+      className="fixed z-[300] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden py-1"
+      style={{ top, left, width: BABYEYI_MENU_W, animation: "babyeyiMenuIn 0.15s ease-out" }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <BabyeyiCardMenuItem icon={Pencil} label={T.editBtn || "Edit"} onClick={() => run(onEdit)} />
+      <BabyeyiCardMenuItem icon={Copy} label={T.duplicateBtn || "Duplicate"} onClick={() => run(onDuplicate)} />
+      <div className="my-1 border-t border-slate-100" />
+      <BabyeyiCardMenuItem
+        icon={Printer}
+        label={T.printBtn || "Print"}
+        tone="muted"
+        disabled={blocked}
+        description={blocked ? (T.lockedPdfWhatsapp || "Locked until approved") : undefined}
+        onClick={() => !blocked && run(onPrint)}
+      />
+      <BabyeyiCardMenuItem
+        icon={FileText}
+        label={T.shareBtn || "Share"}
+        tone="muted"
+        disabled={blocked}
+        description={blocked ? (T.lockedPdfWhatsapp || "Locked until approved") : undefined}
+        onClick={() => !blocked && run(onShare)}
+      />
+      <div className="my-1 border-t border-slate-100" />
+      <BabyeyiCardMenuItem icon={Trash2} label={T.deleteBtn || "Delete"} tone="danger" onClick={() => run(onDelete)} />
+    </div>,
+    document.body,
+  ) : null;
+
+  return (
+    <>
+      <style>{`
+        @keyframes babyeyiMenuIn {
+          from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={T.moreActions || "More actions"}
+        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all shrink-0 ${
+          open
+            ? "border-amber-300 bg-amber-50 text-amber-800"
+            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+        }`}
+      >
+        <MoreVertical className="w-4 h-4" strokeWidth={2.25} aria-hidden />
+      </button>
+      {menu}
+    </>
+  );
+}
+
 // ── Babyeyi card ──────────────────────────────────────────────
-function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, T, lang }) {
+function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, onPrint, T, lang }) {
   const stKeyCard = String(rec.status || "draft").toLowerCase();
   const st = { ...(STATUS_CFG[rec.status] || STATUS_CFG.draft), label: T[`status_${stKeyCard}`] || getStatusLabelSafe(lang, rec.status) };
   const classes = Array.isArray(rec.classes) && rec.classes.length ? rec.classes : [rec.class];
@@ -1645,21 +1801,31 @@ function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, T, l
       <div className="h-[3px] w-full bg-amber-400" />
       <div className="p-4">
         {/* Header row */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-start gap-3 min-w-0 flex-1">
-            <div className="min-w-0 flex-1">
-              <BabyeyiClassChips labels={classes} max={4} />
-              <p className="font-semibold text-slate-900 text-[13px] truncate mt-2">{rec.term} · {rec.academicYear}</p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
-                {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}
-                {blocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-hidden strokeWidth={2.25} />}
-              </div>
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="min-w-0 flex-1">
+            <BabyeyiClassChips labels={classes} max={4} />
+            <p className="font-semibold text-slate-900 text-[13px] truncate mt-2">{rec.term} · {rec.academicYear}</p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span className="text-[10px] font-medium text-slate-500">{rec.level}</span>
+              {rec.docId && <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-medium bg-amber-50 text-amber-700 border border-amber-200">{rec.docId}</span>}
+              {blocked && <Lock className="w-3 h-3 text-slate-300 shrink-0" aria-hidden strokeWidth={2.25} />}
             </div>
           </div>
-          <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0 ${st.bg} ${st.text} ${st.border}`}>
-            <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`} /> {st.label}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border ${st.bg} ${st.text} ${st.border}`}>
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${st.dot}`} /> {st.label}
+            </span>
+            <BabyeyiActionsMenu
+              rec={rec}
+              T={T}
+              blocked={blocked}
+              onEdit={onEdit}
+              onDuplicate={onDuplicate}
+              onShare={onShare}
+              onPrint={onPrint}
+              onDelete={onDelete}
+            />
+          </div>
         </div>
 
         {/* Stats row */}
@@ -1678,37 +1844,11 @@ function BabyeyiCard({ rec, onView, onEdit, onDuplicate, onDelete, onShare, T, l
           </div>
         </div>
 
-        {/* Action row */}
-        <div className="flex items-center gap-2">
-          {/* View/PDF */}
-          <button type="button" onClick={() => onView(rec)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-[#000435] font-medium text-[12px] hover:bg-amber-300 transition-all active:scale-[.98]">
-            <Eye className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden /> {T.viewBtn || "View"}
-          </button>
-          {/* Edit */}
-          <button type="button" onClick={() => onEdit(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200 transition-all"
-            title={T.editBtn || "Edit"}><Pencil className="w-4 h-4" strokeWidth={2} aria-hidden /></button>
-          <button type="button" onClick={() => onDuplicate(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:text-amber-700 hover:bg-amber-50 hover:border-amber-200 transition-all"
-            title={T.duplicateBtn || "Duplicate"}><Copy className="w-4 h-4" strokeWidth={2} aria-hidden /></button>
-          {/* Share/WhatsApp */}
-          {blocked ? (
-            <div className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 text-slate-300 cursor-not-allowed"><Lock className="w-4 h-4" aria-hidden /></div>
-          ) : (
-            <button type="button" onClick={() => onShare(rec)}
-              className="w-9 h-9 flex items-center justify-center rounded-xl border border-amber-200 transition-all bg-amber-50 text-[#000435] hover:bg-amber-100"
-              aria-label={T.share || "Share"}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="#000435" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            </button>
-          )}
-          {/* Delete */}
-          <button type="button" onClick={() => onDelete(rec)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
-            aria-label={T.confirmDelete || "Delete"}>
-            <Trash2 className="w-4 h-4" strokeWidth={2.25} aria-hidden />
-          </button>
-        </div>
+        {/* Action row — primary View only; other actions in ⋮ menu */}
+        <button type="button" onClick={() => onView(rec)}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-400 text-[#000435] font-medium text-[12px] hover:bg-amber-300 transition-all active:scale-[.98]">
+          <Eye className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden /> {T.viewBtn || "View"}
+        </button>
       </div>
     </div>
   );
@@ -1893,8 +2033,9 @@ export default function BabyeyiList({ session }) {
         integrityHash: _hash,
         ...copy
       } = full;
+      const primaryClass = full.class || (Array.isArray(full.classes) && full.classes[0]) || "P1";
       setToast(null);
-      setDuplicating({ ...copy, status: "draft" });
+      setDuplicating({ ...copy, status: "draft", class: primaryClass, classes: [primaryClass] });
     } catch (e) { showToast(e.message || "Failed to load", "error"); }
   };
 
@@ -1926,6 +2067,58 @@ export default function BabyeyiList({ session }) {
     showToast("Loading document…", "info");
     try { const full = await loadFullRecord(sumRec, lang); setToast(null); setSharing(full); }
     catch (e) { showToast(e.message || "Failed", "error"); }
+  };
+
+  const handlePrint = async (sumRec) => {
+    if (isSharingLocked(sumRec)) {
+      showToast(
+        feeExceedsNesa(sumRec)
+          ? (T.lockedNesaApproval || "Print locked until DEO and NESA approve the fee increase request.")
+          : (T.lockedPdfWhatsapp || "Print locked until approved."),
+        "error"
+      );
+      return;
+    }
+    showToast("Preparing print…", "info");
+    try {
+      const full = await loadFullRecord(sumRec, lang);
+      const Tdoc = getLegacyBabyeyiUI(lang);
+      const [logo, otherLogo, sig, stamp] = await Promise.all([
+        toBase64(toAssetUrl(full.schoolLogoPath)),
+        toBase64(toAssetUrl(full.otherLogoPath)),
+        toBase64(toAssetUrl(full.signaturePath)),
+        toBase64(toAssetUrl(full.stampPath)),
+      ]);
+      const qrResult = await ensureQRCode(full);
+      let qrB64 = null;
+      let vUrl = null;
+      if (qrResult?.qrDataUrl) {
+        qrB64 = qrResult.qrDataUrl;
+        vUrl = qrResult.vUrl;
+      } else if (qrResult?.qrUrl) {
+        qrB64 = await toBase64(toAssetUrl(qrResult.qrUrl));
+        vUrl = qrResult.vUrl;
+      }
+      const payments = Array.isArray(full.payments) ? full.payments : [];
+      const totalFee = full.totalFee ?? payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+      const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+      setToast(null);
+      printBabyeyiClientDoc({
+        rec: full,
+        totalFee,
+        today,
+        schoolLogoB64: logo,
+        otherLogoB64: otherLogo,
+        sigB64: sig,
+        stampB64: stamp,
+        qrB64,
+        vUrl,
+        lang,
+        T: Tdoc,
+      });
+    } catch (e) {
+      showToast(e.message || "Print failed", "error");
+    }
   };
 
   useEffect(() => {
@@ -2147,7 +2340,7 @@ export default function BabyeyiList({ session }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((rec, i) => (
               <div key={rec.id} className="card-enter" style={{ animationDelay: `${i * 50}ms` }}>
-                <BabyeyiCard rec={rec} onView={handleView} onEdit={handleEdit} onDuplicate={handleDuplicate} onDelete={setDeleting} onShare={handleShare} T={T} lang={lang} />
+                <BabyeyiCard rec={rec} onView={handleView} onEdit={handleEdit} onDuplicate={handleDuplicate} onDelete={setDeleting} onShare={handleShare} onPrint={handlePrint} T={T} lang={lang} />
               </div>
             ))}
           </div>
