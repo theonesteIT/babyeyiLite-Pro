@@ -1907,6 +1907,26 @@ async function loadFullRecord(sumRec, docLang = "en") {
       d.include_school_description != null
         ? !!d.include_school_description
         : sumRec.includeSchoolDescription !== false,
+    classes: (() => {
+      try {
+        const raw = d.classes_json;
+        if (raw) {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (Array.isArray(parsed) && parsed.length) return parsed.filter(Boolean);
+        }
+      } catch { /* ignore */ }
+      return sumRec.classes?.length ? sumRec.classes : (sumRec.class ? [sumRec.class] : []);
+    })(),
+    class: (() => {
+      try {
+        const raw = d.classes_json;
+        if (raw) {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (Array.isArray(parsed) && parsed[0]) return parsed[0];
+        }
+      } catch { /* ignore */ }
+      return d.class_name || d.class || sumRec.class || "";
+    })(),
     category: d.school_category || d.category || sumRec.category || "Public",
     banksJson: d.banks_json || sumRec.banksJson || null,
     translationsJson: parseTranslationsJson(d.translations_json) ?? sumRec.translationsJson ?? null,

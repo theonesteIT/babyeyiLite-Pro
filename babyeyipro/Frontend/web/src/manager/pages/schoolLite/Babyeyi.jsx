@@ -783,17 +783,15 @@ export function BabyeyiWizard({ session, editRecord = null, duplicateFrom = null
   ]);
 
   const resolveClassesToCreate = useCallback(() => {
-    const fallback = form?.classes?.[0] || duplicateFrom?.class || editRecord?.class || "P1";
-    if (editId || duplicateFrom) {
+    if (duplicateFrom) {
       const primary =
         duplicateFrom?.class ||
-        editRecord?.class ||
         (Array.isArray(form?.classes) && form.classes[0]) ||
-        fallback;
+        "P1";
       return [primary];
     }
     return form?.classes?.length ? form.classes : [];
-  }, [editId, duplicateFrom, editRecord?.class, form?.classes]);
+  }, [duplicateFrom, form?.classes]);
 
   const classRowMap = useMemo(() => {
     const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
