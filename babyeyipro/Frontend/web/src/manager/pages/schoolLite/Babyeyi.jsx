@@ -1369,7 +1369,16 @@ export function BabyeyiWizard({ session, editRecord = null, duplicateFrom = null
       setGeneratedQRCodes(qrResults);
       setQrGenerating(false);
       if (isModal) {
-        if (onSuccess) onSuccess(json.data || { id: savedId });
+        if (onSuccess) {
+          onSuccess({
+            ...(json.data || {}),
+            id: savedId,
+            classes: classesToCreate,
+            class: classesToCreate[0] || json.data?.class || json.data?.class_name,
+            class_name: classesToCreate[0] || json.data?.class_name || json.data?.class,
+            classes_json: JSON.stringify(classesToCreate),
+          });
+        }
         if (onClose) onClose();
         return;
       }

@@ -1559,6 +1559,31 @@ const mapRow = (row) => {
   };
 };
 
+function mergeApiRowIntoListRecord(existing, apiRow) {
+  if (!apiRow?.id) return existing;
+  const mapped = mapRow({
+    ...apiRow,
+    id: apiRow.id,
+    class_name: apiRow.class_name || apiRow.class || existing.class,
+    classes_json: apiRow.classes_json,
+    education_level: apiRow.education_level || apiRow.level || existing.level,
+    academic_year: apiRow.academic_year || existing.academicYear,
+    total_fee: apiRow.total_fee ?? apiRow.total_amount ?? existing.totalFee,
+    nesa_limit: apiRow.nesa_limit ?? existing.nesaLimit,
+    exceeds_limit: apiRow.exceeds_limit ?? existing.exceedsLimit,
+    status: apiRow.status ?? existing.status,
+    bank_name: apiRow.bank_name ?? existing.bankName,
+    bank_account_no: apiRow.bank_account_no ?? existing.bankAccountNo,
+    doc_id: apiRow.doc_id ?? existing.docId,
+    payments: apiRow.payments ?? existing.payments,
+  });
+  if (Array.isArray(apiRow.classes) && apiRow.classes.length) {
+    mapped.classes = apiRow.classes;
+    mapped.class = apiRow.classes[0] || mapped.class;
+  }
+  return { ...existing, ...mapped };
+}
+
 async function loadFullRecord(sumRec) {
   const res  = await fetch(`${API_BASE}/babyeyi/${sumRec.id}`, { credentials: "include" });
   const json = await res.json();
@@ -1698,7 +1723,7 @@ export default function BabyeyiList({ session }) {
   };
 
   const handleSaved = (updatedRec) => {
-    setRecords(r => r.map(x => x.id === updatedRec.id ? { ...x, ...updatedRec } : x));
+    setRecords((r) => r.map((x) => (x.id === updatedRec.id ? mergeApiRowIntoListRecord(x, updatedRec) : x)));
     showToast("Babyeyi updated successfully!");
   };
 
