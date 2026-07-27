@@ -80,7 +80,13 @@ export function BabyeyiDocumentHeader({
           )}
         </div>
 
-        <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
+        <div
+          style={{
+            flex: 1,
+            textAlign: "center",
+            minWidth: 0,
+          }}
+        >
           <h1
             style={{
               fontFamily: BABYEYI_DOC_FONT,
@@ -91,13 +97,20 @@ export function BabyeyiDocumentHeader({
               textTransform: "uppercase",
               letterSpacing: ".03em",
               lineHeight: BABYEYI_DOC_TYPO.lineHeight,
+              textAlign: "center",
             }}
           >
             {rec.schoolName}
           </h1>
           {showDesc && (
             <div
-              style={{ margin: "0 0 4px", fontSize: `${BABYEYI_DOC_TYPO.descPx}px`, lineHeight: BABYEYI_DOC_TYPO.lineHeight, color: "#64748b" }}
+              style={{
+                margin: "0 0 4px",
+                fontSize: `${BABYEYI_DOC_TYPO.descPx}px`,
+                lineHeight: BABYEYI_DOC_TYPO.lineHeight,
+                color: "#64748b",
+                textAlign: "center",
+              }}
               dangerouslySetInnerHTML={{
                 __html: formatSchoolDescriptionHtml(rec.schoolDescription),
               }}
@@ -110,6 +123,7 @@ export function BabyeyiDocumentHeader({
               color: "#64748b",
               margin: "0 0 6px",
               lineHeight: BABYEYI_DOC_TYPO.lineHeight,
+              textAlign: "center",
             }}
           >
             <strong style={{ color: "#1e3a5f" }}>{T.district}:</strong> {rec.district || "—"}
@@ -129,6 +143,7 @@ export function BabyeyiDocumentHeader({
               flexWrap: "wrap",
               gap: "10px",
               alignItems: "center",
+              justifyContent: "center",
               marginTop: "4px",
               fontFamily: BABYEYI_DOC_FONT,
             }}

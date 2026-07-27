@@ -118,8 +118,15 @@ export function babyeyiDocHeadingBlock(title) {
 }
 
 export function babyeyiDocDescriptionLineStyle() {
-  return `font-family:${BABYEYI_DOC_FONT};font-size:${BABYEYI_DOC_TYPO.descPx}px;color:#64748b;margin:0 0 1px;line-height:${BABYEYI_DOC_TYPO.lineHeight};letter-spacing:0.01em;font-weight:500`;
+  return `font-family:${BABYEYI_DOC_FONT};font-size:${BABYEYI_DOC_TYPO.descPx}px;color:#64748b;margin:0 0 1px;line-height:${BABYEYI_DOC_TYPO.lineHeight};letter-spacing:0.01em;font-weight:500;text-align:center`;
 }
+
+/** Middle column between logos — centered school name + description. */
+export const BABYEYI_DOC_HEADER_CENTER_COL =
+  "flex:1;text-align:center;min-width:0";
+
+export const BABYEYI_DOC_HEADER_META_ROW =
+  "display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin-top:4px";
 
 function dotGroup(color, vertical = false) {
   const margin = vertical ? "2px 0" : "0 2px";
@@ -155,7 +162,7 @@ export function buildBabyeyiDistrictSectorHtml(rec, T = {}) {
   const sector = rec?.sector || "—";
   const districtLabel = T.district || "District";
   const sectorLabel = T.sector || "Sector";
-  return `<p style="font-family:${BABYEYI_DOC_FONT};font-size:${BABYEYI_DOC_TYPO.metaPx}px;color:#64748b;margin:0 0 6px;line-height:${BABYEYI_DOC_TYPO.lineHeight}"><strong style="color:#1e3a5f">${districtLabel}:</strong> ${district}<span style="margin:0 8px;color:#cbd5e1">|</span><strong style="color:#1e3a5f">${sectorLabel}:</strong> ${sector}</p>`;
+  return `<p style="font-family:${BABYEYI_DOC_FONT};font-size:${BABYEYI_DOC_TYPO.metaPx}px;color:#64748b;margin:0 0 6px;line-height:${BABYEYI_DOC_TYPO.lineHeight};text-align:center"><strong style="color:#1e3a5f">${districtLabel}:</strong> ${district}<span style="margin:0 8px;color:#cbd5e1">|</span><strong style="color:#1e3a5f">${sectorLabel}:</strong> ${sector}</p>`;
 }
 
 /** Shared PDF/print header: school logo · description · other logo. */
@@ -170,8 +177,8 @@ export function buildBabyeyiPdfHeaderHtml({
 }) {
   const districtSector = buildBabyeyiDistrictSectorHtml(rec, T);
   const logo = BABYEYI_DOC_TYPO.logoPx;
-  const schoolNameHtml = `<h1 style="font-family:${BABYEYI_DOC_FONT};font-size:${BABYEYI_DOC_TYPO.schoolNamePx}px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em;line-height:${BABYEYI_DOC_TYPO.lineHeight}">${rec.schoolName || ""}</h1>`;
-  return `<div id="babyeyi-pdf-header" style="padding:${BABYEYI_DOC_TYPO.headerPad};border-bottom:2px solid #1e3a5f;font-family:${BABYEYI_DOC_FONT}"><div style="display:flex;align-items:flex-start;gap:14px"><div style="flex-shrink:0;width:${logo}px;height:${logo}px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="flex:1;text-align:left;min-width:0">${schoolNameHtml}${schoolDescBlock}${districtSector}${classHeaderHtml}<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:4px">${metaHtml}</div></div><div style="flex-shrink:0;width:${logo}px;height:${logo}px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml || ""}</div></div></div>`;
+  const schoolNameHtml = `<h1 style="font-family:${BABYEYI_DOC_FONT};font-size:${BABYEYI_DOC_TYPO.schoolNamePx}px;font-weight:700;color:#1e3a5f;margin:0 0 4px;text-transform:uppercase;letter-spacing:.03em;line-height:${BABYEYI_DOC_TYPO.lineHeight};text-align:center">${rec.schoolName || ""}</h1>`;
+  return `<div id="babyeyi-pdf-header" style="padding:${BABYEYI_DOC_TYPO.headerPad};border-bottom:2px solid #1e3a5f;font-family:${BABYEYI_DOC_FONT}"><div style="display:flex;align-items:flex-start;gap:14px"><div style="flex-shrink:0;width:${logo}px;height:${logo}px;border:1px solid #e2e8f0;display:flex;align-items:center;justify-content:center;overflow:hidden">${schoolLogoHtml}</div><div style="${BABYEYI_DOC_HEADER_CENTER_COL}">${schoolNameHtml}${schoolDescBlock}${districtSector}${classHeaderHtml}<div style="${BABYEYI_DOC_HEADER_META_ROW}">${metaHtml}</div></div><div style="flex-shrink:0;width:${logo}px;height:${logo}px;display:flex;align-items:center;justify-content:center;overflow:hidden">${otherLogoHtml || ""}</div></div></div>`;
 }
 
 export const BABYEYI_DOC_CONTENT_STYLE = { position: "relative", zIndex: 1 };
