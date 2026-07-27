@@ -29,9 +29,8 @@ import {
   formatBabyeyiDocumentClassLabel,
   buildBabyeyiDocumentClassHeaderHtml,
 } from '../../../utils/classStreamGroups';
-import { wrapBabyeyiDocHtml, buildBabyeyiPdfHeaderHtml, buildBabyeyiTotalPaymentsSectionHtml, BABYEYI_DOC_FONT, BABYEYI_DOC_FRAME_PRINT_CSS } from './babyeyiDocFrame';
+import { wrapBabyeyiDocHtml, buildBabyeyiPdfHeaderHtml, buildBabyeyiTotalPaymentsSectionHtml, BABYEYI_DOC_FONT, BABYEYI_DOC_FRAME_PRINT_CSS, BABYEYI_DOC_REACT_STYLES, BABYEYI_DOC_TYPO, babyeyiDocHeadingBlock, babyeyiDocThInline, babyeyiDocTdInline, babyeyiDocSectionInline, babyeyiDocBodyInline } from './babyeyiDocFrame';
 import BabyeyiDocFrame, { BabyeyiDocumentHeader, BabyeyiTotalPaymentsSection } from './babyeyiDocFrameView.jsx';
-import { WizardContent } from './UpdateBabyeyi';
 
 export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
 import {
@@ -357,14 +356,7 @@ function parseBanks(rec) {
 }
 
 // ── Doc HTML builder (re-exported for BabyeyiPdf.jsx) ────────
-const DOC = {
-  heading: { fontSize:"14px", fontWeight:700, color:"#1e3a5f", textTransform:"uppercase", letterSpacing:"0.05em", fontFamily: BABYEYI_DOC_FONT },
-  body:    { fontSize:"12px", color:"#1e293b", lineHeight:"1.7", fontFamily: BABYEYI_DOC_FONT },
-  label:   { fontSize:"12px", color:"#64748b", fontWeight:600, fontFamily: BABYEYI_DOC_FONT },
-  th:      { padding:"8px 12px", fontSize:"12px", fontWeight:700, color:"#1e3a5f", borderBottom:"2px solid #1e3a5f", textAlign:"left", background:"transparent", fontFamily: BABYEYI_DOC_FONT },
-  td:      { padding:"7px 12px", fontSize:"12px", color:"#1e293b", borderBottom:"1px solid #e2e8f0", background:"transparent", fontFamily: BABYEYI_DOC_FONT },
-  section: { marginBottom:"22px" },
-};
+const DOC = BABYEYI_DOC_REACT_STYLES;
 
 const STATUS_CFG = {
   approved:    { label:"Approved",    bg:"bg-amber-50",  text:"text-[#000435]", dot:"bg-amber-500", border:"border-amber-200" },
@@ -436,18 +428,20 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const classHeaderHtml = buildBabyeyiDocumentClassHeaderHtml(classesArr, T.classLabel || "Class");
   const levelLabel = rec.level || rec.education_level || "";
   const metaHtml = [[T.academicYear, rec.academicYear], [T.termLabel, rec.term], [T.levelLabel, levelLabel]]
-    .map(([l, v]) => `<span style="font-size:11px;color:#1e293b;line-height:1.35"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
+    .map(([l, v]) => `<span style="${babyeyiDocBodyInline("color:#1e293b")}"><strong style="color:#1e3a5f">${l}:</strong> ${v || "—"}</span>`)
     .join("");
-  const tblStyle = `width:100%;border-collapse:collapse;margin-top:8px;font-family:${BABYEYI_DOC_FONT}`;
-  const thS = `padding:8px 12px;font-size:12px;font-weight:700;color:#1e3a5f;border-bottom:2px solid #1e3a5f;text-align:left;background:transparent;font-family:${BABYEYI_DOC_FONT}`;
-  const tdS = `padding:7px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #e2e8f0;background:transparent;font-family:${BABYEYI_DOC_FONT}`;
-  const hdg = (title) => `<div style="padding-bottom:5px;margin-bottom:12px;margin-top:20px;font-family:${BABYEYI_DOC_FONT}"><span style="font-size:14px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${title}</span></div>`;
+  const tblStyle = `width:100%;border-collapse:collapse;margin-top:6px;font-family:${BABYEYI_DOC_FONT}`;
+  const thS = babyeyiDocThInline();
+  const tdS = babyeyiDocTdInline();
+  const hdg = (title) => babyeyiDocHeadingBlock(title);
+  const sec = babyeyiDocSectionInline();
+  const totalFoot = `padding:5px 8px;font-size:${BABYEYI_DOC_TYPO.tableTotalPx}px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;font-family:${BABYEYI_DOC_FONT}`;
 
-  const parentSection = parentMsg ? `<div data-babyeyi-pdf-section="parent" style="margin-bottom:22px">${hdg(T.parentMessageHeading)}<div style="padding-left:16px;margin-top:4px"><p style="font-size:12px;color:#1e293b;line-height:1.7;white-space:pre-line;margin:0">${parentMsg}</p></div></div>` : "";
-  const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
-  const paySection = payments.length > 0 ? `<div data-babyeyi-pdf-section="fees" style="margin-bottom:22px">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f">${T.thTotalLabel}</td><td style="padding:9px 12px;font-size:14px;font-weight:700;color:#1e3a5f;border-top:2px solid #1e3a5f;text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
-  const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:40px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"—"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"—"}</td><td style="${tdS}">${bk.accountName||"—"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"✓":""}</td></tr>`).join("");
-  const banksSection = banks.length > 0 ? `<div data-babyeyi-pdf-section="banking" style="margin-bottom:22px">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:40px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:70px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
+  const parentSection = parentMsg ? `<div data-babyeyi-pdf-section="parent" style="${sec}">${hdg(T.parentMessageHeading)}<div style="padding-left:12px;margin-top:2px"><p style="${babyeyiDocBodyInline("white-space:pre-line;margin:0")}">${parentMsg}</p></div></div>` : "";
+  const payRows = payments.map((p,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px">${i+1}</td><td style="${tdS}">${p.name||""}</td><td style="${tdS};text-align:right;font-family:monospace;font-weight:600">${Number(p.amount||0).toLocaleString()}</td></tr>`).join("");
+  const paySection = payments.length > 0 ? `<div data-babyeyi-pdf-section="fees" style="${sec}">${hdg(T.secFee)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">${T.thNo}</th><th style="${thS}">${T.thPaymentItem}</th><th style="${thS};text-align:right">${T.thAmount}</th></tr></thead><tbody>${payRows}</tbody><tfoot><tr><td colspan="2" style="${totalFoot}">${T.thTotalLabel}</td><td style="${totalFoot};text-align:right;font-family:monospace">RWF ${totalFee.toLocaleString()}</td></tr></tfoot></table></div>` : "";
+  const bankRows = banks.map((bk,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px">${i+1}</td><td style="${tdS};font-weight:600">${bk.bankName||"—"}</td><td style="${tdS};font-family:monospace">${bk.accountNumber||"—"}</td><td style="${tdS}">${bk.accountName||"—"}</td><td style="${tdS};text-align:center;color:#059669;font-weight:700">${bk.isPrimary||i===0?"✓":""}</td></tr>`).join("");
+  const banksSection = banks.length > 0 ? `<div data-babyeyi-pdf-section="banking" style="${sec}">${hdg(T.secBanking)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Bank</th><th style="${thS}">Account</th><th style="${thS}">Name</th><th style="${thS};text-align:center;width:60px">Primary</th></tr></thead><tbody>${bankRows}</tbody></table></div>` : "";
   const reqHasSchoolPricing = reqs.some(
     (r) => String(r?.pay_channel || "").toLowerCase() === "school" && (Number(r?.cost) > 0 || Number(r?.unit_price) > 0)
   );
@@ -467,16 +461,17 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
   const reqHeadExtra = reqHasSchoolPricing
     ? `<th style="${thS};text-align:right">Unit (RWF)</th><th style="${thS};text-align:right">Total (RWF)</th>`
     : "";
-  const reqSection = reqs.length > 0 ? `<div data-babyeyi-pdf-section="requirements" style="margin-bottom:22px">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:80px">Qty</th>${reqHeadExtra}</tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
+  const reqSection = reqs.length > 0 ? `<div data-babyeyi-pdf-section="requirements" style="${sec}">${hdg(T.secRequirements)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Description</th><th style="${thS};text-align:center;width:64px">Qty</th>${reqHeadExtra}</tr></thead><tbody>${reqRows}</tbody></table></div>` : "";
   const totalPaySection = buildBabyeyiTotalPaymentsSectionHtml({ payments, requirements: reqs, T });
-  const otherRows = otherInfos.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||""}</td></tr>`).join("");
-  const otherSection = otherInfos.length > 0 ? `<div data-babyeyi-pdf-section="other" style="margin-bottom:22px">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
-  const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px;font-size:11px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"—"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"—"}</td><td style="${tdS};font-family:monospace;font-size:11px">${l.phone?`+250 ${l.phone}`:"—"}</td><td style="${tdS};font-size:11px;color:#2563eb">${l.email||"—"}</td></tr>`).join("");
-  const leadersSection = leaders.length > 0 ? `<div data-babyeyi-pdf-section="leadership" style="margin-bottom:22px">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
-  const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:42px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
-  const notesSection = classNotes.length > 0 ? `<div data-babyeyi-pdf-section="notes" style="margin-bottom:22px">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:42px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
-  const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:110px;height:110px;object-fit:contain;display:block"/>` : `<div style="width:110px;height:110px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:8px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
-  const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:100px;height:100px;object-fit:contain;display:block"/>` : "";
+  const otherRows = otherInfos.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||""}</td></tr>`).join("");
+  const otherSection = otherInfos.length > 0 ? `<div data-babyeyi-pdf-section="other" style="${sec}">${hdg(T.secOtherInfo)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${otherRows}</tbody></table></div>` : "";
+  const leaderRows = leaders.map((l,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:32px;font-size:9px">${i+1}</td><td style="${tdS};font-weight:700;color:#1e3a5f">${l.name||"—"}</td><td style="${tdS};color:#475569;font-style:italic">${l.role||"—"}</td><td style="${tdS};font-family:monospace;font-size:9px">${l.phone?`+250 ${l.phone}`:"—"}</td><td style="${tdS};font-size:9px;color:#2563eb">${l.email||"—"}</td></tr>`).join("");
+  const leadersSection = leaders.length > 0 ? `<div data-babyeyi-pdf-section="leadership" style="${sec}">${hdg(T.secLeadership)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:32px;text-align:center">#</th><th style="${thS}">Full Name</th><th style="${thS}">Role</th><th style="${thS}">Phone</th><th style="${thS}">Email</th></tr></thead><tbody>${leaderRows}</tbody></table></div>` : "";
+  const noteRows = classNotes.map((n,i) => `<tr><td style="${tdS};text-align:center;color:#64748b;width:36px">${i+1}</td><td style="${tdS};font-weight:600">${n.item||""}</td><td style="${tdS}">${n.details||"—"}</td></tr>`).join("");
+  const notesSection = classNotes.length > 0 ? `<div data-babyeyi-pdf-section="notes" style="${sec}">${hdg(T.secClassNotes)}<table style="${tblStyle}"><thead><tr><th style="${thS};width:36px;text-align:center">#</th><th style="${thS}">Item</th><th style="${thS}">Details</th></tr></thead><tbody>${noteRows}</tbody></table></div>` : "";
+  const logoPx = BABYEYI_DOC_TYPO.logoPx;
+  const schoolLogoHtml = schoolLogoB64 ? `<img src="${schoolLogoB64}" style="width:${logoPx}px;height:${logoPx}px;object-fit:contain;display:block"/>` : `<div style="width:${logoPx}px;height:${logoPx}px;display:flex;align-items:center;justify-content:center;border:1px dashed #e2e8f0"><span style="font-size:7px;color:#64748b;text-align:center;font-weight:700">SCHOOL LOGO</span></div>`;
+  const otherLogoHtml = otherLogoB64 ? `<img src="${otherLogoB64}" style="width:${BABYEYI_DOC_TYPO.otherLogoPx}px;height:${BABYEYI_DOC_TYPO.otherLogoPx}px;object-fit:contain;display:block"/>` : "";
   const schoolDescBlock =
     rec.includeSchoolDescription !== false
       ? formatSchoolDescriptionHtml(rec.schoolDescription)
@@ -491,7 +486,7 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
     classHeaderHtml,
     metaHtml,
   });
-  return wrapBabyeyiDocHtml(`${headerHtml}<div id="babyeyi-pdf-body" style="padding:20px 40px 28px;font-family:${BABYEYI_DOC_FONT}">${parentSection}${paySection}${banksSection}${reqSection}${totalPaySection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
+  return wrapBabyeyiDocHtml(`${headerHtml}<div id="babyeyi-pdf-body" style="padding:${BABYEYI_DOC_TYPO.bodyPad};font-family:${BABYEYI_DOC_FONT}">${parentSection}${paySection}${banksSection}${reqSection}${totalPaySection}${otherSection}${leadersSection}${notesSection}${authBlock}</div>`);
 }
 
 // ── Capture doc image ─────────────────────────────────────────
@@ -1186,7 +1181,7 @@ function OfficialDoc({
   const Td = ({ children, center, mono, bold, color, italic }) => (
     <td style={{ ...DOC.td, textAlign: center ? "center" : "left", fontFamily: mono ? "monospace" : "inherit", fontWeight: bold ? 700 : 400, color: color || DOC.td.color, fontStyle: italic ? "italic" : "normal" }}>{children}</td>
   );
-  const tblStyle = { width: "100%", borderCollapse: "collapse", marginTop: "8px" };
+  const tblStyle = { width: "100%", borderCollapse: "collapse", marginTop: "6px" };
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto" style={{ fontFamily: FONT }}>
@@ -1288,7 +1283,7 @@ function OfficialDoc({
           />
 
           {/* Body */}
-          <div id="babyeyi-pdf-body" style={{ padding: "20px 40px 28px", fontFamily: BABYEYI_DOC_FONT }}>
+          <div id="babyeyi-pdf-body" style={{ padding: BABYEYI_DOC_TYPO.bodyPad, fontFamily: BABYEYI_DOC_FONT }}>
             {(parentMsg || isRwLocale) && (
               <div data-babyeyi-pdf-section="parent" style={DOC.section}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "5px", marginBottom: "8px", gap: "8px" }}>
@@ -1330,7 +1325,7 @@ function OfficialDoc({
                       <td style={{ ...DOC.td, textAlign: "right", fontFamily: "monospace", fontWeight: 600 }}>{Number(p.amount || 0).toLocaleString()}</td>
                     </tr>
                   ))}</tbody>
-                  <tfoot><tr><td colSpan={2} style={{ padding: "9px 12px", fontSize: "14px", fontWeight: 700, color: "#1e3a5f", borderTop: "2px solid #1e3a5f" }}>{T.thTotalLabel}</td><td style={{ padding: "9px 12px", fontSize: "14px", fontWeight: 700, color: "#1e3a5f", borderTop: "2px solid #1e3a5f", textAlign: "right", fontFamily: "monospace" }}>RWF {totalFee.toLocaleString()}</td></tr></tfoot>
+                  <tfoot><tr><td colSpan={2} style={{ padding: "5px 8px", fontSize: `${BABYEYI_DOC_TYPO.tableTotalPx}px`, fontWeight: 700, color: "#1e3a5f", borderTop: "2px solid #1e3a5f" }}>{T.thTotalLabel}</td><td style={{ padding: "5px 8px", fontSize: `${BABYEYI_DOC_TYPO.tableTotalPx}px`, fontWeight: 700, color: "#1e3a5f", borderTop: "2px solid #1e3a5f", textAlign: "right", fontFamily: "monospace" }}>RWF {totalFee.toLocaleString()}</td></tr></tfoot>
                 </table>
               </div>
             )}
@@ -1552,55 +1547,20 @@ function OfficialDoc({
   );
 }
 
-// ── Edit wizard modal ─────────────────────────────────────────
+// ── Edit / duplicate wizard modal (same UI as create) ─────────
 function EditWizardModal({ rec, session, onClose, onSaved, duplicateMode = false }) {
-  useEffect(() => { document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
-
-  if (!duplicateMode) {
-    return (
-      <CreateBabyeyiModal
-        key={rec.id}
-        session={session}
-        isOpen
-        editRecord={rec}
-        onClose={onClose}
-        onSuccess={(updated) => {
-          onSaved?.(updated || rec);
-        }}
-      />
-    );
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-[#000435]/85 backdrop-blur-md"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-[#000435] border-2 border-amber-400/30 rounded-3xl w-full flex flex-col shadow-sm"
-        style={{ maxWidth: "680px", maxHeight: "94vh", overflowY: "auto", animation: "modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)", fontFamily: FONT }}>
-        <div className="px-5 py-4 shrink-0 flex items-center justify-between sticky top-0 z-10 bg-[#000435] border-b border-amber-400/20">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/20 flex items-center justify-center text-amber-400">
-              <Copy className="w-4 h-4" strokeWidth={2.25} aria-hidden />
-            </div>
-            <div>
-              <h1 className="font-semibold text-white text-[14px]">Duplicate Babyeyi</h1>
-              <p className="text-[10px] text-amber-400/60">{rec.class} · {rec.term} · {rec.academicYear}</p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/8 border border-white/15 text-white/60 hover:text-white hover:bg-white/14" aria-label="Close">
-            <X className="w-3.5 h-3.5" strokeWidth={2} />
-          </button>
-        </div>
-        <div style={{ flex: 1, minHeight: 0 }}>
-          <WizardContent
-            session={session}
-            duplicateFrom={rec}
-            onClose={onClose}
-            onSuccess={() => { if (onSaved) onSaved(rec); onClose(); }}
-          />
-        </div>
-      </div>
-      <style>{`@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+    <CreateBabyeyiModal
+      key={duplicateMode ? `dup-${rec.class}-${rec.term}-${rec.academicYear}` : rec.id}
+      session={session}
+      isOpen
+      editRecord={duplicateMode ? null : rec}
+      duplicateFrom={duplicateMode ? rec : null}
+      onClose={onClose}
+      onSuccess={(updated) => {
+        onSaved?.(updated || rec);
+      }}
+    />
   );
 }
 

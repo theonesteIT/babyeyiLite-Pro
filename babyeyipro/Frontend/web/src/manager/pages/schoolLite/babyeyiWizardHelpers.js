@@ -103,7 +103,7 @@ export function serializeSchoolDescriptionLines(lines) {
 }
 
 const BABYEYI_DESC_LINE_STYLE =
-  'font-family:"Montserrat",sans-serif;font-size:11px;color:#64748b;margin:0 0 2px;line-height:1.35;letter-spacing:0.01em;font-weight:500';
+  'font-family:"Montserrat",sans-serif;font-size:9px;color:#64748b;margin:0 0 1px;line-height:1.4;letter-spacing:0.01em;font-weight:500';
 
 export function isPaidAtSchoolChannel(payChannel) {
   return String(payChannel || "").toLowerCase() === "school";

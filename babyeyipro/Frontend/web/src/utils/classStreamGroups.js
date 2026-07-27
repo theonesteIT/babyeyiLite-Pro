@@ -195,13 +195,13 @@ export function formatBabyeyiDocumentClassLabel(labels = [], { max = 8 } = {}) {
 export function buildBabyeyiDocumentClassHeaderHtml(labels = [], labelText = "Class") {
   const grades = uniqueClassGradesFromLabels(labels);
   if (!grades.length) {
-    return `<span style="font-size:14px;color:#64748b">—</span>`;
+    return `<span style="font-size:10px;color:#64748b">—</span>`;
   }
   const chips = grades
     .map(
       (g) =>
-        `<span style="display:inline-flex;align-items:center;padding:5px 12px;margin:2px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a5f;font-size:13px;font-weight:700;letter-spacing:.02em">${g}</span>`,
+        `<span style="display:inline-flex;align-items:center;padding:3px 9px;margin:1px;border-radius:999px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a5f;font-size:10px;font-weight:700;letter-spacing:.02em">${g}</span>`,
     )
     .join("");
-  return `<div style="margin:8px 0 6px;padding:12px 16px;background:#fff;border:2px solid #1e3a5f;border-radius:10px;display:block;max-width:100%;box-sizing:border-box;text-align:center;font-family:'Montserrat',sans-serif"><div style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">${labelText}</div><div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px">${chips}</div></div>`;
+  return `<div style="margin:4px 0 4px;padding:8px 12px;background:#fff;border:2px solid #1e3a5f;border-radius:8px;display:block;max-width:100%;box-sizing:border-box;text-align:center;font-family:'Montserrat',sans-serif"><div style="font-size:8px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${labelText}</div><div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px">${chips}</div></div>`;
 }

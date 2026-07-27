@@ -328,7 +328,7 @@ const buildBlankForm = (school = {}, categoryOverride, academicDefaults = {}) =>
   leaders:              [blankLeader()],
 });
 
-function hydrateFormFromEditRecord(rec, session = {}) {
+function hydrateFormFromEditRecord(rec, session = {}, { duplicateMode = false } = {}) {
   const parsedPayments = (() => {
     try {
       const raw = typeof rec.payments === "string" ? JSON.parse(rec.payments) : (rec.payments || []);
@@ -381,8 +381,13 @@ function hydrateFormFromEditRecord(rec, session = {}) {
     }
   })();
 
-  const classes =
-    Array.isArray(rec.classes) && rec.classes.length ? rec.classes : rec.class ? [rec.class] : [];
+  const classes = duplicateMode
+    ? [rec.class || (Array.isArray(rec.classes) && rec.classes[0]) || "P1"]
+    : Array.isArray(rec.classes) && rec.classes.length
+      ? rec.classes
+      : rec.class
+        ? [rec.class]
+        : [];
 
   const primaryBank = parsedBanks[0] || {};
   const extraBanks = parsedBanks.slice(1);
@@ -395,6 +400,8 @@ function hydrateFormFromEditRecord(rec, session = {}) {
     province: rec.province || session?.schoolProvince || "",
     district: rec.district || session?.schoolDistrict || "",
     sector: rec.sector || "",
+    cell: rec.cell || "",
+    village: rec.village || "",
     academicYear: rec.academicYear || "2025-2026",
     term: rec.term || "Term 1",
     category: rec.category || "Public",
@@ -674,11 +681,12 @@ function DocPreview({ form, previews }) {
 // ════════════════════════════════════════════════════════════
 // MAIN WIZARD — create (page) or edit (modal)
 // ════════════════════════════════════════════════════════════
-export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, layout = "page" }) {
+export function BabyeyiWizard({ session, editRecord = null, duplicateFrom = null, onClose, onSuccess, layout = "page" }) {
   const schoolId = session?.schoolId ?? null;
   const academic = useAcademic();
   const isModal = layout === "modal";
   const [editId, setEditId] = useState(editRecord?.id ?? null);
+  const saveInFlightRef = useRef(false);
 
   const academicYearOptions = useMemo(
     () => (academic.academicYears?.length ? academic.academicYears : (academic.academicYear ? [academic.academicYear] : [])),
@@ -733,14 +741,11 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
     stepBtnRefs.current[step]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [step]);
 
-  useEffect(() => {
-    if (!editRecord?.id) return;
-    setForm(hydrateFormFromEditRecord(editRecord, session));
-    setEditId(editRecord.id);
-    const logo = toAssetUrl(editRecord.schoolLogoPath);
-    const sig = toAssetUrl(editRecord.signaturePath);
-    const stamp = toAssetUrl(editRecord.stampPath);
-    const other = toAssetUrl(editRecord.otherLogoPath);
+  const applyRecordPreviews = useCallback((rec) => {
+    const logo = toAssetUrl(rec?.schoolLogoPath);
+    const sig = toAssetUrl(rec?.signaturePath);
+    const stamp = toAssetUrl(rec?.stampPath);
+    const other = toAssetUrl(rec?.otherLogoPath);
     setPreviews({
       schoolLogo: logo,
       otherLogo: other,
@@ -752,7 +757,43 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
       directorSignature: !!sig,
       stamp: !!stamp,
     });
-  }, [editRecord?.id, session?.schoolName, session?.schoolProvince, session?.schoolDistrict]);
+  }, []);
+
+  useEffect(() => {
+    if (!editRecord?.id || duplicateFrom) return;
+    setForm(hydrateFormFromEditRecord(editRecord, session));
+    setEditId(editRecord.id);
+    applyRecordPreviews(editRecord);
+  }, [editRecord?.id, duplicateFrom, session?.schoolName, session?.schoolProvince, session?.schoolDistrict, applyRecordPreviews]);
+
+  useEffect(() => {
+    if (!duplicateFrom) return;
+    setForm(hydrateFormFromEditRecord(duplicateFrom, session, { duplicateMode: true }));
+    setEditId(null);
+    applyRecordPreviews(duplicateFrom);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    duplicateFrom?.class,
+    duplicateFrom?.term,
+    duplicateFrom?.academicYear,
+    session?.schoolName,
+    session?.schoolProvince,
+    session?.schoolDistrict,
+    applyRecordPreviews,
+  ]);
+
+  const resolveClassesToCreate = useCallback(() => {
+    const fallback = form?.classes?.[0] || duplicateFrom?.class || editRecord?.class || "P1";
+    if (editId || duplicateFrom) {
+      const primary =
+        duplicateFrom?.class ||
+        editRecord?.class ||
+        (Array.isArray(form?.classes) && form.classes[0]) ||
+        fallback;
+      return [primary];
+    }
+    return form?.classes?.length ? form.classes : [];
+  }, [editId, duplicateFrom, editRecord?.class, form?.classes]);
 
   const classRowMap = useMemo(() => {
     const merged = mergeWithDefaultClassCatalog(registeredClassOptions, registeredClassRows);
@@ -800,7 +841,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
   }, [classOptions, classRowMap]);
 
   useEffect(() => {
-    if (editId || editRecord?.id) return;
+    if (editId || editRecord?.id || duplicateFrom) return;
     if (academic.loading) return;
     const schoolPayload = {
       name:     session?.schoolName     ?? "",
@@ -837,6 +878,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
     session?.schoolDistrict,
     editId,
     editRecord?.id,
+    duplicateFrom,
   ]);
 
   useEffect(() => {
@@ -1178,10 +1220,11 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
   };
 
   const handleSave = async () => {
+    if (saveInFlightRef.current) return;
     if (step === 8 && !validateStep2()) { showToast("Validation errors in Step 2.", "error"); return; }
     if (!schoolId) { showToast("School ID missing from session.", "error"); return; }
 
-    const classesToCreate = form.classes?.length ? form.classes : [];
+    const classesToCreate = resolveClassesToCreate();
     if (!classesToCreate.length) {
       showToast("Select at least one class before submitting.", "error");
       return;
@@ -1198,6 +1241,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
     }
 
     setSaving(true);
+    saveInFlightRef.current = true;
     const createdIds = [];
 
     const allBanks = [];
@@ -1299,7 +1343,14 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
       const savedId = json.data?.id || editId;
       if (savedId) createdIds.push({ id: savedId, classes: classesToCreate });
 
-      showToast(editId ? "Babyeyi updated successfully!" : "Babyeyi saved successfully!", "success");
+      showToast(
+        editId
+          ? "Babyeyi updated successfully!"
+          : duplicateFrom
+            ? "Duplicate saved successfully!"
+            : "Babyeyi saved successfully!",
+        "success",
+      );
       setQrGenerating(true);
 
       const qrResults = [];
@@ -1329,6 +1380,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
       console.error(e);
       showToast(e.message || "Failed to save Babyeyi", "error");
     } finally {
+      saveInFlightRef.current = false;
       setSaving(false);
       setQrGenerating(false);
     }
@@ -2921,6 +2973,13 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
 
       <div className={`flex flex-col flex-1 min-h-0 bg-white overflow-hidden w-full ${isModal ? "" : "border border-slate-200/80 rounded-2xl shadow-sm"}`}>
 
+        {duplicateFrom && !editId && (
+          <div className="mx-4 sm:mx-8 mt-4 max-w-5xl sm:mx-auto w-auto rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-[11px] text-amber-900 shrink-0">
+            <span className="font-bold">Duplicated</span>
+            <span className="text-amber-800"> — edit any details, then save to create a new Babyeyi record.</span>
+          </div>
+        )}
+
         {!isModal && (
         <div className="px-4 sm:px-8 py-5 shrink-0 border-b border-slate-100 bg-gradient-to-r from-[#000435] to-[#0a1142]">
           <div className="flex items-center justify-between max-w-5xl mx-auto w-full">
@@ -3028,11 +3087,13 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
                   <span className="hidden sm:inline">
                     {editId
                       ? "Save changes"
-                      : form.classes.length > 1
-                        ? `Generate ${form.classes.length} Babyeyi`
-                        : exceeds && form.requestIncrease
-                          ? "Submit + Request Approval"
-                          : "Generate Babyeyi"}
+                      : duplicateFrom
+                        ? "Save duplicate"
+                        : form.classes.length > 1
+                          ? `Generate ${form.classes.length} Babyeyi`
+                          : exceeds && form.requestIncrease
+                            ? "Submit + Request Approval"
+                            : "Generate Babyeyi"}
                   </span>
                   <span className="sm:hidden">Generate</span>
                 </>
@@ -3191,7 +3252,7 @@ export function BabyeyiWizard({ session, editRecord = null, onClose, onSuccess, 
   );
 }
 
-export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null }) {
+export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRecord = null, duplicateFrom = null }) {
   useEffect(() => {
     if (isOpen) document.body.style.overflow = "hidden";
     else document.body.style.overflow = "";
@@ -3200,11 +3261,12 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
 
   if (!isOpen) return null;
 
-  const editClasses = editRecord
-    ? (Array.isArray(editRecord.classes) && editRecord.classes.length ? editRecord.classes : [editRecord.class]).filter(Boolean)
+  const sourceRecord = editRecord || duplicateFrom;
+  const editClasses = sourceRecord
+    ? (Array.isArray(sourceRecord.classes) && sourceRecord.classes.length ? sourceRecord.classes : [sourceRecord.class]).filter(Boolean)
     : [];
-  const editSubtitle = editRecord
-    ? [editClasses.join(", "), editRecord.term, editRecord.academicYear, editRecord.docId].filter(Boolean).join(" · ")
+  const editSubtitle = sourceRecord
+    ? [editClasses.join(", "), sourceRecord.term, sourceRecord.academicYear, duplicateFrom ? null : sourceRecord.docId].filter(Boolean).join(" · ")
     : null;
 
   return (
@@ -3228,17 +3290,21 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[#FEBF10]/15 border border-[#FEBF10]/25 shrink-0">
-              {editRecord
-                ? <Pencil size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />
-                : <ClipboardPen size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />}
+              {duplicateFrom
+                ? <Layers size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />
+                : editRecord
+                  ? <Pencil size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />
+                  : <ClipboardPen size={16} color="#FEBF10" strokeWidth={2.25} aria-hidden />}
             </div>
             <div className="min-w-0">
               <h1 className="font-semibold text-white text-sm sm:text-base leading-tight truncate">
-                {editRecord ? "Edit Babyeyi" : "Create Babyeyi"}
+                {duplicateFrom ? "Duplicate Babyeyi" : editRecord ? "Edit Babyeyi" : "Create Babyeyi"}
               </h1>
               <p className="text-[10px] truncate text-[#FEBF10]/90">
                 {session?.schoolName || "School"}
-                {editRecord ? (editSubtitle ? ` — ${editSubtitle}` : " — Update document") : " — New document"}
+                {sourceRecord
+                  ? (editSubtitle ? ` — ${editSubtitle}` : duplicateFrom ? " — Save as new record" : " — Update document")
+                  : " — New document"}
               </p>
             </div>
           </div>
@@ -3254,9 +3320,10 @@ export function CreateBabyeyiModal({ session, isOpen, onClose, onSuccess, editRe
 
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <BabyeyiWizard
-            key={editRecord?.id || "create"}
+            key={duplicateFrom ? `dup-${duplicateFrom.class}-${duplicateFrom.term}` : editRecord?.id || "create"}
             session={session}
             editRecord={editRecord}
+            duplicateFrom={duplicateFrom}
             layout="modal"
             onClose={onClose}
             onSuccess={onSuccess}

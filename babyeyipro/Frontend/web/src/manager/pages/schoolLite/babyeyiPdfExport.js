@@ -1,6 +1,4 @@
-/**
- * Babyeyi PDF export — exactly 2 A4 pages; Authorization stays on page 2 (not page 3).
- */
+import { applyBabyeyiCompactDocLayout } from "./babyeyiDocFrame";
 
 export const BABYEYI_DOC_WIDTH_PX = 794;
 export const BABYEYI_A4_PAGE_HEIGHT_PX = Math.round((BABYEYI_DOC_WIDTH_PX * 297) / 210);
@@ -62,13 +60,14 @@ function createSpacer(heightPx) {
 }
 
 function compactPdfSpacing(root) {
+  applyBabyeyiCompactDocLayout(root);
   root?.querySelectorAll?.(BABYEYI_PDF_SECTION_SELECTOR).forEach((el) => {
-    el.style.marginBottom = "14px";
+    el.style.marginBottom = "10px";
   });
   const auth = root?.querySelector?.(BABYEYI_PDF_AUTH_SELECTOR);
-  if (auth) auth.style.marginTop = "12px";
+  if (auth) auth.style.marginTop = "8px";
   const body = root?.querySelector?.("#babyeyi-pdf-body");
-  if (body) body.style.paddingBottom = "16px";
+  if (body) body.style.paddingBottom = "12px";
 }
 
 /** Clear legacy spacers — auth flows on the same page when content is short. */
@@ -107,6 +106,7 @@ export async function waitForPdfImages(root, timeoutMs = 4000) {
 
 export async function prepareBabyeyiPdfRoot(root) {
   await waitForPdfImages(root);
+  compactPdfSpacing(root);
   layoutBabyeyiTwoPages(root);
 }
 
@@ -131,7 +131,7 @@ export function computePdfSliceEnds(canvasHeight, canvasWidth, protectedRanges =
 
   const ends = [];
   let y = 0;
-  const maxPages = 2;
+  const maxPages = 3;
 
   while (y < canvasHeight && ends.length < maxPages) {
     let sliceEnd = Math.min(y + pageHPx, canvasHeight);
@@ -208,7 +208,7 @@ export function addCanvasToPdfAndSave(canvas, filename, options = {}) {
   pdf.save(filename);
 }
 
-/** Full pipeline: 2-page layout + html2canvas + smart page breaks. */
+/** Full pipeline: compact layout + html2canvas + smart page breaks (2–3 A4 pages). */
 export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canvasOptions) {
   const scale = html2canvasOptions?.scale || 2;
   await prepareBabyeyiPdfRoot(root);
@@ -220,36 +220,37 @@ export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canv
 
 export function buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 }) {
   const font = '"Montserrat", sans-serif';
+  const qrSize = 52;
   const qrBlock = qrB64
-    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="background:white;border:1px solid #e2e8f0;padding:4px;border-radius:4px"><img src="${qrB64}" style="width:64px;height:64px;object-fit:contain;display:block"/></div><p style="font-size:9px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId ? `<p style="font-size:9px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}</div>`
-    : `<div style="width:64px;height:64px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:16px;opacity:.1">&#9635;</span></div>`;
+    ? `<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><div style="background:white;border:1px solid #e2e8f0;padding:3px;border-radius:4px"><img src="${qrB64}" style="width:${qrSize}px;height:${qrSize}px;object-fit:contain;display:block"/></div><p style="font-size:8px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0">${T.sigScanVerify}</p>${rec.docId ? `<p style="font-size:8px;color:#64748b;font-family:monospace;margin:0">ID: ${rec.docId}</p>` : ""}</div>`
+    : `<div style="width:${qrSize}px;height:${qrSize}px;border:1px dashed #e2e8f0;display:flex;align-items:center;justify-content:center"><span style="font-size:12px;opacity:.1">&#9635;</span></div>`;
 
   const footerLeft = T.docFooterLeft != null ? T.docFooterLeft : "Doc";
 
-  return `<div id="babyeyi-pdf-auth-block" style="margin-top:14px;padding-top:4px;font-family:${font};page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;-webkit-column-break-inside:avoid">
-    <div style="margin-bottom:10px">
-      <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:4px;margin-bottom:8px">
-        <span style="font-size:13px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.05em">${T.secAuth}</span>
+  return `<div id="babyeyi-pdf-auth-block" style="margin-top:10px;padding-top:2px;font-family:${font};page-break-inside:avoid;break-inside:avoid;page-break-before:avoid;break-before:avoid;-webkit-column-break-inside:avoid">
+    <div style="margin-bottom:8px">
+      <div style="border-bottom:1.5px solid #1e3a5f;padding-bottom:3px;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.04em">${T.secAuth}</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:8px">
-        <div style="border:1px solid #e2e8f0;padding:10px 8px;text-align:center;min-height:96px;box-sizing:border-box">
-          <p style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 6px">${T.sigHeadTeacher}</p>
-          <div style="height:44px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px">${sigB64 ? `<img src="${sigB64}" style="max-height:40px;max-width:120px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div>
-          <p style="font-size:10px;color:#94a3b8;margin:2px 0 0">${sigB64 ? T.sigSigned : T.sigRequired}</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px">
+        <div style="border:1px solid #e2e8f0;padding:8px 6px;text-align:center;min-height:78px;box-sizing:border-box">
+          <p style="font-size:8px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 4px">${T.sigHeadTeacher}</p>
+          <div style="height:36px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px">${sigB64 ? `<img src="${sigB64}" style="max-height:32px;max-width:100px;object-fit:contain"/>` : `<div style="width:100%;height:1px;border-bottom:1px solid #cbd5e1"></div>`}</div>
+          <p style="font-size:8px;color:#94a3b8;margin:2px 0 0">${sigB64 ? T.sigSigned : T.sigRequired}</p>
         </div>
-        <div style="border:1px solid #e2e8f0;padding:10px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:96px;box-sizing:border-box">${qrBlock}</div>
-        <div style="border:1px solid #e2e8f0;padding:10px 8px;text-align:center;min-height:96px;box-sizing:border-box">
-          <p style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 6px">${T.sigStamp}</p>
-          <div style="width:64px;height:64px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 4px">${stampB64 ? `<img src="${stampB64}" style="width:60px;height:60px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:18px;opacity:.08">&#128271;</span>`}</div>
-          <p style="font-size:10px;color:#94a3b8;margin:0">${T.sigCachet}</p>
+        <div style="border:1px solid #e2e8f0;padding:8px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:78px;box-sizing:border-box">${qrBlock}</div>
+        <div style="border:1px solid #e2e8f0;padding:8px 6px;text-align:center;min-height:78px;box-sizing:border-box">
+          <p style="font-size:8px;color:#64748b;font-weight:600;text-transform:uppercase;margin:0 0 4px">${T.sigStamp}</p>
+          <div style="width:52px;height:52px;border:1px dashed #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;margin:0 auto 2px">${stampB64 ? `<img src="${stampB64}" style="width:48px;height:48px;object-fit:contain;border-radius:50%"/>` : `<span style="font-size:14px;opacity:.08">&#128271;</span>`}</div>
+          <p style="font-size:8px;color:#94a3b8;margin:0">${T.sigCachet}</p>
         </div>
       </div>
     </div>
-    <div style="border-top:1px solid #1e3a5f;padding:6px 40px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:10px;color:#64748b">${rec.schoolName || ""} · ${rec.district || ""}</span>
-      <span style="font-size:10px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span>
-      <span style="font-size:10px;color:#64748b">${footerLeft} ${rec.docId || ""} · ${today}</span>
+    <div style="border-top:1px solid #1e3a5f;padding:4px 28px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:8px;color:#64748b">${rec.schoolName || ""} · ${rec.district || ""}</span>
+      <span style="font-size:8px;color:#1e3a5f;font-weight:700;text-transform:uppercase">${T.docOfficial}</span>
+      <span style="font-size:8px;color:#64748b">${footerLeft} ${rec.docId || ""} · ${today}</span>
     </div>
-    <div style="height:3px;background:#1e3a5f"></div>
+    <div style="height:2px;background:#1e3a5f"></div>
   </div>`;
 }
