@@ -218,6 +218,22 @@ export async function renderBabyeyiPdfFromRoot(root, rootId, filename, html2canv
   addCanvasToPdfAndSave(canvas, filename, { protectedRanges });
 }
 
+/** WYSIWYG PNG — same live document as View / PDF (full height, no clipping). */
+export async function renderBabyeyiImageFromRoot(root, html2canvasOptions = {}) {
+  if (!root) throw new Error("Document not ready");
+  await prepareBabyeyiPdfRoot(root);
+  const captureOptions = babyeyiHtml2CanvasOptionsForRoot(root, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: false,
+    backgroundColor: "#ffffff",
+    logging: false,
+    ...html2canvasOptions,
+  });
+  const canvas = await window.html2canvas(root, captureOptions);
+  return canvas.toDataURL("image/png");
+}
+
 export function buildBabyeyiAuthBlockHtml({ T, rec, today, sigB64, stampB64, qrB64 }) {
   const font = '"Montserrat", sans-serif';
   const qrSize = 52;

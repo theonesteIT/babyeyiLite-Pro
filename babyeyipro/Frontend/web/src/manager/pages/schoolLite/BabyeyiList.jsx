@@ -15,8 +15,10 @@ import { API_BASE, SERVER_BASE as ASSET_BASE, babyeyiVerifyScanUrl } from '../..
 import {
   addCanvasToPdfAndSave,
   renderBabyeyiPdfFromRoot,
+  renderBabyeyiImageFromRoot,
   buildBabyeyiAuthBlockHtml,
   BABYEYI_PDF_CAPTURE_HOST_STYLE,
+  waitForPdfImages,
 } from './babyeyiPdfExport';
 import {
   computeRequirementLineTotal,
@@ -32,7 +34,7 @@ import {
 import { wrapBabyeyiDocHtml, buildBabyeyiPdfHeaderHtml, buildBabyeyiTotalPaymentsSectionHtml, BABYEYI_DOC_FONT, BABYEYI_DOC_FRAME_PRINT_CSS, BABYEYI_DOC_REACT_STYLES, BABYEYI_DOC_TYPO, babyeyiDocHeadingBlock, babyeyiDocThInline, babyeyiDocTdInline, babyeyiDocSectionInline, babyeyiDocBodyInline } from './babyeyiDocFrame';
 import BabyeyiDocFrame, { BabyeyiDocumentHeader, BabyeyiTotalPaymentsSection } from './babyeyiDocFrameView.jsx';
 
-export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot } from './babyeyiPdfExport';
+export { addCanvasToPdfAndSave, renderBabyeyiPdfFromRoot, renderBabyeyiImageFromRoot } from './babyeyiPdfExport';
 import {
   Eye,
   Pencil,
@@ -54,6 +56,7 @@ import {
   Printer,
   MoreVertical,
   Stamp as StampLucide,
+  ImageDown,
 } from 'lucide-react';
 
 const BABYEYI_MENU_W = 220;
@@ -208,6 +211,17 @@ export async function downloadBabyeyiClientPdf({ rootEl, fileName }) {
   await renderBabyeyiPdfFromRoot(rootEl, null, fileName, babyeyiDocHtml2CanvasOptions());
 }
 
+/** WYSIWYG PNG — captures the on-screen View document (sharp, full height). */
+export async function downloadBabyeyiClientImage({ rootEl, fileName }) {
+  if (!rootEl) throw new Error("Document not ready — open View first.");
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  const dataUrl = await renderBabyeyiImageFromRoot(rootEl, babyeyiDocHtml2CanvasOptions());
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = fileName || "Babyeyi.png";
+  a.click();
+}
+
 /** WYSIWYG print — same document as View modal; uses hidden iframe (no pop-up). */
 export function printBabyeyiClientDoc({
   rootEl,
@@ -338,12 +352,10 @@ export function babyeyiDocHtml2CanvasOptions(rootId) {
       doc.querySelectorAll("button").forEach((btn) => {
         btn.style.display = "none";
       });
-      if (rootId) {
-        const el = doc.getElementById(rootId);
-        if (el) {
-          el.style.backgroundColor = "#ffffff";
-          el.style.color = "#1e293b";
-        }
+      const el = doc.getElementById("babyeyi-pdf-doc") || (rootId ? doc.getElementById(rootId) : null);
+      if (el) {
+        el.style.backgroundColor = "#ffffff";
+        el.style.color = "#1e293b";
       }
     },
   };
@@ -490,24 +502,51 @@ export function buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLog
 }
 
 // ── Capture doc image ─────────────────────────────────────────
-async function captureDocAsImage({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
-  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+async function captureDocAsImageOffscreen({ rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
   const payments = Array.isArray(rec.payments) ? rec.payments : [];
   const totalFee = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
   const today = new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
   const html = buildWordDocHTML({ rec, totalFee, today, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang, T, parentMsgOverride });
-  const style = document.createElement("style");
-  style.textContent = `#__by_c__ * { box-sizing:border-box; color-scheme:light only; } #__by_c__ { all:initial;display:block;background:#fff; }`;
-  document.head.appendChild(style);
+  const fontLink = document.createElement("link");
+  fontLink.rel = "stylesheet";
+  fontLink.href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap";
+  document.head.appendChild(fontLink);
   const host = document.createElement("div");
   host.style.cssText = BABYEYI_PDF_CAPTURE_HOST_STYLE;
-  const root = document.createElement("div"); root.id = "__by_c__"; root.innerHTML = html;
-  host.appendChild(root); document.body.appendChild(host);
+  const wrapper = document.createElement("div");
+  wrapper.id = "__by_c__";
+  wrapper.style.cssText = "display:block;background:#fff;width:794px;box-sizing:border-box";
+  wrapper.innerHTML = html;
+  host.appendChild(wrapper);
+  document.body.appendChild(host);
   try {
-    await new Promise(r => setTimeout(r, 500));
-    const canvas = await window.html2canvas(root, babyeyiDocHtml2CanvasOptions("__by_c__"));
-    return canvas.toDataURL("image/jpeg", 0.95);
-  } finally { document.body.removeChild(host); document.head.removeChild(style); }
+    await waitForPdfImages(wrapper);
+    await new Promise((r) => setTimeout(r, 400));
+    const docRoot = wrapper.querySelector("#babyeyi-pdf-doc") || wrapper;
+    return renderBabyeyiImageFromRoot(docRoot, babyeyiDocHtml2CanvasOptions("__by_c__"));
+  } finally {
+    document.body.removeChild(host);
+    fontLink.remove();
+  }
+}
+
+async function captureDocAsImage({ rootEl, rec, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
+  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  if (rootEl) {
+    return renderBabyeyiImageFromRoot(rootEl, babyeyiDocHtml2CanvasOptions());
+  }
+  return captureDocAsImageOffscreen({
+    rec,
+    schoolLogoB64,
+    otherLogoB64,
+    sigB64,
+    stampB64,
+    qrB64,
+    vUrl,
+    lang,
+    T,
+    parentMsgOverride,
+  });
 }
 
 async function patchRwContentI18n(babyeyiId, body) {
@@ -714,7 +753,7 @@ function useMachineDocBody(lang, rec) {
 }
 
 // ── Share modal ───────────────────────────────────────────────
-function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
+function ShareModal({ rec, onClose, captureRootEl = null, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, vUrl, lang = "en", T, parentMsgOverride }) {
   const [step, setStep] = useState("capturing");
   const [imgUrl, setImgUrl] = useState(null);
   const [errMsg, setErrMsg] = useState(null);
@@ -724,7 +763,9 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
     setStep("capturing");
     setImgUrl(null);
     setErrMsg(null);
+    const liveRoot = captureRootEl || document.getElementById("babyeyi-pdf-doc");
     captureDocAsImage({
+      rootEl: liveRoot,
       rec,
       schoolLogoB64,
       otherLogoB64,
@@ -738,13 +779,15 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
     })
       .then(url => { setImgUrl(url); setStep("ready"); })
       .catch(e => { setErrMsg(e.message); setStep("error"); });
-  }, [rec.id, shareVerifyUrl, lang, T, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, parentMsgOverride]);
+  }, [rec.id, shareVerifyUrl, lang, T, captureRootEl, schoolLogoB64, otherLogoB64, sigB64, stampB64, qrB64, parentMsgOverride]);
+
+  const imageFileName = `Babyeyi-${rec.docId || rec.class}-${rec.term}.png`;
 
   const downloadImage = () => {
     if (!imgUrl) return;
     const a = document.createElement("a");
     a.href = imgUrl;
-    a.download = `Babyeyi-${rec.docId || rec.class}-${rec.term}.jpg`;
+    a.download = imageFileName;
     a.click();
   };
 
@@ -752,7 +795,7 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
     if (!imgUrl || step !== "ready") return;
     const res = await fetch(imgUrl);
     const blob = await res.blob();
-    const file = new File([blob], `Babyeyi-${rec.docId || rec.id}.jpg`, { type: "image/jpeg" });
+    const file = new File([blob], imageFileName, { type: "image/png" });
     const caption = `Verify: ${shareVerifyUrl}`;
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try { await navigator.share({ files: [file], title: "Babyeyi Document", text: caption }); return; } catch (e) { if (e.name === "AbortError") return; }
@@ -791,19 +834,20 @@ function ShareModal({ rec, onClose, schoolLogoB64, otherLogoB64, sigB64, stampB6
               </p>
             )}
             {step === "ready" && imgUrl && (
-              <img src={imgUrl} className="w-full max-h-[250px] object-cover object-top" alt="Preview" />
+              <img src={imgUrl} className="w-full max-h-[min(52vh,420px)] object-contain object-top bg-white" alt="Preview" />
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <button onClick={shareWhatsApp} disabled={step !== "ready"}
-              className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-[13px] font-semibold text-white disabled:opacity-40 transition-all"
+            <button type="button" onClick={shareWhatsApp} disabled={step !== "ready"}
+              className="flex items-center justify-center gap-2 py-3.5 rounded-full text-[13px] font-semibold text-white disabled:opacity-40 transition-all shadow-md"
               style={{ background: step === "ready" ? "linear-gradient(135deg,#25D366,#128C7E)" : "#1a2035" }}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="white" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
               {T.whatsapp || "WhatsApp"}
             </button>
-            <button onClick={downloadImage} disabled={step !== "ready"}
-              className="flex items-center justify-center gap-2 py-3.5 rounded-xl text-[13px] font-semibold text-[#000435] bg-amber-400 hover:bg-amber-300 disabled:opacity-40 transition-all">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            <button type="button" onClick={downloadImage} disabled={step !== "ready"}
+              className="flex items-center justify-center gap-2 py-3.5 rounded-full text-[13px] font-semibold text-white disabled:opacity-40 transition-all shadow-md"
+              style={{ background: step === "ready" ? "linear-gradient(135deg,#6366f1,#4f46e5)" : "#1a2035" }}>
+              <ImageDown className="w-4 h-4 shrink-0" strokeWidth={2.5} aria-hidden />
               {T.saveImage || "Save Image"}
             </button>
           </div>
@@ -1032,6 +1076,7 @@ function OfficialDoc({
 }) {
   const [lang, setLang] = useState(globalLang || "en");
   const [downloading, setDownloading] = useState(false);
+  const [downloadingImage, setDownloadingImage] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [schoolLogoB64, setSchoolLogoB64] = useState(null);
   const [otherLogoB64, setOtherLogoB64] = useState(null);
@@ -1162,6 +1207,22 @@ function OfficialDoc({
     }
   };
 
+  const handleImageDownload = async () => {
+    if (blocked) return;
+    setDownloadingImage(true);
+    try {
+      const docEl = document.getElementById("babyeyi-pdf-doc");
+      await downloadBabyeyiClientImage({
+        rootEl: docEl,
+        fileName: `Babyeyi-${rec.docId || rec.class}-${rec.term}${lang !== "en" ? `-${lang.toUpperCase()}` : ""}.png`,
+      });
+    } catch (e) {
+      alert("Image error: " + (e.message || e));
+    } finally {
+      setDownloadingImage(false);
+    }
+  };
+
   const handleRegen = async () => {
     setRegenerating(true);
     try {
@@ -1219,10 +1280,10 @@ function OfficialDoc({
             {regenerating ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <RefreshCw className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />} {T.regen || "Regen"}
             </button>
           {!blocked ? (
-            <button onClick={() => setShowShare(true)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0 text-white"
+            <button type="button" onClick={() => setShowShare(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold shrink-0 text-white shadow-sm"
               style={{ background: "linear-gradient(135deg,#25D366,#128C7E)" }}>
-              <svg viewBox="0 0 24 24" width="11" height="11" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="white" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
               {T.share || "Share"}
             </button>
           ) : (
@@ -1230,7 +1291,15 @@ function OfficialDoc({
           )}
           {!blocked ? (
             <>
-              <button onClick={handlePrint}
+              <button type="button" onClick={handleImageDownload} disabled={downloadingImage || docBody.busy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold shrink-0 text-white shadow-sm disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)" }}>
+                {downloadingImage
+                  ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <ImageDown className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden />}
+                {T.imageBtn || "Image"}
+              </button>
+              <button type="button" onClick={handlePrint}
                 className="flex items-center gap-1 px-2.5 py-1.5 bg-white/8 border border-white/15 hover:bg-white/14 text-white rounded-xl text-[10px] font-bold shrink-0">
                 <Printer className="w-3 h-3 shrink-0" strokeWidth={2.5} aria-hidden /> {T.printBtn || "Print"}
               </button>
@@ -1521,6 +1590,7 @@ function OfficialDoc({
         <ShareModal
           rec={docBody.merged}
           onClose={() => setShowShare(false)}
+          captureRootEl={null}
           schoolLogoB64={schoolLogoB64}
           otherLogoB64={otherLogoB64}
           sigB64={sigB64}
