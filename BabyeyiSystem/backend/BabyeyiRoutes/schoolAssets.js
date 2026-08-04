@@ -33,6 +33,9 @@ const ASSETS_WRITE_ROLES = [
   'SUPER_ADMIN', 'FULL_SYSTEM_CONTROLLER',
 ];
 
+/** Max rows per Excel import batch (must match frontend assetImportLimits.js). */
+const ASSET_IMPORT_MAX_ROWS = 2000;
+
 const DEFAULT_CATEGORIES = [
   'IT Equipment', 'Furniture', 'Vehicles', 'Electronics', 'Machinery', 'Laboratory Equipment',
   'Buildings', 'Land', 'Office Equipment',
@@ -4516,6 +4519,69 @@ router.get('/school/assets/test/opening', requireRole(ASSETS_READ_ROLES), async 
   }
 });
 
+/** Batch opening + SKU lookup for Excel import preview (one request instead of N parallel /opening calls). */
+router.post('/school/assets/test/import-preview', requireRole(ASSETS_READ_ROLES), async (req, res) => {
+  try {
+    const { schoolId } = req.ctx;
+    const body = req.body || {};
+    const pairs = Array.isArray(body.pairs) ? body.pairs : [];
+    const years = Array.isArray(body.years) ? body.years : [];
+    const entryMode = resolveAssetEntryMode(body);
+
+    const openings = {};
+    const seen = new Set();
+    for (const p of pairs) {
+      const yr = Number(p.year);
+      const category = trimStr(p.category);
+      if (!Number.isFinite(yr) || !category) continue;
+      const key = `${yr}:${category.trim().toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      try {
+        const ctx = entryMode === 'legacy'
+          ? await resolveAssetBasedOpeningContext(schoolId, yr, category, {})
+          : await resolveCategoryOpeningContext(schoolId, yr, category, {});
+        const [[catRow]] = await promisePool.query(
+          `SELECT depreciation_rate FROM school_asset_categories
+           WHERE school_id = ? AND deleted_at IS NULL AND name = ? LIMIT 1`,
+          [schoolId, category]
+        );
+        openings[key] = {
+          ...ctx,
+          depreciation_rate: catRow?.depreciation_rate != null ? Number(catRow.depreciation_rate) : 5,
+          _category: category,
+          _year: yr,
+        };
+      } catch (pairErr) {
+        console.warn('[import-preview] opening pair failed:', yr, category, pairErr.message);
+        openings[key] = {
+          effective_opening: 0,
+          effective_accumulated_depreciation: 0,
+          depreciation_rate: 5,
+          _category: category,
+          _year: yr,
+        };
+      }
+    }
+
+    const skusByYear = {};
+    for (const rawY of years) {
+      const yr = Number(rawY);
+      if (!Number.isFinite(yr) || skusByYear[yr]) continue;
+      try {
+        skusByYear[yr] = [...await loadSchoolSkuSet(schoolId, yr)];
+      } catch {
+        skusByYear[yr] = [];
+      }
+    }
+
+    res.json({ success: true, data: { openings, skus_by_year: skusByYear } });
+  } catch (err) {
+    console.error('POST /school/assets/test/import-preview:', err);
+    res.status(500).json({ success: false, message: err.message || 'Import preview failed' });
+  }
+});
+
 function buildTestAssetsFilterClause(query, schoolId) {
   const qRaw = trimStr(query.q);
   const category = trimStr(query.category);
@@ -4754,8 +4820,8 @@ router.post('/school/assets/test/import', requireRole(ASSETS_WRITE_ROLES), async
     if (!rows.length) {
       return res.status(400).json({ success: false, message: 'No rows to import' });
     }
-    if (rows.length > 500) {
-      return res.status(400).json({ success: false, message: 'Maximum 500 rows per import' });
+    if (rows.length > ASSET_IMPORT_MAX_ROWS) {
+      return res.status(400).json({ success: false, message: `Maximum ${ASSET_IMPORT_MAX_ROWS} rows per import` });
     }
 
     const skuSetByYear = new Map();
@@ -6330,8 +6396,8 @@ router.post('/school/assets/import', requireRole(ASSETS_WRITE_ROLES), async (req
     if (!rows.length) {
       return res.status(400).json({ success: false, message: 'No rows to import' });
     }
-    if (rows.length > 500) {
-      return res.status(400).json({ success: false, message: 'Maximum 500 rows per import' });
+    if (rows.length > ASSET_IMPORT_MAX_ROWS) {
+      return res.status(400).json({ success: false, message: `Maximum ${ASSET_IMPORT_MAX_ROWS} rows per import` });
     }
 
     const sets = await loadSchoolIdentifierSets(schoolId, batchRegisterYear);

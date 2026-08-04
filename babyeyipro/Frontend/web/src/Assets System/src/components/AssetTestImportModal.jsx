@@ -12,6 +12,7 @@ import {
   resolveRowRegisterYear,
   ASSET_TEST_IMPORT_HEADERS,
 } from '../../../assets_portal/utils/assetTestExcelImport'
+import { ASSET_IMPORT_MAX_ROWS } from '../../../assets_portal/utils/assetImportLimits'
 
 const NAVY = '#000435'
 const AMBER = '#FEBF10'
@@ -22,7 +23,7 @@ const STATUS_STYLES = {
   invalid: 'bg-red-100 text-red-800 border-red-200',
 }
 
-export default function AssetTestImportModal({ open, onClose, onSuccess, confirming = false }) {
+export default function AssetTestImportModal({ open, onClose, onSuccess, confirming = false, onNotify }) {
   const fileInputRef = useRef(null)
   const [phase, setPhase] = useState('year')
   const [isFirstEntry, setIsFirstEntry] = useState(true)
@@ -34,10 +35,10 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
   const [previewRows, setPreviewRows] = useState([])
   const [openingByCategory, setOpeningByCategory] = useState({})
   const [loadingPreview, setLoadingPreview] = useState(false)
-  const [parseError, setParseError] = useState('')
   const [skipDuplicates, setSkipDuplicates] = useState(true)
   const [autoGenerateSku, setAutoGenerateSku] = useState(true)
   const [parsedRows, setParsedRows] = useState([])
+  const [defaultRegisterCategory, setDefaultRegisterCategory] = useState('')
 
   const legacyYears = useMemo(() => yearOptionsFrom1900(), [])
   const activeYears = useMemo(() => financialYears.filter((y) => y.status === 'Active'), [financialYears])
@@ -55,10 +56,10 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     setFile(null)
     setPreviewRows([])
     setOpeningByCategory({})
-    setParseError('')
     setLoadingMeta(true)
     setAutoGenerateSku(true)
     setParsedRows([])
+    setDefaultRegisterCategory('')
     assetTestApi.getMeta()
       .then((meta) => {
         const yrList = meta?.financial_years ?? []
@@ -89,56 +90,38 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
     [categories],
   )
 
-  const loadOpeningContexts = useCallback(async (rows, firstTime, fallbackYear) => {
-    const pairs = new Map()
+  const rebuildPreview = useCallback(async (rows, year, firstTime, autoSku = autoGenerateSku) => {
+    const pairMap = new Map()
     rows.forEach((r) => {
       const cat = r.category
       if (!cat) return
-      const year = resolveRowRegisterYear(r, fallbackYear)
-      const rollKey = `${year}:${String(cat).trim().toLowerCase()}`
-      pairs.set(rollKey, { year, cat, rollKey })
+      const y = resolveRowRegisterYear(r, year)
+      const rollKey = `${y}:${String(cat).trim().toLowerCase()}`
+      if (!pairMap.has(rollKey)) pairMap.set(rollKey, { year: y, category: cat })
     })
-    const openings = {}
-    await Promise.all(
-      [...pairs.values()].map(async ({ year, cat, rollKey }) => {
-        try {
-          const ctx = await assetTestApi.getOpening(year, cat, {
-            firstTime,
-            entryMode: firstTime ? 'year_setup' : 'legacy',
-          })
-          openings[rollKey] = { ...ctx, _category: cat, _year: year }
-        } catch {
-          openings[rollKey] = {
-            effective_opening: 0,
-            effective_accumulated_depreciation: 0,
-            depreciation_rate: depRateByCategory[cat] ?? 5,
-            _category: cat,
-            _year: year,
-          }
-        }
-      }),
-    )
-    return openings
-  }, [depRateByCategory])
-
-  const rebuildPreview = useCallback(async (rows, year, firstTime, autoSku = autoGenerateSku) => {
     const yearsInFile = [...new Set(rows.map((r) => resolveRowRegisterYear(r, year)))]
-    const [openings, identifierResults] = await Promise.all([
-      loadOpeningContexts(rows, firstTime, year),
-      Promise.all(
-        yearsInFile.map((y) => assetTestApi.getIdentifiers(y).catch(() => ({ skus: [] }))),
-      ),
-    ])
-    setOpeningByCategory(openings)
-    const existingSkusByYear = new Map()
-    yearsInFile.forEach((y, idx) => {
-      const skus = new Set(
-        (identifierResults[idx]?.skus ?? [])
-          .map((s) => String(s).trim().toUpperCase())
-          .filter(Boolean),
-      )
-      existingSkusByYear.set(y, skus)
+    const entryMode = firstTime ? 'year_setup' : 'legacy'
+
+    const previewData = await assetTestApi.getImportPreviewContext({
+      pairs: [...pairMap.values()],
+      years: yearsInFile,
+      firstTime,
+      entryMode,
     })
+
+    const openings = previewData?.openings ?? {}
+    setOpeningByCategory(openings)
+
+    const skusRaw = previewData?.skus_by_year ?? {}
+    const existingSkusByYear = new Map()
+    yearsInFile.forEach((y) => {
+      const list = skusRaw[y] ?? skusRaw[String(y)] ?? []
+      existingSkusByYear.set(
+        y,
+        new Set(list.map((s) => String(s).trim().toUpperCase()).filter(Boolean)),
+      )
+    })
+
     return buildAssetTestImportPreview(
       rows,
       openings,
@@ -146,18 +129,23 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
       existingSkusByYear,
       { autoGenerateSku: autoSku, fallbackYear: Number(year) },
     )
-  }, [autoGenerateSku, depRateByCategory, loadOpeningContexts])
+  }, [autoGenerateSku, depRateByCategory])
 
   const parseFile = async (selectedFile) => {
     if (!selectedFile || !selectedYear) return
     setFile(selectedFile)
     setLoadingPreview(true)
-    setParseError('')
     setPreviewRows([])
     try {
-      const parsed = await parseAssetTestExcelFile(selectedFile, { knownCategories: knownCategoryNames })
+      const parsed = await parseAssetTestExcelFile(selectedFile, {
+        knownCategories: knownCategoryNames,
+        defaultCategory: defaultRegisterCategory,
+      })
       if (!parsed.rows.length) {
         throw new Error('No data rows found. Check column headers match the template.')
+      }
+      if (parsed.rows.length > ASSET_IMPORT_MAX_ROWS) {
+        throw new Error(`Maximum ${ASSET_IMPORT_MAX_ROWS} rows per import. Split the file into smaller batches.`)
       }
       setParsedRows(parsed.rows)
       const sortedRows = [...parsed.rows].sort((a, b) => {
@@ -170,7 +158,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
       setPreviewRows(preview)
       setPhase('preview')
     } catch (err) {
-      setParseError(err?.message || 'Failed to read Excel file')
+      onNotify?.(err?.message || 'Failed to read Excel file', 'error')
       setPhase('file')
     } finally {
       setLoadingPreview(false)
@@ -199,6 +187,33 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
   }, [previewRows])
 
   const categoryOpeningSummary = useMemo(() => {
+    const fromServer = new Map()
+    Object.entries(openingByCategory).forEach(([rollKey, ctx]) => {
+      const cat = ctx?._category ?? (rollKey.includes(':') ? rollKey.slice(rollKey.indexOf(':') + 1) : '')
+      const year = ctx?._year ?? (rollKey.includes(':') ? Number(rollKey.slice(0, rollKey.indexOf(':'))) : Number(selectedYear))
+      if (!cat) return
+      const key = `${year}:${String(cat).trim().toLowerCase()}`
+      if (fromServer.has(key)) return
+      fromServer.set(key, {
+        year,
+        category: cat,
+        opening: Number(ctx?.effective_opening ?? ctx?.year_setup_opening ?? ctx?.year_opening_balance ?? 0),
+        accumulated: Number(
+          ctx?.effective_accumulated_depreciation
+          ?? ctx?.year_setup_accumulated_depreciation
+          ?? ctx?.accumulated_depreciation
+          ?? 0
+        ),
+        source: ctx?.source_label || ctx?.source || 'year_setup',
+        priorAssetName: ctx?.prior_asset_name || null,
+        priorAssetCode: ctx?.prior_asset_code || null,
+        assetsInYear: Number(ctx?.assets_in_year ?? 0),
+      })
+    })
+    if (fromServer.size > 0) {
+      return [...fromServer.values()].sort((a, b) => String(a.category).localeCompare(String(b.category)))
+    }
+
     const fromPreview = new Map()
     previewRows.forEach((row) => {
       if (row.status !== 'ready' || !row.category) return
@@ -215,22 +230,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
         assetsInYear: 0,
       })
     })
-    if (fromPreview.size > 0) return [...fromPreview.values()]
-    return Object.entries(openingByCategory).map(([rollKey, ctx]) => ({
-      year: ctx?._year ?? (rollKey.includes(':') ? rollKey.slice(0, rollKey.indexOf(':')) : selectedYear),
-      category: ctx?._category ?? rollKey.slice(rollKey.indexOf(':') + 1),
-      opening: Number(ctx?.effective_opening ?? ctx?.year_setup_opening ?? ctx?.year_opening_balance ?? 0),
-      accumulated: Number(
-        ctx?.effective_accumulated_depreciation
-        ?? ctx?.year_setup_accumulated_depreciation
-        ?? ctx?.accumulated_depreciation
-        ?? 0
-      ),
-      source: ctx?.source_label || ctx?.source || 'auto',
-      priorAssetName: ctx?.prior_asset_name || null,
-      priorAssetCode: ctx?.prior_asset_code || null,
-      assetsInYear: Number(ctx?.assets_in_year ?? 0),
-    }))
+    return [...fromPreview.values()]
   }, [previewRows, openingByCategory, selectedYear])
 
   const detectedYears = useMemo(() => {
@@ -362,6 +362,24 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                       </select>
                     )}
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Default register category <span className="text-gray-400 font-normal">(optional)</span>
+                    </label>
+                    <select
+                      className="assets-wizard-input w-full text-sm"
+                      value={defaultRegisterCategory}
+                      onChange={(e) => setDefaultRegisterCategory(e.target.value)}
+                    >
+                      <option value="">Auto-detect from type / name (FURNITURE, CHAIR, BUILDING…)</option>
+                      {knownCategoryNames.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Use when Excel <strong>type</strong> has item names (e.g. SEATER METALIC_0001) instead of FURNITURE — applies Year Setup opening for that category.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
@@ -375,7 +393,7 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                     <li><strong>Total dep.</strong> = Acc. dep. + Annual dep. · <strong>Annual dep.</strong> = (Total balance − Acc. dep.) × rate.</li>
                     <li>Next rows: <strong>Opening</strong> = prior row TOTAL BALANCE · <strong>Acc. dep.</strong> = same value for all assets in that category &amp; year · <strong>Annual dep.</strong> = (Total balance − Acc. dep.) × depreciation rate.</li>
                     <li>Required columns: <strong>name</strong>, <strong>type</strong> (or <strong>category</strong>), <strong>purchase_unit_price</strong>.</li>
-                    <li><strong>type</strong> (e.g. BUILDING) maps to your Year Setup category (e.g. Buildings) for opening balances.</li>
+                    <li><strong>type</strong> (e.g. BUILDING, FURNITURE) or keywords (CHAIR, SEATER) map to Year Setup categories for opening balances.</li>
                     <li><strong>SKU</strong> is optional when auto-generate is enabled (default).</li>
                     <li>Duplicate <strong>SKU</strong> in the selected year is flagged and can be skipped.</li>
                   </ul>
@@ -407,9 +425,10 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
         {phase === 'file' && (
           <div className="flex flex-col items-center justify-center py-14 px-6 min-h-[280px]">
             {loadingPreview ? (
-              <div className="flex flex-col items-center gap-3 text-gray-500">
+              <div className="flex flex-col items-center gap-3 text-gray-500 max-w-sm text-center">
                 <Loader2 size={28} className="animate-spin text-amber-500" />
                 <span className="text-sm font-medium">Parsing & calculating depreciation…</span>
+                <span className="text-xs text-gray-400">Loading opening balances from the server — large files may take up to a minute.</span>
               </div>
             ) : (
               <>
@@ -420,11 +439,6 @@ export default function AssetTestImportModal({ open, onClose, onSuccess, confirm
                 <p className="text-sm text-gray-500 mb-2 text-center max-w-lg">
                   Upload Excel (.xlsx, .xls, .csv). Columns: {ASSET_TEST_IMPORT_HEADERS.slice(0, 6).join(', ')}…
                 </p>
-                {parseError && (
-                  <div className="mb-4 w-full max-w-md rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                    {parseError}
-                  </div>
-                )}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}

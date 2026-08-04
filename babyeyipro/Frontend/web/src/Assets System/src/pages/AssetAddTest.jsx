@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Loader2, RefreshCw, Package, Banknote, TrendingDown,
-  Calendar, Layers, Trash2, Upload, Sparkles, FileSpreadsheet, Calculator,
+  Calendar, Layers, Trash2, Upload, FileSpreadsheet, Calculator,
 } from 'lucide-react'
 import QRCode from '../../../assets_portal/components/AssetQrCode'
 import AddAsset2 from '../components/AddAsset2'
@@ -21,6 +21,8 @@ import AssetDatePeriodFilter from '../components/AssetDatePeriodFilter'
 import AssetOldNotReplacedFilter from '../components/AssetOldNotReplacedFilter'
 import TablePagination from '../components/TablePagination'
 import { exportReportExcel } from './Reports/utils/reportExport'
+import AssetToastStack from '../../../assets_portal/components/AssetToastStack'
+import { useAssetToast } from '../../../assets_portal/hooks/useAssetToast'
 
 const NAVY = '#000435'
 const AMBER = '#FEBF10'
@@ -73,7 +75,7 @@ export default function AssetAddTest() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [statsLoading, setStatsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { toast, showToast, dismissToast } = useAssetToast()
   const [search, setSearch] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
   const [filterHealth, setFilterHealth] = useState('')
@@ -81,13 +83,11 @@ export default function AssetAddTest() {
   const [datePeriod, setDatePeriod] = useState(EMPTY_DATE_PERIOD)
   const [exporting, setExporting] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
-  const [recalcMsg, setRecalcMsg] = useState('')
   const [filterYear, setFilterYear] = useState('')
   const [wizardOpen, setWizardOpen] = useState(false)
   const [editAssetId, setEditAssetId] = useState(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importConfirming, setImportConfirming] = useState(false)
-  const [importMsg, setImportMsg] = useState('')
   const [previewId, setPreviewId] = useState(null)
   const [selectedIds, setSelectedIds] = useState([])
   const [deleting, setDeleting] = useState(false)
@@ -141,7 +141,6 @@ export default function AssetAddTest() {
 
   const loadAssets = useCallback(async () => {
     setLoading(true)
-    setError('')
     try {
       const params = { page, limit: PAGE_SIZE }
       if (filterYear) params.register_year = filterYear
@@ -155,14 +154,14 @@ export default function AssetAddTest() {
       setTotal(result.total ?? 0)
       setTotalPages(result.totalPages ?? 0)
     } catch (err) {
-      setError(err?.message || 'Failed to load assets')
+      showToast(err?.message || 'Failed to load assets', 'error')
       setAssets([])
       setTotal(0)
       setTotalPages(0)
     } finally {
       setLoading(false)
     }
-  }, [search, filterCategory, filterHealth, filterOldNotReplaced, datePeriod, filterYear, page])
+  }, [search, filterCategory, filterHealth, filterOldNotReplaced, datePeriod, filterYear, page, showToast])
 
   const refreshAll = useCallback(async () => {
     if (filterYear) {
@@ -256,20 +255,19 @@ export default function AssetAddTest() {
       + 'Existing assets are not deleted.'
     )) return
     setRecalculating(true)
-    setError('')
-    setRecalcMsg('')
     try {
       const result = await assetTestApi.recalcAllRegisterChains()
       const count = result?.assets_recalculated ?? 0
       const yearCount = result?.years?.length ?? 0
-      setRecalcMsg(
+      showToast(
         yearCount
           ? `Recalculated ${count} asset(s) across ${yearCount} register year${yearCount === 1 ? '' : 's'}.`
-          : (result?.message || 'Register recalculation complete.')
+          : (result?.message || 'Register recalculation complete.'),
+        'success'
       )
       await refreshAll()
     } catch (err) {
-      setError(err?.message || 'Failed to recalculate register')
+      showToast(err?.message || 'Failed to recalculate register', 'error')
     } finally {
       setRecalculating(false)
     }
@@ -277,7 +275,6 @@ export default function AssetAddTest() {
 
   const handleExportExcel = async () => {
     setExporting(true)
-    setError('')
     try {
       const params = { page: 1, limit: 2000, ...resolveDateFilterQuery(datePeriod) }
       if (filterYear) params.register_year = filterYear
@@ -335,7 +332,7 @@ export default function AssetAddTest() {
         filename: 'asset-register',
       })
     } catch (err) {
-      setError(err?.message || 'Export failed')
+      showToast(err?.message || 'Export failed', 'error')
     } finally {
       setExporting(false)
     }
@@ -349,8 +346,6 @@ export default function AssetAddTest() {
   const handleConfirmImport = async ({ rows, skipDuplicates, registerYear, entryMode, firstTime, autoGenerateSku }) => {
     if (!rows.length) return
     setImportConfirming(true)
-    setError('')
-    setImportMsg('')
     try {
       const result = await assetTestApi.importAssets(rows, {
         registerYear,
@@ -369,14 +364,18 @@ export default function AssetAddTest() {
       let msg = `Imported ${created} of ${rows.length} asset(s) into FY ${yearsImported}.`
       if (skipped) msg += ` ${skipped} skipped (duplicate SKU).`
       if (failed) msg += ` ${failed} failed.${errSample ? ` ${errSample}` : ''}`
-      setImportMsg(msg)
+      showToast(msg, failed > 0 ? 'info' : 'success', failed > 0 ? 9000 : 6500)
       if (failed > 0 && result?.errors?.length) {
-        setError(`Import errors (first ${Math.min(5, result.errors.length)}): ${result.errors.slice(0, 5).map((e) => `Row ${e.row}: ${e.message}`).join(' | ')}`)
+        showToast(
+          `Import errors (first ${Math.min(5, result.errors.length)}): ${result.errors.slice(0, 5).map((e) => `Row ${e.row}: ${e.message}`).join(' | ')}`,
+          'error',
+          9000
+        )
       }
       setImportOpen(false)
       await refreshAll()
     } catch (err) {
-      setError(err?.message || 'Import failed')
+      showToast(err?.message || 'Import failed', 'error')
     } finally {
       setImportConfirming(false)
     }
@@ -384,13 +383,12 @@ export default function AssetAddTest() {
 
   const handleHealthStatusChange = async (row, healthStatus) => {
     setHealthUpdatingId(row.id)
-    setError('')
     try {
       const updated = await assetTestApi.updateAssetHealthStatus(row.id, healthStatus)
       setAssets((prev) => prev.map((a) => (a.id === row.id ? { ...a, ...updated } : a)))
       return updated
     } catch (err) {
-      setError(err?.message || 'Failed to update health status')
+      showToast(err?.message || 'Failed to update health status', 'error')
       throw err
     } finally {
       setHealthUpdatingId(null)
@@ -415,14 +413,14 @@ export default function AssetAddTest() {
     const name = asset.asset_name || asset.name || asset.asset_code
     if (!window.confirm(`Delete asset "${name}"? This cannot be undone.`)) return
     setDeleting(true)
-    setError('')
     try {
       await assetTestApi.deleteAsset(asset.id)
       setSelectedIds((prev) => prev.filter((id) => id !== asset.id))
       if (previewId === asset.id) closeAssetPreview()
       await refreshAll()
+      showToast('Asset deleted.', 'success')
     } catch (err) {
-      setError(err?.message || 'Failed to delete asset')
+      showToast(err?.message || 'Failed to delete asset', 'error')
     } finally {
       setDeleting(false)
     }
@@ -432,14 +430,14 @@ export default function AssetAddTest() {
     if (!selectedIds.length) return
     if (!window.confirm(`Delete ${selectedIds.length} selected asset(s)? This cannot be undone.`)) return
     setDeleting(true)
-    setError('')
     try {
       await assetTestApi.bulkDelete({ ids: selectedIds })
       setSelectedIds([])
       closeAssetPreview()
       await refreshAll()
+      showToast('Selected assets deleted.', 'success')
     } catch (err) {
-      setError(err?.message || 'Failed to delete selected assets')
+      showToast(err?.message || 'Failed to delete selected assets', 'error')
     } finally {
       setDeleting(false)
     }
@@ -451,14 +449,14 @@ export default function AssetAddTest() {
       `Delete ALL ${assets.length} asset(s) in this register? This removes every asset in the database. This cannot be undone.`
     )) return
     setDeleting(true)
-    setError('')
     try {
       await assetTestApi.bulkDelete({ all: true })
       setSelectedIds([])
       closeAssetPreview()
       await refreshAll()
+      showToast('All assets deleted.', 'success')
     } catch (err) {
-      setError(err?.message || 'Failed to delete all assets')
+      showToast(err?.message || 'Failed to delete all assets', 'error')
     } finally {
       setDeleting(false)
     }
@@ -466,6 +464,7 @@ export default function AssetAddTest() {
 
   return (
     <div className="space-y-6 min-w-0 max-w-full" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <AssetToastStack toast={toast} onDismiss={dismissToast} />
       <AddAsset2
         open={wizardOpen || editAssetId != null}
         editAssetId={editAssetId}
@@ -477,6 +476,7 @@ export default function AssetAddTest() {
         onClose={() => setImportOpen(false)}
         onSuccess={handleConfirmImport}
         confirming={importConfirming}
+        onNotify={showToast}
       />
 
       <AssetSlideDrawer open={!!previewId} onClose={closeAssetPreview}>
@@ -488,67 +488,56 @@ export default function AssetAddTest() {
         )}
       </AssetSlideDrawer>
 
-      {/* Hero header */}
-      <div
-        className="rounded-2xl p-6 sm:p-8 text-white relative overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #1a237e 55%, ${NAVY} 100%)` }}
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full opacity-10" style={{ background: AMBER, transform: 'translate(30%, -40%)' }} />
-        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">
-              <Sparkles size={14} /> Asset Test Register
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-bold">Smart Asset Entry</h2>
-            <p className="text-white/70 text-sm mt-2 max-w-xl">
-              Register assets with automatic opening stock from financial year engine.
-              Dedicated API · live ledger sync.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={refreshAll}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors"
-            >
-              <RefreshCw size={16} className={loading || statsLoading ? 'animate-spin' : ''} /> Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handleRecalculateRegister}
-              disabled={recalculating || loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/20 disabled:opacity-50"
-              title="Recompute opening, accumulated depreciation, and totals for all register years"
-            >
-              {recalculating ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
-              Recalculate register
-            </button>
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              disabled={exporting || loading}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/20 disabled:opacity-50"
-            >
-              {exporting ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
-              Export Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => setImportOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors border border-white/20"
-            >
-              <Upload size={16} /> Import Excel
-            </button>
-            <button
-              type="button"
-              onClick={() => { setEditAssetId(null); setWizardOpen(true) }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-transform hover:scale-[1.02]"
-              style={{ background: AMBER, color: NAVY }}
-            >
-              <Plus size={18} /> Add Asset
-            </button>
-          </div>
-        </div>
+      {/* Register actions */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={refreshAll}
+          title="Refresh"
+          aria-label="Refresh"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm disabled:opacity-50"
+        >
+          <RefreshCw size={18} className={loading || statsLoading ? 'animate-spin' : ''} />
+        </button>
+        <button
+          type="button"
+          onClick={handleRecalculateRegister}
+          disabled={recalculating || loading}
+          title="Recalculate register"
+          aria-label="Recalculate register"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm disabled:opacity-50"
+        >
+          {recalculating ? <Loader2 size={18} className="animate-spin" /> : <Calculator size={18} />}
+        </button>
+        <button
+          type="button"
+          onClick={handleExportExcel}
+          disabled={exporting || loading}
+          title="Export Excel"
+          aria-label="Export Excel"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm disabled:opacity-50"
+        >
+          {exporting ? <Loader2 size={18} className="animate-spin" /> : <FileSpreadsheet size={18} />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          title="Import Excel"
+          aria-label="Import Excel"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+        >
+          <Upload size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={() => { setEditAssetId(null); setWizardOpen(true) }}
+          title="Add Asset"
+          aria-label="Add Asset"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-xl shadow-sm transition-transform hover:scale-[1.03]"
+          style={{ background: AMBER, color: NAVY }}
+        >
+          <Plus size={20} strokeWidth={2.5} />
+        </button>
       </div>
 
       {/* Stats */}
@@ -570,18 +559,6 @@ export default function AssetAddTest() {
           </div>
         ))}
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
-      )}
-
-      {importMsg && !error && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{importMsg}</div>
-      )}
-
-      {recalcMsg && !error && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">{recalcMsg}</div>
-      )}
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">

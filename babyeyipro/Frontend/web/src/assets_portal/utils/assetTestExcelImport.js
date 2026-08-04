@@ -62,27 +62,118 @@ function normalizeCategoryToken(s) {
   return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/** Resolve register category — prefers explicit category column, then type → Year Setup name */
-export function resolveImportCategoryName({ type, category, knownCategories = [] } = {}) {
-  const explicit = cellStr(category);
-  if (explicit) return explicit;
+/** Match raw text to a Year Setup category name (case/plural insensitive). */
+export function matchKnownRegisterCategory(raw, knownCategories = []) {
+  const text = cellStr(raw);
+  if (!text) return '';
+  const list = Array.isArray(knownCategories) ? knownCategories.filter(Boolean) : [];
+  const textNorm = normalizeCategoryToken(text);
+  if (!textNorm) return '';
 
-  const typeRaw = cellStr(type);
-  if (!typeRaw) return '';
-
-  const typeUpper = typeRaw.toUpperCase();
-  if (IMPORT_TYPE_TO_CATEGORY[typeUpper]) return IMPORT_TYPE_TO_CATEGORY[typeUpper];
-
-  const typeNorm = normalizeCategoryToken(typeRaw);
-  for (const name of knownCategories) {
+  for (const name of list) {
     const nameNorm = normalizeCategoryToken(name);
     if (!nameNorm) continue;
-    if (nameNorm === typeNorm) return name;
-    if (nameNorm === `${typeNorm}s` || `${nameNorm}s` === typeNorm) return name;
-    if (nameNorm.replace(/s$/, '') === typeNorm.replace(/s$/, '')) return name;
+    if (nameNorm === textNorm) return name;
+    if (nameNorm === `${textNorm}s` || `${nameNorm}s` === textNorm) return name;
+    if (nameNorm.replace(/s$/, '') === textNorm.replace(/s$/, '')) return name;
   }
 
-  return typeRaw;
+  const upper = text.toUpperCase();
+  if (IMPORT_TYPE_TO_CATEGORY[upper]) {
+    const mapped = IMPORT_TYPE_TO_CATEGORY[upper];
+    return matchKnownRegisterCategory(mapped, list) || mapped;
+  }
+
+  return '';
+}
+
+/** True when value looks like an asset/item label, not a Year Setup category. */
+function looksLikeAssetItemName(raw) {
+  const t = cellStr(raw);
+  if (!t || t.length < 4) return false;
+  if (/[_-]\d{2,}\b/.test(t)) return true;
+  if (/^\d/.test(t)) return true;
+  if (/\d{3,}/.test(t) && /[A-Za-z]/.test(t)) return true;
+  return false;
+}
+
+const CATEGORY_KEYWORD_HINTS = [
+  { keys: ['FURNITURE', 'CHAIR', 'SEATER', 'DESK', 'TABLE', 'CUPBOARD', 'SHELF', 'LOCKER', 'BED'], cat: 'Furniture' },
+  { keys: ['BUILDING', 'BLOCK', 'CLASSROOM', 'DORMITORY'], cat: 'Buildings' },
+  { keys: ['VEHICLE', 'BUS', 'TRUCK', 'MOTOR', 'CAR'], cat: 'Vehicles' },
+  { keys: ['COMPUTER', 'LAPTOP', 'PRINTER', 'ICT', 'ELECTRONIC'], cat: 'IT Equipment' },
+  { keys: ['LAB', 'LABORATORY', 'MICROSCOPE'], cat: 'Laboratory Equipment' },
+  { keys: ['LAND', 'PLOT', 'UPI'], cat: 'Land' },
+  { keys: ['MACHINE', 'MACHINERY', 'GENERATOR'], cat: 'Machinery' },
+  { keys: ['OFFICE'], cat: 'Office Equipment' },
+];
+
+function inferCategoryFromKeywords(typeRaw, knownCategories = []) {
+  const u = String(typeRaw || '').toUpperCase();
+  if (!u) return '';
+  for (const { keys, cat } of CATEGORY_KEYWORD_HINTS) {
+    if (keys.some((k) => u.includes(k))) {
+      return matchKnownRegisterCategory(cat, knownCategories) || cat;
+    }
+  }
+  return '';
+}
+
+/** Resolve register category — prefers explicit category column, then type → Year Setup name */
+export function resolveImportCategoryName({
+  type,
+  category,
+  name,
+  knownCategories = [],
+  defaultCategory = '',
+} = {}) {
+  const list = Array.isArray(knownCategories) ? knownCategories.filter(Boolean) : [];
+  const defCat = matchKnownRegisterCategory(defaultCategory, list) || cellStr(defaultCategory);
+
+  let explicit = cellStr(category);
+  if (explicit) {
+    const known = matchKnownRegisterCategory(explicit, list);
+    if (known) return known;
+    if (!looksLikeAssetItemName(explicit)) {
+      const inferred = inferCategoryFromKeywords(explicit, list);
+      if (inferred) return inferred;
+    }
+  }
+
+  const typeRaw = cellStr(type);
+  if (typeRaw) {
+    const typeUpper = typeRaw.toUpperCase();
+    if (IMPORT_TYPE_TO_CATEGORY[typeUpper]) {
+      const mapped = IMPORT_TYPE_TO_CATEGORY[typeUpper];
+      return matchKnownRegisterCategory(mapped, list) || mapped;
+    }
+
+    const known = matchKnownRegisterCategory(typeRaw, list);
+    if (known) return known;
+
+    const inferred = inferCategoryFromKeywords(typeRaw, list);
+    if (inferred) return inferred;
+
+    if (!looksLikeAssetItemName(typeRaw)) {
+      const typeNorm = normalizeCategoryToken(typeRaw);
+      for (const catName of list) {
+        const nameNorm = normalizeCategoryToken(catName);
+        if (nameNorm && typeNorm.includes(nameNorm)) return catName;
+      }
+    }
+  }
+
+  const nameRaw = cellStr(name);
+  if (nameRaw) {
+    const inferred = inferCategoryFromKeywords(nameRaw, list);
+    if (inferred) return inferred;
+  }
+
+  if (defCat) return defCat;
+
+  if (typeRaw && !looksLikeAssetItemName(typeRaw)) return typeRaw;
+  if (explicit && !looksLikeAssetItemName(explicit)) return explicit;
+  return '';
 }
 
 function normKey(k) {
@@ -144,12 +235,14 @@ export function categoryYearRollKeyFromRow(row, fallbackYear) {
   return categoryYearRollKey(resolveRowRegisterYear(row, fallbackYear), row.category);
 }
 
-export function excelRowToTestImportRow(row, knownCategories = []) {
+export function excelRowToTestImportRow(row, knownCategories = [], options = {}) {
   const r = mapRowKeys(row);
   const category = resolveImportCategoryName({
     type: r.type,
     category: r.category,
+    name: r.name,
     knownCategories,
+    defaultCategory: options.defaultCategory,
   });
   const price = parseRegisterNum(r.purchase_unit_price);
   return {
@@ -280,6 +373,7 @@ export function buildAssetTestImportPreview(
   const fileSeenSkusByYear = new Map();
   const prefixCounters = new Map();
   const allExistingSkus = new Set();
+  const fileSeenSkusGlobal = new Map();
   existingSkusByYear.forEach((set) => set.forEach((s) => allExistingSkus.add(s)));
 
   return parsedRows.map((row, idx) => {
@@ -290,10 +384,11 @@ export function buildAssetTestImportPreview(
     if (autoGenerateSku && !cellStr(row.sku)) {
       const generated = allocateImportPreviewSku(
         { ...row, rowIndex },
-        { schoolAbbr, prefixCounters, existingSkus: allExistingSkus, fileSeenSkus: new Map() },
+        { schoolAbbr, prefixCounters, existingSkus: allExistingSkus, fileSeenSkus: fileSeenSkusGlobal },
       );
       effectiveRow = { ...row, sku: generated };
       autoSku = true;
+      allExistingSkus.add(String(generated).trim().toUpperCase());
     }
     const validationIssues = validateRow(effectiveRow, { autoGenerateSku });
     const skuIssues = analyzeSku(
@@ -398,7 +493,7 @@ export function buildAssetTestImportPreview(
   });
 }
 
-export function parseAssetTestExcelFile(file, { knownCategories = [] } = {}) {
+export function parseAssetTestExcelFile(file, { knownCategories = [], defaultCategory = '' } = {}) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -408,8 +503,9 @@ export function parseAssetTestExcelFile(file, { knownCategories = [] } = {}) {
         const sheetName = wb.SheetNames[0];
         const ws = wb.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+        const opts = { defaultCategory };
         const rows = json
-          .map((r) => excelRowToTestImportRow(r, knownCategories))
+          .map((r) => excelRowToTestImportRow(r, knownCategories, opts))
           .filter((r) => cellStr(r.asset_name) || cellStr(r.sku) || cellStr(r.category));
         resolve({ rows, fileName: file.name, sheetName, rowCount: rows.length });
       } catch (err) {

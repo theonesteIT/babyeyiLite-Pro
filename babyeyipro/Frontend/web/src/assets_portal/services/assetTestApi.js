@@ -7,13 +7,16 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 60000,
 });
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) redirectToBabyeyiLogin();
-    const msg = error.response?.data?.message || error.message || 'Request failed';
+    const msg = error.code === 'ECONNABORTED'
+      ? 'Request timed out — try again or import fewer rows at once'
+      : (error.response?.data?.message || error.message || 'Request failed');
     return Promise.reject(new Error(msg));
   }
 );
@@ -67,6 +70,16 @@ const assetTestApi = {
 
   getIdentifiers: async (registerYear) => unwrap(
     await api.get('/school/assets/test/identifiers', { params: { register_year: registerYear } })
+  ),
+
+  /** Single round-trip for Excel import preview (openings + SKUs by year). */
+  getImportPreviewContext: async ({ pairs, years, firstTime, entryMode }) => unwrap(
+    await api.post('/school/assets/test/import-preview', {
+      pairs,
+      years,
+      entry_mode: entryMode,
+      first_time: firstTime,
+    }, { timeout: 180000 })
   ),
 
   importAssets: async (rows, options = {}) => unwrap(
